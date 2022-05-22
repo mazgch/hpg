@@ -16,7 +16,7 @@ function action(task) {
         warmstart: function _warmstart() { sendUbx('CFG','RST','\x01\x00\x02\x00'); },
         coldstart: function _coldstart() { sendUbx('CFG','RST','\xFF\xFF\x02\x00'); },
         list:      function _list()      { socketCommand('list'); },
-        agent:     deviceGetAgent,
+        discover:  deviceDiscovery,
         identify:  deviceIdentification,
     };
     var t = (typeof task !== 'string') ? task : task.toLowerCase();
@@ -89,168 +89,30 @@ function atRegExp(c, m) {
 
 // Device
 // ------------------------------------------------------------------------------------
-const REMOTE_AGENT = 'Remote Device Agent';
-const LOCAL_AGENT = 'Local Device Agent';
-const DISCONNECTED = 'Disconnected';
 
-function deviceGetAgent()     { 
-	const platform = navigator.platform.toUpperCase();
-	const file = (platform.indexOf('MAC')>=0)   ? 'u-bloxDeviceAgentInstallerMac.pkg' : 
-				 (platform.indexOf('WIN')>=0)   ? 'u-bloxDeviceAgentInstallerWin.exe' : 
-			//	 (platform.indexOf('LINUX')>=0) ? undefined : 
-												  undefined;
-	if (file) {
-		const tempLink = document.createElement('a');
-		tempLink.download  = file;
-		tempLink.innerHTML = 'Download Device Agent';
-		tempLink.href      = MOD_DIR + 'agent/' + file;
-		tempLink.onclick   = function (e) { document.body.removeChild(e.target); };
-		tempLink.style.display = 'none';
-		document.body.appendChild(tempLink);
-		tempLink.click();
-	} else {
-		alert('Unfortunately our device agent does not yet support your operating system. ' +
-			  'We currently support only Windows and MacOs. ' +
-			  'Please let us know if you like to contribute to this project.');
-	}
-}
-
-function deviceInit(url) {
-	//let elSet = document.getElementById('device_settings');
-	//if (elSet) elSet.addEventListener('click', deviceSettings);
-	const match = document.cookie.match(new RegExp('(^| )device=([^;]+)'));
-	device.host = (url == undefined) ? window.location.hostname + ":2101" : url;
-/* REM   if (match) {
-        const json = JSON.parse(match[2]);
-        device.baudrate = Number(json.baudrate);
-        device.name = json.name;
-        device.host = json.host;
-        device.status = 'waiting';
-        deviceStatusUpdate();
-        Console.debug('event', 'INIT', 'cookie', json);
-	}
-*/
+function deviceInit(ip) {
+    const match = document.cookie.match(/device=([^;]+)/);
+	const json = JSON.parse(((match != undefined) && (match.length == 2)) ? match[1] : '{}');
+    device.status = '';
+    device.ip = (ip) ? ip : json.ip ? json.ip : window.location.hostname;
+    device.ws = (window.location.protocol == 'https' ? 'wss://': 'ws://')  + device.ip + ':2101';
     USTART.statusLed('error');
+    USTART.tableEntry('dev_ip', device.ip);
+    USTART.tableEntry('dev_socket', device.ws);
     if (window.WebSocket) {
-/*        const el = document.getElementById('device_host');
-        if (el) {
-			const m = device.host.match('^https?://'+LOCAL_HOST+':[1-9]{1,5}$');
-			if (m)
-				appendSelectOption(el, LOCAL_AGENT, device.host);
-			else if ((device.host !== '') || OPT.dbg)
-				appendSelectOption(el, REMOTE_AGENT, device.host);
-			
-			el.onchange = onSocketChange;
-            if ('' !== device.host)*/
-                socketOpen(device.host);
-/*        }*/
-    } else
-        appendSelectOption(el.host, 'Websockets not available!');
-/*    const elbr = document.getElementById('device_baudrate');
-    if (elbr) {
-        if (device.baudrate) elbr.value = device.baudrate;
-        elbr.onchange = onDeviceChange;
+        socketOpen(device.ws);
     }
-*/    const el = document.getElementById('device_name');
-    if (el) {
-        el.onchange = onDeviceChange;
-    }
-}
-
-function deviceSettings() {
-	let el = document.getElementById('dropdown-device');
-	if (el) deviceRefreshActive(el, el.style.display !== 'block');
-}
-
-function deviceRefreshActive(el, active) {
-	el.style.display = (active) ? 'block' : 'none';
-	if (el.intervalId) {
-		clearInterval(el.intervalId);
-		el.intervalId = undefined; 
-	}
-	if (active) {
-		deviceDoRefresh();
-		el.intervalId = setInterval(deviceDoRefresh, 2000);
-	}
-}
-
-function deviceDoRefresh() {
-	const el = document.getElementById('device_host');
-	const url = window.location.o + '//' + window.location.host + ':' + 2101;
-	//if (appendSelectOption(el, LOCAL_AGENT, url)) {
-		if ('' === device.host) {
-			device.host = url;
-			socketOpen(url);
-		}
-	//}
-/*	
-	if (device.socket && device.socket.connected) {
-		socketCommand('list');
-	} else {
-		for (let p = 8991; p <= 8999; p ++) {
-			const Http = new XMLHttpRequest();
-			Http.onreadystatechange = function _loadOptions(e){
-				if (this.readyState === 4) {
-					if (this.status === 200) {
-						const obj = JSON.parse(this.responseText);
-						if (obj) {
-							const el = document.getElementById('device_host');
-							const url = (window.location.protocol === 'https:') ? obj.https : obj.http;
-							if (appendSelectOption(el, LOCAL_AGENT, url)) {
-								if ('' === device.host) {
-									device.host = url;
-									socketOpen(url);
-								}
-							}
-						}
-					} else if (this.status !== 0) {
-						console.log('Error probing agent: ' + Http.requestUrl + ' ' + this.status);
-					}
-				}
-			}
-			Http.onerror = function() { };
-			Http.requestUrl = window.location.protocol + '//' + LOCAL_HOST + ':' + p;
-			Http.open('GET' , Http.requestUrl + '/info', true);
-			Http.send();
-		}
-	}*/
-}
-
-function appendSelectOption(el, name, value) {
-	let o;
-	if (value) {
-		for (o = 0; o < el.options.length; o ++) {
-			const compare = value.localeCompare(el.options[o].value);
-			if (compare < 0) break;
-			if (compare === 0) return false;
-		}
-	}
-/*REMOVE*/ //console.log('appendSelectOption ' + value);
-	var opt = document.createElement('option');
-	opt.innerHTML = name + (value ? SEPARATOR + value : '');
-	opt.value = value ? value : '';
-	opt.selected = (value === device.host);
-	if (o < el.options.length)
-		el.insertBefore(opt,  el.options[o]);
-	else 
-	el.appendChild(opt);
-	if ((el.length > 2) || (name === REMOTE_AGENT) || OPT.dbg)
-		el.parentNode.style.display = 'block';
-	return true;
 }
 
 function deviceStatusUpdate() {
-    USTART.tableEntry('dev_agent', '<a href="'+device.host+'">'+device.host+'</a>'+
-            ((device.socket && device.socket.connected)?SEPARATOR+'connected':''), true);
-    USTART.tableEntry('dev_port', device.name+
-            ((device.name!=='')?SEPARATOR+device.baudrate+SEPARATOR+device.status:''));
+    USTART.tableEntry('dev_status', device.status, (device.socket) ? 'idle' : 
+                    (device.socket.readyState == WebSocket.CONNECTING) ? 'connecting' :
+                    (device.socket.readyState == WebSocket.OPEN) ? 'open' :
+                    (device.socket.readyState == WebSocket.CLOSING) ? 'closing' :
+                    (device.socket.readyState == WebSocket.CLOSED) ? 'closed' : '');
 	// show hide the window
-	const ok = device.socket && (device.socket.readyState == 1) &&//device.socket.connected && 
-			  (device.name !== '') && (device.status === 'opened');
-	let el = document.getElementById('dropdown-device');
-	if (el) deviceRefreshActive(el, !ok);
-	
-	el = document.getElementById('tile_message');
+	const ok = device.socket && (device.socket.readyState == WebSocket.OPEN);
+	let el = document.getElementById('tile_message');
 	if (el) el.style.display = ok ? 'block' : 'none';
 	el = document.getElementById('tile_parameter');
 	if (el) el.style.display = ok ? 'block' : 'none';
@@ -261,98 +123,112 @@ function deviceStatusUpdate() {
 function deviceUninit() {
     let date = new Date();
     date.setFullYear(date.getFullYear()+10);
-    const cookie = { host:device.host,name:device.name,baudrate:device.baudrate };
+    const cookie = { ip:device.ip, ws:device.ws, name:device.name };
     document.cookie = 'device=' + JSON.stringify(cookie) + '; expires=' + date.toGMTString() + '; path=/';
-    deviceClose();
     socketClose();
-}
-
-function deviceSelectList(list) {
-    let el = document.getElementById('device_name');
-    let o = 0;
-    let l = 0;
-    if (el) {
-        list.sort(function(a, b) { return a.Name.localeCompare(b.Name); })
-        while (o < el.options.length || l < list.length) {
-            if (o === el.options.length) {
-                el.appendChild(portOption(list[l]));
-                l ++;
-                o ++;
-            } else if (el.options[o].value === '') {
-                o ++;
-            } else if ((l < list.length) && (el.options[o].value === list[l].Name)) {
-                o ++;
-                l ++;
-            } else {
-                el.removeChild(el.options[o]);
-            }
-        }
-        function portOption(p) {
-            let hint = [ ];
-            let productId = p.ProductID;
-            let vendorId = p.VendorID;
-            if (vendorId) {
-                if (productId && (vendorId=='0x1546')) {
-                    const prodLut = {
-                        // Positioning
-                        '0x01A4':'ATR0635','0x01A5':'UBX-5','0x01A6':'UBX-6',
-                        '0x01A7':'UBX-7','0x01A8':'UBX-M8','0x01A9':'UBX-F9/M9',
-                        // Cellular
-                        '0x1000':'SARA-R4', '0x1010':'TOBY-L4', '0x1100':'LUCY-H',
-                        '0x1001':'LISA-U1', '0x1002':'LISA-U2',
-                        '0x1102':'SARA/LISA-U2', '0x1103':'SARA/LISA-U2', '0x1104':'SARA/LISA-U2', '0x1105':'SARA/LISA-U2', '0x1106':'SARA/LISA-U2',
-                        '0x1107':'TOBY-R2', '0x1108':'TOBY-R2', '0x1109':'TOBY-R2', '0x110A':'TOBY-R2', '0x110B':'TOBY-R2', '0x110C':'TOBY-R2', '0x110D':'TOBY-R2',
-                        '0x1121':'FW75-D2', '0x1131':'TOBY-L1',
-                        '0x1140':'TOBY-L2', '0x1141':'TOBY-L2', '0x1142':'TOBY-L2', '0x1143':'TOBY-L2', '0x1144':'TOBY-L2', '0x1145':'TOBY-L2', '0x1146':'TOBY-L2', '0x1147':'TOBY-L2', '0x114F':'TOBY-L2',
-                        '0x1201':'LARA-R3', '0x1202':'LARA-R3', '0x1203':'LARA-R3',
-                        '0x1211':'LARA-R3', '0x1212':'LARA-R3', '0x1213':'LARA-R3',
-                        '0x1221':'ALEX/LARA-R5', '0x1222':'ALEX/LARA-R5', '0x1223':'ALEX/LARA-R5',}
-                    if (prodLut[productId]) productId += '/'+prodLut[productId];
-                    else {
-                        var pid = prodLut[productId] & 0xF000;
-                        if      (pid == 0x1000) productId += '/Positioning';
-                        else if (pid == 0x1000) productId += '/Cellular';
-                        else if (pid == 0x2000) productId += '/Short Range';
-                    }
-                }
-                const venLut = {
-                    '0x1546':'u-blox',
-                    '0x0403':'FTDI', '0x05C6':'Qualcomm','0x1286':'Marvel',
-                    '0x042B':'Intel','0x8086':'Intel',   '0x8087':'Intel',}
-                if (venLut[vendorId]) vendorId += '/'+venLut[vendorId];
-            }
-            if (vendorId)  hint.push('Vendor: ' + vendorId);
-            if (productId) hint.push('Product: ' + productId);
-            if (p.SerialNumber) hint.push('Serial: ' + p.SerialNumber);
-            let opt = document.createElement('option');
-            opt.innerHTML = p.Name + SEPARATOR + hint.join(', ');
-            opt.value = p.Name;
-            if (p.IsOpen) {
-                if ((p.Baud === device.baudrate) && (p.Name === device.name) && (device.status === 'waiting')) {
-                    device.status = 'opened';
-                    Console.debug('event', 'DEVICE', 'reopened ' + device.name);
-                    deviceStatusUpdate();
-                    deviceIdentification();
-                } else {
-                    Console.debug('command', 'DEVICE', 'force close ' + p.Name);
-                    socketCommand('close ' + p.Name);
-                }
-            }
-            // auto connect
-            if ((p.Name === device.name) && (device.status === 'waiting')) {
-                opt.selected = true;
-                deviceOpen(device.name, device.baudrate);
-            }
-            return opt;
-        }
-    }
 }
 
 function deviceIdentification() {
     sendAtWait(undefined,undefined,undefined, 
-        function _onSuccess(data) { deviceSendCommands(lutAtIdent) },
+        function _onSuccess(data) { deviceSendCommands(lutAtIdent) }, // ONLY UBX for now
         function _onError(error)  { sendUbx('mon','ver') } // a GPS ? parsed in
     );
+}
+
+function deviceDiscovery() {
+    let modal = document.getElementById('discover');
+	if (modal) {
+		modal.removeAttribute('hidden');
+        let el = document.getElementById("modal-close");
+        el.onclick = function() { 
+            modal.setAttribute('hidden','');
+        }
+        el = document.getElementById("scan-devices");
+        el.onclick = testNet
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.setAttribute('hidden','');
+            }
+        }
+    }
+}
+
+let scaning = {};
+function testNet() {
+    // iOS Personal HotSpot uses 172.20.10.0/4 so 172.20.10.0 - 172.20.10.15
+    for (let i = 0; i < 16; i ++) {
+        testIp("172.20.10." + i)
+    }
+    // Android WiFi Thetering uses 192.168.42.1/24 so 192.168.42.2 - 192.168.42.254 
+    for (let i = 1; i <= 254; i ++) {
+        testIp("192.168.42." + i)
+    }
+    let li = document.getElementById("scan-range")
+    if (li && li.value) { 
+        let m = li.value.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.)(\d{1,3})(-(\d{1,3}))?$/)
+        if ((m != undefined) && ((m.length == 3) || (m.length == 5))) {
+            let ip = m[1]
+            let from = Number(m[2])
+            let to = (m.length == 5) ? Number(m[4]) : from
+            for (let i = from; i < to; i ++) {
+                testIp(ip + i)
+            }
+        }
+    }
+
+    function testIp(ip) {
+        if ((scaning[ip] == undefined) || (scaning[ip] == 'found')) {
+            let ws = new WebSocket((window.location.protocol == 'https') ? 'wss://' : 'ws://' + ip + ':2101')
+            if (ws != undefined) {
+                scaning[ip] = 0;
+                function _report(ip,host) {
+                    let tr = document.getElementById('scan-'+ip)
+                    let th = document.getElementById('scan-results')
+                    th.removeAttribute("hidden");
+                    if (tr == undefined) {
+                        tr = document.createElement('tr')
+                        tr.id = 'scan-'+ip
+                    } else {
+                        tr = th.parentNode.removeChild(tr)
+                    }
+                    
+                    let name = 'indentifying ...'
+                    let open = ''; 
+                    let config = '';
+                    if (host != undefined) {
+                        name = host;
+                        open = '<a href="' + window.location.origin + '?ip=' + ip + '"><b>open</b></a>'
+                        config = '<a href="' + window.location.protocol + '//'+ ip + '">configure</a>'
+                    } 
+                    tr.innerHTML = '<td>'+host+'</td><td>'+ip+'</td><td>' + open + '</td><td>' + config + '</td>'
+                    th.parentNode.appendChild(tr);
+                }
+                function _onDone(msg) {
+                    scaning[ip] = undefined;
+                }
+                function _onOpen(msg) {
+                    _report(ip)
+                    scaning[ip] = 1;
+                }
+                function _onMessage(msg) {
+                    scaning[ip] ++;
+                    if (typeof(msg.data) == 'string') {
+                        const m = msg.data.match(/^Connected to (u-blox-hpg-[a-z0-9]{6})/)
+                        if ((m != undefined) && (m.length == 2)) {
+                            _report(ip, m[1])
+                            ws.removeEventListener('close', _onDone);
+                            ws.removeEventListener('error', _onDone);
+                            ws.close() // we are done
+                        }
+                    }
+                }
+                ws.addEventListener('open',_onOpen)
+                ws.addEventListener('error',_onDone)
+                ws.addEventListener('close',_onDone)
+                ws.addEventListener('message',_onMessage)
+            }
+        }
+    }
 }
 
 var lutAtIdent = [
@@ -460,178 +336,49 @@ function deviceSendCommands(list) {
 	}
 }
 
-var device = { host:'', name:'', baudrate:'', status:'idle', ports_net:[], ports_hw:[] };
-function deviceClose() {
-/*REMOVE*/ //console.log('deviceClose');
-    if ((device.name !== '') && (device.status === 'opened')) {
-        Console.debug('command', 'DEVICE', 'close ' + device.name);
-        socketCommand('close ' + device.name);
-        device.status = 'closing';
-        deviceStatusUpdate();
-    }
-}
-function deviceOpen(name, baudrate) {
-/*REMOVE*/ //console.log('deviceOpen '+name);
-    USTART.resetGui();
-    device.name = name;
-    device.baudrate = Number(baudrate);
-    device.status = 'opening';
-    deviceStatusUpdate();
-    Console.debug('command', 'DEVICE', 'open ' + name + ' ' + baudrate);
-    socketCommand('open ' + name + ' ' + baudrate + ' ' + BUFFER_FORMAT);
-    Engine.parseReset();
-}
-function onDeviceChange(e) {
-    let el = document.getElementById('device_name');
-    let elbr = document.getElementById('device_baudrate');
-/*REMOVE*/ //console.log('onDeviceChange '+el.value);
-    deviceClose();
-    if (el.value !== '')
-        deviceOpen(el.value, elbr.value);
-}
+var device = { name:'', ip:'', ws:'', status:'', ports_net:[], ports_hw:[] };
 
 function socketClose() {
 /*REMOVE*/ //console.log('socketClose');
-    if (device.socket && device.socket.connected)
-        device.socket.disconnect();
+    if (device.socket && (device.socket.readyState == WebSocket.OPEN)) {
+        device.status = 'closing';
+        device.socket.close();
+    }
 }
 function socketOpen(url) {
 /*REMOVE*/ //console.log('socketOpen '+url);
-    if (!device.socket) {
-        device.socket = new WebSocket("ws://" + url);
-        if (device.socket) {
-            device.socket.binaryType = "arraybuffer";
-            device.socket.addEventListener('open', function(e) { onSocketConnect(e); } );
-            device.socket.addEventListener('close', function(e) { onSocketDisconnect(e); } );
-            //device.socket.addEventListener('message', function(e) { onSocketMessage(e); } );
-            device.socket.addEventListener('message', function(e) { onmessageEval(e); } );
-            Console.debug('command', 'SOCKET', 'connect ' + url);
-        }
-    } else {
-        device.socket.io.uri = url;
-        Console.debug('command', 'SOCKET', 'connect ' + url);
-        device.socket.connect();
+    socketClose();
+    device.socket = new WebSocket(url);
+    if (device.socket) {
+        device.status = 'opening';
+        device.socket.binaryType = "arraybuffer";
+        device.socket.addEventListener('open', function(e) { onSocketConnect(e); } );
+        device.socket.addEventListener('close', function(e) { onSocketDisconnect(e); } );
+        //device.socket.addEventListener('message', function(e) { onSocketMessage(e); } );
+        device.socket.addEventListener('message', function(e) { onmessageEval(e); } );
     }
 }
-function onSocketChange(e) {
-/*REMOVE*/ //console.log('onSocketChange '+this.value);
-    const host = this.options[this.selectedIndex];
-    let url = this.value;
-    if (host.textContent.match(REMOTE_AGENT)) {
-        url = prompt('Please enter Url from Remote Server',
-            url ? url : (window.location.protocol + '//' + LOCAL_HOST + ':8991'));
-        if (url) {
-            this.options[this.selectedIndex].innerHTML = REMOTE_AGENT + SEPARATOR + url;
-            this.options[this.selectedIndex].value = url;
-        } else {
-            url = this.value = '';
-        }
-    }
-    deviceClose();
-    if (this.value !== '')
-        socketOpen(this.value);
-    else 
-		socketClose();
-}
+
 function onSocketConnect(e) {
 /*REMOVE*/ //console.log('onSocketConnect '+this.io.uri);
-    device.host = e.currentTarget.url;//this.io.uri;
-    Console.debug('event', 'SOCKET', 'connected ' + device.host);
-    device.name = 'u-blox HPG device';
+    device.ws = e.currentTarget.url;
+    Console.debug('event', 'SOCKET', 'connected ' + device.ws);
+    device.status = 'connected';
     deviceStatusUpdate();
-    // configure the agent and enumerate the devices
     USTART.statusLed(/*clear*/);
-    /*
-    socketCommand('log off');
-    action('list');
-
-	let el = document.getElementById('device_baudrate');
-    if (el) el.parentNode.style.display = 'block';
-    el = document.getElementById('device_name');
-    if (el) el.parentNode.style.display = 'block';*/
-    device.status = 'opened';
-    //Console.debug('event', 'DEVICE', 'opened ' + device.name + ' ' + device.baudrate, obj);
-    deviceStatusUpdate();
     deviceIdentification();                    
 }
 
 function onSocketDisconnect(e) {
 /*REMOVE*/ //console.log('onSocketDisconnect');
     Console.debug('event', 'SOCKET', 'disconnected');
-    device.host = '';
+    device.status = 'disconnected';
     deviceStatusUpdate();
-    let el = document.getElementById('device_host');
-    if (el) el.value = '';
-    deviceSelectList([]);
     USTART.statusLed('error');
-
-/*	el = document.getElementById('device_baudrate');
-    if (el) el.parentNode.style.display = 'none';
-    el = document.getElementById('device_name');
-    if (el) el.parentNode.style.display = 'none';*/
 }
 
-function onSocketMessage(e) {
-    if (e && (e.indexOf('{') === 0)) {
-        const obj = JSON.parse(e);
-        if (obj.D !== undefined) {
-            USTART.statusLed('data');
-        } else {
-            Console.debug('event', 'AGENT', 'json ' + e, obj);
-            
-            if (obj.Ports) {
-                if (obj.Network === true) device.ports_net = obj.Ports;
-                else                      device.ports_hw  = obj.Ports;
-                const list = device.ports_hw.concat(device.ports_net);
-                //Console.debug('event', 'DEVICE', 'list updated', obj);
-                deviceSelectList(list);
-            } else if (obj.Error) {
-                // Console.debug('event', 'ERROR', obj.Error, obj);
-            } else if (obj.Cmd) {
-                if (obj.Cmd == 'Open') {
-                    if ((device.status === 'opening') && (device.name === obj.Port) && (device.baudrate === obj.Baud)) {
-                        device.status = 'opened';
-                        //Console.debug('event', 'DEVICE', 'opened ' + device.name + ' ' + device.baudrate, obj);
-                        deviceStatusUpdate();
-                        deviceIdentification();
-                        // hide it
-                        const el = document.getElementById('block-uos-uos-dropdown-login');
-                        if (el) el.style.display = 'none';
-                    }
-                }
-                else if ((obj.Cmd == 'Close') && (device.name == obj.Port)) {
-                    if ((device.status === 'closing') && (device.name === obj.Port) && (device.baudrate === obj.Baud)) {
-                        //Console.debug('event', 'DEVICE', 'closed ' + device.name, obj);
-                        device.name = '';
-                        device.status = '';
-                        deviceStatusUpdate();
-                    }
-                }
-                if (obj.Cmd == 'OpenFail') {
-                    if ((device.status === 'opening') && (device.name === obj.Port) && (device.baudrate === obj.Baud)) {
-                        //Console.debug('event', 'DEVICE', 'failed ' + device.name, obj);
-                        device.status = 'failed';
-                        device.name = '';
-                        deviceStatusUpdate();
-                    }
-                }
-            }
-        }
-    } else if (e) {
-        const str = e.toString();
-        Console.debug('event', 'AGENT', 'string "' + str + '"');
-    }
-}
-function socketCommand(data) {
-/*    if (data && (data !== '')) {
-        if (!device.socket || (device.host === '')) throw new Error('no Socket');
-        //device.socket.emit('command', data);
-        device.socket.send(data);
-    }*/
-}
 function socketSend(messages){
-    if (!device.socket/*       || (device.host === '')*/) throw new Error('no Socket');
-    //if ((device.name === '') || (device.status !== 'opened')) throw new Error('no Device');
+    if (device.socket == undefined || (device.socket.readyState != WebSocket.OPEN)) throw new Error('no Socket');
     Console.update(messages);
     if (!Array.isArray(messages)) messages = [ messages ];
     let len = 0;
@@ -644,7 +391,6 @@ function socketSend(messages){
             data[i] = message.data.charCodeAt(i);
         }
         device.socket.send(data.buffer);
-        //device.socket.emit('command', 'sendb64 ' + device.name + ' ' + btoa(message.data));
         len += message.data.length;
     }
     return len;
@@ -669,6 +415,11 @@ function onmessageEval(evt) {
             }
         }
     } else if (typeof(evt.data) == 'string') {
+        const m = evt.data.match(/^Connected to (u-blox-hpg-[a-z0-9]{6})/)
+        if ((m != undefined) && (m.length == 2)) {
+            device.name = m[1];
+            USTART.tableEntry('dev_name', '<a href="http://'+device.ip+'">'+device.name+'</a>',true);
+        }
         Console.debug('event', 'AGENT', evt.data);
         Console.update();
     }
@@ -677,7 +428,6 @@ function onmessageEval(evt) {
 /* END OF MODULE */ return {
     deviceInit:     deviceInit,
     deviceUninit:   deviceUninit,
-    socketCommand:  socketCommand,
     socketSend:     socketSend,
     action:         action,
     send:           send,

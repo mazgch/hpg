@@ -34,14 +34,39 @@
       <div id="tile_device">
         <h2>Device</h2>
         <p>This section provides useful information about the device and its software. If you seek advice, contact our support community in the <a href="https://portal.u-blox.com">u-blox portal</a>. It will be beneficial for the experts, if you share version information found in this section along with a detailed description of your question.</p>
+        <div hidden id="discover" class="modal">
+          <div class="modal-content page">
+            <div id="modal-close" class="overlay_ctrl" style="top:0.5em;right:0.5em;">
+              <i class="overlay_button" data-feather="x"></i>
+            </div>
+            <p>Scan your local network for IPs assigned to <b>u-blox HPG solution</b> boards.</p>
+            <ul>
+              <li><b>iOS Personal Hotspot:</b> 172.20.10.0-15</li>
+              <li><b>Android Tethering:</b> 192.168.42.2-254 </li>
+              <li><b>Local Network:</b> 
+                <input id="scan-range" type="text" value="192.168.0.2-254" pattern="\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(-\d{1,3})?"
+                      placeholder="192.168.0.from[-to]" oninput="if (typeof this.reportValidity === 'function') {this.reportValidity();}" ></input>
+                <br>Consider to change local IP range to match your network infrastructure. Local networks can use these IP address ranges 10.0.0.0 – 10.255.255.255, 172.16.0.0 – 172.31.255.255 or 192.168.0.0 – 192.168.255.255 <span id="myip"></span>
+              </li>
+            </ul>
+            <p style="text-align: center;"><button id="scan-devices" >Start network scan</button></p>
+            <p><table><tr hidden id='scan-results'><th>Device</th><th>IP</th><th>&nbsp;</th><th>&nbsp;</th></tr></table></p>
+            <p>Some networks do not allow communication between connected clients. If your device in undiscoverable please contact your network administrator for getting your local network IP range where you attached the device. </p>
+            <p>In case this page is unable help you discover your device, Connect the USB port of the u-blox HPG Solution to a computer.
+            You can observe the assigned IP with a serial terminal application on the console output of the NINA-W1 (serial port: CP210x USB to UART Bridge, baud rate: 115'200). </p>
+            
+          </div>
+        </div>
         <div class="section">
           <table>
             <tr>
               <th style="width:30%;">Parameter</th>
               <th style="width:70%;">Value</th>
             </tr>
-            <tr>       <td>Device Agent</td>         <td class="dbvalue" id="dev_agent"></td></tr>
-<!--        <tr>       <td>Device Port</td>          <td class="dbvalue" id="dev_port"></td></tr> -->
+            <tr hidden><td>Device Name</td>          <td class="dbvalue" id="dev_name"></td></tr>
+            <tr>       <td>Device IP</td>            <td class="dbvalue" id="dev_ip"></td></tr>
+            <tr>       <td>Device Socket</td>        <td class="dbvalue" id="dev_socket"></td></tr>
+            <tr>       <td>Device Status</td>        <td class="dbvalue" id="dev_status"></td></tr>
             <tr hidden><td>Technology</td>           <td class="dbvalue" id="dev_tech"></td></tr>
             <tr hidden><td>Product / Series</td>     <td class="dbvalue" id="dev_prod"></td></tr>
             <tr hidden><td>Image</td>                <td class="dbvalue" id="dev_img"></td></tr>
@@ -65,7 +90,8 @@
             <tr hidden><td>Ethernet MAC Address</td> <td class="dbvalue" id="dev_mac_eth"></td></tr>
           </table>
           <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
-            <div onclick="Device.action('identify');"  title="Identify device"><i class="overlay_button" data-feather="info"></i></div>
+            <div onclick="Device.action('discover');"  title="Discover devices in your local network"><i class="overlay_button" data-feather="search"></i></div>
+            <div onclick="Device.action('identify');"  title="Identify device and get version information"><i class="overlay_button" data-feather="info"></i></div>
           </div>
         </div>
       </div>

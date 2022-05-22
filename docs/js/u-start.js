@@ -48,7 +48,7 @@ window.onload = function _onload() {
         Chart.defaults.plugins.legend.display = false;
     }
 	setTimeout( function _initAll(){
-		Device.deviceInit(OPT.url); // also wait for this as it may still see the old port leave ...
+		Device.deviceInit(OPT.ip); // also wait for this as it may still see the old port leave ...
 		Console.init();
 		//Script.scriptInit();
 		dbInit();
