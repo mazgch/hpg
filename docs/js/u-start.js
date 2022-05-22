@@ -810,7 +810,7 @@ function dbOnPublish(el) {
     
     function _makeTable(stats) {
         let dump = '';
-        dump += '<tr style="border-top-width:0;"><td colspan="2"><b>Statistics<b></td></tr>';
+        dump += '<tr style="border-top-width:0;"><td colspan="2" style="padding-top:1em;"><b>Statistics<b></td></tr>';
         if (undefined !== stats.cur) dump += '<tr><td>Latest Value</td><td class="right">' + stats.cur + '</td></tr>';
         if (undefined !== stats.min) dump += '<tr><td>Minimum</td><td class="right">' + stats.min + '</td></tr>';
         if (undefined !== stats.max) dump += '<tr><td>Maximum</td><td class="right">' + stats.max + '</td></tr>';
@@ -818,7 +818,7 @@ function dbOnPublish(el) {
         if (undefined !== stats.dev) dump += '<tr><td>Standard Deviation</td><td class="right">' + stats.dev + '</td></tr>';
         dump += '<tr><td>Count</td><td class="right">' + stats.cnt + '</td></tr>';
     //    if (stat.unit)   dump += '<tr><td>Unit</td><td class="right">'+stats.unit+'</td></tr>';
-        dump += '<tr><td colspan="2" style="padding-top:10px;"><b>Source</b></td></tr>';
+        dump += '<tr><td colspan="2" style="padding-top:1em;"><b>Source</b></td></tr>';
         if (undefined !== stats.msg) dump += '<tr><td>Protocol Message</td><td class="right">' + stats.msg + '</td></tr>';
         if (undefined != stats.time) dump += '<tr><td>Local Time</td><td class="right">' + stats.time + '</td></tr>';
         if (undefined !== stats.age) {
