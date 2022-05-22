@@ -81,3 +81,10 @@ function testNet() {
     }
   }
 }
+
+window.onload = function _onLoad() {
+  // escape https -> http to make sure we can use ws://
+  if (window.location.protocol == 'https') {
+    window.location.assign(window.location.href.replace(/^https:\/\/http:\/\//, '');)
+  }
+}
