@@ -4,7 +4,7 @@
 // ------------------------------------------------------------------------------------
 const Console = (function () {
 
-const CONSOLE_INVISIBLE_PAGES  	= 3;
+const CONSOLE_INVISIBLE_PAGES  	= 5;
 const CONSOLE_SCROLL_LINES      = 100000;
 const CONSOLE_SCROLL_TIMEOUT 	= 20000;
 const CONSOLE_SCROLL_ENDPOS  	= 0x7FFFFFF;

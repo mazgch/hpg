@@ -68,7 +68,7 @@ function messageLine(message, filter) {
 }
 	
 function messageTable(message) {
-	let dump = '<table>';
+	let dump = '<table class="table">';
     dump += '<tr><td><b>Protocol</b></td><td style="width:100%">' + message.protocol + '</td></tr>';
     dump += '<tr><td><b>Name</b></td><td>' + message.name + '</td></tr>';
     //if (message.id) dump += '<tr><td><b>Identifyer</b></td><td>' + message.id + '</td></tr>';

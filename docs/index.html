@@ -50,7 +50,7 @@
               </li>
             </ul>
             <p style="text-align: center;"><button id="scan-devices" >Start network scan</button></p>
-            <p><table><tr hidden id='scan-results'><th>Device</th><th>IP</th><th>&nbsp;</th><th>&nbsp;</th></tr></table></p>
+            <p><table class="table"><tr hidden id='scan-results'><th>Device</th><th>IP</th><th>&nbsp;</th><th>&nbsp;</th></tr></table></p>
             <p>Some networks do not allow communication between connected clients. If your device in undiscoverable please contact your network administrator for getting your local network IP range where you attached the device. </p>
             <p>In case this page is unable help you discover your device, Connect the USB port of the u-blox HPG Solution to a computer.
             You can observe the assigned IP with a serial terminal application on the console output of the NINA-W1 (serial port: CP210x USB to UART Bridge, baud rate: 115'200). </p>
@@ -58,7 +58,7 @@
           </div>
         </div>
         <div class="section">
-          <table>
+          <table class="table">
             <tr>
               <th style="width:30%;">Parameter</th>
               <th style="width:70%;">Value</th>
@@ -100,12 +100,13 @@
         <h2>Interface</h2>
         <p>In this section you to explore parameters of the device interface. Click on a row to reveal its statistics or a graph of an item.</p>
         <div class="section">
-          <table>
+          <table class="table">
             <tr id="dbInt">
               <th style="width:30%;">Parameter</th>
               <th style="width:15%;" class="right">Value</th>
               <th style="width:15%;">Unit</th>
-              <th style="width:40%;">Comment</th>
+              <th style="width:20%;">Comment</th>
+              <th style="width:20%;">&nbsp;</th>
             </tr>
           </table>
           <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
@@ -180,12 +181,13 @@ Pressing enter in this field will send any message.">*</span></label>
             <div hidden id="map" style="height:400px"></div>
         </div>
         <div class="section"">
-          <table>
+          <table class="table">
             <tr id="db">
               <th style="width:30%;">Parameter</th>
               <th style="width:15%;" class="right">Value</th>
               <th style="width:15%;">Unit</th>
-              <th style="width:40%;">Comment</th>
+              <th style="width:20%; ">Comment</th>
+              <th style="width:20%;">&nbsp;</th>
             </tr>
           </table>
           <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">    
@@ -211,7 +213,7 @@ Pressing enter in this field will send any message.">*</span></label>
           </div>
         </div>
         <div class="section">
-          <table >
+          <table class="table">
             <tr>
               <th>System</th>
               <th class="center">Satellite</th>

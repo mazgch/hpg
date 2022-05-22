@@ -1,10 +1,62 @@
 html {
     font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
-    /*font-size: 12pt;*/
+    font-size: 12pt;
     -webkit-font-smoothing: antialiased;
     color: #1a1a1a;
     background:#fff
 }
+@media (max-width: 1024px) {
+    html, input {
+        font-size: 11pt; 
+    }
+    table {
+        font-size: 10pt;
+    }
+}
+@media (max-width: 986px) {
+    html, input {
+        font-size: 10pt; 
+    }
+    table {
+        font-size: 9pt;
+    }
+}
+@media (max-width: 768px) {
+    html, input {
+        font-size: 9pt; 
+    }
+    table {
+        font-size: 8pt;
+    }
+}
+/* --- page --- */
+.page {
+    max-width: 1024px;
+    margin: 0 auto;
+    padding-left: 5px;
+    padding-right:5px;
+    margin-bottom: 30px;
+}
+@media (min-width: 768px) {
+    .page {
+        padding-left: 20px;
+        padding-right:20px;
+    }
+}
+@media (min-width: 986px) {
+    .page {
+        padding-left: 30px;
+        padding-right:30px;
+    }
+}
+@media (min-width: 1024px) {
+    .page {
+        padding-left: 40px;
+        padding-right:40px
+    }
+}
+
+/* --- generic --- */
 
 .preformated {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
@@ -49,27 +101,6 @@ a:focus, a:hover {
     border-bottom-color:currentColor
 }
 
-/* --- page --- */
-.page {
-    max-width: 1024px;
-    margin: 0 auto;
-    padding-left: 5px;
-    padding-right:5px;
-    margin-bottom: 30px;
-}
-@media (min-width: 768px) {
-    .page {
-        padding-left: 20px;
-        padding-right:20px
-    }
-}
-@media (min-width: 1024px) {
-    .page {
-        padding-left: 40px;
-        padding-right:40px
-    }
-}
-
 /* ---- reportErrors ---- */
 #crash-message {
     background-color: #ffbbba;
@@ -103,15 +134,9 @@ a:focus, a:hover {
 input {
     background-color: inherit;
     border: 1px solid #9a9a9a;
-    font-family: inherit;
     -webkit-transition: all .25s ease;
     -o-transition: all .25s ease;
     transition: all .25s ease;
-}
-@media (min-width: 768px) {
-    input {
-       font-size: 1.0rem;
-    }
 }
 input:focus, input:hover {
     border-color: #1a1a1a;
@@ -144,7 +169,7 @@ input:focus, input:hover {
     user-select: none;
     left: 0.8rem;
     top:0.5rem;
-    font-size: 0.7rem
+    font-size: 0.7em
 }
 
 /* unique classes */
@@ -163,12 +188,6 @@ input:focus, input:hover {
 	overflow-anchor: none;
     padding: 0.5em
 }
-@media (max-width: 768px) {
-    .console {
-        font-size: 0.7rem;
-    }
-}
-
 canvas {
     -moz-user-select: none;
     -webkit-user-select: none;
@@ -186,17 +205,11 @@ input {
 }
 
 /* --- table --- */
-table {
+.table, .dbtable, .dbtable table {
     border-collapse: collapse;
     border: none;
-    width: auto;
-    min-width: 100%;
     margin: 0;
-}
-@media (max-width: 768px) {
-    table {
-       font-size: 0.6em;
-    }
+    width: 100%;
 }
 tr {
     border-top:1px solid #bebebe
@@ -204,20 +217,14 @@ tr {
 tr:last-child {
     border-bottom:1px solid #bebebe
 }
-tr {
-    vertical-align: middle;
-    border-bottom-color: rgb(190, 190, 190);
-    border-bottom-style: solid;
-    border-bottom-width: 1px;
-}
 tr:hover {
     background-color:rgba(0,0,0,0.071);
 }
 td, th {
-    vertical-align: top;
-    text-align: left;
     border: none;
-    padding:2px 16px 1px
+    text-align: left;
+    vertical-align: middle;
+    padding: 2px 5px 1px ;
 }
 td:first-child, th:first-child {
     padding-left:0
@@ -225,31 +232,41 @@ td:first-child, th:first-child {
 td:last-child, th:last-child {
     padding-right:0
 }
-td, th {
-    vertical-align: middle;
-    padding: 2px 5px 1px ;
-}
 td.right, th.right {
     text-align: right;
 }
 td.center, th.center {
     text-align: center;
 }
-td h2{
-    font-weight: normal;
-    margin: 0;
-}
-td img.prod_img {
-	height:96px;
-	display:inline;
-}
 td span.flag-icon {
     margin-right:5px;
+}
+td img.prod_img {
+	height:5em;
+	display:inline;
 }
 td img.icon {
     height:1em;
     margin-right:5px;
     display:inline;
+}
+
+.dbtable table {
+    display: grid;
+}
+.dbtable tbody {
+    display:inline-table;
+}
+.dbrow td {
+    vertical-align:top;
+    width: auto;
+    font-size: 0.8em;
+}
+
+/* for content coming from website */ 
+td h2{
+    font-weight: normal;
+    margin: 0;
 }
 td ul {
     padding-left:20px;
@@ -258,34 +275,16 @@ td dl {
 	margin-block-end:0px;
 	margin-block-start:0px;
 }
+td dlentry {
+    display: list-item;
+    margin-left: 20px;
+}
 td dd {
 	display: inline;
 	margin-inline-start: 5px;
 }
 td dt {
 	display: inline;
-}
-td dlentry {
-    display: list-item;
-    margin-left: 20px;
-}
-
-.dbrow {
-	padding-top:5px;
-	padding-bottom:5px;
-}
-.dbchart {
-	width:100%;
-    padding: 5px !important;
-}
-.dbtable {
-	min-width: 50%;
-    vertical-align: top;
-    padding-bottom: 10px;
-}
-.dbtable table {
-    width:auto;
-    font-size: 0.8em;
 }
 
 /* ---- console details (hex dump) tool tips. ---- */
@@ -306,9 +305,9 @@ td dlentry {
 .message.head .messagehead {
     color: #c0c0c0;
 }
-.message {
+/*.message {
 	font-size:1em;
-}
+}*/
 .message .messagehead,
 .message .messagetext {
     display:inline;
@@ -320,7 +319,7 @@ td dlentry {
     padding-right:10px;
 }
 .message .messagehint table {
-    font-size:0.7rem;
+    font-size:0.7em;
 }
 
 /* ---- autocomplete box ---- */

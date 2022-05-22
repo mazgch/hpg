@@ -93,7 +93,7 @@ function atRegExp(c, m) {
 function deviceInit(ip) {
     const match = document.cookie.match(/device=([^;]+)/);
 	const json = JSON.parse(((match != undefined) && (match.length == 2)) ? match[1] : '{}');
-    device.status = '';
+    device.status = 'disconnected';
     device.ip = (ip) ? ip : json.ip ? json.ip : window.location.hostname;
     device.ws = (window.location.protocol == 'https' ? 'wss://': 'ws://')  + device.ip + ':2101';
     USTART.statusLed('error');
@@ -121,10 +121,6 @@ function deviceStatusUpdate() {
 }
     
 function deviceUninit() {
-    let date = new Date();
-    date.setFullYear(date.getFullYear()+10);
-    const cookie = { ip:device.ip, ws:device.ws, name:device.name };
-    document.cookie = 'device=' + JSON.stringify(cookie) + '; expires=' + date.toGMTString() + '; path=/';
     socketClose();
 }
 
@@ -364,6 +360,11 @@ function onSocketConnect(e) {
     device.ws = e.currentTarget.url;
     Console.debug('event', 'SOCKET', 'connected ' + device.ws);
     device.status = 'connected';
+    // update the cookie 
+    let date = new Date();
+    date.setFullYear(date.getFullYear()+10);
+    const cookie = { ip:device.ip, ws:device.ws, name:device.name, };
+    document.cookie = 'device=' + JSON.stringify(cookie) + '; expires=' + date.toGMTString() + '; path=/';
     deviceStatusUpdate();
     USTART.statusLed(/*clear*/);
     deviceIdentification();                    

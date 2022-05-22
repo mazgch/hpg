@@ -19,7 +19,7 @@ window.onload = function _onload() {
         window.location.protocol = 'http:';
     }
 
-    feather.replace();
+	feather.replace();
    
 	// evaluate the url arguments
     OPT = window.location.search.substring(1).split("&").reduce(_splitArgs, {});
@@ -756,6 +756,7 @@ function dbOnPublish(el) {
             if (this.unit) td.textContent = this.unit;
             tr.appendChild(td);
             td = document.createElement('td');
+            td.colSpan = 2;
             if (this.descr) td.textContent = this.descr;
             else if (this.map) this.el.comment = td;
             tr.appendChild(td);
@@ -789,7 +790,7 @@ function dbOnPublish(el) {
                 tr.addEventListener('click', _onDatabaseRowClick);
                 // the chart
                 let td = document.createElement('td');
-                td.colSpan = '3';
+                td.colSpan = '4';
                 let div = _makeChart(e);
                 if (div) td.appendChild(div);
                 tr.appendChild(td);
@@ -877,8 +878,8 @@ function dbOnPublish(el) {
             }
             function _toolTipText(context) {
                 let val = context.raw;
-                if (e.num) val.toFixed(e.prec);
-                return 'Value: ' + val + /*' '+ (e.unit?e.unit:'') +*/ '\nTime: ' + context.label;
+                if (e.prec) val = val.toFixed(e.prec);
+                return 'Value: ' + val + (e.unit ? ' ' + e.unit : '') + '\nTime: ' + context.label;
             }
         }
     }
