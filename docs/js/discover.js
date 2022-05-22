@@ -31,7 +31,7 @@ function report(ip, msg) {
 function testIp(ip){
   if (!document.getElementById(ip)) {
     report(ip, 'IP ' + ip+ ' connecting...')
-    let ws = new WebSocket("ws://" + ip + ":2101")
+    let ws = new WebSocket((window.location.protocol == 'https') ? 'wss://' : 'ws://' + ip + ':2101')
     if (ws != undefined) {
       function _onDone(msg) {
         report(ip, undefined)
