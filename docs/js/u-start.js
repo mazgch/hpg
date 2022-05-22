@@ -15,7 +15,11 @@ let OPT = {};
 // Init
 // ------------------------------------------------------------------------------------
 window.onload = function _onload() {
-	feather.replace();
+    if (window.location.protocol == 'https:') {
+        window.location.protocol = 'http:';
+    }
+
+    feather.replace();
    
 	// evaluate the url arguments
     OPT = window.location.search.substring(1).split("&").reduce(_splitArgs, {});
