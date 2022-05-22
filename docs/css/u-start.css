@@ -154,6 +154,7 @@ input:focus, input:hover {
 .textfield input {
     width: 100%;
     padding:1.2rem 3rem .3rem .6rem;
+    border-radius: 0px;
 }  
 
 .textfield label {
