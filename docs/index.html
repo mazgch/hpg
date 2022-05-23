@@ -30,9 +30,14 @@
   <body>
     <div id="crash-message"></div>
     <div class="page">
-      <div style="padding-top:1em;">
+      <div style="padding-top:1em;" class="section">
         <img src="img/favicon.svg" alt="mazg.ch" title="mazg.ch logo" style="vertical-align:middle; display:inline; height:3em">
-        <h1 style="vertical-align:middle; display:inline">mazg.ch - HPG Solution Monitor</h1>
+        <h1 style="vertical-align:middle; display:inline">mazg.ch - HPG Center</h1>
+        <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
+          <div onclick="window.open('https://twitter.com/mazgch/','_blank').focus();"                  title="Twitter @mazgch"><i class="overlay_button" data-feather="twitter"></i></div>
+          <div onclick="window.open('https://www.linkedin.com/in/michael-ammann/','_blank').focus();"  title="LinkedIn"><i class="overlay_button" data-feather="linkedin"></i></div>
+          <div onclick="window.open('https://github.com/mazgch/','_blank').focus();"                   title="Github"><i class="overlay_button" data-feather="github"></i></div>
+        </div>
       </div>
       <div id="tile_device">
         <h2>Device</h2>
@@ -95,6 +100,7 @@
           </table>
           <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
             <div onclick="Device.action('discover');"  title="Discover devices in your local network"><i class="overlay_button" data-feather="search"></i></div>
+            <div onclick="Device.action('settings');"  title="Device Configuration Portal"><i class="overlay_button" data-feather="settings"></i></div>
             <div onclick="Device.action('identify');"  title="Identify device and get version information"><i class="overlay_button" data-feather="info"></i></div>
           </div>
         </div>
@@ -131,7 +137,7 @@ AT   to filter only AT messages
           <input id="console_filter" type="text" size="512" maxlength="512" class="preformated" />
         </div>
         <div class="section">
-          <div class="framed console" id="console_data" style="height:300px"></div>
+          <div class="framed console" id="console_data" style="height:400px"></div>
           <div class="overlay_ctrl" style="top:0.5em;right:1.2em;" >
             <div id="console_logfile" title="Export as Unicode text file"><i class="overlay_button" data-feather="file-text"></i></div>
             <div id="console_ubxfile" title="Export as UBX binary file (u-center compatible)"><i class="overlay_button" data-feather="file"></i></div>

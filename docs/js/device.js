@@ -17,6 +17,7 @@ function action(task) {
         coldstart: function _coldstart() { sendUbx('CFG','RST','\xFF\xFF\x02\x00'); },
         list:      function _list()      { socketCommand('list'); },
         discover:  deviceDiscovery,
+        settings:  deviceConfigPortal,
         identify:  deviceIdentification,
     };
     var t = (typeof task !== 'string') ? task : task.toLowerCase();
@@ -92,12 +93,12 @@ function atRegExp(c, m) {
 
 function deviceInit(ip) {
     const match = document.cookie.match(/device=([^;]+)/);
-	const json = JSON.parse(((match != undefined) && (match.length == 2)) ? match[1] : '{}');
+	const json = JSON.parse(((match !== undefined) && (match.length == 2)) ? match[1] : '{}');
     device.status = 'disconnected';
-    if (ip) { // from url argument
+    if (ip !== undefined) { // from url argument
         device.name = 'unknown';
-        device.ip = json.ip;
-    } else if (ip) { // from cookie argument
+        device.ip = ip;
+    } else if (json.ip !== undefined) { // from cookie argument
         device.name = json.name;
         device.ip = json.ip;
     } else {
@@ -144,6 +145,12 @@ function deviceIdentification() {
         function _onSuccess(data) { deviceSendCommands(lutAtIdent) }, // ONLY UBX for now
         function _onError(error)  { sendUbx('mon','ver') } // a GPS ? parsed in
     );
+}
+
+function deviceConfigPortal() {
+    if (device.ip) {
+        window.open('http://' + device.ip,'_blank').focus();
+    }
 }
 
 function deviceDiscovery() {

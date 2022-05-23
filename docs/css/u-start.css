@@ -1,9 +1,31 @@
-html {
+:root {
+    --hero:   rgb(255, 110,  89);
+    --herolt: rgb(255, 168, 155);
+    --black:  rgb( 26,  26,  26); 
+    --white:  rgb(255, 255, 255); 
+    --error:  rgb(255, 187, 186);
+    --gray:   rgb(154, 154, 154); /* border*/
+    --bgnd:   rgb(240, 240, 240); /* editor & console */
+}
+
+/*@media (prefers-color-scheme: light) {
+    :root {
+        --hero:   rgb(255, 110,  89);
+        --herolt: rgb(255, 168, 155);
+        --black:  rgb(192, 192, 192); 
+        --white:  rgb( 32,  32,  32); 
+        --error:  rgb(255, 187, 186);
+        --gray:   rgb(154, 154, 154);
+        --bgnd:   rgb( 40,  40,  40);
+    }
+}*/
+  
+html, input {
     font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
     font-size: 12pt;
     -webkit-font-smoothing: antialiased;
-    color: #1a1a1a;
-    background:#fff
+    color: var(--black);
+    background: var(--white);
 }
 @media (max-width: 1024px) {
     html, input {
@@ -89,33 +111,34 @@ img, svg {
 
 /* --- a --- */
 a {
-    color: #ff6e59;
-    border-bottom: 1px solid hsla(0, 0%, 100%, 0);
+    color: var(--hero);
+    border-bottom: 1px solid rgba(255,255,255,0);
     padding-bottom: .05em;
     -webkit-transition: border .25s ease;
     -o-transition: border .25s ease;
     transition:border .25s ease;
-    text-decoration:none
+    text-decoration:none;
 }
 a:focus, a:hover {
-    border-bottom-color:currentColor
+    border-bottom-color:1px solid var(--hero);
 }
 
 /* ---- reportErrors ---- */
 #crash-message {
-    background-color: #ffbbba;
+    background-color: var(--error);
 }
 
 /* ---- input ---- */
 input {
     background-color: inherit;
-    border: 1px solid #9a9a9a;
+    border: 1px solid var(--gray);
     -webkit-transition: all .25s ease;
     -o-transition: all .25s ease;
     transition: all .25s ease;
+    font-size: 1rem;
 }
 input:focus, input:hover {
-    border-color: #1a1a1a;
+    border-color: var(--black);
     outline:0
 }
 
@@ -151,15 +174,15 @@ input:focus, input:hover {
 
 /* unique classes */
 .framed {
-    border: 1px solid #bebebe;
+    border: 1px solid var(--gray);
 }
 .editor{
-    background-color:#f0f0f0;
+    background-color: var(--bgnd);
 }
 .console{
     min-height:150px;
     resize: vertical;
-	background-color:#f0f0f0; 
+	background-color:var(--bgnd); 
 	overflow: scroll;
 	white-space: nowrap;
 	overflow-anchor: none;
@@ -307,9 +330,9 @@ td dt {
 }
 .autocomplete-list {
   position: absolute;
-  border: 1px solid rgb(190, 190, 190);
-  background-color: rgba(255,255,255,0.9); 
-  border-bottom: 1px solid rgb(190, 190, 190);
+  border: 1px solid var(--gray);
+  background-color: var(--white); 
+  border-bottom: 1px solid var(--gray);
   border-top: none;
   z-index: 99;
   top: 100%;
@@ -319,7 +342,7 @@ td dt {
   overflow-y: auto;
 }
 .autocomplete-item {
-  border-bottom: 1px solid rgb(190, 190, 190); 
+  border-bottom: 1px solid var(--gray); 
   padding-right: 10px;
   padding-left: 10px;
   cursor: pointer;
@@ -329,7 +352,7 @@ td dt {
 }
 .autocomplete-active,
 .autocomplete-item:hover {
-  background-color: rgba(0,0,0,0.071); 
+  background-color: rgba(0,0,0,0.07); 
 }
 
 /* ---- overlay buttons ---- */
@@ -368,12 +391,11 @@ td dt {
     width: 100%; /* Full width */
     height: 100%; /* Full height */
     overflow: auto; /* Enable scroll if needed */
-    background-color: rgb(0,0,0); /* Fallback color */
     background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
 }
 .modal-content {
     position:relative;
-    background-color: #fefefe;
+    background-color: var(--white);
     margin: auto;
     padding: 20px;
     border: 1px solid #888;
@@ -385,32 +407,24 @@ td dt {
 #scan-devices {
     padding: 0.5em 1em;
     display: inline;
-    background-color: rgb(255, 110, 89);
+    background-color: var(--hero);
 }
 #scan-range {
     width: 9em; 
     font-size: 1em;
 }
 
-/* ---- led ---- */
-svg.led_data circle {
-  fill: rgba(0,192,0,0.5);
-}
-svg.led_error circle {
-  fill:rgba(192,0,0,0.5);
-}
-
 /* ---- map ---- */
 .ol-control button:hover,
 .overlay_button:hover {
-    background-color: rgb(255, 110, 89);
-	outline-color: transparent; 
+    background-color: var(--hero);
+    outline-color: transparent; 
 }
 #scan-devices:hover, 
 #scan-devices:active, 
 .ol-control button:active,
 .overlay_button:active {
-    background-color: rgb(255, 168, 155);
+    background-color: var(--herolt);
 	outline-color: transparent; 
 }
 .ol-scale-line,
@@ -451,3 +465,12 @@ svg.led_error circle {
 .json-value   { color: navy; }
 .json-boolean { color: teal; }
 .json-string  { color: olive; }
+
+/* ---- led ---- */
+svg.led_data circle {
+    fill: rgb(0,192,0);
+}
+svg.led_error circle {
+    fill: rgb(192,0,0);
+} 
+  

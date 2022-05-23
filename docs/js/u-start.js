@@ -216,7 +216,7 @@ let db = { // a database with values values to capture an report
     date:   new dbY( { name: 'Date UTC',                            unit:'yyyy-mm-dd',         } ),
     time:   new dbY( { name: 'Time UTC',                            unit:'hh:mm:ss.sss',       } ),
     wno:    new dbY( { name: 'GPS week number',                     unit:'s',          prec:3,   descr:'weeks since 1980-01-06 modulo 1024' } ),
-    itow:   new dbY( { name: 'GPS time of week',                    unit:'s',          prec:3,   descr:'offset by leap soconds to UTC', } ),
+    itow:   new dbY( { name: 'GPS time of week',                    unit:'s',          prec:3,   descr:'offset by leap seconds to UTC', } ),
 	// 3D Position
     ecefX:  new dbY( { name: 'ECEF X coordinate',                   unit:'m',          prec:3, } ),
     ecefY:  new dbY( { name: 'ECEF Y coordinate',   		        unit:'m',          prec:3, } ),
