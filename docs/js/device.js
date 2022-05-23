@@ -217,7 +217,7 @@ function testNet() {
                     if (host != undefined) {
                         name = host;
                         open = '<a href="' + window.location.origin + '?ip=' + ip + '"><b>open</b></a>'
-                        config = '<a href="' + window.location.protocol + '//'+ ip + '">configure</a>'
+                        config = '<a target="_blank" href="' + window.location.protocol + '//'+ ip + '">configure</a>'
                     } 
                     tr.innerHTML = '<td>'+host+'</td><td>'+ip+'</td><td>' + open + '</td><td>' + config + '</td>'
                     th.parentNode.appendChild(tr);
@@ -258,11 +258,11 @@ var lutAtIdent = [
             if (data[1]) {
                 if (data[1].match(/(NINA|ODIN|ANNA)-/)) {
 					USTART.tableEntry('dev_tech', /*'\uE003 '+*/
-							'<a href="https://www.u-blox.com/en/short-range-radio-modules">Short Range Radio</a>', true);
+							'<a target="_blank" href="https://www.u-blox.com/en/short-range-radio-modules">Short Range Radio</a>', true);
                     deviceSendCommands(lutAtIdentSho);
                 } else if (data[1].match(/^(LISA|LEON|LARA|TOBY|SARA|LUCY|ALEX)-/)) {
                     USTART.tableEntry('dev_tech', /*'\uE002 '+*/
-							'<a href="https://www.u-blox.com/en/cellular-modules>Cellular</a>', true);
+							'<a target="_blank" href="https://www.u-blox.com/en/cellular-modules>Cellular</a>', true);
                     deviceSendCommands(lutAtIdentCel);
 				}
             }
@@ -443,10 +443,9 @@ function onmessageEval(evt) {
         const m = evt.data.match(/^Connected to (u-blox-hpg-[a-z0-9]{6})/)
         if ((m != undefined) && (m.length == 2)) {
             device.name = m[1];
-            USTART.tableEntry('dev_name', '<a href="http://'+device.ip+'">'+device.name+'</a>',true);
+            USTART.tableEntry('dev_name', '<a target="_blank" href="http://'+device.ip+'">'+device.name+'</a>',true);
         }
         Console.debug('event', 'AGENT', evt.data);
-        Console.update();
     }
 }
 

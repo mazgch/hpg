@@ -1142,7 +1142,7 @@ double X = m_pStorageX->GetValue();
         if (message.protocol === 'UBX') {
             if (message.name === 'MON-VER') {
 				USTART.tableEntry('dev_tech', /*'\uE003'+*/
-						'<a href="https://www.u-blox.com/en/positioning-chips-and-modules">Positioning</a>', true);
+						'<a target="_blank" href="https://www.u-blox.com/en/positioning-chips-and-modules">Positioning</a>', true);
                 infTextExtract(fields.swVer);
                 tableEntry('dev_hw', fields.hwVer);
                 if (fields.extVer) {
@@ -1290,7 +1290,7 @@ function tableEntry(entry, val, html) {
 						_entry('dev_img', image);
 					}
 					if (json.url && json.name && json.subtitle)
-						_entry('dev_prod', '<a href="'+json.url+'">'+json.name+'</a><br>'+json.subtitle);
+						_entry('dev_prod', '<a target="_blank" href="'+json.url+'">'+json.name+'</a><br>'+json.subtitle);
 					if (json.descr) {
 						let descr = json.descr.replace(/\&gt;/g, '>').replace(/\&lt;/g, '<');
 						_entry('dev_descr', descr);
