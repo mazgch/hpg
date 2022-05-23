@@ -254,6 +254,13 @@ let db = { // a database with values values to capture an report
     nDop:   new dbY( { name: 'Northing DOP',                                           prec:2, } ),
     eDop:   new dbY( { name: 'Easting DOP',                                            prec:2, } ),
     tDop:   new dbY( { name: 'Time DOP',                                               prec:2, } ),
+    // Portection Level
+    plPos1: new dbY( { name: 'Position Protection Level 1',         unit:'m',          prec:3, } ),
+    plPos2: new dbY( { name: 'Position Protection Level 2',         unit:'m',          prec:3, } ),
+    plPos3: new dbY( { name: 'Position Protection Level 3',         unit:'m',          prec:3, } ),
+  //plVel1: new dbY( { name: 'Velocity Protection Level 1',         unit:'m/s',          prec:3, } ),
+  //plVel2: new dbY( { name: 'Velocity Protection Level 2',         unit:'m/s',          prec:3, } ),
+  //plVel3: new dbY( { name: 'Velocity Protection Level 3',         unit:'m/s',          prec:3, } ),
     // status
 	status: new dbY( { name: 'NMEA valid status',                   map:mapNmeaStatus,		   } ),
     posMode:new dbY( { name: 'NMEA position mode',	                map:mapNmeaPosMode,	       } ),
@@ -1603,6 +1610,7 @@ function centerMap(lon, lat) {
 			track = new ol.Feature({ geometry: new ol.geom.LineString([]) });
 			let style = new ol.style.Style({ stroke: new ol.style.Stroke({width: 3, color: 'rgba(255,110,89,0.7)', lineCap:'round' }), });
             point = new ol.Feature(new ol.geom.Point(position));
+            //point = new ol.Feature(new ol.geom.(position));
             let svg = feather.icons.crosshair.toSvg({ color: 'white', 'stroke-width': 3 });
             let icon    = new ol.style.Icon({ color:'#ff6e59', opacity: 1, src: 'data:image/svg+xml;utf8,' + svg,
 											   anchor: [0.5, 0.5], anchorXUnits: 'fraction', anchorYUnits: 'fraction', });

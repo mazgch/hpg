@@ -93,7 +93,7 @@ function atRegExp(c, m) {
 
 function deviceInit(ip) {
     const match = document.cookie.match(/device=([^;]+)/);
-	const json = JSON.parse(((match !== undefined) && (match.length == 2)) ? match[1] : '{}');
+	const json = JSON.parse(((match != undefined) ? (match.length == 2) : false) ? match[1] : '{}');
     device.status = 'disconnected';
     if (ip !== undefined) { // from url argument
         device.name = 'unknown';
