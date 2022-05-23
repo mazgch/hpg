@@ -902,7 +902,9 @@ function dbPublish() {
         if (e.el) el = e.el.info ? e.el.info : e.el.row;
     }
     el = document.getElementById('tile_position');
-    if (el) el.removeAttribute('hidden');
+    if (el) {
+        el.removeAttribute('hidden');
+    }
     if (nmeaSvDb.freqs > 0) {
         el = document.getElementById('tile_satellite');
         if (el) el.removeAttribute('hidden');
@@ -1594,7 +1596,7 @@ const MAP_POINTS = 1000;
 function centerMap(lon, lat) {
     var el = document.getElementById('map');
     if (el && (ol !== undefined) && !isNaN(lon) && !isNaN(lat)) {
-		el.removeAttribute('hidden');
+        el.removeAttribute('hidden');
 		let position = ol.proj.transform([Number(lon), Number(lat)], 'EPSG:4326', 'EPSG:3857');
         position = ol.proj.fromLonLat([Number(lon), Number(lat)]);
         if (!map && el.clientWidth && el.clientHeight) {

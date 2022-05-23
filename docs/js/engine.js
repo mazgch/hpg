@@ -5,7 +5,6 @@
 // ------------------------------------------------------------------------------------
 const WAIT = -1;
 const NOTFOUND = 0;
-const MESSAGE = 'MESSAGE';
 const TYPE_INPUT = 'input'; 	// to device 
 const TYPE_OUTPUT = 'output'; 	// from device 
 const TYPE_PENDING = 'pending'; // from device 

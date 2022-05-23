@@ -94,22 +94,36 @@ function deviceInit(ip) {
     const match = document.cookie.match(/device=([^;]+)/);
 	const json = JSON.parse(((match != undefined) && (match.length == 2)) ? match[1] : '{}');
     device.status = 'disconnected';
-    device.ip = (ip) ? ip : json.ip ? json.ip : window.location.hostname;
+    if (ip) { // from url argument
+        device.name = 'unknown';
+        device.ip = json.ip;
+    } else if (ip) { // from cookie argument
+        device.name = json.name;
+        device.ip = json.ip;
+    } else {
+        device.name = 'unknown';
+        device.ip = window.location.hostname;
+    }
     device.ws = (window.location.protocol == 'https' ? 'wss://': 'ws://')  + device.ip + ':2101';
     USTART.statusLed('error');
+    USTART.tableEntry('dev_name', device.name);
     USTART.tableEntry('dev_ip', device.ip);
-    USTART.tableEntry('dev_socket', device.ws);
     if (window.WebSocket) {
         socketOpen(device.ws);
     }
+    deviceStatusUpdate();
 }
 
 function deviceStatusUpdate() {
-    USTART.tableEntry('dev_status', device.status, (device.socket) ? 'idle' : 
-                    (device.socket.readyState == WebSocket.CONNECTING) ? 'connecting' :
-                    (device.socket.readyState == WebSocket.OPEN) ? 'open' :
-                    (device.socket.readyState == WebSocket.CLOSING) ? 'closing' :
-                    (device.socket.readyState == WebSocket.CLOSED) ? 'closed' : '');
+    let status = 'closed';
+    if (device.socket !== undefined) {
+        status =    (device.socket.readyState == WebSocket.CONNECTING)  ? 'connecting' :
+                    (device.socket.readyState == WebSocket.OPEN)        ? 'open' :
+                    (device.socket.readyState == WebSocket.CLOSING)     ? 'closing' :
+                    (device.socket.readyState == WebSocket.CLOSED)      ? 'closed' : 'unknown'
+    }
+    USTART.tableEntry('dev_socket', device.ws  + '  -  ' + status + '');
+    USTART.tableEntry('dev_status', device.status);
 	// show hide the window
 	const ok = device.socket && (device.socket.readyState == WebSocket.OPEN);
 	let el = document.getElementById('tile_message');
@@ -122,6 +136,7 @@ function deviceStatusUpdate() {
     
 function deviceUninit() {
     socketClose();
+    deviceStatusUpdate();
 }
 
 function deviceIdentification() {
@@ -161,11 +176,12 @@ function testNet() {
     }
     let li = document.getElementById("scan-range")
     if (li && li.value) { 
-        let m = li.value.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.)(\d{1,3})(-(\d{1,3}))?$/)
+        let m = li.value.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.)(\d{1,3})\s*(-\s*(\d{1,3}))?$/)
         if ((m != undefined) && ((m.length == 3) || (m.length == 5))) {
             let ip = m[1]
-            let from = Number(m[2])
-            let to = (m.length == 5) ? Number(m[4]) : from
+            let from = Number(m[2]) & 0xFF
+            let to = (m.length == 5) ? Number(m[4]) & 0xFF : from
+            if (to <= from) to = from;
             for (let i = from; i < to; i ++) {
                 testIp(ip + i)
             }
@@ -337,7 +353,7 @@ var device = { name:'', ip:'', ws:'', status:'', ports_net:[], ports_hw:[] };
 function socketClose() {
 /*REMOVE*/ //console.log('socketClose');
     if (device.socket && (device.socket.readyState == WebSocket.OPEN)) {
-        device.status = 'closing';
+        //device.status = 'closing';
         device.socket.close();
     }
 }
@@ -346,7 +362,7 @@ function socketOpen(url) {
     socketClose();
     device.socket = new WebSocket(url);
     if (device.socket) {
-        device.status = 'opening';
+        //device.status = 'opening';
         device.socket.binaryType = "arraybuffer";
         device.socket.addEventListener('open', function(e) { onSocketConnect(e); } );
         device.socket.addEventListener('close', function(e) { onSocketDisconnect(e); } );
@@ -365,8 +381,8 @@ function onSocketConnect(e) {
     date.setFullYear(date.getFullYear()+10);
     const cookie = { ip:device.ip, ws:device.ws, name:device.name, };
     document.cookie = 'device=' + JSON.stringify(cookie) + '; expires=' + date.toGMTString() + '; path=/';
-    deviceStatusUpdate();
     USTART.statusLed(/*clear*/);
+    deviceStatusUpdate();
     deviceIdentification();                    
 }
 
@@ -374,27 +390,28 @@ function onSocketDisconnect(e) {
 /*REMOVE*/ //console.log('onSocketDisconnect');
     Console.debug('event', 'SOCKET', 'disconnected');
     device.status = 'disconnected';
-    deviceStatusUpdate();
     USTART.statusLed('error');
+    deviceStatusUpdate();
 }
 
 function socketSend(messages){
-    if (device.socket == undefined || (device.socket.readyState != WebSocket.OPEN)) throw new Error('no Socket');
-    Console.update(messages);
-    if (!Array.isArray(messages)) messages = [ messages ];
-    let len = 0;
-    for (let m = 0; m < messages.length; m ++) {
-        const message = messages[m];
-        USTART.updateStatus(message);
-        //  convert to binary
-        var data = new Uint8Array( message.data.length );
-        for ( var i = 0; i < data.length; ++i ) {
-            data[i] = message.data.charCodeAt(i);
+    if ((device.socket !== undefined) && (device.socket.readyState == WebSocket.OPEN)) {
+        Console.update(messages);
+        if (!Array.isArray(messages)) messages = [ messages ];
+        let len = 0;
+        for (let m = 0; m < messages.length; m ++) {
+            const message = messages[m];
+            USTART.updateStatus(message);
+            //  convert to binary
+            var data = new Uint8Array( message.data.length );
+            for ( var i = 0; i < data.length; ++i ) {
+                data[i] = message.data.charCodeAt(i);
+            }
+            device.socket.send(data.buffer);
+            len += message.data.length;
         }
-        device.socket.send(data.buffer);
-        len += message.data.length;
+        return len;
     }
-    return len;
 }
 // Protocol
 // ------------------------------------------------------------------------------------
