@@ -68,10 +68,10 @@
           </div>
         </div>
         <div class="section">
-          <table class="table">
+          <table class="table" style="table-layout:fixed">
             <tr>
-              <th style="width:30%;">Parameter</th>
-              <th style="width:70%;">Value</th>
+              <th style="width:40%;">Parameter</th>
+              <th style="width:60%;">Value</th>
             </tr>
             <tr hidden><td>Device Name</td>          <td class="dbvalue" id="dev_name"></td></tr>
             <tr>       <td>Device Status</td>        <td class="dbvalue" id="dev_status"></td></tr>
@@ -111,14 +111,12 @@
         <h2>Interface</h2>
         <p>In this section you to explore parameters of the device interface. Click on a row to reveal its statistics or a graph of an item.</p>
         <div class="section">
-          <table class="table">
+          <table class="table" style="table-layout:fixed">
             <tr id="dbInt">
-              <th style="width:30%;">Parameter</th>
-              <th style="width:15%;" class="right">Value</th>
-              <th style="width:15%;">Unit</th>
-              <th style="width:20%;">Comment</th>
-              <th style="width:20%;">&nbsp;</th>
-            </tr>
+              <th style="width:40%;">Parameter</th>
+              <th style="width:25%;" class="right">Value</th>
+              <th colspan=2 style="width:35%;">Unit</th>
+             </tr>
           </table>
           <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
             <div title="Communication activity"><i class="overlay_button" id="status_led" data-feather="circle"></i></div>
@@ -189,14 +187,12 @@ Pressing enter in this field will send any message.">*</span></label>
         <h2>Position Information</h2>
         <p>This section shows you the different parameters that are relevant to a positioning function. Click on a row in the table to reveal its statistics or a graph of an item.</p>
         <div hidden class="section framed" id="map" style="height:30em;"></div>
-        <div class="section"">
-          <table class="table">
+        <div class="section">
+          <table class="table" style="table-layout:fixed">
             <tr id="db">
-              <th style="width:30%;">Parameter</th>
-              <th style="width:15%;" class="right">Value</th>
-              <th style="width:15%;">Unit</th>
-              <th style="width:20%; ">Comment</th>
-              <th style="width:20%;">&nbsp;</th>
+              <th style="width:40%;">Parameter</th>
+              <th style="width:25%;" class="right">Value</th>
+              <th colspan=2 style="width:35%;">Unit</th>
             </tr>
           </table>
           <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">    

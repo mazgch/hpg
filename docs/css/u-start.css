@@ -186,7 +186,6 @@ input:focus, input:hover {
 	overflow: scroll;
 	white-space: nowrap;
 	overflow-anchor: none;
-    padding: 0.5em
 }
 canvas {
     user-select: none;
@@ -212,12 +211,6 @@ input {
     margin: 0;
     width: 100%;
 }
-tr {
-    border-bottom:1px solid #bebebe
-}
-tr:first-child {
-    border-top:1px solid #bebebe
-}
 tr:hover {
     background-color:rgba(0,0,0,0.071);
 }
@@ -227,10 +220,14 @@ td, th {
     vertical-align: middle;
     padding: 0px 5px 0px;
     height: 1.5em;
-    /*white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;*/
 }
+th {
+    border-top:1px solid #bebebe;
+}
+tr, th {
+    border-bottom:1px solid #bebebe;
+}
+
 td:first-child, th:first-child {
     padding-left:0
 }
@@ -299,9 +296,11 @@ td dt {
 .message.pending .messagehead,
 .message.output .messagehead {
     color: #4664b4;
+    padding-left: 0.5em
 }
 .message.input .messagehead {
     color: #a02846;
+    padding-left: 0.5em
 }
 .message.command .messagehead,
 .message.event .messagehead {
@@ -477,4 +476,3 @@ svg.led_data circle {
 svg.led_error circle {
     fill: rgb(192,0,0);
 } 
-  

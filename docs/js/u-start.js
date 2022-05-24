@@ -19,7 +19,7 @@ window.onload = function _onload() {
     }
 
 	feather.replace();
-   
+    
 	// evaluate the url arguments
     OPT = window.location.search.substring(1).split("&").reduce(_splitArgs, {});
     function _splitArgs(result, value) {
@@ -761,6 +761,8 @@ function dbOnPublish(el) {
             let tr = document.createElement('tr');
             let td = document.createElement('td');
             td.textContent = this.name;
+            if (this.descr) td.title = this.descr;
+            td.style.whiteSpace = 'nowrap';
             tr.appendChild(td);
             td = document.createElement('td');
             td.className = 'right';
@@ -769,12 +771,9 @@ function dbOnPublish(el) {
             this.el = { row: tr, value:td };
             tr.appendChild(td);
             td = document.createElement('td');
-            if (this.unit) td.textContent = this.unit;
-            tr.appendChild(td);
-            td = document.createElement('td');
             td.colSpan = 2;
-            if (this.descr) td.textContent = this.descr;
-            else if (this.map) this.el.comment = td;
+            if (this.unit) td.textContent = this.unit;
+            if (this.map) this.el.comment = td;
             tr.appendChild(td);
             tr.dbEntry = this;
             tr.removeAttribute('hidden');
@@ -806,19 +805,20 @@ function dbOnPublish(el) {
                 tr.addEventListener('click', _onDatabaseRowClick);
                 // the chart
                 let td = document.createElement('td');
-                td.colSpan = '4';
-                let div = _makeChart(e);
-                if (div) td.appendChild(div);
+                td.colSpan = 4;
+                let div = _makeChart(e, this.parentNode.width);
+                if (div) {
+                    td.appendChild(div);
+                }
                 tr.appendChild(td);
-                // the table
-                td = document.createElement('td');
+                /*td = document.createElement('td');
                 td.className = 'dbtable';
                 const stats = e.stats();
                 if (stats) {
                     td.appendChild(_makeTable(stats));
                     e.el.stats = td;
                 }
-                tr.appendChild(td);
+                tr.appendChild(td);*/
                 e.el.info = this.parentNode.insertBefore(tr, this.nextSibling);
             }
         }
@@ -827,26 +827,32 @@ function dbOnPublish(el) {
     function _makeTable(stats) {
         let dump = '';
         dump += '<tr style="border-top-width:0;"><td colspan="2" style="padding-top:1em;"><b>Statistics<b></td></tr>';
-        if (undefined !== stats.cur) dump += '<tr><td>Latest Value</td><td class="right">' + stats.cur + '</td></tr>';
+        if (undefined !== stats.min) dump += '<tr><td>Latest</td><td class="right">' + stats.cur + '</td></tr>';
         if (undefined !== stats.min) dump += '<tr><td>Minimum</td><td class="right">' + stats.min + '</td></tr>';
         if (undefined !== stats.max) dump += '<tr><td>Maximum</td><td class="right">' + stats.max + '</td></tr>';
         if (undefined !== stats.avg) dump += '<tr><td>Average</td><td class="right">' + stats.avg + '</td></tr>';
-        if (undefined !== stats.dev) dump += '<tr><td>Standard Deviation</td><td class="right">' + stats.dev + '</td></tr>';
+        if (undefined !== stats.dev) dump += '<tr><td title="Standard Deviation">Std. Dev.</td><td class="right">' + stats.dev + '</td></tr>';
         dump += '<tr><td>Count</td><td class="right">' + stats.cnt + '</td></tr>';
     //    if (stat.unit)   dump += '<tr><td>Unit</td><td class="right">'+stats.unit+'</td></tr>';
         dump += '<tr><td colspan="2" style="padding-top:1em;"><b>Source</b></td></tr>';
-        if (undefined !== stats.msg) dump += '<tr><td>Protocol Message</td><td class="right">' + stats.msg + '</td></tr>';
-        if (undefined != stats.time) dump += '<tr><td>Local Time</td><td class="right">' + stats.time + '</td></tr>';
+        if (undefined !== stats.msg) {
+            let m = stats.msg.match(/^(\w+)\s+(.*)/);
+            if (m != undefined && m.length == 3) {
+                dump += '<tr><td>Protocol</td><td class="right">' + m[1] + '</td></tr>';
+                dump += '<tr><td>Message</td><td class="right">' + m[2] + '</td></tr>';
+            }
+        }
+        if (undefined != stats.time) dump += '<tr><td>Time</td><td class="right">' + stats.time + '</td></tr>';
         if (undefined !== stats.age) {
-            const age = (stats.age > 1) ? stats.age + ' Epochs Ago' : (stats.age === 1) ? 'Last Epoch' : 'Just Now';
-            dump += '<tr><td>Last Updated</td><td class="right">' + age + '</td></tr>';
+            const age = (stats.age > 1) ? stats.age + '  s Ago' : (stats.age === 1) ? 'Last Epoch' : 'Just Now';
+            dump += '<tr><td>Updated</td><td class="right">' + age + '</td></tr>';
         }
         let table = document.createElement('table');
         table.innerHTML = dump;
         return table;
     }
     
-    function _makeChart(e) {
+    function _makeChart(e, width) {
         if (e.cat || (0<=e.prec)) {
             const col = COL_HERO;
             const bkg = "rgba(255, 110, 89, 0.5)";
@@ -871,22 +877,25 @@ function dbOnPublish(el) {
                     scales: { 
                         y: { 
                             ticks: { maxTicksLimit:7, maxRotation:0, autoSkipPadding:10, },
-                            title: { text: e.unit, display: true, }, 
+                            //title: { text: e.unit, display: true, }, 
                             type:((0<=e.prec)?'linear':'category'), 
                         },
                         x: { 
                             ticks: { maxTicksLimit:6, maxRotation:0, font:{ size:10 } },
-                            title: { text: 'Time', display: true, }
+                            //title: { text: 'Time', display: true, }
                         }, 
                     }, 
                 }
             };
             let canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
+            canvas.width = width;
+            canvas.height = (0<=e.prec) ? '230px' : '150px';
             e.chart = new Chart(ctx, spec);
             let div = document.createElement('div');
             div.className = 'dbchart';
             div.style.height = (0<=e.prec) ? '230px' : '150px';
+            div.style.width = width;
             div.appendChild(canvas);
             return div;
             function _toolTipTitle(context) {
@@ -895,7 +904,8 @@ function dbOnPublish(el) {
             function _toolTipText(context) {
                 let val = context.raw;
                 if (e.prec) val = val.toFixed(e.prec);
-                return 'Value: ' + val + (e.unit ? ' ' + e.unit : '') + '\nTime: ' + context.label;
+                return 'Value: ' + val + (e.unit ? ' ' + e.unit : '')  + 
+                                         ((e.map && e.map[val]) ? " " + e.map[val] : '') + '\nTime: ' + context.label;
             }
         }
     }
@@ -1768,6 +1778,8 @@ function statusLed(led) {
 		}
     }
 }
+
+
 
 // ------------------------------------------------------------------------------------
 return { updateStatus:updateStatus,
