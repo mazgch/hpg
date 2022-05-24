@@ -105,7 +105,7 @@ function deviceInit(ip) {
         device.name = 'unknown';
         device.ip = window.location.hostname;
     }
-    device.ws = (window.location.protocol == 'https' ? 'wss://': 'ws://')  + device.ip + ':2101';
+    device.ws = (window.location.protocol == 'https' ? 'wss://': 'ws://')  + device.ip + ':8080';
     USTART.statusLed('error');
     USTART.tableEntry('dev_name', device.name);
     USTART.tableEntry('dev_ip', device.ip);
@@ -197,7 +197,7 @@ function testNet() {
 
     function testIp(ip) {
         if ((scaning[ip] == undefined) || (scaning[ip] == 'found')) {
-            let ws = new WebSocket((window.location.protocol == 'https') ? 'wss://' : 'ws://' + ip + ':2101')
+            let ws = new WebSocket((window.location.protocol == 'https') ? 'wss://' : 'ws://' + ip + ':8080')
             if (ws != undefined) {
                 scaning[ip] = 0;
                 function _report(ip,host) {

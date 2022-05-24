@@ -5,7 +5,6 @@
 const CHART_POINTS   = 60;
 
 // make sure we have no CORS issue
-let CORS_PROXY = '';
 let MOD_DIR = '/';
 let OPT = {};
 // ------------------------------------------------------------------------------------
@@ -115,8 +114,6 @@ function httpGet(resolve, reject) {
 }
 
 const gnssLut = {
-    // get flags from https://github.com/lipis/flag-icon-css
-	// https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/3.2.1/flags/4x3/uz.svg
     GPS     : { flag:'us', ch:'G', sv:[1, 32], sbas:[33,64],
 				sig:[ ,'L1 C/A','L1 P(Y)','L1 M','L2 P(Y)','L2C-M','L2C-L','L5-I','L5-Q'] }, 
 	GLONASS : { flag:'ru', ch:'R', sv:[65,99], sbas:[33,64],
@@ -169,6 +166,18 @@ const gnssLut = {
                         147:'NSAS',   // NIGCOMSAT-1R         42.5 E    Active until Oct 2018
                         148:''    ,   // ALCOMSAT-1           24.8 W    Active until Jan 2019
                     }, },
+};
+const flagsEmojy = {
+    'us': '🇺🇸',
+    'ru': '🇷🇺', 
+    'eu': '🇪🇺',
+    'cn': '🇨🇳',
+    'in': '🇮🇳',
+    'jp': '🇯🇵,',
+    'ni': '🇳🇬',
+    'au': '🇦🇺',
+    'kr': '🇰🇷',
+    'un': '🏳️', // 🇺🇳
 };
 
 var nmeaSvUsed = [];
@@ -1272,7 +1281,7 @@ function tableEntry(entry, val, html) {
 				let el = document.getElementById('tile_script');
 				if (el) el.removeAttribute('hidden');
 			}
-		} else if (entry == 'dev_mod') {
+		} else if (entry == 'dev_mod' /* THIS CODE IS DISABLED */ && false) {
 			let query = val;
 			let p = val.indexOf('-');
 			let c = val.length;
@@ -1280,34 +1289,34 @@ function tableEntry(entry, val, html) {
 				query += '+' + val.slice(0, c);
 			}
 			let url = 'https://www.u-blox.com/en/uapp/productinfo/' + query;
-			if (!window.location.hostname.match(/u-blox.com$/)) {
-				if (CORS_PROXY !== undefined)
-					url = CORS_PROXY + url;
-			}
 			const Http = new XMLHttpRequest();
-			Http.onreadystatechange = function(e){
-				if(this.readyState === 4 && this.status === 200) {
-					let json = {}
-					let m = this.responseText.replace(/<([^>]+)>([^<]*)<\/([^>]+)>/g, function _replace(a,b,c) {
-						json[b] = c;
-					});
-					if (json.image) {
-						let a = json.image.split('|');
-						let image = a.map( function (i) { return '<img class="prod_img" src="'+i+'" />'; } ).join('');
-						_entry('dev_img', image);
-					}
-					if (json.url && json.name && json.subtitle)
-						_entry('dev_prod', '<a target="_blank" href="'+json.url+'">'+json.name+'</a><br>'+json.subtitle);
-					if (json.descr) {
-						let descr = json.descr.replace(/\&gt;/g, '>').replace(/\&lt;/g, '<');
-						_entry('dev_descr', descr);
-					}
-				}
-			};
-			Http.open('GET', url, true);
-            Http.send();
-		}
-	}
+            var rndNum = Math.round(Math.random() * 10000);
+            if ((Http.readyState == Http.DONE) && (Http.status == 200))
+            {
+                Http.onreadystatechange = function(e){
+                    if(this.readyState === Http.DONE && this.status === 200) {
+                        let json = {}
+                        let m = this.responseText.replace(/<([^>]+)>([^<]*)<\/([^>]+)>/g, function _replace(a,b,c) {
+                            json[b] = c;
+                        });
+                        if (json.image) {
+                            let a = json.image.split('|');
+                            let image = a.map( function (i) { return '<img class="prod_img" src="'+i+'" />'; } ).join('');
+                            _entry('dev_img', image);
+                        }
+                        if (json.url && json.name && json.subtitle)
+                            _entry('dev_prod', '<a target="_blank" href="'+json.url+'">'+json.name+'</a><br>'+json.subtitle);
+                        if (json.descr) {
+                            let descr = json.descr.replace(/\&gt;/g, '>').replace(/\&lt;/g, '<');
+                            _entry('dev_descr', descr);
+                        }
+                    }
+                };
+                Http.open('GET', url, true);
+                Http.send();
+            };
+        }
+    }
 	function _entry(e, v) {
 		if (table[e] === undefined) {
 			const el = document.getElementById(e);
@@ -1345,8 +1354,9 @@ function tableSvs(svdb) {
 				let svKeys = Object.keys(svdb[sys]);
 				svKeys.forEach( function _loopSv(svid) {
 					let sv = svdb[sys][svid];
-                    let icon =  (sv.used) ? feather.icons["x-square"] : feather.icons["square"];
-					let srcUsed = 'data:image/svg+xml;utf8,' + icon.toSvg();
+                    //let icon =  (sv.used) ? feather.icons["x-square"] : feather.icons["square"];
+                    //let srcUsed = 'data:image/svg+xml;utf8,' + icon.toSvg();
+					let iconUsed = sv.used ? '◾' : '◽'; // 🟩  🟥 🟢🔴⚪⭕◾◽
 					const txtUsed =  'Satellite ' + (sv.used ? '' :'is not ') + 'used in navigation solution';
 					let sig = Object.keys(sv.cno);
 					let cno = sig.map( function(freq) { 
@@ -1358,14 +1368,11 @@ function tableSvs(svdb) {
 			        const nmea = sv.nmea ? 'NMEA Satellite ID: ' + sv.nmea : '';
 					if (cnt < table.sv_list.childElementCount) {
 						let tr = table.sv_list.childNodes[cnt];
-						tr.childNodes[0].childNodes[0].className = 'flag-icon flag-icon-' + lut.flag;
-						tr.childNodes[0].childNodes[1].textContent = sys;
+						tr.childNodes[0] = flagsEmojy[lut.flag] + ' ' + sys;
 						tr.childNodes[1].textContent = svid;
 					    tr.childNodes[1].title       = nmea;
-                        if (tr.childNodes[2].childNodes[0].src !== srcUsed) {
-							tr.childNodes[2].childNodes[0].src = srcUsed;
-							tr.childNodes[2].childNodes[0].title = txtUsed;
-						}
+                        tr.childNodes[2].textContent = iconUsed;
+                        tr.childNodes[2].title = txtUsed;
                         tr.childNodes[3].textContent = cno;
 						tr.childNodes[4].textContent = sv.elv;
 						tr.childNodes[5].textContent = sv.az;
@@ -1373,23 +1380,17 @@ function tableSvs(svdb) {
 						let tr = document.createElement('tr');
 						tr.className = 'sv_row';
 						let td = document.createElement('td');
-						  let img = document.createElement('span');
-						  img.className = 'flag-icon flag-icon-' + lut.flag;
-						  td.appendChild(img);
-						  td.appendChild(document.createTextNode(sys));
+						  td.textContent = flagsEmojy[lut.flag] + ' ' + sys;
 						  tr.appendChild(td);
-						td = document.createElement('td');
+        				td = document.createElement('td');
 						  td.textContent = svid;
 						  td.style.textAlign = 'center';
 						  td.title = nmea;
 						  tr.appendChild(td);
 						td = document.createElement('td');
 						  td.style.textAlign = 'center';
-                          img = document.createElement('img');
-						  img.src = srcUsed;
-						  img.className = 'icon';
-						  img.title = txtUsed;
-						  td.appendChild(img);
+                          td.textContent = iconUsed;
+                          td.title = txtUsed;
 						  tr.appendChild(td); // SV
 						td = document.createElement('td');
 						  td.style.textAlign = 'center';
@@ -1670,7 +1671,7 @@ function centerMap(lon, lat) {
         }
     }
 }
-
+/*
 function drawInstruments() {
 	const el = document.getElementById('tile_instruments');
 	const h = 200;     
@@ -1689,7 +1690,7 @@ function drawInstruments() {
 		const v = 0.9 * r; 
 		const as = v * Math.sin(a);
 		const ac = v * Math.cos(a);
-		ctx.font = '10px ublox';
+		ctx.font = '10px';
 		ctx.textAlign = 'center';
 		ctx.textBaseline = "middle"; 
 		ctx.fillText("N", c.x - as, c.y - ac);
@@ -1700,6 +1701,7 @@ function drawInstruments() {
 	DrawRose(a, 			    r * 0.80, r * 0.20);
 	DrawRose(a + Math.PI / 4.0, r * 0.60, r * 0.20);
 	el.appendChild(canvas);
+    el.removeAttribute('hidden');
 	
 	function DrawRose(a, r1, r2)
 	{
@@ -1742,7 +1744,7 @@ function drawInstruments() {
 		ctx.fill();
 	}
 }
-
+*/
 var statLed = { } ;
 function statusLed(led) {
     if (statLed.el === undefined) {

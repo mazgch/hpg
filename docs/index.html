@@ -14,13 +14,14 @@
     <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.4.12/src-min-noconflict/ace.js"   type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/openlayers@4.6.5/dist/ol.js"                  type="text/javascript"></script>
     <link  href="https://cdn.jsdelivr.net/npm/openlayers@4.6.5/dist/ol.css"                 type="text/css" rel="stylesheet"/>
-    <link  href="https://cdn.jsdelivr.net/npm/flag-icon-css@4.1.7/css/flag-icons.min.css"   type="text/css" rel="stylesheet"/>
     <!-- This page specific -->
-<!--<script src="https://cdn.jsdelivr.net/gh/mazgch/hpg/js/console.min.js" type="text/javascript"></script>
-    <script src="https://cdn.jsdelivr.net/gh/mazgch/hpg/js/u-start.min.js" type="text/javascript"></script>
-    <script src="https://cdn.jsdelivr.net/gh/mazgch/hpg/js/device.min.js"  type="text/javascript"></script>
-    <script src="https://cdn.jsdelivr.net/gh/mazgch/hpg/js/engine.min.js"  type="text/javascript"></script>
-    <link  href="https://cdn.jsdelivr.net/gh/mazgch/hpg/css/u-start.css"   type="text/css" rel="stylesheet" media="all" />-->
+<!-- https://cdn.jsdelivr.net/combine/gh/mazgch/hpg/docs/js/console.min.js,gh/mazgch/hpg/docs/js/u-start.min.js,gh/mazgch/hpg/docs/js/device.min.js,gh/mazgch/hpg/docs/js/device.min.js,npm/feather-icons@4.29.0/dist/feather.min.js,npm/chart.js@3.7.1/dist/chart.min.js,npm/openlayers@4.6.5/dist/ol.js
+     https://cdn.jsdelivr.net/combine/gh/mazgch/hpg/docs/css/u-start.min.css
+    <script src="https://cdn.jsdelivr.net/gh/mazgch/hpg/docs/js/console.min.js" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mazgch/hpg/docs/js/u-start.min.js" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mazgch/hpg/docs/js/device.min.js"  type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mazgch/hpg/docs/js/engine.min.js"  type="text/javascript"></script>
+    <link  href="https://cdn.jsdelivr.net/gh/mazgch/hpg/docs/css/u-start.min.css"   type="text/css" rel="stylesheet" media="all" />-->
     <script src="js/console.js"   type="text/javascript"></script>
     <script src="js/u-start.js"   type="text/javascript"></script>
     <script src="js/device.js"    type="text/javascript"></script>
@@ -137,7 +138,7 @@ AT   to filter only AT messages
           <input id="console_filter" type="text" size="512" maxlength="512" class="preformated" />
         </div>
         <div class="section">
-          <div class="framed console" id="console_data" style="height:400px"></div>
+          <div class="framed console" id="console_data" style="height:30em;"></div>
           <div class="overlay_ctrl" style="top:0.5em;right:1.2em;" >
             <div id="console_logfile" title="Export as Unicode text file"><i class="overlay_button" data-feather="file-text"></i></div>
             <div id="console_ubxfile" title="Export as UBX binary file (u-center compatible)"><i class="overlay_button" data-feather="file"></i></div>
@@ -176,7 +177,7 @@ Pressing enter in this field will send any message.">*</span></label>
           <select id="console_template" class="form-item"></select>
         </div>
         <div class="section">
-          <div class="form-item editor" id="console_editor" style="height:500px;"></div>
+          <div class="form-item framed editor" id="console_editor" style="height:30em;"></div>
           <div class="overlay_ctrl" style="left:0.5em;bottom:0.5em;">
             <div id="console_execute" title="Execute"><i class="overlay_button" data-feather="play-circle"></i></div>
             <div hidden id="console_abort" title="Abort execution"><i class="overlay_button" data-feather="stop-circle"></i></div>
@@ -187,7 +188,7 @@ Pressing enter in this field will send any message.">*</span></label>
       <div hidden id="tile_position">
         <h2>Position Information</h2>
         <p>This section shows you the different parameters that are relevant to a positioning function. Click on a row in the table to reveal its statistics or a graph of an item.</p>
-        <div hidden class="section framed" id="map" style="height:400px"></div>
+        <div hidden class="section framed" id="map" style="height:30em;"></div>
         <div class="section"">
           <table class="table">
             <tr id="db">
@@ -209,11 +210,11 @@ Pressing enter in this field will send any message.">*</span></label>
       <div hidden id="tile_satellite">
         <h2>Satellite Information</h2>
         <p>Many positioning devices such as GPS/GNSS receivers use satellites to determine location of the antenna of the device. In this section you can explore the status of the different signals received and perform a restart of the positioning function. In case your device does not receive any signals make sure you have the antenna connected and placed outdoors in a location with good visibility to the sky.</p>
-        <div class="section framed"">
-          <canvas id="svs2" style="height:250px;"></canvas>
+        <div class="section framed">
+          <canvas id="svs2" style="height:30em;max-height:30em"></canvas>
         </div>
-        <div class="section framed"">
-          <canvas id="svs" style="height:400px;padding-left:7px;"></canvas>
+        <div class="section framed">
+          <canvas id="svs" style="height:30em;max-height:30em;padding-left:7px;"></canvas>
           <div class="overlay_ctrl" style="top:0.5em;left:0.5em;">
             <div onclick="Device.action('hotstart');"  title="Hot start" ><i class="overlay_button" style="fill:#a02846;" data-feather="thermometer"></i></div>
             <div onclick="Device.action('warmstart');" title="Warm start"><i class="overlay_button" style="fill:#ffbe28;" data-feather="thermometer"></i></div>

@@ -225,7 +225,11 @@ td, th {
     border: none;
     text-align: left;
     vertical-align: middle;
-    padding: 2px 5px 1px ;
+    padding: 0px 5px 0px;
+    height: 1.5em;
+    /*white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;*/
 }
 td:first-child, th:first-child {
     padding-left:0
