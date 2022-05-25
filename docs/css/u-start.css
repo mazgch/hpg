@@ -476,3 +476,13 @@ svg.led_data circle {
 svg.led_error circle {
     fill: rgb(192,0,0);
 } 
+
+/* ---- mazgch logo ---- */
+#mazgch_logo #rs {
+    animation: rotation 30s infinite linear;
+    transform-origin: center;
+}
+@keyframes rotation {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}

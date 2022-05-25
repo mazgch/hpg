@@ -6,22 +6,18 @@
     <meta name="MobileOptimized" content="width" />
     <meta name="HandheldFriendly" content="true" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>mazg.ch - HPG Solution Monitor</title>
+    <title>mazg.ch - HPG Monitor</title>
     <link rel="icon" href="img/favicon.svg">
-    <!-- External libraries -->
+    <!-- All js & css minified -->
+<!-- https://cdn.jsdelivr.net/combine/gh/mazgch/hpg/docs/js/console.min.js,gh/mazgch/hpg/docs/js/u-start.min.js,gh/mazgch/hpg/docs/js/device.min.js,gh/mazgch/hpg/docs/js/device.min.js,npm/feather-icons@4.29.0/dist/feather.min.js,npm/chart.js@3.7.1/dist/chart.min.js,npm/openlayers@4.6.5/dist/ol.js,npm/ace-builds@1.4.12/src-min-noconflict/ace.js
+     https://cdn.jsdelivr.net/combine/gh/mazgch/hpg/docs/css/u-start.min.css,/npm/openlayers@4.6.5/dist/ol.css -->
+    <!-- Third party js & css -->
     <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.29.0/dist/feather.min.js"     type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"             type="text/javascript"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.4.12/src-min-noconflict/ace.js"   type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.4.12/src-min-noconflict/ace.js"  type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/openlayers@4.6.5/dist/ol.js"                  type="text/javascript"></script>
     <link  href="https://cdn.jsdelivr.net/npm/openlayers@4.6.5/dist/ol.css"                 type="text/css" rel="stylesheet"/>
-    <!-- This page specific -->
-<!-- https://cdn.jsdelivr.net/combine/gh/mazgch/hpg/docs/js/console.min.js,gh/mazgch/hpg/docs/js/u-start.min.js,gh/mazgch/hpg/docs/js/device.min.js,gh/mazgch/hpg/docs/js/device.min.js,npm/feather-icons@4.29.0/dist/feather.min.js,npm/chart.js@3.7.1/dist/chart.min.js,npm/openlayers@4.6.5/dist/ol.js
-     https://cdn.jsdelivr.net/combine/gh/mazgch/hpg/docs/css/u-start.min.css
-    <script src="https://cdn.jsdelivr.net/gh/mazgch/hpg/docs/js/console.min.js" type="text/javascript"></script>
-    <script src="https://cdn.jsdelivr.net/gh/mazgch/hpg/docs/js/u-start.min.js" type="text/javascript"></script>
-    <script src="https://cdn.jsdelivr.net/gh/mazgch/hpg/docs/js/device.min.js"  type="text/javascript"></script>
-    <script src="https://cdn.jsdelivr.net/gh/mazgch/hpg/docs/js/engine.min.js"  type="text/javascript"></script>
-    <link  href="https://cdn.jsdelivr.net/gh/mazgch/hpg/docs/css/u-start.min.css"   type="text/css" rel="stylesheet" media="all" />-->
+    <!-- My own js & css -->
     <script src="js/console.js"   type="text/javascript"></script>
     <script src="js/u-start.js"   type="text/javascript"></script>
     <script src="js/device.js"    type="text/javascript"></script>
@@ -31,13 +27,36 @@
   <body>
     <div id="crash-message"></div>
     <div class="page">
-      <div style="padding-top:1em;" class="section">
-        <img src="img/favicon.svg" alt="mazg.ch" title="mazg.ch logo" style="vertical-align:middle; display:inline; height:3em">
-        <h1 style="vertical-align:middle; display:inline">mazg.ch - HPG Center</h1>
+      <div style="margin-top: 1em; padding-top:1em;" class="section">
+        <svg style="vertical-align:middle; display:inline;" id="mazgch_logo" width="3em" height="3em" viewBox="0 0 600 600" stroke-linecap="round" stroke-width="20" fill="none" stroke="null" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+              <g id="sv">
+                  <path id="sb" stroke="#eb0000" d="m50,300c0,-138.12156 111.87845,-250 250,-250"/>
+                  <circle id="sv" fill="#eb0000" cx="300" cy="50" r="25"/>
+              </g>
+          </defs>
+          <title>mazgch</title>
+          <circle id="rb" fill="#eb0000" cx="300" cy="300" r="200" />
+          <g id="rs">
+              <use id="r1" x="0" y="0" href="#sv" transform="rotate(45 300 300)"/>
+              <use id="r2" x="0" y="0" href="#sv" transform="rotate(165 300 300)"/>
+              <use id="r3" x="0" y="0" href="#sv" transform="rotate(285 300 300)"/>
+          </g>
+          <g id="w">
+              <circle id="wb" fill="#fff" cx="230" cy="370" r="50" />
+              <g id="ws" stroke="#fff" >
+                  <path id="w1" d="m230,280c50,0 90,40 90,90" />
+                  <path id="w2" d="m230,230c77.5,0 140,62.5 140,140" />
+                  <path id="w3" d="m230,180c105,0 190,85.0 190,190" />
+              </g>
+          </g>
+        </svg>
+        <h1 style="vertical-align:middle; display:inline">mazg.ch - HPG Monitor</h1>
         <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
           <div onclick="window.open('https://twitter.com/mazgch/','_blank').focus();"                  title="Twitter @mazgch"><i class="overlay_button" data-feather="twitter"></i></div>
           <div onclick="window.open('https://www.linkedin.com/in/michael-ammann/','_blank').focus();"  title="LinkedIn"><i class="overlay_button" data-feather="linkedin"></i></div>
           <div onclick="window.open('https://github.com/mazgch/','_blank').focus();"                   title="Github"><i class="overlay_button" data-feather="github"></i></div>
+      <!--<div onclick="window.open('https://www.youtube.com/channel/UCV1z0WOR0mUQBgaoGeRahWg','_blank').focus();" title="Youtube"><i class="overlay_button" data-feather="youtube"></i></div>-->
         </div>
       </div>
       <div id="tile_device">

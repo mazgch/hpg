@@ -1619,11 +1619,16 @@ function centerMap(lon, lat) {
         position = ol.proj.fromLonLat([Number(lon), Number(lat)]);
         if (!map && el.clientWidth && el.clientHeight) {
 			track = new ol.Feature({ geometry: new ol.geom.LineString([]) });
-			let style = new ol.style.Style({ stroke: new ol.style.Stroke({width: 3, color: 'rgba(255,110,89,0.7)', lineCap:'round' }), });
+			let style = new ol.style.Style({ 
+                stroke: new ol.style.Stroke({width: 1, color: 'rgba(255,110,89,1)', lineCap:'round' }), 
+                image: new ol.style.CircleStyle({
+                    radius: 2, fill: new Fill({ color: 'rgba(255,110,89,0.5)', }),
+                    stroke: new Stroke({ width: 1, color: 'rgba(255,110,89,1)', }),
+                })
+            });
             point = new ol.Feature(new ol.geom.Point(position));
-            //point = new ol.Feature(new ol.geom.(position));
-            let svg = feather.icons.crosshair.toSvg({ color: 'white', 'stroke-width': 3 });
-            let icon    = new ol.style.Icon({ color:'#ff6e59', opacity: 1, src: 'data:image/svg+xml;utf8,' + svg,
+            let svg = feather.icons.crosshair.toSvg({ color: 'white', 'stroke-width': 3, width: 96, height: 96, });
+            let icon    = new ol.style.Icon({ color:'#ff6e59', scale: 0.25, opacity: 1, src: 'data:image/svg+xml;utf8,' + svg,
 											   anchor: [0.5, 0.5], anchorXUnits: 'fraction', anchorYUnits: 'fraction', });
             point.setStyle( new ol.style.Style( { image: icon } ) );
 			user  = new ol.Feature(null);
@@ -1667,17 +1672,18 @@ function centerMap(lon, lat) {
 			}*/
         }
         else if (map) {
-            const extent = map.getView().calculateExtent(map.getSize());;
+            /*const extent = map.getView().calculateExtent(map.getSize());
             if (!(extent && extent[0]<=position[0] && extent[2]>=position[0] &&
                             extent[1]<=position[1] && extent[3]>=position[1])) {
                map.getView().setCenter(position);
-			}
-			const geo = track.getGeometry();
+			}*/
+            const geo = track.getGeometry();
 			let coords = geo.getCoordinates(); // get coordinate array
 			coords.unshift(position);
 			if (coords.length > MAP_POINTS) coords.length = MAP_POINTS;
 			geo.setCoordinates(coords);
             point.getGeometry().setCoordinates(position);
+            map.getView().fit(point.getGeometry(), { constrainOnlyCenter:true, padding:[50, 50, 50, 50], } );
         }
     }
 }

@@ -17,7 +17,6 @@ function action(task) {
         coldstart: function _coldstart() { sendUbx('CFG','RST','\xFF\xFF\x02\x00'); },
         list:      function _list()      { socketCommand('list'); },
         discover:  deviceDiscovery,
-        settings:  deviceConfigPortal,
         identify:  deviceIdentification,
     };
     var t = (typeof task !== 'string') ? task : task.toLowerCase();
@@ -93,7 +92,7 @@ function atRegExp(c, m) {
 
 function deviceInit(ip) {
     const match = document.cookie.match(/device=([^;]+)/);
-	const json = JSON.parse(((match != undefined) ? (match.length == 2) : false) ? match[1] : '{}');
+	const json = JSON.parse(((match !== undefined) && (match.length == 2)) ? match[1] : '{}');
     device.status = 'disconnected';
     if (ip !== undefined) { // from url argument
         device.name = 'unknown';
@@ -105,7 +104,7 @@ function deviceInit(ip) {
         device.name = 'unknown';
         device.ip = window.location.hostname;
     }
-    device.ws = (window.location.protocol == 'https' ? 'wss://': 'ws://')  + device.ip + ':8080';
+    device.ws = (window.location.protocol == 'https' ? 'wss://': 'ws://')  + device.ip + ':2101';
     USTART.statusLed('error');
     USTART.tableEntry('dev_name', device.name);
     USTART.tableEntry('dev_ip', device.ip);
@@ -145,12 +144,6 @@ function deviceIdentification() {
         function _onSuccess(data) { deviceSendCommands(lutAtIdent) }, // ONLY UBX for now
         function _onError(error)  { sendUbx('mon','ver') } // a GPS ? parsed in
     );
-}
-
-function deviceConfigPortal() {
-    if (device.ip) {
-        window.open('http://' + device.ip,'_blank').focus();
-    }
 }
 
 function deviceDiscovery() {
@@ -197,7 +190,7 @@ function testNet() {
 
     function testIp(ip) {
         if ((scaning[ip] == undefined) || (scaning[ip] == 'found')) {
-            let ws = new WebSocket((window.location.protocol == 'https') ? 'wss://' : 'ws://' + ip + ':8080')
+            let ws = new WebSocket((window.location.protocol == 'https') ? 'wss://' : 'ws://' + ip + ':2101')
             if (ws != undefined) {
                 scaning[ip] = 0;
                 function _report(ip,host) {
@@ -217,7 +210,7 @@ function testNet() {
                     if (host != undefined) {
                         name = host;
                         open = '<a href="' + window.location.origin + '?ip=' + ip + '"><b>open</b></a>'
-                        config = '<a target="_blank" href="' + window.location.protocol + '//'+ ip + '">configure</a>'
+                        config = '<a href="' + window.location.protocol + '//'+ ip + '">configure</a>'
                     } 
                     tr.innerHTML = '<td>'+host+'</td><td>'+ip+'</td><td>' + open + '</td><td>' + config + '</td>'
                     th.parentNode.appendChild(tr);
@@ -258,11 +251,11 @@ var lutAtIdent = [
             if (data[1]) {
                 if (data[1].match(/(NINA|ODIN|ANNA)-/)) {
 					USTART.tableEntry('dev_tech', /*'\uE003 '+*/
-							'<a target="_blank" href="https://www.u-blox.com/en/short-range-radio-modules">Short Range Radio</a>', true);
+							'<a href="https://www.u-blox.com/en/short-range-radio-modules">Short Range Radio</a>', true);
                     deviceSendCommands(lutAtIdentSho);
                 } else if (data[1].match(/^(LISA|LEON|LARA|TOBY|SARA|LUCY|ALEX)-/)) {
                     USTART.tableEntry('dev_tech', /*'\uE002 '+*/
-							'<a target="_blank" href="https://www.u-blox.com/en/cellular-modules>Cellular</a>', true);
+							'<a href="https://www.u-blox.com/en/cellular-modules>Cellular</a>', true);
                     deviceSendCommands(lutAtIdentCel);
 				}
             }
@@ -443,9 +436,10 @@ function onmessageEval(evt) {
         const m = evt.data.match(/^Connected to (u-blox-hpg-[a-z0-9]{6})/)
         if ((m != undefined) && (m.length == 2)) {
             device.name = m[1];
-            USTART.tableEntry('dev_name', '<a target="_blank" href="http://'+device.ip+'">'+device.name+'</a>',true);
+            USTART.tableEntry('dev_name', '<a href="http://'+device.ip+'">'+device.name+'</a>',true);
         }
         Console.debug('event', 'AGENT', evt.data);
+        Console.update();
     }
 }
 
