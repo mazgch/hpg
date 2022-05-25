@@ -876,9 +876,10 @@ function dbOnPublish(el) {
                     plugins: { tooltip: { callbacks: { title: _toolTipTitle, afterLabel: _toolTipText }, }, },
                     scales: { 
                         y: { 
-                            ticks: { maxTicksLimit:7, maxRotation:0, autoSkipPadding:10, },
+                            ticks: { maxTicksLimit:(e.cat ? e.cat.length : 7),  autoSkip:!e.cat, maxRotation:0, autoSkipPadding:10, },
                             //title: { text: e.unit, display: true, }, 
-                            type:((0<=e.prec)?'linear':'category'), 
+                            type:((0<=e.prec)?'linear':'category'),
+                            stepSize:((e.cat) ? 1 : undefined), 
                         },
                         x: { 
                             ticks: { maxTicksLimit:6, maxRotation:0, font:{ size:10 } },
@@ -1618,25 +1619,24 @@ function centerMap(lon, lat) {
 		let position = ol.proj.transform([Number(lon), Number(lat)], 'EPSG:4326', 'EPSG:3857');
         position = ol.proj.fromLonLat([Number(lon), Number(lat)]);
         if (!map && el.clientWidth && el.clientHeight) {
-			track = new ol.Feature({ geometry: new ol.geom.LineString([]) });
-			let style = new ol.style.Style({ 
-                stroke: new ol.style.Stroke({width: 1, color: 'rgba(255,110,89,1)', lineCap:'round' }), 
-                image: new ol.style.CircleStyle({
-                    radius: 2, fill: new Fill({ color: 'rgba(255,110,89,0.5)', }),
-                    stroke: new Stroke({ width: 1, color: 'rgba(255,110,89,1)', }),
-                })
-            });
+			// track
+            track = new ol.Feature({ geometry: new ol.geom.LineString([]) });
+            let stroke = new ol.style.Stroke({width: 3, color: 'rgba(255,110,89,0.8)', lineCap:'round' }) 
+            track.setStyle( new ol.style.Style( { stroke: stroke } ) );
+			// point
             point = new ol.Feature(new ol.geom.Point(position));
             let svg = feather.icons.crosshair.toSvg({ color: 'white', 'stroke-width': 3, width: 96, height: 96, });
             let icon    = new ol.style.Icon({ color:'#ff6e59', scale: 0.25, opacity: 1, src: 'data:image/svg+xml;utf8,' + svg,
 											   anchor: [0.5, 0.5], anchorXUnits: 'fraction', anchorYUnits: 'fraction', });
             point.setStyle( new ol.style.Style( { image: icon } ) );
-			user  = new ol.Feature(null);
+			// user
+            user  = new ol.Feature(null);
             let iconUsr = new ol.style.Icon({ color:'#4664b4', opacity: 1, src: 'data:image/svg+xml;utf8,' + svg,
 											   anchor: [0.5, 0.5], anchorXUnits: 'fraction', anchorYUnits: 'fraction', });
             user.setStyle( new ol.style.Style( { image: iconUsr } ) );
+            // put things together 
 			let tile = new ol.layer.Tile({ source: new ol.source.OSM() });
-            let vect = new ol.layer.Vector({ source: new ol.source.Vector({ features: [user, point, track] }), style: style });
+            let vect = new ol.layer.Vector({ source: new ol.source.Vector({ features: [user, point, track] }) });
             let intr = ol.interaction.defaults({ doubleClickZoom: true, dragAndDrop: true, dragPan: true, keyboardPan: true,
                                                  keyboardZoom: true, mouseWheelZoom: false, pointer: true, select: true });
             let ctrl = ol.control.defaults({ attribution: false, zoom: true, });
@@ -1672,18 +1672,17 @@ function centerMap(lon, lat) {
 			}*/
         }
         else if (map) {
-            /*const extent = map.getView().calculateExtent(map.getSize());
+            const extent = map.getView().calculateExtent(map.getSize());
             if (!(extent && extent[0]<=position[0] && extent[2]>=position[0] &&
                             extent[1]<=position[1] && extent[3]>=position[1])) {
                map.getView().setCenter(position);
-			}*/
+			}
             const geo = track.getGeometry();
 			let coords = geo.getCoordinates(); // get coordinate array
 			coords.unshift(position);
 			if (coords.length > MAP_POINTS) coords.length = MAP_POINTS;
 			geo.setCoordinates(coords);
             point.getGeometry().setCoordinates(position);
-            map.getView().fit(point.getGeometry(), { constrainOnlyCenter:true, padding:[50, 50, 50, 50], } );
         }
     }
 }
