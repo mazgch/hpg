@@ -3,4 +3,4 @@
 This solution consist of three parts 
 1. [**HPG Hardware**](./hardware)
 2. [**HPG Software**](./software)
-3. [**HPG Monitor** Website](http://hpg.mazg.ch)
+3. [**HPG Monitor**](http://hpg.mazg.ch)
