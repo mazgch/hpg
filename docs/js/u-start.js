@@ -1373,7 +1373,7 @@ function tableSvs(svdb) {
 					let sv = svdb[sys][svid];
                     //let icon =  (sv.used) ? feather.icons["x-square"] : feather.icons["square"];
                     //let srcUsed = 'data:image/svg+xml;utf8,' + icon.toSvg();
-					let iconUsed = sv.used ? '◾' : '◽'; // 🟩  🟥 🟢🔴⚪⭕◾◽
+					let iconUsed = sv.used ? '◾' : '◽'; // 🟩🟥🟢🔴⚪⭕◾◽
 					const txtUsed =  'Satellite ' + (sv.used ? '' :'is not ') + 'used in navigation solution';
                     const txtSys = flagsEmojy[lut.flag] + ' ' + sys;
 					let sig = Object.keys(sv.cno);

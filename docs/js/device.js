@@ -200,6 +200,10 @@ function testNet() {
             let ws = new WebSocket((window.location.protocol == 'https') ? 'wss://' : 'ws://' + ip + ':8080')
             if (ws != undefined) {
                 scaning[ip] = 0;
+                ws.addEventListener('open',_onOpen)
+                ws.addEventListener('error',_onDone)
+                ws.addEventListener('close',_onDone)
+                ws.addEventListener('message',_onMessage)
                 function _report(ip,host) {
                     let tr = document.getElementById('scan-'+ip)
                     let th = document.getElementById('scan-results')
@@ -241,10 +245,6 @@ function testNet() {
                         }
                     }
                 }
-                ws.addEventListener('open',_onOpen)
-                ws.addEventListener('error',_onDone)
-                ws.addEventListener('close',_onDone)
-                ws.addEventListener('message',_onMessage)
             }
         }
     }
@@ -364,6 +364,7 @@ function socketClose() {
         device.socket.close();
     }
 }
+
 function socketOpen(url) {
 /*REMOVE*/ //console.log('socketOpen '+url);
     socketClose();
@@ -375,6 +376,7 @@ function socketOpen(url) {
         device.socket.addEventListener('close', function(e) { onSocketDisconnect(e); } );
         //device.socket.addEventListener('message', function(e) { onSocketMessage(e); } );
         device.socket.addEventListener('message', function(e) { onmessageEval(e); } );
+        device.socket.pin
     }
 }
 

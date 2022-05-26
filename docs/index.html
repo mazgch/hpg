@@ -67,13 +67,13 @@
         <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
           <div class="overlay_button" onclick="window.open('https://twitter.com/mazgch/','_blank').focus();"                  title="Twitter @mazgch"><i data-feather="twitter"></i></div>
           <div class="overlay_button" onclick="window.open('https://www.linkedin.com/in/michael-ammann/','_blank').focus();"  title="LinkedIn"><i data-feather="linkedin"></i></div>
-          <div class="overlay_button" onclick="window.open('https://github.com/mazgch/','_blank').focus();"                   title="Github"><i data-feather="github"></i></div>
+          <div class="overlay_button" onclick="window.open('https://github.com/mazgch/hpg','_blank').focus();"                title="Github Project Documentation"><i data-feather="github"></i></div>
       <!--<div class="overlay_button" onclick="window.open('https://www.youtube.com/channel/UCV1z0WOR0mUQBgaoGeRahWg','_blank').focus();" title="Youtube"><i data-feather="youtube"></i></div>-->
         </div>
       </div>
       <div id="tile_device">
         <h2>Device</h2>
-        <p>This section provides useful information about the device and its software. If you seek advice, contact our support community in the <a target="_blank" href="https://portal.u-blox.com">u-blox portal</a>. It will be beneficial for the experts, if you share version information found in this section along with a detailed description of your question.</p>
+        <p>This section provides useful information about the device and its software.</p>
         <div hidden id="discover" class="modal">
           <div class="page">
             <div class="modal-content">
@@ -131,7 +131,6 @@
             <tr hidden><td>Ethernet MAC Address</td> <td class="dbvalue" id="dev_mac_eth"></td></tr>
           </table>
           <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
-            <div class="overlay_button" onclick="window.open('https://github.com/mazgch/hpg','_blank').focus();"  title="Documentation"><i data-feather="book"></i></div>
             <div class="overlay_button" onclick="Device.action('discover');"  title="Discover devices in your local network"><i data-feather="search"></i></div>
             <div class="overlay_button" onclick="Device.action('settings');"  title="Device Configuration Portal"><i data-feather="settings"></i></div>
             <div class="overlay_button" onclick="Device.action('identify');"  title="Identify device and get version information"><i data-feather="info"></i></div>
@@ -158,7 +157,7 @@
 
       <div hidden id="tile_message">
         <h2>Messages &amp; Protocols</h2>
-        <p>This application communicates with the device using messages. You can explore the individual messages and protocols that are received from or sent to the device. Click on a message to reveal the details or binary data. The filter box allows you to quickly search the most recent messages. To send a message to a device, simply start typing the message and press enter. You can also export the data as files that can be easily shared with experts in the <a target="_blank" href="https://portal.u-blox.com">u-blox portal</a> or for further analysis with our offline <a target="_blank" href="https://www.u-blox.com/en/evk-search?product_class=Evaluation%2520software">support tools</a>.</p>
+        <p>This application communicates with the device using messages. You can explore the individual messages and protocols that are received from or sent to the device. Click on a message to reveal the details or binary data. The filter box allows you to quickly search the most recent messages. To send a message to a device, simply start typing the message and press enter. You can also export the data as files that can be easily shared with experts in the <a target="_blank" href="https://portal.u-blox.com">u-blox support portal</a> or analysed with <a target="_blank" href="https://www.u-blox.com/en/evk-search?product_class=Evaluation%2520software">u-blox evaluation tools</a>.</p>
         <div class="section textfield">
           <label for="console_filter">Filter messages<span class="form-required" 
       title="Examples:
