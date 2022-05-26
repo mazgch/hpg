@@ -1,1 +1,1 @@
-# HPG Solution 
+# mazg.ch HPG Solution 
