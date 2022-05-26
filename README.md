@@ -1,4 +1,4 @@
-# mazg.ch - HPG Solution
+# ![docs/img/favicon.svg](mazg.ch)  mazg.ch - HPG Solution
 
 This solution consist of three parts 
 1. Hardware
