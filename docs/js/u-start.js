@@ -771,7 +771,6 @@ function dbOnPublish(el) {
             this.el = { row: tr, value:td };
             tr.appendChild(td);
             td = document.createElement('td');
-            td.colSpan = 2;
             if (this.unit) td.textContent = this.unit;
             if (this.map) this.el.comment = td;
             tr.appendChild(td);
@@ -784,7 +783,7 @@ function dbOnPublish(el) {
         if (this.el.comment) this.el.comment.textContent = this.comment();
         if (this.el.stats) { // we have a details view open
             let el = _makeTable(this.stats());
-            if (el) this.el.stats.replaceChild(el, this.el.stats.firstChild);
+            if (el) this.el.stats.innerHTML = el.innerHTML;
         }
         if (this.chart) this.chart.update(0);
     }
@@ -804,22 +803,28 @@ function dbOnPublish(el) {
                 tr.className = 'dbrow';
                 tr.addEventListener('click', _onDatabaseRowClick);
                 // the chart
-                let td = document.createElement('td');
-                td.colSpan = 4;
+                let td2 = document.createElement('td');
+                td2.colSpan = 2;
                 let div = _makeChart(e, this.parentNode.width);
                 if (div) {
-                    td.appendChild(div);
+                    td2.appendChild(div);
                 }
-                tr.appendChild(td);
-                /*td = document.createElement('td');
-                td.className = 'dbtable';
+                tr.appendChild(td2);
+                // the stats
+                let td = document.createElement('td');
+                td.colSpan = 1;
+                table = document.createElement('table');
                 const stats = e.stats();
                 if (stats) {
-                    td.appendChild(_makeTable(stats));
-                    e.el.stats = td;
+                    table = _makeTable(stats);
+                    if (table) {
+                        e.el.stats = table;
+                        td.appendChild(table);
+                    }
                 }
-                tr.appendChild(td);*/
-                e.el.info = this.parentNode.insertBefore(tr, this.nextSibling);
+                tr.appendChild(td);
+                // innner
+                 e.el.info = this.parentNode.insertBefore(tr, this.nextSibling);
             }
         }
     }
@@ -827,7 +832,7 @@ function dbOnPublish(el) {
     function _makeTable(stats) {
         let dump = '';
         dump += '<tr style="border-top-width:0;"><td colspan="2" style="padding-top:1em;"><b>Statistics<b></td></tr>';
-        if (undefined !== stats.min) dump += '<tr><td>Latest</td><td class="right">' + stats.cur + '</td></tr>';
+        if (undefined !== stats.cur) dump += '<tr><td>Latest</td><td class="right">' + stats.cur + '</td></tr>';
         if (undefined !== stats.min) dump += '<tr><td>Minimum</td><td class="right">' + stats.min + '</td></tr>';
         if (undefined !== stats.max) dump += '<tr><td>Maximum</td><td class="right">' + stats.max + '</td></tr>';
         if (undefined !== stats.avg) dump += '<tr><td>Average</td><td class="right">' + stats.avg + '</td></tr>';
@@ -848,6 +853,7 @@ function dbOnPublish(el) {
             dump += '<tr><td>Updated</td><td class="right">' + age + '</td></tr>';
         }
         let table = document.createElement('table');
+        table.className = "dbtable";
         table.innerHTML = dump;
         return table;
     }
@@ -876,7 +882,7 @@ function dbOnPublish(el) {
                     plugins: { tooltip: { callbacks: { title: _toolTipTitle, afterLabel: _toolTipText }, }, },
                     scales: { 
                         y: { 
-                            ticks: { maxTicksLimit:(e.cat ? e.cat.length : 7),  autoSkip:!e.cat, maxRotation:0, autoSkipPadding:10, },
+                            ticks: { maxTicksLimit:(e.cat ? e.cat.length : 7), font:{ size:10 }, autoSkip:!e.cat, maxRotation:0, autoSkipPadding:10, },
                             //title: { text: e.unit, display: true, }, 
                             type:((0<=e.prec)?'linear':'category'),
                             stepSize:((e.cat) ? 1 : undefined), 
@@ -1369,6 +1375,7 @@ function tableSvs(svdb) {
                     //let srcUsed = 'data:image/svg+xml;utf8,' + icon.toSvg();
 					let iconUsed = sv.used ? '◾' : '◽'; // 🟩  🟥 🟢🔴⚪⭕◾◽
 					const txtUsed =  'Satellite ' + (sv.used ? '' :'is not ') + 'used in navigation solution';
+                    const txtSys = flagsEmojy[lut.flag] + ' ' + sys;
 					let sig = Object.keys(sv.cno);
 					let cno = sig.map( function(freq) { 
 						let c = sv.cno[freq];
@@ -1379,7 +1386,7 @@ function tableSvs(svdb) {
 			        const nmea = sv.nmea ? 'NMEA Satellite ID: ' + sv.nmea : '';
 					if (cnt < table.sv_list.childElementCount) {
 						let tr = table.sv_list.childNodes[cnt];
-						tr.childNodes[0] = flagsEmojy[lut.flag] + ' ' + sys;
+						tr.childNodes[0].textContent = txtSys;
 						tr.childNodes[1].textContent = svid;
 					    tr.childNodes[1].title       = nmea;
                         tr.childNodes[2].textContent = iconUsed;
@@ -1391,7 +1398,7 @@ function tableSvs(svdb) {
 						let tr = document.createElement('tr');
 						tr.className = 'sv_row';
 						let td = document.createElement('td');
-						  td.textContent = flagsEmojy[lut.flag] + ' ' + sys;
+						  td.textContent = txtSys;
 						  tr.appendChild(td);
         				td = document.createElement('td');
 						  td.textContent = svid;
@@ -1639,16 +1646,18 @@ function centerMap(lon, lat) {
             let vect = new ol.layer.Vector({ source: new ol.source.Vector({ features: [user, point, track] }) });
             let intr = ol.interaction.defaults({ doubleClickZoom: true, dragAndDrop: true, dragPan: true, keyboardPan: true,
                                                  keyboardZoom: true, mouseWheelZoom: false, pointer: true, select: true });
-            let ctrl = ol.control.defaults({ attribution: false, zoom: true, });
+            let ctrl = ol.control.defaults({ attribution: false, zoom: true, rotate: true, });
             const overviewMap = new ol.control.OverviewMap({
                 collapseLabel: '\u00BB',
                 expandFactor: 4,
                 label: '\u00AB',
                 collapsed: true,
+                rotation: Math.PI / 6,
+    
             });
             const scaleLine = new ol.control.ScaleLine({ units: 'metric', minWidth: 100, /*bar: true, steps: 4, text: true,*/ })
             ctrl.extend([ scaleLine, overviewMap ]);
-            let view = new ol.View( {  center:position, zoom: 15, maxZoom: 26, });
+            let view = new ol.View( {  center:position, zoom: 15, maxZoom: 27, });
             let opt = { layers: [ tile , vect ], target: 'map', interactions: intr, controls: ctrl, view: view };
 			map = new ol.Map(opt);
             map.getView().on('change:resolution', function _onZoomed(event){

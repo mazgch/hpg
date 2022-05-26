@@ -65,10 +65,10 @@
         </svg>
         <h1 style="vertical-align:middle; display:inline">mazg.ch - HPG Monitor</h1>
         <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
-          <div onclick="window.open('https://twitter.com/mazgch/','_blank').focus();"                  title="Twitter @mazgch"><i class="overlay_button" data-feather="twitter"></i></div>
-          <div onclick="window.open('https://www.linkedin.com/in/michael-ammann/','_blank').focus();"  title="LinkedIn"><i class="overlay_button" data-feather="linkedin"></i></div>
-          <div onclick="window.open('https://github.com/mazgch/','_blank').focus();"                   title="Github"><i class="overlay_button" data-feather="github"></i></div>
-      <!--<div onclick="window.open('https://www.youtube.com/channel/UCV1z0WOR0mUQBgaoGeRahWg','_blank').focus();" title="Youtube"><i class="overlay_button" data-feather="youtube"></i></div>-->
+          <div class="overlay_button" onclick="window.open('https://twitter.com/mazgch/','_blank').focus();"                  title="Twitter @mazgch"><i data-feather="twitter"></i></div>
+          <div class="overlay_button" onclick="window.open('https://www.linkedin.com/in/michael-ammann/','_blank').focus();"  title="LinkedIn"><i data-feather="linkedin"></i></div>
+          <div class="overlay_button" onclick="window.open('https://github.com/mazgch/','_blank').focus();"                   title="Github"><i data-feather="github"></i></div>
+      <!--<div class="overlay_button" onclick="window.open('https://www.youtube.com/channel/UCV1z0WOR0mUQBgaoGeRahWg','_blank').focus();" title="Youtube"><i data-feather="youtube"></i></div>-->
         </div>
       </div>
       <div id="tile_device">
@@ -131,9 +131,9 @@
             <tr hidden><td>Ethernet MAC Address</td> <td class="dbvalue" id="dev_mac_eth"></td></tr>
           </table>
           <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
-            <div onclick="Device.action('discover');"  title="Discover devices in your local network"><i class="overlay_button" data-feather="search"></i></div>
-            <div onclick="Device.action('settings');"  title="Device Configuration Portal"><i class="overlay_button" data-feather="settings"></i></div>
-            <div onclick="Device.action('identify');"  title="Identify device and get version information"><i class="overlay_button" data-feather="info"></i></div>
+            <div class="overlay_button" onclick="Device.action('discover');"  title="Discover devices in your local network"><i data-feather="search"></i></div>
+            <div class="overlay_button" onclick="Device.action('settings');"  title="Device Configuration Portal"><i data-feather="settings"></i></div>
+            <div class="overlay_button" onclick="Device.action('identify');"  title="Identify device and get version information"><i data-feather="info"></i></div>
           </div>
         </div>
       </div>
@@ -146,11 +146,11 @@
             <tr id="dbInt">
               <th style="width:40%;">Parameter</th>
               <th style="width:25%;" class="right">Value</th>
-              <th colspan=2 style="width:35%;">Unit</th>
+              <th style="width:35%;">Unit</th>
              </tr>
           </table>
           <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
-            <div title="Communication activity"><i class="overlay_button" id="status_led" data-feather="circle"></i></div>
+            <div class="overlay_button" title="Communication activity"><i id="status_led" data-feather="circle"></i></div>
           </div>
         </div>
       </div>
@@ -169,10 +169,10 @@ AT   to filter only AT messages
         <div class="section">
           <div class="framed console" id="console_data" style="height:30em;"></div>
           <div class="overlay_ctrl" style="top:0.5em;right:1.2em;" >
-            <div id="console_logfile" title="Export as Unicode text file"><i class="overlay_button" data-feather="file-text"></i></div>
-            <div id="console_ubxfile" title="Export as UBX binary file (u-center compatible)"><i class="overlay_button" data-feather="file"></i></div>
-            <div id="console_clear" title="Clear the console"><i class="overlay_button" data-feather="trash"></i></div>
-            <div id="console_down" hidden title="Scroll to latest message"><i class="overlay_button" data-feather="chevrons-down"></i></div>
+            <div class="overlay_button" id="console_logfile" title="Export as Unicode text file"><i  data-feather="file-text"></i></div>
+            <div class="overlay_button" id="console_ubxfile" title="Export as UBX binary file (u-center compatible)"><i data-feather="file"></i></div>
+            <div class="overlay_button" id="console_clear" title="Clear the console"><i data-feather="trash"></i></div>
+            <div class="overlay_button" id="console_down" hidden title="Scroll to latest message"><i data-feather="chevrons-down"></i></div>
           </div>
         </div>
         <div class="autocomplete section textfield">
@@ -208,8 +208,8 @@ Pressing enter in this field will send any message.">*</span></label>
         <div class="section">
           <div class="form-item framed editor" id="console_editor" style="height:30em;"></div>
           <div class="overlay_ctrl" style="left:0.5em;bottom:0.5em;">
-            <div id="console_execute" title="Execute"><i class="overlay_button" data-feather="play-circle"></i></div>
-            <div hidden id="console_abort" title="Abort execution"><i class="overlay_button" data-feather="stop-circle"></i></div>
+            <div class="overlay_button" id="console_execute" title="Execute"><i data-feather="play-circle"></i></div>
+            <div class="overlay_button" hidden id="console_abort" title="Abort execution"><i data-feather="stop-circle"></i></div>
           </div>
         </div>
       </div>
@@ -223,13 +223,13 @@ Pressing enter in this field will send any message.">*</span></label>
             <tr id="db">
               <th style="width:40%;">Parameter</th>
               <th style="width:25%;" class="right">Value</th>
-              <th colspan=2 style="width:35%;">Unit</th>
+              <th style="width:35%;">Unit</th>
             </tr>
           </table>
           <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">    
-            <div id="db_save" title="Export values as csv/Excel file"><i class="overlay_button" data-feather="file-plus"></i></div>
-            <div id="db_kml" title="Export values as kml/Google Earth file"><i class="overlay_button" data-feather="map"></i></div>
-            <div id="db_clear" title="Clear values"><i class="overlay_button" data-feather="trash"></i></div>
+            <div class="overlay_button" id="db_save" title="Export values as csv/Excel file"><i data-feather="file-plus"></i></div>
+            <div class="overlay_button" id="db_kml" title="Export values as kml/Google Earth file"><i data-feather="map"></i></div>
+            <div class="overlay_button" id="db_clear" title="Clear values"><i data-feather="trash"></i></div>
           </div>
         </div>
       </div>
@@ -243,9 +243,9 @@ Pressing enter in this field will send any message.">*</span></label>
         <div class="section framed">
           <canvas id="svs" style="height:30em;max-height:30em;padding-left:7px;"></canvas>
           <div class="overlay_ctrl" style="top:0.5em;left:0.5em;">
-            <div onclick="Device.action('hotstart');"  title="Hot start" ><i class="overlay_button" style="fill:#a02846;" data-feather="thermometer"></i></div>
-            <div onclick="Device.action('warmstart');" title="Warm start"><i class="overlay_button" style="fill:#ffbe28;" data-feather="thermometer"></i></div>
-            <div onclick="Device.action('coldstart');" title="Cold start"><i class="overlay_button" style="fill:#4664b4;" data-feather="thermometer"></i></div>
+            <div class="overlay_button" onclick="Device.action('hotstart');"  title="Hot start" ><i style="fill:#a02846;" data-feather="thermometer"></i></div>
+            <div class="overlay_button" onclick="Device.action('warmstart');" title="Warm start"><i style="fill:#ffbe28;" data-feather="thermometer"></i></div>
+            <div class="overlay_button" onclick="Device.action('coldstart');" title="Cold start"><i style="fill:#4664b4;" data-feather="thermometer"></i></div>
           </div>
         </div>
         <div class="section">

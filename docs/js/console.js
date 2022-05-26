@@ -129,7 +129,10 @@ function onConsoleScroll(e) {
     consoleMessage(); // call consoleMessage with null to force updating of invisble elements
     let el = document.getElementById("console_down");
     if (el) {
-        el.style.display = (canScrollDown) ? 'block' : 'none';
+        if (canScrollDown)
+            el.removeAttribute('hidden');
+        else 
+            el.setAttribute('hidden','')
         el = el.previousElementSibling;
         if (el) el.style.borderBottomRightRadius = el.style.borderBottomLeftRadius = canScrollDown ? "0" : "2px";
     }

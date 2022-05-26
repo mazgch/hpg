@@ -1,6 +1,6 @@
 :root {
-    --hero:   rgb(255, 110,  89);
-    --herolt: rgb(255, 168, 155);
+    --hero:   rgb(255, 76, 0);        /*rgb(255, 110,  89);*/
+    --herolt: rgb(255, 112, 51);    /*rgb(255, 168, 155);*/
     --black:  rgb( 26,  26,  26); 
     --white:  rgb(255, 255, 255); 
     --error:  rgb(255, 187, 186);
@@ -20,7 +20,7 @@
     }
 }*/
   
-html, input {
+html, input, button, select {
     font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
     font-size: 12pt;
     -webkit-font-smoothing: antialiased;
@@ -78,6 +78,12 @@ html, input {
     }
 }
 
+.section {
+    width: 100%;
+    position:relative;
+    margin-bottom: 18px;
+}
+
 /* --- generic --- */
 
 .preformated {
@@ -88,11 +94,11 @@ html, input {
 [hidden], template {
     display:none
 }
-
+/*
 *, :after, :before {
-/*    -webkit-box-sizing: border-box;
-    box-sizing:border-box */
-}
+    -webkit-box-sizing: border-box;
+    box-sizing:border-box
+}*/
 
 /* --- main --- */
 h1, h2 {
@@ -136,6 +142,7 @@ input {
     -o-transition: all .25s ease;
     transition: all .25s ease;
     font-size: 1rem;
+    box-sizing: border-box;
 }
 input:focus, input:hover {
     border-color: var(--black);
@@ -144,15 +151,9 @@ input:focus, input:hover {
 
 /* ---- textfield ---- */
 
-.section {
-    width: 100%;
-    position:relative;
-    margin-bottom: 18px;
-}
-
 .textfield input {
     width: 100%;
-    padding:1.2rem 3rem .3rem .6rem;
+    padding:1.2rem 0 .3rem .6rem;
     border-radius: 0px;
 }  
 
@@ -205,7 +206,7 @@ input {
 }
 
 /* --- table --- */
-.table, .dbtable, .dbtable table {
+.table, .dbtable {
     border-collapse: collapse;
     border: none;
     margin: 0;
@@ -253,12 +254,6 @@ td img.icon {
     display:inline;
 }
 
-.dbtable table {
-    display: grid;
-}
-.dbtable tbody {
-    display:inline-table;
-}
 .dbrow td {
     vertical-align:top;
     width: auto;
@@ -358,32 +353,6 @@ td dt {
   background-color: rgba(0,0,0,0.07); 
 }
 
-/* ---- overlay buttons ---- */
-.overlay_button:not( [hidden] ):first-of-type {
-    border-top-left-radius: 2px;
-    border-top-right-radius: 2px;
-}
-.overlay_button:not( [hidden] ):last-of-type {
-    border-bottom-left-radius: 2px;
-    border-bottom-right-radius: 2px;
-}
-.overlay_button, #scan-devices {
-    display:block;
-    margin: 1px;
-    color: #fff;
-    font-size: 1.14em;
-    font-weight: bold;
-    text-decoration: none;
-    text-align: center;
-    border: none;
-}
-.overlay_button {
-    width: 1.375em;
-    padding: 3px;
-    line-height: .4em;
-    height: 1.375em;
-}
-
 /* ---- device discovery  ---- */
 .modal {
     position: fixed; /* Stay in place */
@@ -418,38 +387,67 @@ td dt {
 }
 
 /* ---- map ---- */
-.ol-control button:hover,
-.overlay_button:hover {
-    background-color: var(--hero);
-    outline-color: transparent; 
+
+.overlay_ctrl {
+    position: absolute;
+    background-color: rgba(255,255,255,.4);
+    border-radius: 4px;
+    -webkit-box-sizing: content-box;
+    box-sizing:content-box;
+    padding: 2px;
+    z-index: 49;
 }
-#scan-devices:hover, 
-#scan-devices:active, 
-.ol-control button:active,
-.overlay_button:active {
-    background-color: var(--herolt);
+
+#scan-devices, 
+.overlay_button {
+    border-radius: 2px;
+    width: 1.6rem;
+    height: 1.6rem;
+    margin: 1px;
+    vertical-align: middle;
+    -webkit-box-sizing: border-box;
+    box-sizing:border-box;
+    border: 2px solid rgba(128,128,128,0);
+    background-color:rgba(128,128,128,0.4);
+    border-radius: 0px;
+} 
+
+.overlay_button:first-of-type {
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+}
+.overlay_button:last-of-type {
+    border-bottom-left-radius: 2px;
+    border-bottom-right-radius: 2px;
+}
+
+.overlay_button svg {
+    color:white;
+}
+
+.ol-control button,
+.ol-scale-line {
+    background-color:rgba(128,128,128,0.4);
+    color: #fff;
+}
+
+#scan-devices,
+.overlay_button:hover,
+.ol-control button:hover {
+    background-color: var(--hero);
 	outline-color: transparent; 
 }
-.ol-scale-line,
-.ol-control button, 
-.overlay_button {
-    background-color:rgba(128,128,128,0.5);
+#scan-devices:active,
+.overlay_button:active,
+.ol-control button:active {
+    background-color: var(--herolt);
+	outline-color: transparent; 
 }
 
 .ol-scale-line-inner {
     font-size: 1em;
     font-weight: bold;
 }
-
-.overlay_ctrl {
-	display: block;
-    position: absolute;
-    z-index: 49;
-    background-color: rgba(255,255,255,.4);
-    border-radius: 4px;
-    padding: 2px;
-}
-
 .ol-overviewmap {
     bottom: auto;
     left: auto;
@@ -459,8 +457,8 @@ td dt {
 .ol-overviewmap:not(.ol-collapsed) button{
     bottom: auto;
     left: auto;
-    right: 1px;
-    top: 1px;
+    right: 2px;
+    top: 2px;
 }
 
 /* ---- json pretty print ---- */
