@@ -400,18 +400,22 @@ td dt {
 
 #scan-devices, 
 .overlay_button {
-    border-radius: 2px;
-    width: 1.6rem;
-    height: 1.6rem;
-    margin: 1px;
     vertical-align: middle;
     -webkit-box-sizing: border-box;
     box-sizing:border-box;
     border: 2px solid rgba(128,128,128,0);
     background-color:rgba(128,128,128,0.4);
     border-radius: 0px;
+    color: white;
+    font-weight: bold;
 } 
 
+.overlay_button {
+    border-radius: 2px;
+    width: 1.6rem;
+    height: 1.6rem;
+    margin: 1px;
+} 
 .overlay_button:first-of-type {
     border-top-left-radius: 2px;
     border-top-right-radius: 2px;
