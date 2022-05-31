@@ -1,0 +1,23 @@
+<svg id="mazgch_logo" width="600" height="600" stroke-linecap="round" stroke-width="20" fill="none" stroke="null" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <g id="sv">
+            <path id="sb" stroke="#eb0000" d="m50,300c0,-138.12156 111.87845,-250 250,-250"/>
+            <circle id="sv" fill="#eb0000" cx="300" cy="50" r="25"/>
+        </g>
+    </defs>
+    <title>mazgch</title>
+    <circle id="rb" fill="#eb0000" cx="300" cy="300" r="200" />
+    <g id="rs">
+        <use id="r1" x="0" y="0" href="#sv" transform="rotate(45 300 300)"/>
+        <use id="r2" x="0" y="0" href="#sv" transform="rotate(165 300 300)"/>
+        <use id="r3" x="0" y="0" href="#sv" transform="rotate(285 300 300)"/>
+    </g>
+    <g id="w">
+        <circle id="wb" fill="#fff" cx="230" cy="370" r="50" />
+        <g id="ws" stroke="#fff" >
+            <path id="w1" d="m230,280c50,0 90,40 90,90" />
+            <path id="w2" d="m230,230c77.5,0 140,62.5 140,140" />
+            <path id="w3" d="m230,180c105,0 190,85.0 190,190" />
+        </g>
+    </g>
+</svg>

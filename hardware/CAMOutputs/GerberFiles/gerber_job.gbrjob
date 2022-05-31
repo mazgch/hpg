@@ -1,0 +1,24 @@
+{
+    "Header": {
+        "Comment": "All values are metric (mm)",
+        "CreationDate": "2022-05-09T19:08:53Z",
+        "GenerationSoftware": {
+            "Application": "EAGLE",
+            "Vendor": "Autodesk",
+            "Version": "9.6.2"
+        },
+        "Part": "Single"
+    },
+    "Overall": {
+        "BoardThickness": 1.57,
+        "LayerNumber": 4,
+        "Name": {
+            "ProjectId": "HPG_Solution"
+        },
+        "Owner": "Michael Ammann <mazgch@gmail.com>",
+        "Size": {
+            "X": 58.42,
+            "Y": 107.95
+        }
+    }
+}
