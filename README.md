@@ -1,6 +1,6 @@
 # <img src="./monitor/img/favicon.svg" height="48" width="48"/> mazg.ch - HPG Solution
 
-![Board with accessories](./docu/Board_v09_Schematic.png)
+![Board with accessories](./docu/Board_v09_onSchematic.png)
 
 This project has the goal to demonstrate a high precision positioning function. It uses a Global Navigation Satellite System (GNSS) L1/L2 receiver with Real Time Kinematic (RTK) and Inertial Measurement Unit (IMU) Sensor based Dead Reckoning (DR) function to determine its location. In order achieve its best accuracy the receiver needs a correction data stream. On this solution the correction data can be received from a satellite broadcast using a LBAND receiver or over IP connectivtiy using Wi-FI or LTE. While other systems typically use local reference stations as correction source that have to be setup an maintained, this system makes use of a continental wide commerical SSR service. The whole solution shared in this project consist of three parts: 
 
