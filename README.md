@@ -1,6 +1,6 @@
 # <img src="./monitor/img/favicon.svg" height="48" width="48"/> mazg.ch - HPG Solution
 
-![Board with accessories](docu/Board_v09_onSchematic.png)
+![Board with accessories](./docu/Board_v09_Schematic.png)
 
 This project has the goal to demonstrate a high precision positioning function. It uses a Global Navigation Satellite System (GNSS) L1/L2 receiver with Real Time Kinematic (RTK) and Inertial Measurement Unit (IMU) Sensor based Dead Reckoning (DR) function to determine its location. In order achieve its best accuracy the receiver needs a correction data stream. On this solution the correction data can be received from a satellite broadcast using a LBAND receiver or over IP connectivtiy using Wi-FI or LTE. While other systems typically use local reference stations as correction source that have to be setup an maintained, this system makes use of a continental wide commerical SSR service. The whole solution shared in this project consist of three parts: 
 
@@ -8,14 +8,14 @@ This project has the goal to demonstrate a high precision positioning function. 
 
 | [**HPG Hardware**](./hardware) | [**HPG Software**](./software) | [**HPG Monitor Webpage**](./monitor) |
 |----------|----------|---------|
-| <img width ="100%" src="docu/Board_v09_Angled.png"> | <img width ="100%" src="docu/Arduino_Software.png"> | <img width ="100%" src="docu/CaptivePortal2.png"> |
+| <img width ="100%" src="./docu/Board_v09_Angled.png"> | <img width ="100%" src="./docu/Arduino_Software.png"> | <img width ="100%" src="./docu/CaptivePortal2.png"> |
 | The HPG hardware has a GNSS and a LBAND receiver that are used to acheive cm-Level precision. A Wi-Fi/BT module and a LTE modem make sure that the board is always connected to the internet. A USB port is used for changing or connecting a powerful host. The CPU of the Wi-Fi/BT module can be programmed with the HPG Software. | The HPG software implements a captive portal for configuration and monitoring. The software operates autonomously, configures all the modules and handles the different correction data sources and provides its data to the RTK system. It can also record two logfiles to the SD card of the GNSS/LBAND and the LTE communication. | The online HPG Monitor webpage at [hpg.mazg.ch](http://hpg.mazg.ch) is a online tools that allows you visualize the data of the solution. You can plot graph, export data to Excel or other offline tools. Satellite information as well as a map overlay are even available. The different messages and commands can be analyzed in a console. A more simple version can be accessed in the captive portal directly. |  
 
 ## Getting started
 
 In order to make this device work as intended you need some accessories like LTE and GNSS antennas, a mobile dataplan and nano SIM card and a subscrption to a PointPerfect. Follow this sequence to get the device configured and setup, click on the image below for a short Youtube video on how to do some of the these steps.
 
-[![Accessories](docu/Accessories.jpg)](https://youtu.be/OkmCc_Xdym8)
+[![Accessories](./docu/Accessories.jpg)](https://youtu.be/OkmCc_Xdym8)
 
 1. Insert the a nano SIM card, the socket is a push/push socket so don't try to just pull the card out.
 2. Insert an micro SD card if you like the device to to recoord logfiles. 
@@ -23,7 +23,7 @@ In order to make this device work as intended you need some accessories like LTE
 4. Connect a survery garde L1/L2/L5 GNSS and LBAND antenna to the SMA port on the small edge of the device and place the antenna in a location with very good and unobstructed visibilty to the sky. This is important to allow reliabale LBAND reception as well as avoid multipath errors on the GNSS measuremnts 
 5. Connect a USB cable to a computer, this will trun the device on and you will see various LEDS trun on. In addition your computer will enumerate several USB devices and serial as well a modem ports will become available.  
 
-[![Software Getting Started](docu/Arduino_Software.png)](https://youtu.be/0sfUgwLb7Rs)
+[![Software Getting Started](./docu/Arduino_Software.png)](https://youtu.be/0sfUgwLb7Rs)
 
 6. Optional: if the [software](./software) is not not yet programmed, follow the build instructions of the Arduino based software and load it to the device. 
 7. In order to add the device to your local wifi connect your computer or mobile phone with the hpg-XXXXXX Wi-Fi network. You will be directed to a captive portal where you can then enter your networks Wi-Fi credentials. Once done the device will connect to your local network with a IP. You may need to reset your device.
@@ -32,7 +32,7 @@ In order to make this device work as intended you need some accessories like LTE
 10. After that the device will provision the credentials using zero touch provisioning (ZTP) from the PointPerfect servers.
 11. Now you are ready to Monitor the operation of the device either using the console output on the CDC, using the Monitor wbpage that is served directly by the device.
 
-[![HPG Monitor Getting Started](docu/HPG_Monitor.png)](https://youtu.be/ ... )
+[![HPG Monitor Getting Started](./docu/HPG_Monitor.png)](https://youtu.be/ ... )
   
 11. Using the HPG Monitor webpage a [hpg.mazg.ch](http://hpa.mazg.ch)
 12. you are now ready to start experimeting with this exciting technology and go outside and test RTK positioning in your use cases. The solution is suitable for a variety of application from Lawn Mower, Construction, Precision Agriculture, Cars and of course Robotics. 
@@ -41,7 +41,7 @@ In order to make this device work as intended you need some accessories like LTE
 
 ## Quick Reference Card
 
-<img width ="100%" src="docu/Board_v09_Pinout.png">
+<img width ="100%" src="./docu/Board_v09_Pinout.png">
 
 ## An all [u-blox](https://www.u-blox.com) solution
 
