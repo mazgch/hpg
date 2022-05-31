@@ -189,26 +189,26 @@ function deviceDiscovery() {
 
 let scaning = {};
 function testNet() {
-    // iOS Personal HotSpot uses 172.20.10.0/28 so 172.20.10.0 - 172.20.10.15
-    for (let i = 0; i < 16; i ++) {
-        testIp("172.20.10." + i)
-    }
-    // Android WiFi Thetering uses 192.168.42.1/24 so 192.168.42.2 - 192.168.42.254 
-    // Widnows Mobile Hotspot uses 192.168.137.1/24 so 192.168.42.2 - 192.168.42.254 
-    for (let i = 1; i <= 254; i ++) {
-        testIp("192.168.42." + i)
-        testIp("192.168.137." + i)
-    }
-    let li = document.getElementById("scan-range")
-    if (li && li.value) { 
-        let m = li.value.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.)(\d{1,3})\s*(-\s*(\d{1,3}))?$/)
-        if ((m != undefined) && ((m.length == 3) || (m.length == 5))) {
-            let ip = m[1]
-            let from = Number(m[2]) & 0xFF
-            let to = (m.length == 5) ? Number(m[4]) & 0xFF : from
-            if (to <= from) to = from;
-            for (let i = from; i < to; i ++) {
-                testIp(ip + i)
+    let format = /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.)(\d{1,3})\s*(-\s*(\d{1,3}))?$/;
+    let radios = document.getElementsByName("scan-ips");
+    for (var i = 0, length = radios.length; i < length; i++) {
+        if (radios[i].checked) {
+            let value = radios[i].value;
+            if (!radios[i].value.match(format)) {
+                let li = document.getElementById("scan-range")
+                if (li && li.value) { 
+                    value = li.value;
+                }
+            }
+            let m = value.match(format)
+            if ((m != undefined) && ((m.length == 3) || (m.length == 5))) {
+                let ip = m[1]
+                let from = Number(m[2]) & 0xFF
+                let to = (m.length == 5) ? Number(m[4]) & 0xFF : from
+                if (to <= from) to = from;
+                for (let i = from; i < to; i ++) {
+                    testIp(ip + i)
+                }
             }
         }
     }
@@ -244,10 +244,20 @@ function testNet() {
                     tr.innerHTML = '<td>'+host+'</td><td>'+ip+'</td><td>' + open + '</td><td>' + config + '</td>'
                     th.parentNode.appendChild(tr);
                 }
-                function _onDone(msg) {
-                    scaning[ip] = undefined;
+                ws.timer = setTimeout(10000, _onDone)
+                function _onDone() { 
+                    scaning[ip] = undefined; 
+                    ws.removeEventListener('open', _onOpen);
+                    ws.removeEventListener('error', _onDone);
+                    ws.removeEventListener('close', _onDone);
+                    ws.removeEventListener('message', _onMessage);
+                    clearTimeout(ws.timer);
+                    try {
+                        ws.destroy()
+                    } catch (e) {}
+                    ws.close() // we are done
                 }
-                function _onOpen(msg) {
+                 function _onOpen(msg) {
                     _report(ip)
                     scaning[ip] = 1;
                 }
@@ -257,9 +267,7 @@ function testNet() {
                         const m = msg.data.match(/^Connected to (hpg-[a-z0-9]{6})/)
                         if ((m != undefined) && (m.length == 2)) {
                             _report(ip, m[1])
-                            ws.removeEventListener('close', _onDone);
-                            ws.removeEventListener('error', _onDone);
-                            ws.close() // we are done
+                            _onDone();
                         }
                     }
                 }

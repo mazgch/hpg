@@ -98,15 +98,14 @@
               <h2>Discover Devices</h2>
               <p>Scan your local network for HPG solution devices and their assigned IP address. 
                 Local networks may have IP addresses in these ranges: 10.0.0.0 - 10.255.255.255, 172.16.0.0 - 172.31.255.255 or 192.168.0.0 - 192.168.255.255.</p>
-              <ul>
-                <li><b>iOS Personal Hotspot:</b> 172.20.10.0 - 15</li>
-                <li><b>Android Hotspot or Tethering:</b> 192.168.42.2 - 254</li>
-                <li><b>Windows Mobile Hotspot:</b> 192.168.137.2 - 254</li>
-                <li><b>Other local network:</b> 
+              <fieldset>
+                <input type="radio" id="ios"     name="scan-ips" value="172.20.10.0 - 15"><label for="ios"> <b>iOS Personal Hotspot:</b>172.20.10.0 - 15</label><br>
+                <input type="radio" id="android" name="scan-ips" value="192.168.42.2 - 254"><label for="android"> <b>Android Hotspot or Tethering:</b>192.168.42.2 - 254</label><br>
+                <input type="radio" id="windows" name="scan-ips" value="192.168.137.2 - 254"><label for="windows"> <b>Windows Mobile Hotspot:</b>192.168.137.2 - 254</label><br>
+                <input type="radio" id="local"   name="scan-ips" value="scan-range" checked><label for="local"> <b>Local IP range:</b>
                   <input id="scan-range" type="text" value="192.168.0.2 - 254" pattern="\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s*(-\s*\d{1,3})?"
-                        placeholder="192.168.0.from[-to]" oninput="if (typeof this.reportValidity === 'function') {this.reportValidity();}" ></input>
-                </li>
-              </ul>
+                          placeholder="192.168.0.from[-to]" oninput="if (typeof this.reportValidity === 'function') {this.reportValidity();}" ></input></label><br>
+              </fieldset>
               <p style="text-align: center;"><button id="scan-devices" >Start discovery scan</button></p>
               <p><table class="table"><tr hidden id='scan-results'><th>Device</th><th>IP</th><th>&nbsp;</th><th>&nbsp;</th></tr></table></p>
               <p>If your device in undiscoverable, contact your network administrator or connect the USB port of the to device to a computer.
