@@ -8,7 +8,7 @@ This project has the goal to demonstrate a high precision positioning function. 
 
 | [**HPG Hardware**](./hardware) | [**HPG Software**](./software) | [**HPG Monitor Webpage**](./monitor) |
 |----------|----------|---------|
-| <img width ="100%" src="docu/Board_v09_Angled.png"> | <img width ="100%" src="docu/Arduino_Software.png"> | <img width ="100%" src="docu/CaptivePortal2.png"> |
+| <img width ="100%" src="docu/Board_v09_Angled.png"> | <img width ="100%" src="docu/Arduino_Software.png"> | <img width ="100%" src="docu/HPG_MOnitorSmall.png"> |
 | The HPG hardware has a GNSS and a LBAND receiver that are used to acheive cm-Level precision. A Wi-Fi/BT module and a LTE modem make sure that the board is always connected to the internet. A USB port is used for changing or connecting a powerful host. The CPU of the Wi-Fi/BT module can be programmed with the HPG Software. | The HPG software implements a captive portal for configuration and monitoring. The software operates autonomously, configures all the modules and handles the different correction data sources and provides its data to the RTK system. It can also record two logfiles to the SD card of the GNSS/LBAND and the LTE communication. | The online HPG Monitor webpage at [hpg.mazg.ch](http://hpg.mazg.ch) is a online tools that allows you visualize the data of the solution. You can plot graph, export data to Excel or other offline tools. Satellite information as well as a map overlay are even available. The different messages and commands can be analyzed in a console. A more simple version can be accessed in the captive portal directly. |  
 
 ## Getting started
@@ -32,7 +32,7 @@ In order to make this device work as intended you need some accessories like LTE
 10. After that the device will provision the credentials using zero touch provisioning (ZTP) from the PointPerfect servers.
 11. Now you are ready to Monitor the operation of the device either using the console output on the CDC, using the Monitor wbpage that is served directly by the device.
 
-[![HPG Monitor Getting Started](docu/HPG_Monitor.png)](https://youtu.be/LLKUxa8krcs))
+[![HPG Monitor Getting Started](docu/HPG_Monitor.png)](https://youtu.be/LLKUxa8krcs)
   
 11. Using the HPG Monitor webpage a [hpg.mazg.ch](http://hpa.mazg.ch)
 12. you are now ready to start experimeting with this exciting technology and go outside and test RTK positioning in your use cases. The solution is suitable for a variety of application from Lawn Mower, Construction, Precision Agriculture, Cars and of course Robotics. 
