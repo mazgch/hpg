@@ -15,7 +15,7 @@ This project has the goal to demonstrate a high precision positioning function. 
 
 In order to make this device work as intended you need some accessories like LTE and GNSS antennas, a mobile dataplan and nano SIM card and a subscrption to a PointPerfect. Follow this sequence to get the device configured and setup, click on the image below for a short Youtube video on how to do some of the these steps.
 
-[![Accessories](docu/Accessories.jpg)](https://youtu.be/OkmCc_Xdym8)
+[![Accessories](docu/Accessories.jpg)](https://youtu.be/jzHmvw_pzyI)
 
 1. Insert the a nano SIM card, the socket is a push/push socket so don't try to just pull the card out.
 2. Insert an micro SD card if you like the device to to recoord logfiles. 
@@ -23,7 +23,7 @@ In order to make this device work as intended you need some accessories like LTE
 4. Connect a survery garde L1/L2/L5 GNSS and LBAND antenna to the SMA port on the small edge of the device and place the antenna in a location with very good and unobstructed visibilty to the sky. This is important to allow reliabale LBAND reception as well as avoid multipath errors on the GNSS measuremnts 
 5. Connect a USB cable to a computer, this will trun the device on and you will see various LEDS trun on. In addition your computer will enumerate several USB devices and serial as well a modem ports will become available.  
 
-[![Software Getting Started](docu/Arduino_Software.png)](https://youtu.be/0sfUgwLb7Rs)
+[![Software Getting Started](docu/Arduino_Software.png)](https://youtu.be/k2dovptFn9o)
 
 6. Optional: if the [software](./software) is not not yet programmed, follow the build instructions of the Arduino based software and load it to the device. 
 7. In order to add the device to your local wifi connect your computer or mobile phone with the hpg-XXXXXX Wi-Fi network. You will be directed to a captive portal where you can then enter your networks Wi-Fi credentials. Once done the device will connect to your local network with a IP. You may need to reset your device.
@@ -32,7 +32,7 @@ In order to make this device work as intended you need some accessories like LTE
 10. After that the device will provision the credentials using zero touch provisioning (ZTP) from the PointPerfect servers.
 11. Now you are ready to Monitor the operation of the device either using the console output on the CDC, using the Monitor wbpage that is served directly by the device.
 
-[![HPG Monitor Getting Started](docu/HPG_Monitor.png)](https://youtu.be/ ... )
+[![HPG Monitor Getting Started](docu/HPG_Monitor.png)](https://youtu.be/LLKUxa8krcs))
   
 11. Using the HPG Monitor webpage a [hpg.mazg.ch](http://hpa.mazg.ch)
 12. you are now ready to start experimeting with this exciting technology and go outside and test RTK positioning in your use cases. The solution is suitable for a variety of application from Lawn Mower, Construction, Precision Agriculture, Cars and of course Robotics. 
