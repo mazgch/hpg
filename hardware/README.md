@@ -81,6 +81,12 @@ The board has two 1A LDOs, one for the LTE modem and a second for all other func
 - **BAT** A 3.7V single LIPO cell can be connected and will be charged when USB is connected. 
 - **QWIK** The QWIK connector can be used to connect other I2C devices such as sensors or a display. 
 
+## External Accessories
+
+External antennas have to be connected to operate the device. The GNSS and LBAND antenna should support at least L1, L2 and LBAND frequency bands and it can support L5 band in addition. The antenna should be a antennna that is high precision capable, typically these are Helix type of antennas or active patch antennas with dual feed and decent GND plane. If the antenna does not come with a Ground plane, place it on a metal surface such as a car roof.
+The LTE modem needs to 4G capable antennas that cover the band of the modem usually covering 700 - 2.6GHz. In addition you need to insert a SIM card.
+A micro-SD card is only required if you intend to record logfiles from the modem of GNSS_ 
+
 ## Known Issue of version 0.9: 
 - The LTE_PWR_ON is floating, this causes the modem to constantly reset if no software is loaded. Software needs to be loaded that configures the GPIO12 either output HIGH or as INPUT with PULL-UP enabled. During reset the ESP applies however some LOW and high signal. It would be best to swap the LTE_RESET and LTE_PWRON pins to avoid changes during updates or reset. 
 - The C41 was added to the Auto Reset circuit of the NINA-W106. This sometimes can cause issues with certain terminal applications or if the BOOT GPIO is used for other functions. Simply remove the C41 with a soldering iron if it causes issues for you.
