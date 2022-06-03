@@ -32,7 +32,7 @@ To make this device work as intended you need some accessories like LTE and GNSS
 10. After that the device will provision the credentials using zero touch provisioning (ZTP) from the PointPerfect servers.
 11. Now you are ready to Monitor the operation of the device using the console output on the CDC, using the Monitor webpage that is served directly by the device.
 
-[![HPG Monitor Getting Started Video](docu/HPG_MonitorPlay.png)](https://youtu.be/LLKUxa8krcs)
+[![HPG Monitor Getting Started Video](docu/HPG_MonitorSmallPlay.png)](https://youtu.be/LLKUxa8krcs)
   
 11. You can also access and find your hpg devices using the HPG Monitor webpage at [hpg.mazg.ch](http://hpa.mazg.ch) This webpage displays various status information, messages and can even plot graphs of parameter or satellite signal strenghs. A map overlay completes the functionality of the HPG Monitor. You can even export your data a text, in common file formats for offline tools.
 12. You are now ready to start experimenting with this exciting technology and go outside and test RTK positioning in your use cases. The solution is suitable for a variety of applications from Lawn Mower, Heavy machine and Construction vehicles, Drones, Precision Agriculture, Cars and of course Mobile Robotics. 
