@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-// ESP32 libraries:
+// ESP32 libraries, version 2.0.1 (preferred) - 2.0.3 (causes issues with all features active)
 //-----------------------------------
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
-// Install Arduino -> Preferneces -> AddiionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
+// Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
 // After that select Board u-blox NINA-W10 series and configure the target 4MB, 40Mhz, 
 // Board Manager URL:    https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 // Github Repository:    https://github.com/espressif/arduino-esp32 
@@ -34,25 +34,25 @@
 // Third parties libraries
 //-----------------------------------
 
-// ArduinoMqttClient by Arduino
+// ArduinoMqttClient by Arduino, version 0.1.5
 // Library Manager:    http://librarymanager/All#ArduinoMqttClient   
 // Github Repository:  https://github.com/arduino-libraries/ArduinoMqttClient 
 #include <ArduinoMqttClient.h>    
 
-// ArduinoWebsockets by Gil Maimon
+// ArduinoWebsockets by Gil Maimon, version 0.5.3
 // Library Manager:    http://librarymanager/All#ArduinoWebsockets   
 // Github Repository:  https://github.com/gilmaimon/ArduinoWebsockets
 #include <ArduinoWebsockets.h>    
 
-// ArduinoJson by Benoit Blanchon
+// ArduinoJson by Benoit Blanchon, version 6.19.4
 // Library Manager:    http://librarymanager/All#ArduinoJson      
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
 #include <ArduinoJson.h>          
 
-// WiFiManager by Tapzu
+// WiFiManager by Tapzu, version 2.0.11-beta
 // Library Manager:    http://librarymanager/All#tzapu,WiFiManager  
 // Github Repository:  https://github.com/tzapu/WiFiManager
-#include <WiFiManager.h>         
+#include <WiFiManager.h>      
 
 // Sparkfun libraries
 //-----------------------------------

@@ -73,13 +73,17 @@ private:
   }
 
 public:
-  LTE() : SARA_R5{ -1/*LTE_PWR_ON*/, -1/*LTE_RESET*/, 3 } { 
-    /* The current SARA-R5 librry is setting the RESET and PWR_ON pins to input after using them, 
-       This is not ideal for this hardware. Is is  prefered to control the RESET and PWR_ON externally 
-       in our code here. 
-    invertPowerPin(true); */
+#if (HW_TARGET == MAZGCH_HPG_SOLUTION_V10)
+  LTE() : SARA_R5{ LTE_PWR_ON, LTE_RESET, 3/*retries*/ } { 
+    invertPowerPin(true);
+#else
+  LTE() : SARA_R5{ -1/*LTE_PWR_ON*/, -1/*LTE_RESET*/, 3/*retries*/ } { 
+  /* The current SARA-R5 library is setting the RESET and PWR_ON pins to input after using them, 
+     This is not ideal for the v0.8/v0.9 hardware. Therefore it is prefered to control the RESET 
+     and PWR_ON externally in our code here. */
+#endif
     // The LTE_RESET pin is active LOW (LOW = in reset, HIGH = idle)
-    // Unfortunately the LTE_RESET pin does not have a pull up resistor on the v0.9 hardware
+    // Unfortunately the LTE_RESET pin does not have a pull up resistor on the v0.8/v0.9 hardware
     if (PIN_INVALID != LTE_RESET) {
       digitalWrite(LTE_RESET, HIGH);
       pinMode(LTE_RESET, OUTPUT);
