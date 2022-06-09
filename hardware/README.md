@@ -77,7 +77,7 @@ The board has two 1A LDOs, one for the LTE modem and a second for all other func
 ## Other Functions
 
 - **USB** The USB-C port provides as interface to an external host and is used for supplying the board. 
-- **CAN** The GPIO4 and GPIO5 of the NINA-W106 can be used to connect a CAN transceiver such as a SN65HVD230. 
+- **CAN** The GPIO4 and GPIO5 of the NINA-W106 can be used to connect a CAN transceiver such as a SN65HVD230. Thre a simple breakout board that you can attach using jumper wires such as the [CJMCU-230](https://de.aliexpress.com/item/32278648363.html)
 - **BAT** A 3.7V single LIPO cell can be connected and will be charged when USB is connected. 
 - **QWIK** The QWIK connector can be used to connect other I2C devices such as sensors or a display. 
 
