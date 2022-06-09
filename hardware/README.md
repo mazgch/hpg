@@ -83,13 +83,13 @@ The board has two 1A LDOs, one for the LTE modem and a second for all other func
 
 ## External Accessories
 
-External antennas have to be connected to operate the device. The GNSS and LBAND antenna should support at least L1, L2 and LBAND frequency bands and it can support L5 band in addition. The antenna should be a antennna that is high precision capable, typically these are Helix type of antennas or active patch antennas with dual feed and decent GND plane. If the antenna does not come with a Ground plane, place it on a metal surface such as a car roof.
-The LTE modem needs to 4G capable antennas that cover the band of the modem usually covering 700 - 2.6GHz. In addition you need to insert a SIM card.
+External antennas have to be connected to operate the device. The combined GNSS and LBAND antenna should support at least L1, L2 and LBAND frequency bands and it can support L5 band in addition. The antenna should be an antennna that is high precision capable, typically these are Helix type of antennas or active patch antennas with dual feed and reasonably sized GND planes (>10cm). If the antenna does not come with a ground plane, place it on a metal surface such as a car roof.
+The LTE modem needs to 4G capable antennas and cover the band of the modem usually this is 700kHz - 2.6GHz. In addition you need to insert a SIM card with a data plan from your local mobile network operator.
 A micro-SD card is only required if you intend to record logfiles from the modem of GNSS_ 
 
 ## Known Issue of version 0.9: 
 - The LTE_PWR_ON is floating, this causes the modem to constantly reset if no software is loaded. Software needs to be loaded that configures the GPIO12 either output HIGH or as INPUT with PULL-UP enabled. During reset the ESP applies however some LOW and high signal. It would be best to swap the LTE_RESET and LTE_PWRON pins to avoid changes during updates or reset. 
 - The C41 was added to the Auto Reset circuit of the NINA-W106. This sometimes can cause issues with certain terminal applications or if the BOOT GPIO is used for other functions. Simply remove the C41 with a soldering iron if it causes issues for you.
-- The shield of the SIM card holder is not connected to GND in the symbol. To make SIM detection work, we have to connect it to GND in addition to setting AT+UGPIOC=42.7 and AT+UDCONF=50,1. Otherwise it is better to remove R50. 
+- The shield of the SIM card holder is not connected to GND in the symbol. To make SIM detection work, we have to connect it to GND by makeing a solder bridge to GND pads of C38/36. In addition the software needs to set AT+UGPIOC=42,7 and AT+UDCONF=50,1. If SIM detection is not needed and then it is better to maybe remove R50. 
 - If special firmware is loaded (e.g., dev builds), make sure that RTK_STAT assigned to GPIO11 and GEOFENCE to GPIO12 to use that function.
 - Higher baud rates are not recommended even if RTS / CTS is used, this is a software issue and unrelated to hardware.
