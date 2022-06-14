@@ -110,6 +110,11 @@ protected:
 };
 
 #include "driver/uart.h" // for flow control
+#if !defined(HW_FLOWCTRL_CTS_RTS) || !defined(ESP_ARDUINO_VERSION) || !defined(ESP_ARDUINO_VERSION_VAL)
+ #define UBXSERIAL_OVERRIDE_FLOWCONTROL
+#elif (ESP_ARDUINO_VERSION <= ESP_ARDUINO_VERSION_VAL(2, 0, 3))
+ #define UBXSERIAL_OVERRIDE_FLOWCONTROL
+#endif
 
 class UBXSERIAL : public HardwareSerial, public UBXFILE {
 public:
@@ -144,7 +149,7 @@ public:
     }
     return ch;
   }
-#if !defined(HW_FLOWCTRL_CTS_RTS) || !defined(ESP_ARDUINO_VERSION) || (ESP_ARDUINO_VERSION <= ESP_ARDUINO_VERSION_VAL(2, 0, 3))
+#ifdef UBXSERIAL_OVERRIDE_FLOWCONTROL
   // The arduino_esp32 core has a bug that some pins are swapped in the setPins function. 
   // PR https://github.com/espressif/arduino-esp32/pull/6816#pullrequestreview-987757446 was issued
   // We will override as we cannot rely on that bugfix being applied in the users environment. 

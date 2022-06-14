@@ -33,9 +33,6 @@ const int GNSS_I2C_ADR            = 0x42;     //!< ZED-F9x I2C address
 #define GNSS_CHECK                if (_ok) _step ++, _ok 
 #define GNSS_CHECK_EVAL(txt)      if (!_ok) Log.error(txt ", sequence failed at step %d", _step)
 
-// B5 62 27 02 2C 00 02 7F 00 00 00 00 00 00 28 EF 12 05 18 06 1B 14 E8 51 08 24 DD 66 CF AB A8 39 C7 59 67 A4 D7 4E B8 BB 5A 66 2A FF 12 54 FF 32 8D 4A 6E CB
-// B5 62 08 05 38 00 02 04 00 00 B5 62 27 02 2C 00 02 7F 00 00 00 00 00 00 28 EF 12 05 18 06 1B 14 E8 51 08 24 DD 66 CF AB A8 39 C7 59 67 A4 D7 4E B8 BB 5A 66 2A FF 12 54 FF 32 8D 4A 6E CB 09 9B
-
 void ubxVersion(const char* tag, SFE_UBLOX_GNSS* rx) {
   struct { char sw[30]; char hw[10]; char ext[10][30]; } info;
   ubxPacket cfg = { UBX_CLASS_MON, UBX_MON_VER, 0, 0, 0, (uint8_t*)&info, 0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
@@ -79,21 +76,16 @@ public:
 /* 2*/GNSS_CHECK = setPortInput(COM_PORT_I2C, COM_TYPE_UBX | COM_TYPE_NMEA | COM_TYPE_SPARTN); // Be sure SPARTN input is enabled.
 /* 3*/GNSS_CHECK = setNavigationFrequency(1); //Set output in Hz.
 /* 4*/GNSS_CHECK = setHighPrecisionMode(true);
-      // add some usefull messages to store in the logfile
-/* 5*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,      1, VAL_LAYER_RAM); // required for this app
-/* 6*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,      1, VAL_LAYER_RAM); 
-/* 7*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C, 1, VAL_LAYER_RAM);
-/* 8*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,       1, VAL_LAYER_RAM);
-/* 9*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,      1, VAL_LAYER_RAM);
-      // Debug to USB port
-/*10*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_USB,      1, VAL_LAYER_RAM);
-/*11*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_USB,      1, VAL_LAYER_RAM);
-/*12*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_USB, 1, VAL_LAYER_RAM);
-/*13*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_USB,       1, VAL_LAYER_RAM);
-/*14*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_USB,      1, VAL_LAYER_RAM);
-/*15*/GNSS_CHECK = setAutoPVTcallbackPtr(onPVTdata);
+/* 5*/GNSS_CHECK = setAutoPVTcallbackPtr(onPVTdata);
       online = ok = GNSS_CHECK_OK;
       GNSS_CHECK_EVAL("GNSS detect configuration");
+      // add some usefull messages to store in the logfile // we will ignore any errors as they are not essential other than for the logfile
+/* 6*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,      1, VAL_LAYER_RAM); // required for this app, is already set by setAutoPVTcallbackPtr
+/* 7*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,      1, VAL_LAYER_RAM); 
+/* 8*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C, 1, VAL_LAYER_RAM);
+/* 9*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,      1, VAL_LAYER_RAM);
+/*10*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,       1, VAL_LAYER_RAM);
+      if (!_ok) Log.warning("GNSS message configuration, sequence failed at step %d", _step);
       if (ok) {
         Log.info("GNSS detect configuration complete, receiver online");
         uint8_t key[64];

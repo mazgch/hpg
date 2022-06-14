@@ -44,7 +44,7 @@ enum HW_PINS {
     I2C_SDA     = 21,  I2C_SCL        = 22,
     
 #if (HW_TARGET == MAZGCH_HPG_SOLUTION_V08)
-
+ #warning using MAZGCH_HPG_SOLUTION_V08
     // LTE (DCE) - BUG 34/39 are input only.on V0.8 -> will swap in V0.9
     LTE_RESET   = -1 /*BUG 34 is IN only */, 
     LTE_PWR_ON  = -1 /*BUG 39 is IN only */, LTE_ON      = 37,  LTE_INT = -1,
@@ -59,7 +59,6 @@ enum HW_PINS {
     MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
     
 #elif (HW_TARGET == MAZGCH_HPG_SOLUTION_V09)
-
     // LTE (DCE)
     LTE_RESET   = 13,  LTE_PWR_ON     = 12,  LTE_ON      = 37,  LTE_INT = -1,
     LTE_TXI     = 25,  LTE_RXO        = 26,  LTE_RTS     = 27,  LTE_CTS = 36, 
@@ -73,7 +72,6 @@ enum HW_PINS {
     MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
     
 #elif (HW_TARGET == MAZGCH_HPG_SOLUTION_V10)
-
     // LTE (DCE)
     LTE_RESET   = 12,  LTE_PWR_ON     = 13,  LTE_ON      = 37,  LTE_INT = -1,
     LTE_TXI     = 25,  LTE_RXO        = 26,  LTE_RTS     = 27,  LTE_CTS = 36, 
@@ -103,8 +101,7 @@ enum HW_PINS {
 #elif ((HW_TARGET == SPARKFUN_MICROMOD_MAINBOARD_PT) || (HW_TARGET == SPARKFUN_MICROMOD_MAINBOARD_DOUBLE_PT)) // using ESP 32 MicroMod MCU
     // LTE (DCE)   // assignable D0,A0,G0 (G4 G5 can't be used as duplicated on ESP32)
     LTE_RESET   = G2,  LTE_PWR_ON     = PWM0,  LTE_ON    = -1/*BUG G3/TX1*/,  LTE_INT = -1, 
-    LTE_TXI    = RX1, /*BUG SWAPPED*/
-    LTE_RXO    = TX1, /*BUG SWAPPED*/        LTE_RTS     = -1,  LTE_CTS = -1, 
+    LTE_TXI    = TX1,  LTE_RXO        = RX1, LTE_RTS     = -1,  LTE_CTS = -1,  // RX/TX swapped all PT V1 patched
     LTE_RI      = G1,  LTE_DSR        = -1,  LTE_DCD     = -1,  LTE_DTR = -1,
     LTE_NI      = -1, /*BUG G4/RXD*/
     // Power supply

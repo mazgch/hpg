@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-// ESP32 libraries, version 2.0.1 (preferred) - 2.0.3 (causes issues with all features active)
+// ESP32 libraries, version 2.0.3 (causes issues with all features active, e.g wifi and SD card need to optimize ram likely)
 //-----------------------------------
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
 // Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
@@ -30,6 +30,9 @@
 #include <SPIFFS.h>
 #include <SPI.h> 
 #include <SD.h> 
+#ifndef ESP_ARDUINO_VERSION
+  #include <core_version.h>
+#endif
 
 // Third parties libraries
 //-----------------------------------
@@ -92,6 +95,12 @@ void setup()
   Log.info("-------------------------------------------------------------------");
   Config.init();
   Log.info("mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), Config.getDeviceName().c_str());  
+#ifndef ESP_ARDUINO_VERSION
+  Log.info("Version IDF %s Arduino_esp32 %s", esp_get_idf_version(), ARDUINO_ESP32_RELEASE);
+#else
+  Log.info("Version IDF %s Arduino_esp32 %d.%d.%d", esp_get_idf_version(),
+        ESP_ARDUINO_VERSION_MAJOR,ESP_ARDUINO_VERSION_MINOR,ESP_ARDUINO_VERSION_PATCH);
+#endif
   // i2c wire
   UbxWire.begin(I2C_SDA, I2C_SCL); // Start I2C
   UbxWire.setClock(400000); //Increase I2C clock speed to 400kHz
