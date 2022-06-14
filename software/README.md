@@ -19,7 +19,7 @@ The software ensures full autonomous operation of a high precision solution usin
 A captive portal is available for configurating the device. Select the Wi-Fi network hpg-solution-XXXXXX with a notebook or mobile phone. You can then enter the Wi-Fi network to connect to, configure the Point Perfect device token, stream preferences as well as the LTE related settings. 
 The captive protal also will show the client ID when provisioned. 
 
-<img src="../Docu/CaptivePortal.png?raw=true" width="100%" height="100%">
+<img src="../docu/CaptivePortal2.png?raw=true" width="100%" height="100%">
 
 ## Host drivers & tools
 The USB port exposes each module as serial ports, the LARA is also recognized as a modem. These ports are available for a prowerful host or to connect the various u-blox evaluation tools or a terminal program: 
@@ -29,7 +29,7 @@ The USB port exposes each module as serial ports, the LARA is also recognized as
 
 The solution might require installation of drivers these are either available from Microsoft Update or from the u-blox and third party websites.
 
-![Drivers]( ="../Docu/USBStack.png)
+![Drivers](../docu/USBStack.png)
 
 - [LARA-R6 Drivers](https://content.u-blox.com/sites/default/files/2022-04/ublox_LARA-R6xx_%20windows_3264_v1.0.0.0.exe.zip?_ga=2.252269961.1659128418.1651476145-545066222.1627045718)
 - [SiLabs CP2101N Drivers](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers)
@@ -107,13 +107,9 @@ INFO:  GNSS 30:4:2022 19:21:19 lat 47.1762495 lon 8.4243833 msl 453.152 fix 3(3D
 - sometimes the software crashes and the webserver may be not so responsive. 
 
 ## Build instructions
-This software uses the free **Arduino IDE** that you can download from [their website](https://www.arduino.cc/en/software) 
+This software uses the free **Arduino IDE** that you can download from [their website](https://www.arduino.cc/en/software) The board uses a ESP32 based module, the NINA-W106 or Sparkfuns ESP32 Micromod. In order to compile the software for this target you need to install the [**arduino-esp32**](https://github.com/espressif/arduino-esp32) board support package. The [install instructions](https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html) will guide you through that process. At the time of writing these instructions, it is recommended to use the current development release of the package as some critical fixes that this software relies on were just recently contributed to this package. Then go to the board manager and install the esp32 package. When done you may need to restart to select and configure the Arduino IDE to use the correct device, please select **u-blox NINA-W10 series** and make sure the various settings are like in following screenshot: 
 
-<img src="../Docu/Arduino.png?raw=true" width="100%" height="100%">
-
-The board uses a ESP32 based module, the NINA-W106 or Sparkfuns ESP32 Micromod. In order to compile the software for this target you need to install the [**arduino-esp32**](https://github.com/espressif/arduino-esp32) board support package. The [install instructions](https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html) will guide you through that process. At the time of writing these instructions, it is recommended to use the current development release of the package as some critical fixes that this software relies on were just recently contributed to this package. Then go to the board manager and install the esp32 package. When done you may need to restart to select and configure the Arduino IDE to use the correct device, please select **u-blox NINA-W10 series** and make sure the various settings are like in following screenshot: 
-
-<img src="../Docu/TargetSettings.png?raw=true" width="100%" height="100%">
+<img src="../docu/Arduino_Settings.png?raw=true" width="100%" height="100%">
 
 The software makes use of several proprietary libraries and packages, all the packages can be downloaded using the library manager or manually downloaded installed using GitHub, for this project some fixes and features were contributed to the following libraries so please makes sure you have the latest beta or even development version: 
 - [arduino-esp32](https://github.com/espressif/arduino-esp32) used for NINA-W1 target and SD, FS, Wifi, SPI and many other functions provided by the ESP chip
