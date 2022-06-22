@@ -88,7 +88,7 @@ The LTE modem needs to 4G capable antennas and cover the band of the modem usual
 A micro-SD card is only required if you intend to record logfiles from the modem of GNSS_ 
 
 ## Known Issue of version 0.9: 
-- The LTE_PWR_ON is floating, this causes the modem to constantly reset if no software is loaded. Software needs to be loaded that configures the GPIO12 either output HIGH or as INPUT with PULL-UP enabled. During reset the ESP applies however some LOW and high signal. It would be best to swap the LTE_RESET and LTE_PWRON pins to avoid changes during updates or reset. 
+- The LTE_PWR_ON is floating towards GND, this causes the modem to constantly reset if no software is loaded. Software needs to be loaded that configures the GPIO12 either output HIGH or as INPUT with PULL-UP enabled. During reset the ESP applies however some LOW and high signal. It would be best to swap the LTE_RESET and LTE_PWRON pins to avoid changes during updates or reset. 
 - The C41 was added to the Auto Reset circuit of the NINA-W106. This sometimes can cause issues with certain terminal applications or if the BOOT GPIO is used for other functions. Simply remove the C41 with a soldering iron if it causes issues for you.
 - The shield of the SIM card holder is not connected to GND in the symbol. To make SIM detection work, we have to connect it to GND by makeing a solder bridge to GND pads of C38/36. In addition the software needs to set AT+UGPIOC=42,7 and AT+UDCONF=50,1. If SIM detection is not needed and then it is better to maybe remove R50. 
 - If special firmware is loaded (e.g., dev builds), make sure that RTK_STAT assigned to GPIO11 and GEOFENCE to GPIO12 to use that function.
