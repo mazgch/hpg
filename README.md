@@ -39,6 +39,8 @@ To make this device work as intended you need some accessories like LTE and GNSS
 13. To get best performance sure that the GNSS/LBAND antenna is well positioned and has good visibility to the sky!
 14. Feel free to connect with me even if it’s just to share the projects you are building using this exciting technology and solution.
 
+<img width ="49%" src="docu/Scooter.png"> <img width ="49%" src="docu/Mower.png"> 
+
 ## Quick Reference Card
 
 <img width ="100%" src="docu/Board_v09_Pinout.png">
