@@ -13,7 +13,7 @@ This project has the goal to demonstrate a high precision positioning function. 
 
 ## Getting started
 
-To make this device work as intended you need some accessories like LTE and GNSS antennas, a mobile data plan and nano SIM card and a subscription to a PointPerfect. Follow this sequence to get the device configured and setup, click on the image below for a short YouTube video on how to do some of these steps.
+To make this device work as intended you need some accessories like LTE and GNSS antennas, a mobile data plan and nano SIM card and a subscription to PointPerfect. Follow this sequence to get the device configured and setup, click on the image below for a short YouTube video on how to do some of these steps.
 
 [![Accessories Video](docu/AccessoriesPlay.jpg)](https://youtu.be/jzHmvw_pzyI)
 
