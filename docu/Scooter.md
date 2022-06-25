@@ -19,6 +19,6 @@ At the handle bar you need to mount the HPG solution board leveled, with x-Acix 
 to use the default sensor alignment settings, otherwise you need to manually set the alignment of the HPG board with UBX configuration 
 commands in the ZED-F9R. Select also the scooter dynamic model and save itMake sure that you fix the board tightly so that it does not 
 fall off or gets tilted on handle bar. The antenna is very critical to achive best performance, use a path with GND plane or a helix 
-antenna. Avoid the other antennas being in close view. 
+antenna. Avoid the other antennas being in close and point them away to avoid obstruction. 
 
 <img src="Xiaomi_ScooterHandlebar.jpg" width="50%" height="50%">
