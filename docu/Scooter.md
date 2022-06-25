@@ -2,7 +2,7 @@
 
 The HPG solution can be easily fitted to a scooter to test the performance. 
 
-<img src="Scooter.jpg" width="50%" height="50%">
+![Xiaomi Scooter](Scooter.jpg)
 
 The scooters from XIAOMI can be easily hacked to extract the Hall sensor signals that are used as a distance sensor by the ZED-F9R WT input. 
 The hall sensor are located in the front wheel next to the motor. Their singal are connected to the ESC motor controller that is located in the base of 
@@ -13,7 +13,7 @@ connect it to the ZED-F9R WT input with a series resistor (e.g 1k) to have some 
 be directly connected to the GND of the HPG solutions. In my case I routed the cable through the steering bar up to the handle bar. You need 
 to bypass some foam and squeeze it though the rubber parts along the other cables, but this gives a clean nice setup.
 
-<img src="Xiaomi_ScooterHack.png" width="50%" height="50%">
+![Scooter Handle Bar](Xiaomi_ScooterHack.png)
 
 At the handle bar you need to mount the HPG solution board leveled, with x-Acix pointing in drive direction. This is important in order 
 to use the default sensor alignment settings, otherwise you need to manually set the alignment of the HPG board with UBX configuration 
@@ -21,4 +21,4 @@ commands in the ZED-F9R. Select also the scooter dynamic model and save itMake s
 fall off or gets tilted on handle bar. The antenna is very critical to achive best performance, use a path with GND plane or a helix 
 antenna. Avoid the other antennas being in close and point them away to avoid obstruction. 
 
-<img src="Xiaomi_ScooterHandlebar.jpg" width="50%" height="50%">
+![Scooter Handle Bar](Xiaomi_ScooterHandlebar.jpg)
