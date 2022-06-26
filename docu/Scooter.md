@@ -15,7 +15,7 @@ to bypass some foam and squeeze it though the rubber parts along the other cable
 
 ![Scooter Handle Bar](Xiaomi_ScooterHack.png)
 
-At the handle bar you need to mount the HPG solution board leveled, with x-Acix pointing in drive direction. This is important in order 
+At the handle bar you need to mount the HPG solution board leveled, with x-axis pointing in drive direction. This is important in order 
 to use the default sensor alignment settings, otherwise you need to manually set the alignment of the HPG board with UBX configuration 
 commands in the ZED-F9R. Select also the scooter dynamic model and save itMake sure that you fix the board tightly so that it does not 
 fall off or gets tilted on handle bar. The antenna is very critical to achive best performance, use a path with GND plane or a helix 
