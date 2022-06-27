@@ -13,7 +13,7 @@ connect it to the ZED-F9R WT input with a series resistor (e.g 1k) to have some 
 be directly connected to the GND of the HPG solutions. In my case I routed the cable through the steering bar up to the handle bar. You need 
 to bypass some foam and squeeze it though the rubber parts along the other cables, but this gives a clean nice setup.
 
-![Scooter Handle Bar](Xiaomi_ScooterHack.png)
+<img alt="Scooter Handle Bar" width="100%" src="Xiaomi_ScooterHack.png">
 
 At the handle bar you need to mount the HPG solution board leveled, with x-axis pointing in drive direction. This is important in order 
 to use the default sensor alignment settings, otherwise you need to manually set the alignment of the HPG board with UBX configuration 
