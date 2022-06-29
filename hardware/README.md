@@ -43,7 +43,7 @@ NINA-W106-01 is a ESP32 with 8MB of FLASH memory. This module is responsible to 
 
 | GPIO  | Signal Function           | DIR | Comment                             |
 |:-----:|:--------------------------|:---:|:------------------------------------|
-|   0   | BOOT / GPIO0              | IN  | <- BOOT button, USB CTS RTS/CTS     |
+|   0   | BOOT / GPIO0              | IN  | <- BOOT button, USB CDC RTS/CTS     |
 |   1   | CDC_TX                    | OUT | -> USB CDC RX                       |
 |   2   | LED / GPIO2               | OUT | -> LED                              |
 |   3   | CDC_RX                    | IN  | -> USB CDC TX                       |
