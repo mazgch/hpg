@@ -17,8 +17,8 @@
 #ifndef __UBXFILE_H__
 #define __UBXFILE_H__
 
-const int UBXSERIAL_BUFFER_SIZE = 12*1024;        //!< Size of circular buffer, typically we see about 2.5kBs coming from the GNSS
-const int UBXWIRE_BUFFER_SIZE   = 10*1024;        //!< Size of circular buffer, typically we see about 2.5kBs coming from the GNSS
+const int UBXSERIAL_BUFFER_SIZE =  0*1024;        //!< Size of circular buffer, typically we see about 2.5kBs coming from the GNSS
+const int UBXWIRE_BUFFER_SIZE   = 12*1024;        //!< Size of circular buffer, typically we see about 2.5kBs coming from the GNSS
 
 const int UBXFILE_BLOCK_SIZE    =    1024;        //!< Size of the blocks used to pull from the GNSS and send to the File. 
 
@@ -46,14 +46,16 @@ public:
   }
 
   void open(const char* format, int max) {
-    char fn[20];
-    for (int i = 0; (i <= max) && !opened; i ++) {
-      sprintf(fn, format, i);
-      if (!SD.exists(fn)) {
-        if (file = SD.open(fn, FILE_WRITE)) {
-          Log.info("UBXFILE created file \"%s\"", fn);
-          opened = true;
-          size = 0;
+    if (buffer.size() > 1) {
+      char fn[20];
+      for (int i = 0; (i <= max) && !opened; i ++) {
+        sprintf(fn, format, i);
+        if (!SD.exists(fn)) {
+          if (file = SD.open(fn, FILE_WRITE)) {
+            Log.info("UBXFILE created file \"%s\"", fn);
+            opened = true;
+            size = 0;
+          }
         }
       }
     }
@@ -125,7 +127,9 @@ public:
 
   size_t write(uint8_t ch) override {
     if (xSemaphoreTake(mutex, portMAX_DELAY)) {
-      buffer.write(ch);
+      if (buffer.size() > 1) { 
+        buffer.write(ch);
+      }
       xSemaphoreGive(mutex);
     }
     return HardwareSerial::write(ch);
@@ -133,7 +137,9 @@ public:
   
   size_t write(const uint8_t *ptr, size_t size) override {
     if (xSemaphoreTake(mutex, portMAX_DELAY)) {
-      buffer.write((const char*)ptr, size);
+      if (buffer.size() > 1) { 
+        buffer.write((const char*)ptr, size);
+      } 
       xSemaphoreGive(mutex);
     }
     return HardwareSerial::write(ptr, size);  
@@ -143,7 +149,9 @@ public:
     int ch = HardwareSerial::read();
     if (-1 != ch) {
       if (xSemaphoreTake(mutex, portMAX_DELAY)) {
-        buffer.write((const char*)&ch, 1);
+        if (buffer.size() > 1) { 
+          buffer.write((const char*)&ch, 1);
+        } 
         xSemaphoreGive(mutex);
       }
     }
@@ -201,7 +209,9 @@ public:
     } else {
       state = WRITE;
       if (xSemaphoreTake(mutex, portMAX_DELAY)) {
-        buffer.write(ch);
+        if (buffer.size() > 1) {
+          buffer.write(ch);
+        } 
         xSemaphoreGive(mutex);
       }
     }
@@ -213,7 +223,9 @@ public:
       state = READFD;
     } else {
       if (xSemaphoreTake(mutex, portMAX_DELAY)) {
-        buffer.write((const char*)ptr, size);
+        if (buffer.size() > 1) {
+          buffer.write((const char*)ptr, size);
+        } 
         xSemaphoreGive(mutex);
       }
       state = WRITE;
@@ -231,7 +243,9 @@ public:
       //lenHi = ch;
     } else {
       if (xSemaphoreTake(mutex, portMAX_DELAY)) {
-        buffer.write(ch);
+        if (buffer.size() > 1) {
+          buffer.write(ch);
+        } 
         xSemaphoreGive(mutex);
       }
     }
