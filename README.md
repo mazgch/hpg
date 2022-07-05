@@ -59,3 +59,11 @@ This solution is an attempt to design a 'full u-blox solution' using various pro
 | [AssistNow](https://www.u-blox.com/en/product/assistnow) | A assisted GNSS services that allows to speed up the system start. |
 
 The hardware allows different SKUs and can be assembled with alternative modules with compatible form-factors such as [SARA-R510S](https://www.u-blox.com/en/product/sara-r5-series), [LENA-R8001](https://www.u-blox.com/en/product/lena-r8-series), [ZED-F9P](https://www.u-blox.com/en/product/zed-f9p-module) or [NEO-D9C](https://www.u-blox.com/en/product/neo-d9c-series).
+
+## Availability
+
+As this is a private project, availability is at the limited of real hardware pretty much to friends and colleagues. I am sharing here my work with the community with the goal that others can learn from it and collaborate. If you like to have a discussion or business intersst you can contact me with a DM. 
+
+<img width ="49%" src="docu/Boards_v09.png"> <img width ="49%" src="docu/Boards2_v09.png">
+
+
