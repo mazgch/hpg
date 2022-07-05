@@ -308,7 +308,7 @@ public:
   
   String setZtp(String &ztp, String &rootCa) {
     String id;
-    DynamicJsonDocument jsonZtp(4096);
+    DynamicJsonDocument jsonZtp(5*1024);
     DeserializationError error = deserializeJson(jsonZtp, ztp.c_str());
     if (DeserializationError::Ok != error) {
       Log.error("CONFIG::setZtp deserializeJson failed with error %d", error);
