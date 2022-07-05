@@ -112,7 +112,7 @@ This software uses the free **Arduino IDE** that you can download from [their we
 
 <img src="../docu/Arduino_Settings.png?raw=true" width="100%" height="100%">
 
-The software makes use of several proprietary libraries and packages, all the packages can be downloaded using the library manager or manually downloaded installed using GitHub, for this project some fixes and features were contributed to the following libraries so please makes sure you have the latest beta or even development version: 
+The software makes use of several proprietary libraries and packages, all the packages can be downloaded using the library manager (recommended) or manually downloaded installed using GitHub, for this project some fixes and features were contributed to the following libraries so please makes sure you have the latest beta or even development version. You will find library manager links also in the software.ino file just click them all and install the needed package, some links give you multiple option please select carefully the right package: 
 - [arduino-esp32](https://github.com/espressif/arduino-esp32) used for NINA-W1 target and SD, FS, Wifi, SPI and many other functions provided by the ESP chip
 - [ArduinoMqttClient](https://github.com/arduino-libraries/ArduinoMqttClient) for communicating with PointPerfect MQTT broker 
 - [ArduinoJson](https://github.com/bblanchon/ArduinoJson) Json for storing configurations and parsing ZTP messages  
