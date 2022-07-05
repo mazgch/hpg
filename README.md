@@ -62,7 +62,7 @@ The hardware allows different SKUs and can be assembled with alternative modules
 
 ## Availability
 
-As this is a private project, availability is at the limited of real hardware pretty much to friends and colleagues. I am sharing here my work with the community with the goal that others can learn from it and collaborate. If you like to have a discussion or business intersst you can contact me with a DM. 
+As this is a private project, availability of real prototypes and hardware is pretty much limited to friends and colleagues. I am sharing here my work with the open source community with the goal that others can learn from it and collaborate. If you like to have a discussion or business interesst you can contact me with a DM.
 
 <img width ="49%" src="docu/Boards_v09.jpg"> <img width ="49%" src="docu/Boards2_v09.jpg">
 
