@@ -18,7 +18,7 @@ To make this device work as intended you need some accessories like LTE and GNSS
 [![Accessories Video](docu/AccessoriesPlay.jpg)](https://youtu.be/jzHmvw_pzyI)
 
 1. Insert a nano SIM card, the socket is a push/push socket so don't try to just pull the card out.
-2. Insert a micro-SD card if you like the device to record logfiles. 
+2. Optional: Insert a micro-SD card (FAT, max 32GB) if you like the device to record logfiles. 
 3. Attach the two LTE antennas to the SMA ports located on the long edges. To avoid mechanical stress on the center pin, make sure you do not rotate the antenna itself but only the nut of the SMA connector. 
 4. Connect a survey grade L1/L2/L5 GNSS and LBAND antenna to the SMA port on the small edge of the device and place the antenna in a location with very good and unobstructed visibility to the sky. This is important to allow reliable LBAND reception as well as avoid multipath errors on the GNSS measurements 
 5. Connect a USB cable to a computer, this will turn the device on, and you will see various LEDS turn on. In addition, your computer will enumerate several USB devices and serial as well a modem ports will become available.  
