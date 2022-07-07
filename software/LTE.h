@@ -45,7 +45,7 @@ const char* SEC_ROOT_CA           = "aws-rootCA";
 const char* SEC_CLIENT_CERT       = "pp-cert";
 const char* SEC_CLIENT_KEY        = "pp-key";
 
-const int LTE_STACK_SIZE          = 5*1024;      //!< Stack size of UbxFile Logging task
+const int LTE_STACK_SIZE          = 5*1024;      //!< Stack size of LTE task
 const int LTE_TASK_PRIO           = 1;
 const int LTE_TASK_CORE           = 1;
 
