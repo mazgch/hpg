@@ -18,7 +18,7 @@ To make this device work as intended you need some accessories like LTE and GNSS
 [![Accessories Video](docu/AccessoriesPlay.jpg)](https://youtu.be/jzHmvw_pzyI)
 
 1. Insert a nano SIM card, the socket is a push/push socket so don't try to just pull the card out.
-2. Insert a micro-SD card if you like the device to record logfiles. 
+2. Optional: Insert a micro-SD card (FAT, max 32GB) if you like the device to record logfiles. 
 3. Attach the two LTE antennas to the SMA ports located on the long edges. To avoid mechanical stress on the center pin, make sure you do not rotate the antenna itself but only the nut of the SMA connector. 
 4. Connect a survey grade L1/L2/L5 GNSS and LBAND antenna to the SMA port on the small edge of the device and place the antenna in a location with very good and unobstructed visibility to the sky. This is important to allow reliable LBAND reception as well as avoid multipath errors on the GNSS measurements 
 5. Connect a USB cable to a computer, this will turn the device on, and you will see various LEDS turn on. In addition, your computer will enumerate several USB devices and serial as well a modem ports will become available.  
@@ -26,7 +26,7 @@ To make this device work as intended you need some accessories like LTE and GNSS
 [![Software Getting Started Video](docu/Arduino_SoftwarePlay.png)](https://youtu.be/k2dovptFn9o)
 
 6. Optional: if the [software](./software) is not yet programmed, follow the build instructions of the Arduino based software and load it to the device. 
-7. In order to add the device to your local Wi-Fi connect your computer or mobile phone with the `hpg-XXXXXX` Wi-Fi network. You will be directed to a captive portal where you can then enter your networks Wi-Fi credentials. Once done the device will connect to your local network with a IP. You may need to reset your device.
+7. In order to add the device to your local Wi-Fi connect your computer or mobile phone with the `hpg-XXXXXX` Wi-Fi network. You will be directed to a captive portal where you can then enter your networks Wi-Fi credentials. Make sure that the Wi-Fi network that you like to connect to is supporting 2.4GHz band. Once done the device will connect to your local network and get an IP. You may want to reset your device to force a fast reconnection.
 8. After the device is connected, you can try to connect to it using its host name `hpg-XXXXXX`. The IP address of the device is also reported in the debug output on the console output CDC port at 115'200 baud. A third option is to use the device discovery of the [HPG Monitor](http://hpg.mazg.ch). Some networks do not allow communication between attached Wi-Fi clients so it may be better to connect the device to your computer or mobile in hotspot mode. 
 9. After you have successfully connected your device, you need to configure the PointPerfect location device token that you can get from the Thingstream portal and set the possible correction sources to use. You can also set the SIM pin, but it is often easier to remove the SIM pin from your SIM card with a mobile phone first. 
 10. After that the device will provision the credentials using zero touch provisioning (ZTP) from the PointPerfect servers.
@@ -59,3 +59,11 @@ This solution is an attempt to design a 'full u-blox solution' using various pro
 | [AssistNow](https://www.u-blox.com/en/product/assistnow) | A assisted GNSS services that allows to speed up the system start. |
 
 The hardware allows different SKUs and can be assembled with alternative modules with compatible form-factors such as [SARA-R510S](https://www.u-blox.com/en/product/sara-r5-series), [LENA-R8001](https://www.u-blox.com/en/product/lena-r8-series), [ZED-F9P](https://www.u-blox.com/en/product/zed-f9p-module) or [NEO-D9C](https://www.u-blox.com/en/product/neo-d9c-series).
+
+## Availability
+
+As this is a private project, availability of real prototypes and hardware is pretty much limited to friends and colleagues. I am sharing here my work with the open source community with the goal that others can learn from it and collaborate. If you like to have a discussion or business interesst you can contact me with a DM.
+
+<img width ="49%" src="docu/Boards_v09.jpg"> <img width ="49%" src="docu/Boards2_v09.jpg">
+
+
