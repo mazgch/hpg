@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-// ESP32 libraries, version 2.0.3 (causes issues with all features active, e.g wifi and SD card need to optimize ram likely)
+// ESP32 libraries, version 2.0.3
 //-----------------------------------
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
 // Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
@@ -25,7 +25,7 @@
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
-#include <BluetoothSerial.h>
+//#include <BluetoothSerial.h>
 #include <HTTPClient.h>
 #include <SPIFFS.h>
 #include <SPI.h> 
