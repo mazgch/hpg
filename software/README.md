@@ -16,7 +16,7 @@ The software ensures full autonomous operation of a high precision solution usin
 - Hot plug and runtime detection of gnss, lband and SD card
 
 ## Captive portal
-A captive portal is available for configurating the device. Select the Wi-Fi network hpg-solution-XXXXXX with a notebook or mobile phone. You can then enter the Wi-Fi network to connect to, configure the Point Perfect device token, stream preferences as well as the LTE related settings. 
+A captive portal is available for configurating the device. Select the Wi-Fi network `hpg-XXXXXX` with a notebook or mobile phone. You can then enter the Wi-Fi network to connect to, configure the Point Perfect device token, stream preferences as well as the LTE related settings. 
 The captive protal also will show the client ID when provisioned. 
 
 <img src="../docu/CaptivePortal2.png?raw=true" width="100%" height="100%">
