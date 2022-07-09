@@ -136,14 +136,31 @@ public:
       if (PIN_INVALID != LTE_ON) {
         pwr = (LOW == digitalRead(LTE_ON)) ? PWR_ON : PWR_OFF;
         Log.debug((PWR_ON == pwr) ? "LTE power now on" : "LTE power still off"); 
+        if (PWR_ON == pwr) {
+          // need to wait after turing power on, until modem is started 
+          delay(6000);
+        }
       }
     }
     bool ctsOk = true; 
-    if (PIN_INVALID != LTE_CTS) {
-      ctsOk = (LOW == digitalRead(LTE_CTS));
+    if ((PWR_OFF != pwr) && (PIN_INVALID != LTE_CTS)) {
+      if (HIGH == digitalRead(LTE_CTS)) {
+        Log.debug("LTE CTSo is HIGH, wait");
+        for (int i = 0; i < 100; i ++) {
+          ctsOk = (LOW == digitalRead(LTE_CTS));
+          if (ctsOk)
+            break;
+          delay(100);
+        }
+        Log.debug("LTE CTSo now LOW");
+      }
     }
     bool ok = false;
     if ((PWR_OFF != pwr) && ctsOk) {
+      #define PIN_TXT(pin) (PIN_INVALID == pin) ? "" : digitalRead(pin) == LOW ? " LOW" : " HIGH"
+      Log.info("LTE baudrate %d pins RXo %d%s TXi %d%s CTSo %d%s RTSi %d%s", LTE_BAUDRATE, 
+        LTE_RXO, PIN_TXT(LTE_RXO), LTE_TXI, PIN_TXT(LTE_TXI),
+        LTE_CTS, PIN_TXT(LTE_CTS), LTE_RTS, PIN_TXT(LTE_RTS));
       ok = begin(UbxSerial, LTE_BAUDRATE);
       if (ok) {
         module = getModelID();
@@ -176,7 +193,15 @@ public:
     if (state != INIT) {
       SARA_R5::poll();
     }
-
+    
+    if ((PIN_INVALID != LTE_ON) && (state != INIT)) {
+      // detect if LTE was turned off
+      if (HIGH == digitalRead(LTE_ON)) {
+        UbxSerial.end();
+        setState(INIT, LTE_DETECT_RETRY);
+      }
+    }
+    
     long now = millis();
     if (ttagNextTry <= now) {
       switch (state) {
