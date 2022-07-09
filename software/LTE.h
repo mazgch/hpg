@@ -63,7 +63,7 @@ private:
     delay(100);
     UbxSerial.end();
     delay(10);
-    Log.info("LTE baudrate %d pins RXo %d TXi %d CTSo %d RTSi %d", baud, LTE_RXO, LTE_TXI, LTE_CTS, LTE_RTS);
+    Log.debug("LTE baudrate %d pins RXo %d TXi %d CTSo %d RTSi %d", baud, LTE_RXO, LTE_TXI, LTE_CTS, LTE_RTS);
     UbxSerial.begin(baud, SERIAL_8N1, LTE_RXO, LTE_TXI);
     if ((PIN_INVALID != LTE_RTS) && (PIN_INVALID != LTE_CTS)) {
       UbxSerial.setPins(LTE_RXO, LTE_TXI, LTE_CTS, LTE_RTS); 
