@@ -43,10 +43,10 @@ const struct { const char* region; short lon1; short lon2; short lat1; short lat
   { "eu",  -30,  40,   35, 75, 1545260000 }, // Europe
   // Regional / Test 
   { "cn",   75,  135,  15, 60,          0 }, // China
-  { "au",  111,  160  -43, -9,          0 }, // Australia
+  { "au",  111,  160, -43, -9,          0 }, // Australia
   { "jp",  128,  147,  30, 47,          0 }, // Japan
   { "kr",  126,  130,  34, 39,          0 }, // Korea
-  { "sa",   34,   56,  15, 33,          0 }, // Saudi Arabia
+  { "sa",   34,   56,  15, 33,          0 } // Saudi Arabia
 };
 
 const char MQTT_TOPIC_MGA[]             = "/pp/ubx/mga";
