@@ -25,7 +25,6 @@
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
-//#include <BluetoothSerial.h>
 #include <HTTPClient.h>
 #include <SPIFFS.h>
 #include <SPI.h> 
@@ -75,7 +74,6 @@
 #include "CONFIG.h"
 #include "UBXFILE.h"
 #include "WLAN.h"
-//#include "BLUETOOTH.h"
 #include "GNSS.h"
 #include "LBAND.h"
 #include "LTE.h"
@@ -106,7 +104,6 @@ void setup()
   UbxWire.setClock(400000); //Increase I2C clock speed to 400kHz
   // SD card 
   UbxSd.init(); // handling SD card and files runs in a task
-  //Bluetooth.begin();
   //Lte.enableDebugging(Serial);
   //Lte.enableAtDebugging(Serial); // we use UbxSerial for data logging instead
 #ifdef WEBSOCKET_STREAM
@@ -134,7 +131,6 @@ void loop()
 {
   LBand.poll();
   Gnss.poll();
-  //Bluetooth.poll();
   Log.poll();
   delay(50);
 }

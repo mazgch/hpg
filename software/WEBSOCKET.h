@@ -35,16 +35,16 @@ extern const char* WEBSOCKET_JS;
 
 using namespace websockets;
 
-#ifdef WEBSOCKET_STREAM
 class WEBSOCKET : public Stream {
 public: 
+#ifdef WEBSOCKET_STREAM
   WEBSOCKET(size_t size = 5*1024) : buffer{size} {
     mutex = xSemaphoreCreateMutex();
-  }
 #else
-class WEBSOCKET {
-public: 
+  WEBSOCKET {
 #endif
+    queue = xQueueCreate(5, sizeof(MSG));
+  }
   
   void setup(WiFiManager& manager) {
     pManager = &manager;
@@ -55,7 +55,6 @@ public:
 #endif
     );
     wsServer.listen(WEBSOCKET_WEBSOCKET_PORT);
-    queue = xQueueCreate(5, sizeof(MSG));
     if (!wsServer.available()) {
       Log.info("WEBSOCKET not available");
     }
@@ -363,13 +362,15 @@ const char* WEBSOCKET_JS = R"js(
     ws.addEventListener('message', ({ data }) => {
       if (typeof(data) == 'string') {
         log(`${data}`)
-        //                     time        src fix car acc      lat        lon
-        const m = data.match(/^\d+:\d+:\d+ \w+ \S+ \w+ \d+\.\d+ (-?\d+\.\d+) (-?\d+\.\d+)/)
+        //                     time        src  fix  car acc       lat          lon
+        const m = data.match(/^\d+:\d+:\d+ \w+ (\S+) \w+ \d+\.\d+ (-?\d+\.\d+) (-?\d+\.\d+)/)
         if (map && track && m) {
-          let pos = ol.proj.fromLonLat([Number(m[2]), Number(m[1])])
-          map.getView().setCenter(pos)
-          track.getGeometry().appendCoordinate(pos)
-          point.getGeometry().setCoordinates(pos)
+          if (m[1] != "No") {
+            let pos = ol.proj.fromLonLat([Number(m[3]), Number(m[2])])
+            map.getView().setCenter(pos)
+            track.getGeometry().appendCoordinate(pos)
+            point.getGeometry().setCoordinates(pos)
+          }
         }
       }
     })

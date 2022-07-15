@@ -173,8 +173,6 @@ public:
  #ifndef HW_FLOWCTRL_CTS_RTS
   #define HW_FLOWCTRL_CTS_RTS UART_HW_FLOWCTRL_CTS_RTS
  #endif
-#else
- #warning using built in flow control of the platform
 #endif
 };
 
