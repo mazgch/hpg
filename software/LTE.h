@@ -164,9 +164,12 @@ public:
       ok = begin(UbxSerial, LTE_BAUDRATE);
       if (ok) {
         module = getModelID();
+        String version = getFirmwareVersion();
         Log.info("LTE config manufacturer \"%s\" model=\"%s\" version=\"%s\"", 
-            getManufacturerID().c_str(), module.c_str(), getFirmwareVersion().c_str());
-
+            getManufacturerID().c_str(), module.c_str(), version.c_str());
+        if (version.equals("00.11")) {
+          Log.error("This LTE firmware has MQTT limitations, please update the firmware");
+        }
 #if (HW_TARGET == MAZGCH_HPG_SOLUTION_V09)
         //enableSIMDetectAndHotswap();
 #endif
