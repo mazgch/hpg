@@ -33,7 +33,8 @@ const int GNSS_I2C_ADR            = 0x42;     //!< ZED-F9x I2C address
 #define GNSS_CHECK                if (_ok) _step ++, _ok 
 #define GNSS_CHECK_EVAL(txt)      if (!_ok) Log.error(txt ", sequence failed at step %d", _step)
 
-void ubxVersion(const char* tag, SFE_UBLOX_GNSS* rx) {
+String ubxVersion(const char* tag, SFE_UBLOX_GNSS* rx) {
+  String fwver; 
   struct { char sw[30]; char hw[10]; char ext[10][30]; } info;
   ubxPacket cfg = { UBX_CLASS_MON, UBX_MON_VER, 0, 0, 0, (uint8_t*)&info, 0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
   rx->setPacketCfgPayloadSize(sizeof(info)+8);
@@ -43,10 +44,14 @@ void ubxVersion(const char* tag, SFE_UBLOX_GNSS* rx) {
     for (int i = 0; cfg.len > (30 * i + 40); i ++) {
       if (*info.ext[i]) {
         p += sprintf(p, "%s \"%s\"", (p==ext) ? " ext" : ",", info.ext[i]);
+        if (0 == strncmp(info.ext[i], "FWVER=",6)) {
+          fwver = info.ext[i] + 6;
+        }
       }
     }
     Log.info("%s version hw %s sw \"%s\"%s", tag, info.hw, info.sw, ext);
   }
+  return fwver;
 } 
 
 extern class GNSS Gnss;
@@ -69,7 +74,7 @@ public:
     if (ok) {
       Log.info("GNSS detect receiver detected");
 
-      ubxVersion("GNSS", this);
+      String fwver = ubxVersion("GNSS", this);
     
 /* #*/GNSS_CHECK_INIT;
 /* 1*/GNSS_CHECK = setI2COutput(COM_TYPE_UBX | COM_TYPE_NMEA );
@@ -84,7 +89,13 @@ public:
 /* 7*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,      1, VAL_LAYER_RAM); 
 /* 8*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C, 1, VAL_LAYER_RAM);
 /* 9*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,      1, VAL_LAYER_RAM);
-/*10*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,       1, VAL_LAYER_RAM);
+      if (fwver.equals("HPS 1.21")) { // ZED-F9R old release firmware, no Spartan 2.0 support
+        Log.error("GNSS firmware %s does not support Spartan 2.0, please update firmware", fwver.c_str());
+      } else if (fwver.equals("HPS 1.30A01")) { // ZED-F9R LAP demo firmware, Supports 2.0 but doesn't have protection level
+        Log.warning("GNSS firmware %s is a time-limited demonstrator, please update firmware in Q4/2022", fwver.c_str());
+      } else {
+/*10*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,     1, VAL_LAYER_RAM);
+      }
       if (!_ok) Log.warning("GNSS message configuration, sequence failed at step %d", _step);
       if (ok) {
         Log.info("GNSS detect configuration complete, receiver online");

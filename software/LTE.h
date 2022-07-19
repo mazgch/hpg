@@ -168,7 +168,7 @@ public:
         Log.info("LTE config manufacturer \"%s\" model=\"%s\" version=\"%s\"", 
             getManufacturerID().c_str(), module.c_str(), version.c_str());
         if (version.equals("00.11")) {
-          Log.error("This LTE firmware has MQTT limitations, please update the firmware");
+          Log.error("LTE firmware %s has MQTT limitations, please update firmware", version.c_str());
         }
 #if (HW_TARGET == MAZGCH_HPG_SOLUTION_V09)
         //enableSIMDetectAndHotswap();
