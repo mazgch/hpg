@@ -279,6 +279,9 @@ public:
         json[CONFIG_VALUE_REGION] = region;
         changed = true;
       }
+    } else if (json.containsKey(CONFIG_VALUE_REGION)) { // we leave coverage area
+      json.remove(CONFIG_VALUE_REGION);
+      changed = true;
     }
     if (freq) {
       int oldFreq = json.containsKey(CONFIG_VALUE_FREQ) ? json[CONFIG_VALUE_FREQ] : 0;

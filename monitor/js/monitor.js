@@ -203,10 +203,22 @@ const mapNmeaStatus = {
 	'V':'Data invalid',
 	'A':'Data valid',
 };
-const mapNavMode = {
+const mapNmeaNavMode = {
 	'3':'3D fix',
 	'2':'2D fix',
 	'1':'No fix',
+}
+const mapEsfFusionMode = {
+	'0':'Initilizing',
+	'1':'Fusion Mode',
+	'2':'Temporary Disabled',
+	'3':'Disabled',
+}
+const mapEsfCalibMode = {
+	'0':'Initialization',
+	'1':'Fusion Mode',
+	'2':'Suspended',
+	'3':'Disabled',
 }
 const mapNmeaQuality = {
 	'8':'Simulation',
@@ -290,9 +302,10 @@ let db = { // a database with values values to capture an report
 	status: new dbY( { name: 'NMEA valid status',                   map:mapNmeaStatus,		   } ),
     posMode:new dbY( { name: 'NMEA position mode',	                map:mapNmeaPosMode,	       } ),
     opMode: new dbY( { name: 'NMEA operation status',               map:mapNmeaOpMode, 		   } ),
-    navMode:new dbY( { name: 'NMEA navigation mode',                map:mapNavMode,  		   } ),
+    navMode:new dbY( { name: 'NMEA navigation mode',                map:mapNmeaNavMode,        } ),
     quality:new dbY( { name: 'NMEA quality',	                    map:mapNmeaQuality, 	   } ),
     // 
+    fusionMode: new dbY( { name: 'ESF fusion mode',                 map:mapEsfFusionMode,      } ),
     ebn0:   new dbY( { name: 'LBAND Eb/N0',                         unit:'dB',         prec:1, } ),
     // internals
 	epIndex:new dbY( { name: 'Epoch index',                                                    } ),

@@ -697,14 +697,24 @@ const spec = {
                                    { name:'prRes',     type:'I2', scale:0.1,  unit:'m'   },
                                    { name:'flags',     type:'X4',    }, ] }, ] },
 // RXM ------------
-    'RXM-COR':      { descr:'Differential correction input status',
+    'RXM-COR':          { descr:'Differential correction input status',
                           spec:[ { name:'ver',         type:'U1',                        },
                                  { name:'ebn0',        type:'U1', scale:0.125, unit:'dB' },
                                  {                     type:'U1[2]'                      },
                                  { name:'statusInfo',  type:'X4',                        },
                                  { name:'msgType',     type:'U2',                        },
                                  { name:'msgSubType',  type:'U2',                        } ] },
-// INF ------------
+    'RXM-QZSSL6':       { descr:'QZSS L6 message',
+                          spec:[ { name:'ver',         type:'U1',                        },
+                                 { name:'svId',        type:'U1',                        },
+                                 { name:'cno',         type:'U2', scale:0.00390625, unit:'dB' },
+                                 { name:'timeTag',     type:'U4'                         },
+                                 { name:'groupDelay',  type:'U1',                        },
+                                 { name:'bitErrCorr',  type:'U1',                        },
+                                 { name:'chInfo',      type:'U2',                        },
+                                 { /*name:'res0',*/    type:'U1[2]'                      },
+                                 { name:'msgBytes',    type:'U1[250]',                   } ] },
+       // INF ------------
     'INF-ERROR':        { descr:'ASCII output with error contents',
 						  spec:[ { name:'infTxt',      type:'S*'     }, ] },
     'INF-WARNING':      { descr:'ASCII output with warning contents',
@@ -771,7 +781,19 @@ const spec = {
 						  spec:[ { name:'swVer',       type:'S30'    },
 								 { name:'hwVer',       type:'S10'    },
 								 { name:'extVer',      type:'S30[]'  }, ] },
-// MGA ------------
+// ESF ------------
+    'ESF-STATUS':       { descr:'External Sensor Fusion Status',
+                          spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
+                                 { name:'version',     type:'U1'     },
+                                 { /*name:'res0',*/    type:'U1[7]'  },
+                                 { name:'fusionMode',  type:'U1'     }, // 0:init, 1:fusion mode, 2:temp suspended, 3:disabled
+                                 { /*name:'res1',*/    type:'U1[2]'  },
+                                 { name:'numSens',     type:'U1'  },
+                                 { name:'sensor',      repeat:'numSens', spec: [
+                                    { name:'sensStatus1',    type:'X1'       }, // bit0..5:type, bit6:used, bit7:ready
+                                    { name:'sensStatus2',    type:'X1'       }, // bit0..1:calibStatus, bit2..3:timeStatus
+                                    { name:'freq',      type:'U1', unit:'Hz' }, 
+                                    { name:'faults',    type:'X1'            }, ] }, ] }, // bit0:badMeas, bit1:badTtag, bit2:missingMeas, bit3:noisyMeas
     'MGA-GPS':          { descr:'GPS Assistance Date',
 						  spec:[ { name:'type',        type:'U1'     }, // 1:EPH, 2: ALM, 3:TIMEOFFSET, 4:HEALTH 5:UTC 6:IONO
                                  { name:'version',     type:'U1'     },

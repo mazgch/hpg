@@ -20,7 +20,7 @@
 #if defined(ARDUINO_UBLOX_NINA_W10)
  #define HW_TARGET     MAZGCH_HPG_SOLUTION_V09
 #elif defined(ARDUINO_ESP32_MICROMOD)
- #define HW_TARGET     SPARKFUN_MICROMOD_MAINBOARD_PT
+ #define HW_TARGET     SPARKFUN_MICROMOD_MAINBOARD
 #else
  #error unknown board target 
 #endif
@@ -100,9 +100,9 @@ enum HW_PINS {
 
 #elif ((HW_TARGET == SPARKFUN_MICROMOD_MAINBOARD_PT) || (HW_TARGET == SPARKFUN_MICROMOD_MAINBOARD_DOUBLE_PT)) // using ESP 32 MicroMod MCU
     // LTE (DCE)   // assignable D0,A0,G0 (G4 G5 can't be used as duplicated on ESP32)
-    LTE_RESET   = G2,  LTE_PWR_ON     = PWM0,  LTE_ON    = -1/*BUG G3/TX1*/,  LTE_INT = -1, 
-    LTE_TXI    = TX1,  LTE_RXO        = RX1,   LTE_RTS   = -1,  LTE_CTS = -1,  // TX1/RX1 were swapped, all PT V1 boards patched
-    LTE_RI      = G1,  LTE_DSR        = -1,    LTE_DCD   = -1,  LTE_DTR = -1,
+    LTE_RESET   = G2,  LTE_PWR_ON    = PWM0,  LTE_ON    = -1/*BUG G3/TX1*/,  LTE_INT = -1, 
+    LTE_TXI    = TX1,  LTE_RXO        = RX1,  LTE_RTS   = -1,  LTE_CTS = -1,  // TX1/RX1 were swapped, all PT V1 boards patched
+    LTE_RI      = G1,  LTE_DSR         = -1,  LTE_DCD   = -1,  LTE_DTR = -1,
     LTE_NI      = -1, /*BUG G4/RXD*/
     // Power supply
     VIN         = 39,  V33_EN         = -1,
@@ -118,9 +118,9 @@ enum HW_PINS {
 
 #else // using ESP 32 MicroMod MCU
     // LTE (DCE)   // assignable D0,A0,G0 (G3/G4 can't be used as duplicated with TX1/RX1 on ESP32)
-    LTE_RESET = PWM0,  LTE_PWR_ON     = G2,    LTE_ON     = CS0,  LTE_INT = -1, 
-    LTE_TXI    = TX1,  LTE_RXO        = RX1,   LTE_RTS     = -1,  LTE_CTS = -1, 
-    LTE_RI      = -1,  LTE_DSR        = -1,    LTE_DCD     = -1,  LTE_DTR = -1,
+    LTE_RESET = PWM0,  LTE_PWR_ON     = G2,  LTE_ON      = SS,  LTE_INT = -1, 
+    LTE_TXI    = TX1,  LTE_RXO       = RX1,  LTE_RTS     = -1,  LTE_CTS = -1, 
+    LTE_RI      = -1,  LTE_DSR        = -1,  LTE_DCD     = -1,  LTE_DTR = -1,
     LTE_NI      = D0,
     // Power supply
     VIN         = 39,  V33_EN         = -1,

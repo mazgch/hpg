@@ -89,12 +89,15 @@ public:
 /* 7*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,      1, VAL_LAYER_RAM); 
 /* 8*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C, 1, VAL_LAYER_RAM);
 /* 9*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,      1, VAL_LAYER_RAM);
-      if (fwver.equals("HPS 1.21")) { // ZED-F9R old release firmware, no Spartan 2.0 support
-        Log.error("GNSS firmware %s does not support Spartan 2.0, please update firmware", fwver.c_str());
-      } else if (fwver.equals("HPS 1.30A01")) { // ZED-F9R LAP demo firmware, Supports 2.0 but doesn't have protection level
+      if (fwver.startsWith("HPS ")) {
+/*10*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C, 1, VAL_LAYER_RAM);
+      }
+      if (fwver.equals("HPS 1.30A01")) { // ZED-F9R LAP demo firmware, Supports 2.0 but doesn't have protection level
         Log.warning("GNSS firmware %s is a time-limited demonstrator, please update firmware in Q4/2022", fwver.c_str());
+      } else if (fwver.substring(4).toFloat() < 1.30) { // ZED-F9R/P old release firmware, no Spartan 2.0 support
+        Log.error("GNSS firmware %s does not support Spartan 2.0, please update firmware", fwver.c_str());
       } else {
-/*10*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,     1, VAL_LAYER_RAM);
+/*11*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,     1, VAL_LAYER_RAM);
       }
       if (!_ok) Log.warning("GNSS message configuration, sequence failed at step %d", _step);
       if (ok) {
@@ -209,7 +212,7 @@ public:
             1e-3*ubxDataStruct->hAcc, LUT_SRC(Gnss.curSource), ESP.getFreeHeap());
             
       // update the pointperfect topic and lband frequency depending on region we are in
-      if (ubxDataStruct->flags.bits.gnssFixOK) {
+      if ((fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) {
         Config.updateLocation(fLat, fLon);
       }
 
