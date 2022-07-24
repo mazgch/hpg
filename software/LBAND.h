@@ -59,7 +59,7 @@ public:
 /* 2*/  LBAND_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2, 1,                    VAL_LAYER_RAM);
 /* 3*/  LBAND_CHECK = setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400,                   VAL_LAYER_RAM); // match baudrate with ZED default
 #else
-        Log.info("LBAND NEO-D9C receiver not supported by Sparkfun library, please update library");
+        Log.info("LBAND NEO-D9C receiver not supported by this Sparkfun library, please update library");
 #endif
       } else
       { // NEO-D9S

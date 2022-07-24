@@ -116,7 +116,7 @@ void setup()
   //LBand.setOutputPort(Websocket); // forward all messages
 #endif  
   if (!LBand.detect()) {
-    Log.warning("LBAND NEO-D9S not detected, check wiring");
+    Log.warning("LBAND NEO-D9 not detected, check wiring");
   }
   //Gnss.enableDebugging();
 #ifdef WEBSOCKET_STREAM

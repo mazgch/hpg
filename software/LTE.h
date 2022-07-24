@@ -35,6 +35,11 @@ const int LTE_CONNECTED_RETRY     =  2000;
 const int LTE_MQTTCMD_DELAY       =   100; // the client is not happy if multiple commands are sent too fast
 const int LTE_BAUDRATE            = 115200; // baudrates 230400, 460800 or 921600 cause issues even when CTS/RTS is enabled
 
+const int LTE_POWER_ON_PULSE        =  2000;
+const int LTE_POWER_ON_WAITTIME     =  6000;
+const int LTE_POWER_ON_WAITCTS      = 10000;
+const int LTE_POWER_ON_WAITSIMREADY =  4000;
+
 const int LTE_PSD_PROFILE         = 0;
 const int LTE_HTTP_PROFILE        = 0;
 const int LTE_SEC_PROFILE_HTTP    = 1;
@@ -89,7 +94,13 @@ public:
       pinMode(LTE_RESET, OUTPUT);
       digitalWrite(LTE_RESET, HIGH);
     }
-    // The LTE_PWR_ON pin is active HIGH (>150ms HIGH = trun on, >1.5s = trun off, LOW = idle)
+    // The LTE_PWR_ON pin is active HIGH, idle LOW, here the timing for few modules
+    
+    // Module     Power On time   Power Off time   Reset
+    // SARA-R5    0.1/1-2s        23s + 1.5sReset  0.1s
+    // LARA-R6    0.15-3.2s       >1.5s            0.05-6s (10s emergency)
+    // LENA-R8    2s              3.1s             0.05s
+    
     // The LTE_PWR_ON pin has a external pull low resistor on the hardware side. 
     if (PIN_INVALID != LTE_PWR_ON) {
       digitalWrite(LTE_PWR_ON, LOW);
@@ -130,7 +141,7 @@ public:
     if ((PWR_ON != pwr) && (PIN_INVALID != LTE_PWR_ON)) {
       Log.info("LTE power turn on");
       digitalWrite(LTE_PWR_ON, HIGH);
-      delay(200);
+      delay(LTE_POWER_ON_PULSE);
       digitalWrite(LTE_PWR_ON, LOW);
       // check again if power is now on
       if (PIN_INVALID != LTE_ON) {
@@ -138,7 +149,7 @@ public:
         Log.debug((PWR_ON == pwr) ? "LTE power now on" : "LTE power still off"); 
         if (PWR_ON == pwr) {
           // need to wait after turing power on, until modem is started 
-          delay(6000);
+          delay(LTE_POWER_ON_WAITTIME);
         }
       }
     }
@@ -146,7 +157,7 @@ public:
     if ((PWR_OFF != pwr) && (PIN_INVALID != LTE_CTS)) {
       if (HIGH == digitalRead(LTE_CTS)) {
         Log.debug("LTE CTSo is HIGH, wait");
-        for (int i = 0; i < 100; i ++) {
+        for (int i = 0; i < LTE_POWER_ON_WAITCTS/100; i ++) {
           ctsOk = (LOW == digitalRead(LTE_CTS));
           if (ctsOk)
             break;
@@ -176,7 +187,7 @@ public:
   
         // wait for the SIM to get ready ... this can take a while (<4s)
         SARA_R5_error_t err = SARA_R5_ERROR_ERROR;
-        for (int i = 0; i < 40; i ++) {
+        for (int i = 0; i < LTE_POWER_ON_WAITSIMREADY/100; i ++) {
           err = getSimStatus(NULL);
           if (SARA_R5_ERROR_ERROR != err)
             break;
@@ -506,7 +517,7 @@ protected:
 
   void task(void) {
     if (!detect()) {
-      Log.warning("LTE LARA-R6/SARA-r5 not detected, check wiring");
+      Log.warning("LTE LARA-R6/SARA-R5 not detected, check wiring");
     }
     while(true) {
       poll();
