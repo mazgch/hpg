@@ -54,6 +54,11 @@ const char MQTT_TOPIC_FREQ[]            = "/pp/frequencies/Lb";
 const char MQTT_TOPIC_KEY_FORMAT[]      = "/pp/ubx/0236/";
 const char MQTT_TOPIC_IP_FORMAT[]       = "/pp/"; // /stream/region 
 
+const char MQTT_TOPIC_IP_GAD[]          = "/gad";  // geographic area defintion
+const char MQTT_TOPIC_IP_HPAC[]         = "/hpac"; // high precision atmospheric corrections
+const char MQTT_TOPIC_IP_OCB[]          = "/ocb";  // orbit, clock and bias
+const char MQTT_TOPIC_IP_CLK[]          = "/clk";  // clock correction
+
 const char MQTT_STREAM_LBAND[]          = "Lb";
 const char MQTT_STREAM_IP[]             = "ip";
 
@@ -243,7 +248,12 @@ public:
     if (0 < stream.length()) {
       topics.push_back(MQTT_TOPIC_KEY_FORMAT + stream);
       if (0 < region.length()) {
-        topics.push_back(MQTT_TOPIC_IP_FORMAT + stream + "/" + region);
+        //topics.push_back(MQTT_TOPIC_IP_FORMAT + stream + "/" + region);
+        // subscribe individually to subtopics, as this should speedup time to first fix
+        topics.push_back(MQTT_TOPIC_IP_FORMAT + stream + "/" + region + MQTT_TOPIC_IP_GAD);
+        topics.push_back(MQTT_TOPIC_IP_FORMAT + stream + "/" + region + MQTT_TOPIC_IP_HPAC);
+        topics.push_back(MQTT_TOPIC_IP_FORMAT + stream + "/" + region + MQTT_TOPIC_IP_OCB);
+        topics.push_back(MQTT_TOPIC_IP_FORMAT + stream + "/" + region + MQTT_TOPIC_IP_CLK);
       }
     }
     return topics;
