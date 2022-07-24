@@ -78,30 +78,26 @@ private:
   }
 
 public:
-#if (HW_TARGET == MAZGCH_HPG_SOLUTION_V10)
-  LTE() : SARA_R5{ LTE_PWR_ON, LTE_RESET, 3/*retries*/ } { 
-    invertPowerPin(true);
-#else
   LTE() : SARA_R5{ -1/*LTE_PWR_ON*/, -1/*LTE_RESET*/, 3/*retries*/ } { 
-  /* The current SARA-R5 library is setting the RESET and PWR_ON pins to input after using them, 
-     This is not ideal for the v0.8/v0.9 hardware. Therefore it is prefered to control the RESET 
-     and PWR_ON externally in our code here. */
-#endif
-    // The LTE_RESET pin is active LOW (LOW = in reset, HIGH = idle)
-    // Unfortunately the LTE_RESET pin does not have a pull up resistor on the v0.8/v0.9 hardware
+    // The current SARA-R5 library is setting the LTE_RESET and LTE_PWR_ON pins to input after using them, 
+    // This is not ideal for the v0.8/v0.9 hardware. Therefore it is prefered to control the LTE_RESET 
+    // and LTE_PWR_ON externally in our code here. We also like to have better control of the pins to 
+    // support different variants of LTE modems.
+         
+    // Module     Power On time   Power Off time   Reset
+    // SARA-R5    0.1/1-2s        23s + 1.5sReset  0.1s
+    // LARA-R6    0.15-3.2s       >1.5s            0.05-6s (10s emergency)
+    // LENA-R8    >2s             >3.1s            0.05s
+    
+    // The LTE_RESET pin is active LOW, HIGH = idle, LOW = in reset
+    // The LTE_RESET pin unfortunately does not have a pull up resistor on the v0.8/v0.9 hardware
     if (PIN_INVALID != LTE_RESET) {
       digitalWrite(LTE_RESET, HIGH);
       pinMode(LTE_RESET, OUTPUT);
       digitalWrite(LTE_RESET, HIGH);
     }
-    // The LTE_PWR_ON pin is active HIGH, idle LOW, here the timing for few modules
-    
-    // Module     Power On time   Power Off time   Reset
-    // SARA-R5    0.1/1-2s        23s + 1.5sReset  0.1s
-    // LARA-R6    0.15-3.2s       >1.5s            0.05-6s (10s emergency)
-    // LENA-R8    2s              3.1s             0.05s
-    
-    // The LTE_PWR_ON pin has a external pull low resistor on the hardware side. 
+    // The LTE_PWR_ON pin is active HIGH, LOW = idle, HIGH timings see table above
+    // The LTE_PWR_ON pin has a external pull low resistor on the board. 
     if (PIN_INVALID != LTE_PWR_ON) {
       digitalWrite(LTE_PWR_ON, LOW);
       pinMode(LTE_PWR_ON, OUTPUT);
