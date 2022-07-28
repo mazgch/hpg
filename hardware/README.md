@@ -94,3 +94,4 @@ A micro-SD card is only required if you intend to record logfiles from the modem
 - On the v0.9 build some of the SIMhard holders are not porperly positioned on the board. This results in the component being a bit tilted due to the guidance pins. The parts were not repositioned but simply fixed with just more solder. 
 - If special firmware is loaded (e.g., dev builds), make sure that RTK_STAT assigned to GPIO11 and GEOFENCE to GPIO12 to use that function.
 - Higher baud rates are not recommended even if RTS / CTS is used, this is a software issue and unrelated to hardware.
+- LENA-R8: prototype require VCC of the module to be higher than 3.5V, this can be fixed by changing the dedicated LTE LDO to a adjustable version with a resistor divider at 3.8V. Also Pin 33 USB_BOOT of LENA should be routed to a jumper that can connect to VINT (V1.8) to allo firmware update over USB.  
