@@ -362,8 +362,8 @@ protected:
     }
     len += sprintf(&bufParam[len], "<label for=\"%s\">Correction source</label><br>"
                              "<select id=\"%s\" name=\"%s\">", CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE);
-    String selected = Config.getValue(CONFIG_VALUE_USESOURCE);
-    const char *optSource[] = { "none", "WLAN + LTE + LBAND", "WLAN + LBAND", "LTE + LBAND", "WLAN", "LTE", "LBAND" };
+    String selected = Config.getValue(CONFIG_VALUE_USESOURCE); 
+    const char *optSource[] = { "WLAN + LTE + LBAND", "WLAN + LBAND", "LTE + LBAND", "WLAN", "LTE", "LBAND", "none" };
     if (!selected.length()) {
       selected = optSource[0]; 
       Config.setValue(CONFIG_VALUE_USESOURCE, optSource[0]);

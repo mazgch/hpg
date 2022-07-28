@@ -50,9 +50,10 @@ public:
 
       String fwver = ubxVersion("LBAND", this);
 /* #*/LBAND_CHECK_INIT;
-      if (fwver.startsWith("QZS")){ // NEO-D9C
+      bool qzss = fwver.startsWith("QZS");
+      if (qzss){ // NEO-D9C
         freq = LBAND_FREQ_NOUPDATE; // prevents freq update
-#ifdef UBX_RXM_QZSSL6_DATALEN
+#ifdef UBX_RXM_QZSSL6_NUM_CHANNELS
         setRXMQZSSL6messageCallbackPtr(onRXMQZSSL6data);
 /* 1*/  LBAND_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C, 1,                      VAL_LAYER_RAM);    
         // prepare the UART 2
@@ -82,7 +83,7 @@ public:
       online = ok = LBAND_CHECK_OK;
       LBAND_CHECK_EVAL("LBAND detect configuration");
       if (ok) {
-        Log.info("LBAND detect configuration complete, receiver online");
+        Log.info("LBAND detect configuration complete, %sreceiver online", qzss ? "CLAS " : "");
       }
     }
     return ok;
@@ -145,7 +146,7 @@ protected:
       }
     }
   }
-#ifdef UBX_RXM_QZSSL6_DATALEN
+#ifdef UBX_RXM_QZSSL6_NUM_CHANNELS
   static void onRXMQZSSL6data(UBX_RXM_QZSSL6_message_data_t *qzssData)
   {
     if (NULL != qzssData) {
@@ -153,15 +154,16 @@ protected:
       uint16_t size = ((uint16_t)qzssData->lengthMSB << 8) | (uint16_t)qzssData->lengthLSB;
       msg.size = size + 8;
       msg.data = new uint8_t[msg.size];
+      int svid = qzssData->payload[1];
       double cno = 0.00390625 * qzssData->payload[2] + qzssData->payload[3];
       if (NULL != msg.data) {
         msg.source = GNSS::SOURCE::LBAND;
         memcpy(msg.data, &qzssData->sync1, size + 6);
         memcpy(&msg.data[size + 6], &qzssData->checksumA, 2);
-        Log.info("LBAND received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB", msg.size, qzssData->payload[1], cno);
+        Log.info("LBAND received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB", msg.size, svid, cno);
         Gnss.inject(msg); // Push the sync chars, class, ID, length and payload
       } else {
-        Log.error("LBAND received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB, no memory", msg.size, qzssData->payload[1], cno);
+        Log.error("LBAND received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB, no memory", msg.size, svid, cno);
       }
     }
   }

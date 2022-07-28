@@ -36,8 +36,8 @@ const int LTE_MQTTCMD_DELAY       =   100; // the client is not happy if multipl
 const int LTE_BAUDRATE            = 115200; // baudrates 230400, 460800 or 921600 cause issues even when CTS/RTS is enabled
 
 const int LTE_POWER_ON_PULSE        =  2000;
-const int LTE_POWER_ON_WAITTIME     =  6000;
-const int LTE_POWER_ON_WAITCTS      = 10000;
+const int LTE_POWER_ON_WAITTIME     =  4000;
+const int LTE_POWER_ON_WAITTIME_MAX = 10000;
 const int LTE_POWER_ON_WAITSIMREADY =  4000;
 
 const int LTE_PSD_PROFILE         = 0;
@@ -103,23 +103,29 @@ public:
       pinMode(LTE_PWR_ON, OUTPUT);
       digitalWrite(LTE_PWR_ON, LOW);
     }
-    // init all other pins here
-    if (PIN_INVALID != LTE_RI) pinMode(LTE_RI, INPUT);
-    if (PIN_INVALID != LTE_INT) pinMode(LTE_INT, INPUT);
-    if (PIN_INVALID != LTE_ON) pinMode(LTE_ON, INPUT);
-    if (PIN_INVALID != LTE_CTS) pinMode(LTE_CTS, INPUT);
+    if (PIN_INVALID != LTE_TXI) {
+      digitalWrite(LTE_TXI, HIGH);
+      pinMode(LTE_TXI, OUTPUT);
+      digitalWrite(LTE_TXI, HIGH);
+    }
     if (PIN_INVALID != LTE_RTS) {
       digitalWrite(LTE_RTS, LOW);
       pinMode(LTE_RTS, OUTPUT);
       digitalWrite(LTE_RTS, LOW);
     }
-    if (PIN_INVALID != LTE_DSR) pinMode(LTE_DSR, INPUT);
     if (PIN_INVALID != LTE_DTR) {
       digitalWrite(LTE_DTR, LOW);
       pinMode(LTE_DTR, OUTPUT);
       digitalWrite(LTE_DTR, LOW);
     } 
+    // init all other pins here
+    if (PIN_INVALID != LTE_ON)  pinMode(LTE_ON,  INPUT);
+    if (PIN_INVALID != LTE_RXO) pinMode(LTE_RXO, INPUT);
+    if (PIN_INVALID != LTE_CTS) pinMode(LTE_CTS, INPUT);
+    if (PIN_INVALID != LTE_DSR) pinMode(LTE_DSR, INPUT);
     if (PIN_INVALID != LTE_DCD) pinMode(LTE_DCD, INPUT); 
+    if (PIN_INVALID != LTE_RI)  pinMode(LTE_RI,  INPUT);
+    if (PIN_INVALID != LTE_INT) pinMode(LTE_INT, INPUT);
     state = INIT;
   }
 
@@ -128,44 +134,64 @@ public:
   }
 
   bool detect(void) {
-    enum { PWR_UNK, PWR_ON, PWR_OFF } pwr = PWR_UNK;
     // turn on the module 
-    if (PIN_INVALID != LTE_ON) {
-      pwr = (LOW == digitalRead(LTE_ON)) ? PWR_ON : PWR_OFF;
-      Log.debug((PWR_ON == pwr) ? "LTE power is on" : "LTE power is off"); 
-    } 
-    if ((PWR_ON != pwr) && (PIN_INVALID != LTE_PWR_ON)) {
-      Log.info("LTE power turn on");
-      digitalWrite(LTE_PWR_ON, HIGH);
-      delay(LTE_POWER_ON_PULSE);
-      digitalWrite(LTE_PWR_ON, LOW);
-      // check again if power is now on
+    #define DETECT_DELAY 100
+    int pwrOnTime = -1; // will never trigger
+    if (PIN_INVALID != LTE_PWR_ON) {
+      if ((PIN_INVALID != LTE_ON) ? LOW != digitalRead(LTE_ON) : true) {
+        Log.info("LTE power on");
+        digitalWrite(LTE_PWR_ON, HIGH);
+        pwrOnTime = LTE_POWER_ON_PULSE / DETECT_DELAY;
+      }
+    }
+    
+    bool ready = true;
+    char lastCts = -1;
+    char lastOn = -1;
+    char lastRxo = -1;
+    for (int i = 0; i < LTE_POWER_ON_WAITTIME_MAX / DETECT_DELAY; i ++) { 
+      ready = (pwrOnTime < 0);
+      if (i == pwrOnTime) {
+        digitalWrite(LTE_PWR_ON, LOW);
+        Log.debug("LTE pin PWR_ON LOW(idle)"); 
+        pwrOnTime = -1; // no more
+        i = 0; // restart timer
+      }
       if (PIN_INVALID != LTE_ON) {
-        pwr = (LOW == digitalRead(LTE_ON)) ? PWR_ON : PWR_OFF;
-        Log.debug((PWR_ON == pwr) ? "LTE power now on" : "LTE power still off"); 
-        if (PWR_ON == pwr) {
-          // need to wait after turing power on, until modem is started 
-          delay(LTE_POWER_ON_WAITTIME);
+        char rxo = digitalRead(LTE_RXO);
+        if (lastRxo != rxo) {
+          Log.debug((rxo == LOW) ? "LTE pin RXO LOW(active)" : "LTE pin RXO HIGH(idle)"); 
+          lastRxo = rxo;
         }
+        ready = ready && (rxo == HIGH);
       }
-    }
-    bool ctsOk = true; 
-    if ((PWR_OFF != pwr) && (PIN_INVALID != LTE_CTS)) {
-      if (HIGH == digitalRead(LTE_CTS)) {
-        Log.debug("LTE CTSo is HIGH, wait");
-        for (int i = 0; i < LTE_POWER_ON_WAITCTS/100; i ++) {
-          ctsOk = (LOW == digitalRead(LTE_CTS));
-          if (ctsOk)
-            break;
-          delay(100);
+      if (PIN_INVALID != LTE_ON) {
+        char on = digitalRead(LTE_ON);
+        if (on != lastOn) {
+          Log.debug((on == LOW) ? "LTE pin ON LOW(on)" : "LTE pin ON HIGH(off)"); 
+          lastOn = on;
         }
-        Log.debug("LTE CTSo now LOW");
+        ready = ready && (on == LOW);
       }
+      if (PIN_INVALID != LTE_CTS) {
+        char cts = digitalRead(LTE_CTS);
+        if (lastCts != cts) {
+          Log.debug((cts == LOW) ? "LTE pin CTS LOW(idle)" : "LTE pin CTS HIGH(wait)"); 
+          lastCts = cts;
+        }
+        ready = ready && (cts == LOW);
+      }
+      if (ready && (i > LTE_POWER_ON_WAITTIME / DETECT_DELAY)) {
+        break;
+      }  
+      delay(DETECT_DELAY);
     }
+    Log.info(ready ? "LTE ready" : "LTE not ready %d %d %d", lastRxo, lastOn, lastCts); 
+    
     bool ok = false;
-    if ((PWR_OFF != pwr) && ctsOk) {
+    if (ready) {
       #define PIN_TXT(pin) (PIN_INVALID == pin) ? "" : digitalRead(pin) == LOW ? " LOW" : " HIGH"
-      Log.info("LTE baudrate %d pins RXo %d%s TXi %d%s CTSo %d%s RTSi %d%s", LTE_BAUDRATE, 
+      Log.debug("LTE baudrate %d pins RXo %d%s TXi %d%s CTSo %d%s RTSi %d%s", LTE_BAUDRATE, 
         LTE_RXO, PIN_TXT(LTE_RXO), LTE_TXI, PIN_TXT(LTE_TXI),
         LTE_CTS, PIN_TXT(LTE_CTS), LTE_RTS, PIN_TXT(LTE_RTS));
       ok = begin(UbxSerial, LTE_BAUDRATE);
@@ -200,9 +226,6 @@ public:
   
   void poll(void) {
     HW_DBG_HI(HW_DBG_LTE);
-    if (state != INIT) {
-      SARA_R5::poll();
-    }
     
     if ((PIN_INVALID != LTE_ON) && (state != INIT)) {
       // detect if LTE was turned off
@@ -210,6 +233,10 @@ public:
         UbxSerial.end();
         setState(INIT, LTE_DETECT_RETRY);
       }
+    }
+      
+    if (state != INIT) {
+      SARA_R5::poll();
     }
     
     long now = millis();

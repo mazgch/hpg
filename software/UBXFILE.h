@@ -188,16 +188,20 @@ public:
   
   size_t write(uint8_t ch) override {
     if (state == READFD) {
-    if (xSemaphoreTake(mutex, portMAX_DELAY)) {
-        buffer.write(0xFD);  // seems we ar just writing after assumed address set to length field
-        buffer.write(ch);
+      if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+        if (buffer.size() > 1) {
+          buffer.write(0xFD);  // seems we ar just writing after assumed address set to length field
+          buffer.write(ch);
+        } 
         xSemaphoreGive(mutex);
       }
     } else if (state == READFE) {
       if (xSemaphoreTake(mutex, portMAX_DELAY)) {
-        buffer.write(0xFD);     // quite unusal should never happen 
-        buffer.write(lenLo);     // we set register address and read part of the length 
-        buffer.write(ch);       // now we write again
+        if (buffer.size() > 1) {
+          buffer.write(0xFD);     // quite unusal should never happen 
+          buffer.write(lenLo);     // we set register address and read part of the length 
+          buffer.write(ch);       // now we write again
+        }
         xSemaphoreGive(mutex);
       }
     }
@@ -222,6 +226,9 @@ public:
     } else {
       if (xSemaphoreTake(mutex, portMAX_DELAY)) {
         if (buffer.size() > 1) {
+          if (state == READFD) {
+            buffer.write(0xFD);
+          }
           buffer.write((const char*)ptr, size);
         } 
         xSemaphoreGive(mutex);
