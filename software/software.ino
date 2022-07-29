@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-// ESP32 libraries, version 2.0.3
+// ESP32 libraries, version 2.0.4
 //-----------------------------------
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
 // Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
-// After that select Board u-blox NINA-W10 series and configure the target 4MB, 40Mhz, 
+// After that select Board u-blox NINA-W10 series and configure the target CPU: 240MHz, Flash: 80MHz, 4MB, Minimal or Minimal SPIFFS
 // Board Manager URL:    https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 // Github Repository:    https://github.com/espressif/arduino-esp32 
 
