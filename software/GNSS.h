@@ -77,29 +77,25 @@ public:
       String fwver = ubxVersion("GNSS", this);
     
 /* #*/GNSS_CHECK_INIT;
-/* 1*/GNSS_CHECK = setI2COutput(COM_TYPE_UBX | COM_TYPE_NMEA );
-/* 2*/GNSS_CHECK = setPortInput(COM_PORT_I2C, COM_TYPE_UBX | COM_TYPE_NMEA | COM_TYPE_SPARTN); // Be sure SPARTN input is enabled.
-/* 3*/GNSS_CHECK = setNavigationFrequency(1); //Set output in Hz.
-/* 4*/GNSS_CHECK = setHighPrecisionMode(true);
-/* 5*/GNSS_CHECK = setAutoPVTcallbackPtr(onPVTdata);
-      online = ok = GNSS_CHECK_OK;
-      GNSS_CHECK_EVAL("GNSS detect configuration");
+/* 1*/GNSS_CHECK = setAutoPVTcallbackPtr(onPVTdata);
       // add some usefull messages to store in the logfile // we will ignore any errors as they are not essential other than for the logfile
-/* 6*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,      1, VAL_LAYER_RAM); // required for this app, is already set by setAutoPVTcallbackPtr
-/* 7*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,      1, VAL_LAYER_RAM); 
-/* 8*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C, 1, VAL_LAYER_RAM);
-/* 9*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,      1, VAL_LAYER_RAM);
+/* 2*/GNSS_CHECK = setVal(UBLOX_CFG_NMEA_HIGHPREC,               1, VAL_LAYER_RAM); // make sure we enable extended accuracy in NMEA protocol
+/* 3*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,      1, VAL_LAYER_RAM); // required for this app and the monitor web page
+/* 4*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,      1, VAL_LAYER_RAM); 
+/* 5*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C, 1, VAL_LAYER_RAM);
+/* 6*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,      1, VAL_LAYER_RAM);
       if (fwver.startsWith("HPS ")) {
-/*10*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C, 1, VAL_LAYER_RAM);
+/* 7*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C, 1, VAL_LAYER_RAM);
       }
       if (fwver.equals("HPS 1.30A01")) { // ZED-F9R LAP demo firmware, Supports 2.0 but doesn't have protection level
         Log.warning("GNSS firmware %s is a time-limited demonstrator, please update firmware in Q4/2022", fwver.c_str());
-      } else if (fwver.substring(4).toFloat() < 1.30) { // ZED-F9R/P old release firmware, no Spartan 2.0 support
+      } else if (fwver.substring(4).toDouble() < 1.30) { // ZED-F9R/P old release firmware, no Spartan 2.0 support
         Log.error("GNSS firmware %s does not support Spartan 2.0, please update firmware", fwver.c_str());
       } else {
-/*11*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,     1, VAL_LAYER_RAM);
+/* 8*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,     1, VAL_LAYER_RAM);
       }
-      if (!_ok) Log.warning("GNSS message configuration, sequence failed at step %d", _step);
+      online = ok = GNSS_CHECK_OK;
+      GNSS_CHECK_EVAL("GNSS detect configuration");
       if (ok) {
         Log.info("GNSS detect configuration complete, receiver online");
         uint8_t key[64];
