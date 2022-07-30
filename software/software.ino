@@ -130,14 +130,14 @@ void setup()
     Log.warning("GNSS ZED-F9 not detected, check wiring");
   }
 
-#ifdef __CANBUS_H_
+#ifdef __CANBUS_H__
   Canbus.init();
 #endif
 }
 
 void loop()
 {
-#ifdef __CANBUS_H_
+#ifdef __CANBUS_H__
   Canbus.poll();
 #endif
   LBand.poll();

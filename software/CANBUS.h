@@ -34,7 +34,9 @@ public:
       Log.info("CAN init %d successful", freq);
     }
     CAN.observe();
-    // CAN.onReceive(onReceive); // ATTENTION the callback is executed from an ISR only do essential things
+    // CAN.filer(0x55);
+    // ATTENTION the callback is executed from an ISR only do essential things
+    // CAN.onReceive(onReceive); 
   }
 
   void poll() {
@@ -42,22 +44,35 @@ public:
     if (packetSize) {
       onPacketDump(packetSize);
     }
+
+    //writeTestPacket(); // need to remove the CAN.observe mode above
   }
 
 protected:
   void onPacketDump(int packetSize) {
-    char txt[packetSize*3+1] = "";
+    char txt[packetSize+1] = "";
     if (!CAN.packetRtr()) {
       for (int i = 0; i < packetSize; i ++) {
         char ch = CAN.read();
-        txt[i] = ch;
+        txt[i] = isprint(ch) ? ch : '?';
       }
     }
     else {
       packetSize = CAN.packetDlc();
       strcpy(txt, "RTR");
     } 
-    Log.info("CAN read 0x%0*X %d %s", CAN.packetExtended() ? 8 : 3, CAN.packetId(), packetSize, txt);
+    Log.info("CAN read 0x%0*X %d \"%s\"", CAN.packetExtended() ? 8 : 3, CAN.packetId(), packetSize, txt);
+  }
+  
+  void writeTestPacket(void) {
+    int id = 0x55;
+    uint8_t test[9];
+    static uint8_t cnt = 0;
+    int len = sprintf((char*)test, "mazgch%02X", cnt++); 
+    CAN.beginPacket(id);
+    CAN.write(test, len);
+    CAN.endPacket();
+    Log.info("CAN write 0x%03X %d \"%s\"", id, len, test);
   }
 };
 
