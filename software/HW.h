@@ -41,6 +41,7 @@ enum HW_PINS {
     BOOT        =  0, 
     LED         =  2,
     CDC_RX      =  3,  CDC_TX         = 1,
+    CAN_RX      =  4,  CAN_TX         = 5,
     I2C_SDA     = 21,  I2C_SCL        = 22,
     
 #if (HW_TARGET == MAZGCH_HPG_SOLUTION_V08)
