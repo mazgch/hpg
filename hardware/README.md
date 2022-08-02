@@ -87,6 +87,15 @@ External antennas have to be connected to operate the device. The combined GNSS 
 The LTE modem needs to 4G capable antennas and cover the band of the modem usually this is 700kHz - 2.6GHz. In addition you need to insert a SIM card with a data plan from your local mobile network operator.
 A micro-SD card is only required if you intend to record logfiles from the modem of GNSS_ 
 
+Accessories: 
+- Plexi were ordered from [Alibaba Shenzhen Elemei Display Products Co., Ltd](https://elemeidisplay.en.alibaba.com/minisiteentrance.html) they offer laser cut custom plexi under part number [OEM and ODM custom laser cut acrylic shapes customized service](https://www.alibaba.com/product-detail/OEM-and-ODM-custom-laser-cut_1600273363981.html) you send them the two PlexiTop and PlexBot layers exported as DXF file.  
+- LTE antennas were ordered from [Advanced Aerial Store](https://de.aliexpress.com/store/912726145), you need 2pcs per order of the following product for each board [https://de.aliexpress.com/item/1005003688735673.html](https://de.aliexpress.com/item/1005003688735673.html)
+- The screws an nuts were ordered from [LANHAI Fastener Store](https://de.aliexpress.com/store/912262969), for a single board 4pcs are needed from each part. 
+  - [M3x15mm / Phillips head screw](https://de.aliexpress.com/item/1005003106000201.html)
+  - [hex nut M3](https://de.aliexpress.com/item/1005003106000201.html)
+  - [Black / M3 ID3.1mm OD7mm / 3mm](https://de.aliexpress.com/item/1005003106036023.html)
+  - [M3x6x1mm / black](https://de.aliexpress.com/item/1005003106227200.html)
+
 ## Known Issue of version 0.9: 
 - The LTE_PWR_ON is floating towards GND, this causes the modem to constantly reset if no software is loaded. Software needs to be loaded that configures the GPIO12 either output HIGH or as INPUT with PULL-UP enabled. During reset the ESP applies however some LOW and high signal. It would be best to swap the LTE_RESET and LTE_PWRON pins to avoid changes during updates or reset. 
 - The C41 was added to the Auto Reset circuit of the NINA-W106. This sometimes can cause issues with certain terminal applications or if the BOOT GPIO is used for other functions. Simply remove the C41 with a soldering iron if it causes issues for you.
