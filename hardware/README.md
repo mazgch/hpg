@@ -89,7 +89,7 @@ A micro-SD card is only required if you intend to record logfiles from the modem
 
 ### Accessory parts and suppliers:
 - Plexi were ordered from [Alibaba Shenzhen Elemei Display Products Co., Ltd](https://elemeidisplay.en.alibaba.com/minisiteentrance.html) they offer laser cut custom plexi under part number [OEM and ODM custom laser cut acrylic shapes customized service](https://www.alibaba.com/product-detail/OEM-and-ODM-custom-laser-cut_1600273363981.html) you send them the two PlexiTop and PlexBot layers exported as DXF file.  
-- LTE antennas were ordered from [Advanced Aerial Store](https://de.aliexpress.com/store/912726145), you need 2pcs per order of the following product for each board [2pcs/lot 4G Antenna 10dBi SMA Male 700-2700MHz for 4G LTE Router External Antenna](https://de.aliexpress.com/item/1005003688735673.html)
+- LTE antennas were ordered from [Advanced Aerial Store](https://de.aliexpress.com/store/912726145), you need 2pcs (= one order) of the following product for each board [2pcs/lot 4G Antenna 10dBi SMA Male 700-2700MHz for 4G LTE Router External Antenna](https://de.aliexpress.com/item/1005003688735673.html)
 - The screws an nuts were ordered from [LANHAI Fastener Store](https://de.aliexpress.com/store/912262969), for a single board 4pcs are needed from each part. 
   - [M3x15mm / Phillips head screw](https://de.aliexpress.com/item/1005003106000201.html)
   - [hex nut M3](https://de.aliexpress.com/item/1005003106000201.html)
