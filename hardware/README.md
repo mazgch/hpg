@@ -87,7 +87,7 @@ External antennas have to be connected to operate the device. The combined GNSS 
 The LTE modem needs to 4G capable antennas and cover the band of the modem usually this is 700kHz - 2.6GHz. In addition you need to insert a SIM card with a data plan from your local mobile network operator.
 A micro-SD card is only required if you intend to record logfiles from the modem of GNSS_ 
 
-Supplier list and parts numbers:
+### Accessory parts and suppliers:
 - Plexi were ordered from [Alibaba Shenzhen Elemei Display Products Co., Ltd](https://elemeidisplay.en.alibaba.com/minisiteentrance.html) they offer laser cut custom plexi under part number [OEM and ODM custom laser cut acrylic shapes customized service](https://www.alibaba.com/product-detail/OEM-and-ODM-custom-laser-cut_1600273363981.html) you send them the two PlexiTop and PlexBot layers exported as DXF file.  
 - LTE antennas were ordered from [Advanced Aerial Store](https://de.aliexpress.com/store/912726145), you need 2pcs per order of the following product for each board [2pcs/lot 4G Antenna 10dBi SMA Male 700-2700MHz for 4G LTE Router External Antenna](https://de.aliexpress.com/item/1005003688735673.html)
 - The screws an nuts were ordered from [LANHAI Fastener Store](https://de.aliexpress.com/store/912262969), for a single board 4pcs are needed from each part. 
