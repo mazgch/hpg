@@ -22,6 +22,9 @@
 // Github Repository: https://github.com/sandeepmistry/arduino-CAN
 #include <CAN.h>
 
+const int CAN_TEST_ID = 0x55;
+const int CAN_SPEED_ID = 0x55;
+
 class CANBUS {
 public: 
   void init() {
@@ -34,21 +37,39 @@ public:
       Log.info("CAN init %d successful", freq);
     }
     CAN.observe();
-    // CAN.filer(0x55);
     // ATTENTION the callback is executed from an ISR only do essential things
-    // CAN.onReceive(onReceive); 
+    // CAN.onReceive(onPushESFMeas); 
   }
 
   void poll() {
     int packetSize = CAN.parsePacket();
     if (packetSize) {
-      onPacketDump(packetSize);
+      onPushESFMeas(packetSize);
     }
 
     //writeTestPacket(); // need to remove the CAN.observe mode above
   }
 
 protected:
+  void onPushESFMeas(int packetSize) {
+    if (!CAN.packetRtr() && (CAN.packetId() == CAN_SPEED_ID)) {
+      uint32_t ttag = millis();
+      uint8_t packet[packetSize];
+      for (int i = 0; i < packetSize; i ++) {
+        packet[i] = CAN.read();
+      }
+      int speed = ((0xF & packet[1]) << 8) + packet[0]; // speed  12 bits from 0
+      int reverse = (0x10 & packet[1]) << (23-4);                // bit 12 == moving reverse
+      UBX_ESF_MEAS_data_t message;
+      memset(&message, 0, sizeof(UBX_ESF_MEAS_data_t));
+      message.timeTag = ttag;
+      message.flags.bits.numMeas = 1;
+      message.data[0].data.bits.dataField = reverse | speed; 
+      message.data[0].data.bits.dataType = 11; // = Speed
+      //GNSS.pushRawData(ubxcmd, sizeof(ubxcmd));
+    }
+  }
+  
   void onPacketDump(int packetSize) {
     char txt[packetSize+1] = "";
     if (!CAN.packetRtr()) {
@@ -65,7 +86,7 @@ protected:
   }
   
   void writeTestPacket(void) {
-    int id = 0x55;
+    int id = CAN_TEST_ID;
     uint8_t test[9];
     static uint8_t cnt = 0;
     int len = sprintf((char*)test, "mazgch%02X", cnt++); 
