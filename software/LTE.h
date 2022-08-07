@@ -157,7 +157,7 @@ public:
         pwrOnTime = -1; // no more
         i = 0; // restart timer
       }
-      if (PIN_INVALID != LTE_ON) {
+      if (PIN_INVALID != LTE_RXO) {
         char rxo = digitalRead(LTE_RXO);
         if (lastRxo != rxo) {
           Log.debug((rxo == LOW) ? "LTE pin RXO LOW(active)" : "LTE pin RXO HIGH(idle)"); 
