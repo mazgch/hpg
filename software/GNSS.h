@@ -86,7 +86,7 @@ public:
 /* 6*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,      1, VAL_LAYER_RAM);
       if (fwver.startsWith("HPS ")) {
 /* 7*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C, 1, VAL_LAYER_RAM);
-/* 8*/  GNSS_CHECK = setVal(UBLOX_CFG_SFCORE_USE_SF,             1, VAL_LAYER_RAM);
+/* 8*/  //GNSS_CHECK = setVal(UBLOX_CFG_SFCORE_USE_SF,             1, VAL_LAYER_RAM);
       }
       if (fwver.equals("HPS 1.30A01")) { // ZED-F9R LAP demo firmware, Supports 2.0 but doesn't have protection level
         Log.warning("GNSS firmware %s is a time-limited demonstrator, please update firmware in Q4/2022", fwver.c_str());
