@@ -78,21 +78,22 @@ public:
     
 /* #*/GNSS_CHECK_INIT;
 /* 1*/GNSS_CHECK = setAutoPVTcallbackPtr(onPVTdata);
-      // add some usefull messages to store in the logfile // we will ignore any errors as they are not essential other than for the logfile
-/* 2*/GNSS_CHECK = setVal(UBLOX_CFG_NMEA_HIGHPREC,               1, VAL_LAYER_RAM); // make sure we enable extended accuracy in NMEA protocol
-/* 3*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,      1, VAL_LAYER_RAM); // required for this app and the monitor web page
+/* 2*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,      1, VAL_LAYER_RAM); // required for this app and the monitor web page
+      // add some usefull messages to store in the logfile
+/* 3*/GNSS_CHECK = setVal(UBLOX_CFG_NMEA_HIGHPREC,               1, VAL_LAYER_RAM); // make sure we enable extended accuracy in NMEA protocol
 /* 4*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,      1, VAL_LAYER_RAM); 
 /* 5*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C, 1, VAL_LAYER_RAM);
 /* 6*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,      1, VAL_LAYER_RAM);
       if (fwver.startsWith("HPS ")) {
 /* 7*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C, 1, VAL_LAYER_RAM);
+/* 8*/  GNSS_CHECK = setVal(UBLOX_CFG_SFCORE_USE_SF,             1, VAL_LAYER_RAM);
       }
       if (fwver.equals("HPS 1.30A01")) { // ZED-F9R LAP demo firmware, Supports 2.0 but doesn't have protection level
         Log.warning("GNSS firmware %s is a time-limited demonstrator, please update firmware in Q4/2022", fwver.c_str());
       } else if (fwver.substring(4).toDouble() < 1.30) { // ZED-F9R/P old release firmware, no Spartan 2.0 support
         Log.error("GNSS firmware %s does not support Spartan 2.0, please update firmware", fwver.c_str());
       } else {
-/* 8*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,     1, VAL_LAYER_RAM);
+/* 9*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,     1, VAL_LAYER_RAM);
       }
       online = ok = GNSS_CHECK_OK;
       GNSS_CHECK_EVAL("GNSS detect configuration");
@@ -220,6 +221,18 @@ public:
       Websocket.write(string, len);
 #endif
     }
+  }
+
+  void sendEsfMeas(uint32_t ttag, uint32_t speed, bool reverse) {
+    UBX_ESF_MEAS_data_t message;
+    memset(&message, 0, sizeof(message));
+    message.timeTag = ttag;
+    message.flags.bits.numMeas = 1;
+    message.data[0].data.bits.dataField = (reverse ? (1<<24) : 0) | (speed & 0x7FFFFF); 
+    message.data[0].data.bits.dataType = 11; // 11 = Speed
+    ubxPacket packetEsfMeas = {UBX_CLASS_ESF, UBX_ESF_MEAS, 12, 0, 0, (uint8_t*)&message, 
+          0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
+    sendCommand(&packetEsfMeas, 0); // don't expect ACK
   }
 
 protected:

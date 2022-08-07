@@ -28,7 +28,8 @@
 #include <HTTPClient.h>
 #include <SPIFFS.h>
 #include <SPI.h> 
-#include <SD.h> 
+#include <SD.h>
+#include <Wire.h>
 #ifndef ESP_ARDUINO_VERSION
   #include <core_version.h>
 #endif
@@ -56,6 +57,11 @@
 // Github Repository:  https://github.com/tzapu/WiFiManager
 #include <WiFiManager.h>      
 
+// UBXLIB 
+//-----------------------------------
+// Github Repository:  https://github.com/u-blox/ubxlib
+// Execute: python3 port/platform/arduino/u_arduino.py -o <Arduino_Path>/libraries/ubxlib
+// #include <ubxlib.h>
 
 // Sparkfun libraries
 //-----------------------------------
@@ -80,7 +86,7 @@
 #include "GNSS.h"
 #include "LBAND.h"
 #include "LTE.h"
-//#include "CANBUS.h"
+#include "CANBUS.h"
 
 // ====================================================================================
 // MAIN setup / loop
@@ -137,11 +143,13 @@ void setup()
 
 void loop()
 {
-#ifdef __CANBUS_H__
-  Canbus.poll();
-#endif
   LBand.poll();
   Gnss.poll();
   Log.poll();
+#ifdef __CANBUS_H__
+  Canbus.poll();
+  delay(10);
+#else
   delay(50);
+#endif
 }
