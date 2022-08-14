@@ -360,8 +360,9 @@ protected:
     if (clientId.length()) {
       len += sprintf(&bufParam[len], "<label>Client Id</label><br><input value=\"%s\" readonly>", clientId.c_str());
     }
-    len += sprintf(&bufParam[len], "<label for=\"%s\">Correction source</label><br>"
-                             "<select id=\"%s\" name=\"%s\">", CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE);
+    len += sprintf(&bufParam[len], //"<p style=\"font-weight:Bold;\">GNSS configuration</p>"
+                                   "<label for=\"%s\">Correction source</label><br>"
+                                   "<select id=\"%s\" name=\"%s\">", CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE);
     String selected = Config.getValue(CONFIG_VALUE_USESOURCE); 
     const char *optSource[] = { "WLAN + LTE + LBAND", "WLAN + LBAND", "LTE + LBAND", "WLAN", "LTE", "LBAND", "none" };
     if (!selected.length()) {
@@ -415,10 +416,11 @@ protected:
       GNSS::MSG msg;
       msg.data = new uint8_t[messageSize];
       if (NULL != msg.data) {
-        msg.source = GNSS::SOURCE::WLAN;
         msg.size = Wlan.mqttClient.read(msg.data, messageSize);
         if (msg.size == messageSize) {
+          msg.source = GNSS::SOURCE::WLAN;
           if (topic.startsWith(MQTT_TOPIC_KEY_FORMAT)) {
+            msg.source = GNSS::SOURCE::OTHER; // inject key as other
             if (Config.setValue(CONFIG_VALUE_KEY, msg.data, msg.size)) {
               Config.save();
             }

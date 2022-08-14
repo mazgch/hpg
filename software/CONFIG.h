@@ -321,8 +321,14 @@ public:
   
   String setZtp(String &ztp, String &rootCa) {
     String id;
-    DynamicJsonDocument jsonZtp(5*1024);
-    DeserializationError error = deserializeJson(jsonZtp, ztp.c_str());
+    StaticJsonDocument<200> filter;
+    filter["clientId"] = true;
+    filter["certificate"] = true;
+    filter["privateKey"] = true;
+    filter["brokerHost"] = true;
+    filter["supportsLband"] = true;
+    DynamicJsonDocument jsonZtp(4*1024);
+    DeserializationError error = deserializeJson(jsonZtp, ztp.c_str(), DeserializationOption::Filter(filter));
     if (DeserializationError::Ok != error) {
       Log.error("CONFIG::setZtp deserializeJson failed with error %d", error);
     } else {

@@ -28,7 +28,8 @@
 #include <HTTPClient.h>
 #include <SPIFFS.h>
 #include <SPI.h> 
-#include <SD.h> 
+#include <SD.h>
+#include <Wire.h>
 #ifndef ESP_ARDUINO_VERSION
   #include <core_version.h>
 #endif
@@ -39,33 +40,35 @@
 // ArduinoMqttClient by Arduino, version 0.1.5
 // Library Manager:    http://librarymanager/All#ArduinoMqttClient   
 // Github Repository:  https://github.com/arduino-libraries/ArduinoMqttClient 
-#include <ArduinoMqttClient.h>    
+#include <ArduinoMqttClient.h>
 
 // ArduinoWebsockets by Gil Maimon, version 0.5.3
 // Library Manager:    http://librarymanager/All#ArduinoWebsockets   
 // Github Repository:  https://github.com/gilmaimon/ArduinoWebsockets
-#include <ArduinoWebsockets.h>    
+#include <ArduinoWebsockets.h>
 
 // ArduinoJson by Benoit Blanchon, version 6.19.4
 // Library Manager:    http://librarymanager/All#ArduinoJson      
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
-#include <ArduinoJson.h>          
+#include <ArduinoJson.h>
 
 // WiFiManager by Tapzu, version 2.0.11-beta
 // Library Manager:    http://librarymanager/All#tzapu,WiFiManager  
 // Github Repository:  https://github.com/tzapu/WiFiManager
-#include <WiFiManager.h>      
+#include <WiFiManager.h>
 
 // Sparkfun libraries
 //-----------------------------------
- 
+
+// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.12
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
-#include <SparkFun_u-blox_GNSS_Arduino_Library.h>     
+#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
 
+// SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.3
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_SARA-R5_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_SARA-R5_Arduino_Library
-#include <SparkFun_u-blox_SARA-R5_Arduino_Library.h>  
+#include <SparkFun_u-blox_SARA-R5_Arduino_Library.h>
 
 // Header files of this project
 //-----------------------------------
@@ -77,6 +80,7 @@
 #include "GNSS.h"
 #include "LBAND.h"
 #include "LTE.h"
+//#include "CANBUS.h"
 
 // ====================================================================================
 // MAIN setup / loop
@@ -125,12 +129,23 @@ void setup()
   if (!Gnss.detect()) { 
     Log.warning("GNSS ZED-F9 not detected, check wiring");
   }
+
+#ifdef __CANBUS_H__
+  Canbus.init();
+#endif
 }
 
 void loop()
 {
   LBand.poll();
   Gnss.poll();
+#ifdef __CANBUS_H__
+  Canbus.poll();
+#endif
   Log.poll();
+#ifdef __CANBUS_H__
+  delay(10);
+#else
   delay(50);
+#endif
 }

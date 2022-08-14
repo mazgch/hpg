@@ -39,7 +39,7 @@ String ubxVersion(const char* tag, SFE_UBLOX_GNSS* rx) {
   ubxPacket cfg = { UBX_CLASS_MON, UBX_MON_VER, 0, 0, 0, (uint8_t*)&info, 0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
   rx->setPacketCfgPayloadSize(sizeof(info)+8);
   if (rx->sendCommand(&cfg, 300) == SFE_UBLOX_STATUS_DATA_RECEIVED) {
-    char ext[10*32+5] = "";
+    char ext[10*34+6] = "";
     char* p = ext;
     for (int i = 0; cfg.len > (30 * i + 40); i ++) {
       if (*info.ext[i]) {
@@ -78,21 +78,22 @@ public:
     
 /* #*/GNSS_CHECK_INIT;
 /* 1*/GNSS_CHECK = setAutoPVTcallbackPtr(onPVTdata);
-      // add some usefull messages to store in the logfile // we will ignore any errors as they are not essential other than for the logfile
-/* 2*/GNSS_CHECK = setVal(UBLOX_CFG_NMEA_HIGHPREC,               1, VAL_LAYER_RAM); // make sure we enable extended accuracy in NMEA protocol
-/* 3*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,      1, VAL_LAYER_RAM); // required for this app and the monitor web page
+/* 2*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,      1, VAL_LAYER_RAM); // required for this app and the monitor web page
+      // add some usefull messages to store in the logfile
+/* 3*/GNSS_CHECK = setVal(UBLOX_CFG_NMEA_HIGHPREC,               1, VAL_LAYER_RAM); // make sure we enable extended accuracy in NMEA protocol
 /* 4*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,      1, VAL_LAYER_RAM); 
 /* 5*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C, 1, VAL_LAYER_RAM);
 /* 6*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,      1, VAL_LAYER_RAM);
       if (fwver.startsWith("HPS ")) {
 /* 7*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C, 1, VAL_LAYER_RAM);
+/* 8*/  //GNSS_CHECK = setVal(UBLOX_CFG_SFCORE_USE_SF,             1, VAL_LAYER_RAM);
       }
       if (fwver.equals("HPS 1.30A01")) { // ZED-F9R LAP demo firmware, Supports 2.0 but doesn't have protection level
         Log.warning("GNSS firmware %s is a time-limited demonstrator, please update firmware in Q4/2022", fwver.c_str());
       } else if (fwver.substring(4).toDouble() < 1.30) { // ZED-F9R/P old release firmware, no Spartan 2.0 support
         Log.error("GNSS firmware %s does not support Spartan 2.0, please update firmware", fwver.c_str());
       } else {
-/* 8*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,     1, VAL_LAYER_RAM);
+/* 9*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,     1, VAL_LAYER_RAM);
       }
       online = ok = GNSS_CHECK_OK;
       GNSS_CHECK_EVAL("GNSS detect configuration");
@@ -175,19 +176,22 @@ public:
   #define TIMEOUT_SRC(now, src) ((src < NUM_SOURCE) ? (signed long)((now) - ttagSource[src]) > GNSS_CORRECTION_TIMEOUT : true)
 
   void checkSpartanUseSourceCfg(SOURCE source) {
-    if (source < NUM_SOURCE) {
+    if ((source < NUM_SOURCE) && (source != OTHER)) {
       // manage correction stream selection 
       long now = millis();
       ttagSource[source] = millis();
-      int useSource = GNSS_SPARTAN_USESOURCE(source);
-      if ((GNSS_SPARTAN_USESOURCE(curSource) != useSource) && ((curSource == LBAND) || TIMEOUT_SRC(now, curSource))) {
-        bool ok/*online*/ = setVal8(UBLOX_CFG_SPARTN_USE_SOURCE, useSource, VAL_LAYER_RAM);
-        if (ok) {
-          Log.info("GNSS spartanUseSource %s from source %s", GNSS_SPARTAN_USESOURCE_TXT(source), LUT_SRC(source));
-          curSource = source;
-        } else {
-          // WORKAROUND: for some reson the spartanUseSource command fails, reason is unknow, we dont realy worry here and will do it just again next time 
-          Log.warning("GNSS spartanUseSource %s from source %s failed", GNSS_SPARTAN_USESOURCE_TXT(source), LUT_SRC(source));
+      if (source != curSource) { // source would change
+        if (  (curSource == OTHER) || // just use any source, if we never set it. 
+             ((curSource == LBAND) && (source != LBAND)) || // prefer any IP source over LBAND
+             ((curSource != LBAND) && TIMEOUT_SRC(now, curSource)) ) { // let IP source timeout before switching to any other source 
+          bool ok/*online*/ = setVal8(UBLOX_CFG_SPARTN_USE_SOURCE, GNSS_SPARTAN_USESOURCE(source), VAL_LAYER_RAM);
+          if (ok) {
+            Log.info("GNSS spartanUseSource %s from source %s", GNSS_SPARTAN_USESOURCE_TXT(source), LUT_SRC(source));
+            curSource = source;
+          } else {
+            // WORKAROUND: for some reson the spartanUseSource command fails, reason is unknow, we dont realy worry here and will do it just again next time 
+            Log.warning("GNSS spartanUseSource %s from source %s failed", GNSS_SPARTAN_USESOURCE_TXT(source), LUT_SRC(source));
+          }
         }
       }
     }
@@ -220,6 +224,18 @@ public:
       Websocket.write(string, len);
 #endif
     }
+  }
+
+  void sendEsfMeas(uint32_t ttag, uint32_t speed, bool reverse) {
+    UBX_ESF_MEAS_data_t message;
+    memset(&message, 0, sizeof(message));
+    message.timeTag = ttag;
+    message.flags.bits.numMeas = 1;
+    message.data[0].data.bits.dataField = (reverse ? (1<<24) : 0) | (speed & 0x7FFFFF); 
+    message.data[0].data.bits.dataType = 11; // 11 = Speed
+    ubxPacket packetEsfMeas = {UBX_CLASS_ESF, UBX_ESF_MEAS, 12, 0, 0, (uint8_t*)&message, 
+          0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
+    sendCommand(&packetEsfMeas, 0); // don't expect ACK
   }
 
 protected:
