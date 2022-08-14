@@ -176,19 +176,22 @@ public:
   #define TIMEOUT_SRC(now, src) ((src < NUM_SOURCE) ? (signed long)((now) - ttagSource[src]) > GNSS_CORRECTION_TIMEOUT : true)
 
   void checkSpartanUseSourceCfg(SOURCE source) {
-    if (source < NUM_SOURCE) {
+    if ((source < NUM_SOURCE) && (source != OTHER)) {
       // manage correction stream selection 
       long now = millis();
       ttagSource[source] = millis();
-      int useSource = GNSS_SPARTAN_USESOURCE(source);
-      if ((GNSS_SPARTAN_USESOURCE(curSource) != useSource) && ((curSource == LBAND) || TIMEOUT_SRC(now, curSource))) {
-        bool ok/*online*/ = setVal8(UBLOX_CFG_SPARTN_USE_SOURCE, useSource, VAL_LAYER_RAM);
-        if (ok) {
-          Log.info("GNSS spartanUseSource %s from source %s", GNSS_SPARTAN_USESOURCE_TXT(source), LUT_SRC(source));
-          curSource = source;
-        } else {
-          // WORKAROUND: for some reson the spartanUseSource command fails, reason is unknow, we dont realy worry here and will do it just again next time 
-          Log.warning("GNSS spartanUseSource %s from source %s failed", GNSS_SPARTAN_USESOURCE_TXT(source), LUT_SRC(source));
+      if (source != curSource) { // source would change
+        if (  (curSource == OTHER) || // just use any source, if we never set it. 
+             ((curSource == LBAND) && (source != LBAND)) || // prefer any IP source over LBAND
+             ((curSource != LBAND) && TIMEOUT_SRC(now, curSource)) ) { // let IP source timeout before switching to any other source 
+          bool ok/*online*/ = setVal8(UBLOX_CFG_SPARTN_USE_SOURCE, GNSS_SPARTAN_USESOURCE(source), VAL_LAYER_RAM);
+          if (ok) {
+            Log.info("GNSS spartanUseSource %s from source %s", GNSS_SPARTAN_USESOURCE_TXT(source), LUT_SRC(source));
+            curSource = source;
+          } else {
+            // WORKAROUND: for some reson the spartanUseSource command fails, reason is unknow, we dont realy worry here and will do it just again next time 
+            Log.warning("GNSS spartanUseSource %s from source %s failed", GNSS_SPARTAN_USESOURCE_TXT(source), LUT_SRC(source));
+          }
         }
       }
     }

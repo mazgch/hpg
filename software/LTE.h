@@ -489,7 +489,9 @@ public:
                       mqttMsgs = 0; // expect a URC afterwards
                       const char* strTopic = topic.c_str();
                       Log.info("LTE MQTT topic \"%s\" read %d bytes", strTopic, len);
+                      GNSS::SOURCE source = GNSS::SOURCE::LTE;
                       if (topic.startsWith(MQTT_TOPIC_KEY_FORMAT)) {
+                        source = GNSS::SOURCE::OTHER; // inject key as other
                         if (Config.setValue(CONFIG_VALUE_KEY, buf, len)) {
                           Config.save();
                         }
@@ -506,7 +508,7 @@ public:
                           busy = true;
                         }
                       } else { 
-                        Gnss.inject(buf, (size_t)len, GNSS::SOURCE::LTE);
+                        Gnss.inject(buf, (size_t)len, source);
                       }
                     } else {
                       Log.error("LTE MQTT read failed with error %d", err);
