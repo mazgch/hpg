@@ -40,28 +40,22 @@
 // ArduinoMqttClient by Arduino, version 0.1.5
 // Library Manager:    http://librarymanager/All#ArduinoMqttClient   
 // Github Repository:  https://github.com/arduino-libraries/ArduinoMqttClient 
-#include <ArduinoMqttClient.h>    
+#include <ArduinoMqttClient.h>
 
 // ArduinoWebsockets by Gil Maimon, version 0.5.3
 // Library Manager:    http://librarymanager/All#ArduinoWebsockets   
 // Github Repository:  https://github.com/gilmaimon/ArduinoWebsockets
-#include <ArduinoWebsockets.h>    
+#include <ArduinoWebsockets.h>
 
 // ArduinoJson by Benoit Blanchon, version 6.19.4
 // Library Manager:    http://librarymanager/All#ArduinoJson      
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
-#include <ArduinoJson.h>          
+#include <ArduinoJson.h>
 
 // WiFiManager by Tapzu, version 2.0.11-beta
 // Library Manager:    http://librarymanager/All#tzapu,WiFiManager  
 // Github Repository:  https://github.com/tzapu/WiFiManager
-#include <WiFiManager.h>      
-
-// UBXLIB 
-//-----------------------------------
-// Github Repository:  https://github.com/u-blox/ubxlib
-// Execute: python3 port/platform/arduino/u_arduino.py -o <Arduino_Path>/libraries/ubxlib
-// #include <ubxlib.h>
+#include <WiFiManager.h>
 
 // Sparkfun libraries
 //-----------------------------------
@@ -74,7 +68,7 @@
 // SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.3
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_SARA-R5_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_SARA-R5_Arduino_Library
-#include <SparkFun_u-blox_SARA-R5_Arduino_Library.h>  
+#include <SparkFun_u-blox_SARA-R5_Arduino_Library.h>
 
 // Header files of this project
 //-----------------------------------
@@ -145,9 +139,11 @@ void loop()
 {
   LBand.poll();
   Gnss.poll();
-  Log.poll();
 #ifdef __CANBUS_H__
   Canbus.poll();
+#endif
+  Log.poll();
+#ifdef __CANBUS_H__
   delay(10);
 #else
   delay(50);

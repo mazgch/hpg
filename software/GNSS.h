@@ -39,7 +39,7 @@ String ubxVersion(const char* tag, SFE_UBLOX_GNSS* rx) {
   ubxPacket cfg = { UBX_CLASS_MON, UBX_MON_VER, 0, 0, 0, (uint8_t*)&info, 0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
   rx->setPacketCfgPayloadSize(sizeof(info)+8);
   if (rx->sendCommand(&cfg, 300) == SFE_UBLOX_STATUS_DATA_RECEIVED) {
-    char ext[10*32+5] = "";
+    char ext[10*34+6] = "";
     char* p = ext;
     for (int i = 0; cfg.len > (30 * i + 40); i ++) {
       if (*info.ext[i]) {
