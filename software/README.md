@@ -104,9 +104,10 @@ INFO:  GNSS 30:4:2022 19:21:19 lat 47.1762495 lon 8.4243833 msl 453.152 fix 3(3D
 ```
 
 ## Known Issues
-- Rarely the software crashes and the webserver maybe not so responsive (about 10s) as it is not asynchronous. It seems this is caused by low memoryand was improved by optimizing usage and now is more stable.
+- Rarely the software crashes and the webserver maybe not so responsive (about 10s) as it is not asynchronous. It seems this is caused by low memoryand was improved by optimizing usage and now is more stable. **imroved**
 - When connecting the board to a windows hotspot, then it seems that the network stack of the laptop gets confused. It is unclear why this happens maybe the dhcp or other service of the captive portal causes these issues. Better use a hotspot or ihone mobile hotspot mode.
-- Since the latest arduino_esp32 SDK it seems that parallel wifi and SD is causing issues. start_ssl_client fails during MQTT connect, maybe some dependency on the use of the file system of available heap.
+- Since the latest arduino_esp32 SDK it seems that parallel wifi and SD is causing issues. start_ssl_client fails during MQTT connect, maybe some dependency on the use of the file system of available heap. **solved***
+- 2.0.4 had a issue with partition maps when 2MB is selected, workarount is to use 4MB or stay with 2.0.3 **solved**
 
 ## Build instructions
 This software uses the free **Arduino IDE** that you can download from [their website](https://www.arduino.cc/en/software). It is recommended to use the installer (not the windows store App) as there have been on some PCs issues with running the compiler. The board uses a ESP32 based module, the NINA-W106 or Sparkfuns ESP32 Micromod. In order to compile the software for this target you need to install the [**arduino-esp32**](https://github.com/espressif/arduino-esp32) board support package. The [install instructions](https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html) will guide you through that process. At the time of writing these instructions, it is recommended to use the current development release of the package as some critical fixes that this software relies on were just recently contributed to this package. Then go to the board manager and install the esp32 package. When done you may need to restart to select and configure the Arduino IDE to use the correct device, please select **u-blox NINA-W10 series** and make sure the various settings are like in following screenshot: 
