@@ -104,7 +104,8 @@ INFO:  GNSS 30:4:2022 19:21:19 lat 47.1762495 lon 8.4243833 msl 453.152 fix 3(3D
 ```
 
 ## Known Issues
-- Sometimes the software crashes and the webserver maybe not so responsive (about 10s) as it is not asynchronous. 
+- Rarely the software crashes and the webserver maybe not so responsive (about 10s) as it is not asynchronous. It seems this is caused by low memoryand was improved by optimizing usage and now is more stable.
+- When connecting the board to a windows hotspot, then it seems that the network stack of the laptop gets confused. It is unclear why this happens maybe the dhcp or other service of the captive portal causes these issues. Better use a hotspot or ihone mobile hotspot mode.
 - Since the latest arduino_esp32 SDK it seems that parallel wifi and SD is causing issues. start_ssl_client fails during MQTT connect, maybe some dependency on the use of the file system of available heap.
 
 ## Build instructions
