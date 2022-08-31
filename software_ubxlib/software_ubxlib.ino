@@ -240,9 +240,9 @@ void setup() {
         printf("Added Gnss version %s hw %s rom %s fw %s prot %s mod %s id %02x%02x%02x%02x%02x.\n", version.ver, version.hw, 
               version.rom, version.fw, version.prot, version.mod, id[0], id[1], id[2], id[3], id[4]);
         
-        printf("Bringing up the Gnss network...\n");
         errorCodeGnss = uNetworkInterfaceUp(devHandleGnss, U_NETWORK_TYPE_GNSS, 
                                         &gNetworkCfgGnss);
+        printf("Bringing up the Gnss network... %d\n", errorCodeGnss);
     } else {
         printf("Unable to add Gnss network, error %d!\n", returnCode);
     }
@@ -259,9 +259,9 @@ void setup() {
         printf("Added Lband version %s hw %s rom %s fw %s prot %s mod %s id %02x%02x%02x%02x%02x.\n", version.ver, version.hw, 
               version.rom, version.fw, version.prot, version.mod, id[0], id[1], id[2], id[3], id[4]);
         
-        printf("Bringing up the Lband network...\n");
         errorCodeLband = uNetworkInterfaceUp(devHandleLband, U_NETWORK_TYPE_GNSS, 
                                         &gNetworkCfgLband);
+        printf("Bringing up the Lband network... %d\n", errorCodeLband);
     } else {
         printf("Unable to add Lband network, error %d!\n", returnCode);
     }
@@ -294,12 +294,12 @@ static void messageReceiveCallback(uDeviceHandle_t gnssHandle,
      if (pBuffer) {
         if (uGnssMsgReceiveCallbackRead(gnssHandle, pBuffer, size) == size) {
             if (pMessageId->type == U_GNSS_PROTOCOL_UBX) {
-                printf("Message size %d UBX-%02X-%02X\n", size, pBuffer[3], pBuffer[4]);
+                printf("%s Message size %d UBX-%02X-%02X\n", pCallbackParam, size, pBuffer[3], pBuffer[4]);
             } else if (pMessageId->type == U_GNSS_PROTOCOL_NMEA) {
                 pBuffer[size-2] = 0;
-              printf("Message size %d NMEA %s\n", size, pBuffer);
+              printf("%s Message size %d NMEA %s\n", pCallbackParam, size, pBuffer);
             } else {
-                printf("Message size %d type %d\n", size, pMessageId->type);
+                printf("%s Message size %d type %d\n", pCallbackParam, size, pMessageId->type);
             }
         }
         free(pBuffer);
@@ -309,34 +309,50 @@ static void messageReceiveCallback(uDeviceHandle_t gnssHandle,
 void loop() {
     size_t txSize = 0;
     size_t rxSize = 0;
-
-
     int32_t tries = 10;
     int32_t wait = 1000;
       
-    if (errorCodeGnss == 0) {
-        uGnssMessageId_t messageId;
-        //messageId.type = U_GNSS_PROTOCOL_UBX;
-        //messageId.id.ubx = (U_GNSS_UBX_MESSAGE_CLASS_ALL << 8) | U_GNSS_UBX_MESSAGE_ID_ALL;
-        messageId.type = U_GNSS_PROTOCOL_ALL;
-        
+    uGnssMessageId_t messageId;
+    messageId.type = U_GNSS_PROTOCOL_UBX;
+    messageId.id.ubx = (U_GNSS_UBX_MESSAGE_CLASS_ALL << 8) | U_GNSS_UBX_MESSAGE_ID_ALL;
+    messageId.type = U_GNSS_PROTOCOL_ALL;
+    
+    int32_t asyncHandleGnss = U_ERROR_COMMON_NOT_INITIALISED;
+    int32_t asyncHandleLband = U_ERROR_COMMON_NOT_INITIALISED;
+    if (errorCodeGnss >= 0) {
         //uGnssCfgSetProtocolOut(devHandleGnss, U_GNSS_PROTOCOL_NMEA, true);
         //uGnssCfgSetProtocolOut(devHandleGnss, U_GNSS_PROTOCOL_UBX, true);
         //uGnssSetUbxMessagePrint(devHandleGnss, true);
-
-        printf("Start Listening...\n");
-        int32_t asyncHandle = uGnssMsgReceiveStart(devHandleGnss, &messageId,
-                                                    messageReceiveCallback,
-                                                    NULL);
-            
-        // Get location
-        for (int32_t i = 0; i < tries; i ++) {
-            printf("Still Listening %d ...\n", i);
-            delay(wait);
-        }
-        printf("Stop Listening...\n");
-        uGnssMsgReceiveStop(devHandleGnss, asyncHandle);
-
+        asyncHandleGnss = uGnssMsgReceiveStart(devHandleGnss, &messageId,
+                                                messageReceiveCallback,
+                                                (void*)"GNSS");
+        printf("GNSS Start Listening %d...\n", asyncHandleGnss);
+    }
+    if (errorCodeLband >= 0) {
+        //uGnssCfgSetProtocolOut(devHandleLband, U_GNSS_PROTOCOL_NMEA, true);
+        //uGnssCfgSetProtocolOut(devHandleLband, U_GNSS_PROTOCOL_UBX, true);
+        //uGnssSetUbxMessagePrint(devHandleLband, true);
+        asyncHandleLband = uGnssMsgReceiveStart(devHandleLband, &messageId,
+                                                messageReceiveCallback,
+                                                (void*)"LBAND");
+        printf("LBAND Start Listening %d...\n", asyncHandleLband);
+    }
+    for (int32_t i = 0; i < tries; i ++) {
+        printf("Still Listening %d ...\n", i);
+        delay(wait);
+    }
+    printf("Stop Listening...\n");
+    
+    if (errorCodeLband >= 0) {
+        uGnssMsgReceiveStop(devHandleLband, asyncHandleLband);
+    
+        printf("Taking down LBAND...\n");
+        uNetworkInterfaceDown(devHandleLband, U_NETWORK_TYPE_GNSS);
+    }
+    
+    if (asyncHandleGnss >= 0) {
+        uGnssMsgReceiveStop(devHandleGnss, asyncHandleGnss);
+    
         uLocation_t location;
         if (uLocationGet(devHandleGnss, U_LOCATION_TYPE_GNSS,
                          NULL, NULL, &location, NULL) == 0) {
@@ -346,34 +362,12 @@ void loop() {
         } else {
             printf("Unable to get a location fix!\n");
         }
-        
-        // When finished with the GNSS network layer
+     
         printf("Taking down GNSS...\n");
         uNetworkInterfaceDown(devHandleGnss, U_NETWORK_TYPE_GNSS);
     }
     
-    if (errorCodeLband == 0) {
-        uGnssMessageId_t messageId;
-        messageId.type = U_GNSS_PROTOCOL_ALL;
-        printf("Start Listening...\n");
-        int32_t asyncHandle = uGnssMsgReceiveStart(devHandleLband, &messageId,
-                                                    messageReceiveCallback,
-                                                    NULL);
-        uGnssSetUbxMessagePrint(devHandleLband, true);
-        
-        if (asyncHandle >= 0) {
-            for (int32_t i = 0; i < tries; i ++) {
-                printf("Still Listening %d ...\n", i);
-                delay(wait);
-            }
-            printf("Stop Listening...\n");
-            uGnssMsgReceiveStop(devHandleLband, asyncHandle);
-        }
-        printf("Taking down LBAND...\n");
-        uNetworkInterfaceDown(devHandleLband, U_NETWORK_TYPE_GNSS);
-    }
-    
-    if (errorCodeModem == 0) {
+    if (errorCodeModem >= 0) {
         int32_t x = 0;
         int32_t sock;
         uSockAddress_t address;
