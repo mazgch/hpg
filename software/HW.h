@@ -19,6 +19,8 @@
 
 #if defined(ARDUINO_UBLOX_NINA_W10)
  #define HW_TARGET     MAZGCH_HPG_SOLUTION_V09
+#elif defined(ARDUINO_UBLOX_NORA_W10)
+ #define HW_TARGET     MAZGCH_HPG_MODULAR_V01
 #elif defined(ARDUINO_ESP32_MICROMOD)
  #define HW_TARGET     SPARKFUN_MICROMOD_MAINBOARD
 #else
@@ -28,6 +30,8 @@
 #define MAZGCH_HPG_SOLUTION_V08              0 // Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
 #define MAZGCH_HPG_SOLUTION_V09              1 // Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
 #define MAZGCH_HPG_SOLUTION_V10              2 // Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
+
+#define MAZGCH_HPG_MODULAR_V01               5 // Select ESP32 Arduino / u-blox NORA-W10 series (ESP32-S3), LTE in slot 1
 
 #define SPARKFUN_MICROMOD_MAINBOARD_PT      11 // Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod / prototype LTE function
 #define SPARKFUN_MICROMOD_MAINBOARD         12
@@ -40,10 +44,15 @@ enum HW_PINS {
     // Standard pins
     BOOT        =  0, 
     LED         =  2,
+#if (HW_TARGET == MAZGCH_HPG_MODULAR_V01)
+    CDC_RX      = 44,  CDC_TX         = 43,
+    CAN_RX      = -1,  CAN_TX         = -1,
+    I2C_SDA     = 18,  I2C_SCL        = 17,
+#else
     CDC_RX      =  3,  CDC_TX         = 1,
     CAN_RX      =  4,  CAN_TX         = 5,
     I2C_SDA     = 21,  I2C_SCL        = 22,
-    
+#endif    
 #if (HW_TARGET == MAZGCH_HPG_SOLUTION_V08)
  #warning using MAZGCH_HPG_SOLUTION_V08
     // LTE (DCE) - BUG 34/39 are input only.on V0.8 -> will swap in V0.9
@@ -84,6 +93,19 @@ enum HW_PINS {
     // Micro SD card
     MICROSD_SCK = 18,  MICROSD_SDI    = 19,  MICROSD_SDO = 23,   
     MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
+    
+#elif (HW_TARGET == MAZGCH_HPG_MODULAR_V01)
+    // LTE (DCE)
+    LTE_RESET   = -1,  LTE_PWR_ON     =  9,  LTE_ON      = -1,  LTE_INT = -1,
+    LTE_TXI     = 46,  LTE_RXO        =  2,  LTE_RTS     = 38,  LTE_CTS =  4, 
+    LTE_RI      =  7,  LTE_DSR        = -1,  LTE_DCD     = -1,  LTE_DTR = -1,
+
+    // Power supply
+    VIN         = -1,  V33_EN         = -1,
+    
+    // Micro SD card
+    MICROSD_SCK = 36,  MICROSD_SDI    = 37,  MICROSD_SDO = 35,   
+    MICROSD_CS  = 34,  MICROSD_PWR_EN = -1,  MICROSD_DET = -1,
     
 #elif (HW_TARGET == SPARKFUN_MICROMOD_ASSET_TRACKER)
     // LTE (DCE)
