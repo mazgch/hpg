@@ -43,12 +43,13 @@
 enum HW_PINS {  
     // Standard pins
     BOOT        =  0, 
-    LED         =  2,
 #if (HW_TARGET == MAZGCH_HPG_MODULAR_V01)
+    LED         =  8,
     CDC_RX      = 44,  CDC_TX         = 43,
     CAN_RX      = -1,  CAN_TX         = -1,
     I2C_SDA     = 18,  I2C_SCL        = 17,
 #else
+    LED         =  2,
     CDC_RX      =  3,  CDC_TX         = 1,
     CAN_RX      =  4,  CAN_TX         = 5,
     I2C_SDA     = 21,  I2C_SCL        = 22,
@@ -105,7 +106,7 @@ enum HW_PINS {
     
     // Micro SD card
     MICROSD_SCK = 36,  MICROSD_SDI    = 37,  MICROSD_SDO = 35,   
-    MICROSD_CS  = 34,  MICROSD_PWR_EN = -1,  MICROSD_DET = -1,
+    MICROSD_CS  = 34,  MICROSD_PWR_EN = -1,  MICROSD_DET = 34,
     
 #elif (HW_TARGET == SPARKFUN_MICROMOD_ASSET_TRACKER)
     // LTE (DCE)

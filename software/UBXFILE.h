@@ -272,7 +272,9 @@ public:
       pinMode(MICROSD_PWR_EN, OUTPUT);
       digitalWrite(MICROSD_PWR_EN, LOW);
     }
-    pinMode(MICROSD_DET, INPUT);
+    if (MICROSD_DET != PIN_INVALID) {
+      pinMode(MICROSD_DET, INPUT);
+    }
   }
 
   void init() {
@@ -283,12 +285,16 @@ protected:
   
   typedef enum { UNKNOWN, REMOVED, INSERTED, MOUNTED, NUM_STATE } STATE;
   static const char* STATE_LUT[NUM_STATE]; 
-
+#if (HW_TARGET == MAZGCH_HPG_MODULAR_V01)
+  static const int MICROSD_DET_REMOVED = LOW;
+#else
+  static const int MICROSD_DET_REMOVED = HIGH;
+#endif    
   
   STATE getState(void) {
     STATE state = UNKNOWN;
     if (MICROSD_DET != PIN_INVALID) {
-      state = (digitalRead(MICROSD_DET) == HIGH) ? REMOVED : INSERTED;
+      state = (digitalRead(MICROSD_DET) == MICROSD_DET_REMOVED) ? REMOVED : INSERTED;
     }
     return state;
   }
