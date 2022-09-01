@@ -59,7 +59,8 @@
 #ifdef ARDUINO_UBLOX_NORA_W10
   #error The WiFiManager triggers a race condition with ESP core > 2.3.0 -> please apply fix 
   // See https://github.com/tzapu/WiFiManager/issues/1482 
-  // Remove line WiFiManager.cpp:717  -> // WiFi_enableSTA(false); 
+  // Change line WiFiManager.cpp:717  // WiFi_enableSTA(false); 
+  // Change line WiFiManager.c:42     #if defined(ARDUINO_ESP32S3_DEV) || defined(ARDUINO_UBLOX_NORA_W10)
 #endif
 
 // Sparkfun libraries
