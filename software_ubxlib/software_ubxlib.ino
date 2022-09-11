@@ -24,24 +24,18 @@
 // Github Repository:  https://github.com/u-blox/ubxlib
 // Execute: cd port/platform/arduino 
 //          python3 u_arduino.py -o <ArduinoLibPath>/libraries/ubxlib
-// So for me this will do the job
-// rm -rf /Users/michaelammann/Documents/Arduino/libraries/ubxlib
-// cd Users/michaelammann/Documents/GitHub/ubxlib_priv/port/platform/arduino
-// python3 u_arduino.py -o /Users/michaelammann/Documents/Arduino/libraries/ubxlib
+/* So for me this will do the job
+   rm -rf /Users/michaelammann/Documents/Arduino/libraries/ubxlib
+   cd /Users/michaelammann/Documents/GitHub/ubxlib_priv/port/platform/arduino
+   python3 u_arduino.py -o /Users/michaelammann/Documents/Arduino/libraries/ubxlib
+*/
 #include <ubxlib.h>
+
+#include "hw.h"
 
 /* ----------------------------------------------------------------
  * VARIABLES
  * -------------------------------------------------------------- */
-
-enum HW_PINS {  
-    I2C_SDA     = 21,  I2C_SCL        = 22,
-    // LTE (DCE)
-    LTE_RESET   = 13,  LTE_PWR_ON     = 12,  LTE_ON      = 37,  LTE_INT = -1,
-    LTE_TXI     = 25,  LTE_RXO        = 26,  LTE_RTS     = 27,  LTE_CTS = 36, 
-    LTE_RI      = 34,  LTE_DSR        = 39,  LTE_DCD     = 14,  LTE_DTR = 15,
-    PIN_INVALID = -1
-};
 
 static const uDeviceCfg_t gDeviceCfgModem = {
     .version = 0,
@@ -239,7 +233,25 @@ void setup() {
         uGnssInfoGetIdStr(devHandleGnss, (char*)id, sizeof(id));
         printf("Added Gnss version %s hw %s rom %s fw %s prot %s mod %s id %02x%02x%02x%02x%02x.\n", version.ver, version.hw, 
               version.rom, version.fw, version.prot, version.mod, id[0], id[1], id[2], id[3], id[4]);
-        
+
+        String fwver = version.fw;
+        const uint8_t one = 1;
+        #define GNSS_CHECK(x) printf("GNSS config %d\n", x)
+        GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_PVT_I2C_U1,      (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
+        GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_NMEA_HIGHPREC_L,                (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
+        GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_SAT_I2C_U1,      (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
+      //  GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_HPPOSLLH_I2C_U1, (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
+      //  GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_RXM_COR_I2C_U1,      (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
+        if (fwver.startsWith("HPS ")) {
+          //GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_ESF_STATUS_I2C_U1, (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
+        }
+        if (fwver.equals("HPS 1.30A01")) { // ZED-F9R LAP demo firmware, Supports 2.0 but doesn't have protection level
+       //   Log.warning("GNSS firmware %s is a time-limited demonstrator, please update firmware in Q4/2022", fwver.c_str());
+        } else if (fwver.substring(4).toDouble() < 1.30) { // ZED-F9R/P old release firmware, no Spartan 2.0 support
+       //   Log.error("GNSS firmware %s does not support Spartan 2.0, please update firmware", fwver.c_str());
+        } else {
+          //GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_PL_I2C_U1, (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
+        }
         errorCodeGnss = uNetworkInterfaceUp(devHandleGnss, U_NETWORK_TYPE_GNSS, 
                                         &gNetworkCfgGnss);
         printf("Bringing up the Gnss network... %d\n", errorCodeGnss);
@@ -286,24 +298,25 @@ void setup() {
 
 static void messageReceiveCallback(uDeviceHandle_t gnssHandle,
                                     const uGnssMessageId_t *pMessageId,
-                                    size_t size,
+                                    int32_t size,
                                     void *pCallbackParam)
- {
-
-     char* pBuffer = (char*) malloc(size);
-     if (pBuffer) {
-        if (uGnssMsgReceiveCallbackRead(gnssHandle, pBuffer, size) == size) {
-            if (pMessageId->type == U_GNSS_PROTOCOL_UBX) {
-                printf("%s Message size %d UBX-%02X-%02X\n", pCallbackParam, size, pBuffer[3], pBuffer[4]);
-            } else if (pMessageId->type == U_GNSS_PROTOCOL_NMEA) {
-                pBuffer[size-2] = 0;
-              printf("%s Message size %d NMEA %s\n", pCallbackParam, size, pBuffer);
-            } else {
-                printf("%s Message size %d type %d\n", pCallbackParam, size, pMessageId->type);
-            }
+{
+  if (size > 0) {
+    char* pBuffer = (char*) malloc(size);
+    if (pBuffer) {
+      if (uGnssMsgReceiveCallbackRead(gnssHandle, pBuffer, size) == size) {
+        if (pMessageId->type == U_GNSS_PROTOCOL_UBX) {
+          printf("%s Message size %d UBX-%02X-%02X\n", pCallbackParam, size, pBuffer[3], pBuffer[4]);
+        } else if (pMessageId->type == U_GNSS_PROTOCOL_NMEA) {
+          pBuffer[size-2] = 0;
+          printf("%s Message size %d NMEA %s\n", pCallbackParam, size, pBuffer);
+        } else {
+          printf("%s Message size %d type %d\n", pCallbackParam, size, pMessageId->type);
         }
-        free(pBuffer);
+      }
+      free(pBuffer);
      }
+   }
  }
  
 void loop() {
