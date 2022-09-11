@@ -42,117 +42,115 @@
 
 enum HW_PINS {  
     // Standard pins
-    BOOT        =  0, 
-    LED         =  2,
+    BOOT         = 0, 
 #if (HW_TARGET == MAZGCH_HPG_MODULAR_V01)
-    CDC_RX      = 44,  CDC_TX         = 43,
-    CAN_RX      = -1,  CAN_TX         = -1,
-    I2C_SDA     = 18,  I2C_SCL        = 17,
+    LED          = 8,                        // = default LED_BUILTIN / LED_BLUE
+    CAN_RX      = -1,  CAN_TX          = -1,
 #else
-    CDC_RX      =  3,  CDC_TX         = 1,
-    CAN_RX      =  4,  CAN_TX         = 5,
-    I2C_SDA     = 21,  I2C_SCL        = 22,
+    LED          = 2,
+    CAN_RX       = 4,  CAN_TX           = 5,
 #endif    
+    CDC_RX      = RX,  CDC_TX          = TX,
+    I2C_SDA    = SDA,  I2C_SCL        = SCL,
 #if (HW_TARGET == MAZGCH_HPG_SOLUTION_V08)
- #warning using MAZGCH_HPG_SOLUTION_V08
     // LTE (DCE) - BUG 34/39 are input only.on V0.8 -> will swap in V0.9
     LTE_RESET   = -1 /*BUG 34 is IN only */, 
-    LTE_PWR_ON  = -1 /*BUG 39 is IN only */, LTE_ON      = 37,  LTE_INT = -1,
-    LTE_TXI     = 25,  LTE_RXO        = 26,  LTE_RTS     = 27,  LTE_CTS = 36, 
-    LTE_RI      = 12,  LTE_DSR        = 13,  LTE_DCD     = 14,  LTE_DTR = 15,
+    LTE_PWR_ON  = -1 /*BUG 39 is IN only */,  LTE_ON        = 37,  LTE_INT = -1,
+    LTE_TXI     = 25,   LTE_RXO        = 26,  LTE_RTS       = 27,  LTE_CTS = 36, 
+    LTE_RI      = 12,   LTE_DSR        = 13,  LTE_DCD       = 14,  LTE_DTR = 15,
 
     // Power supply
-    VIN         = 35,  V33_EN         = 33,
+    VIN         = 35,   V33_EN         = 33,
     
     // Micro SD card - MISO / MOSI will be swapped to allow use of default pins 
-    MICROSD_SCK = 18,  MICROSD_SDI    = 23,  MICROSD_SDO = 19,   
-    MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
+    MICROSD_SCK  = 18,  MICROSD_SDI    = 23,  MICROSD_SDO   = 19,
+    MICROSD_CS   = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET   = 38,
     
 #elif (HW_TARGET == MAZGCH_HPG_SOLUTION_V09)
     // LTE (DCE)
-    LTE_RESET   = 13,  LTE_PWR_ON     = 12,  LTE_ON      = 37,  LTE_INT = -1,
-    LTE_TXI     = 25,  LTE_RXO        = 26,  LTE_RTS     = 27,  LTE_CTS = 36, 
-    LTE_RI      = 34,  LTE_DSR        = 39,  LTE_DCD     = 14,  LTE_DTR = 15,
+    LTE_RESET    = 13,  LTE_PWR_ON     = 12,  LTE_ON        = 37,  LTE_INT = -1,
+    LTE_TXI      = 25,  LTE_RXO        = 26,  LTE_RTS       = 27,  LTE_CTS = 36, 
+    LTE_RI       = 34,  LTE_DSR        = 39,  LTE_DCD       = 14,  LTE_DTR = 15,
 
     // Power supply
-    VIN         = 35,  V33_EN         = 33,
+    VIN          = 35,  V33_EN         = 33,
     
     // Micro SD card
-    MICROSD_SCK = 18,  MICROSD_SDI    = 19,  MICROSD_SDO = 23,   
-    MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
+    MICROSD_SCK = SCK,  MICROSD_SDI  = MISO,  MICROSD_SDO = MOSI,
+    MICROSD_CS   = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET   = 38,
     
 #elif (HW_TARGET == MAZGCH_HPG_SOLUTION_V10)
     // LTE (DCE)
-    LTE_RESET   = 12,  LTE_PWR_ON     = 13,  LTE_ON      = 37,  LTE_INT = -1,
-    LTE_TXI     = 25,  LTE_RXO        = 26,  LTE_RTS     = 27,  LTE_CTS = 36, 
-    LTE_RI      = 34,  LTE_DSR        = 39,  LTE_DCD     = 14,  LTE_DTR = 15,
+    LTE_RESET    = 12,  LTE_PWR_ON     = 13,  LTE_ON        = 37,  LTE_INT = -1,
+    LTE_TXI      = 25,  LTE_RXO        = 26,  LTE_RTS       = 27,  LTE_CTS = 36, 
+    LTE_RI       = 34,  LTE_DSR        = 39,  LTE_DCD       = 14,  LTE_DTR = 15,
 
     // Power supply
-    VIN         = 35,  V33_EN         = 33,
+    VIN          = 35,  V33_EN         = 33,
     
     // Micro SD card
-    MICROSD_SCK = 18,  MICROSD_SDI    = 19,  MICROSD_SDO = 23,   
-    MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
+    MICROSD_SCK = SCK,  MICROSD_SDI  = MISO,  MICROSD_SDO = MOSI, // = default SCK / MISO / MOSI    
+    MICROSD_CS   = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET   = 38,
     
 #elif (HW_TARGET == MAZGCH_HPG_MODULAR_V01)
     // LTE (DCE)
-    LTE_RESET   = -1,  LTE_PWR_ON     =  9,  LTE_ON      = -1,  LTE_INT = -1,
-    LTE_TXI     = 46,  LTE_RXO        =  2,  LTE_RTS     = 38,  LTE_CTS =  4, 
-    LTE_RI      =  7,  LTE_DSR        = -1,  LTE_DCD     = -1,  LTE_DTR = -1,
+    LTE_RESET    = -1,  LTE_PWR_ON     =  9,  LTE_ON        = -1,  LTE_INT = -1,
+    LTE_TXI      = 46,  LTE_RXO        =  2,  LTE_RTS       = 38,  LTE_CTS =  4, 
+    LTE_RI        = 7,  LTE_DSR        = -1,  LTE_DCD       = -1,  LTE_DTR = -1,
 
     // Power supply
-    VIN         = -1,  V33_EN         = -1,
+    VIN          = -1,  V33_EN         = -1,
     
     // Micro SD card
-    MICROSD_SCK = 36,  MICROSD_SDI    = 37,  MICROSD_SDO = 35,   
-    MICROSD_CS  = 34,  MICROSD_PWR_EN = -1,  MICROSD_DET = -1,
+    MICROSD_SCK = SCK,  MICROSD_SDI  = MISO,  MICROSD_SDO = MOSI,
+    MICROSD_CS   = 34,  MICROSD_PWR_EN = -1,  MICROSD_DET   = -1,
     
 #elif (HW_TARGET == SPARKFUN_MICROMOD_ASSET_TRACKER)
     // LTE (DCE)
-    LTE_RESET   = -1,  LTE_PWR_ON     = G2,  LTE_ON      = G6,  LTE_INT = G5, 
-    LTE_TXI    = TX1,  LTE_RXO       = RX1,  LTE_RTS     = -1,  LTE_CTS = -1, 
-    LTE_RI      = G4,  LTE_DSR        = -1,  LTE_DCD     = -1,  LTE_DTR = -1,
+    LTE_RESET    = -1,  LTE_PWR_ON     = G2,  LTE_ON        = G6,  LTE_INT = G5, 
+    LTE_TXI     = TX1,  LTE_RXO       = RX1,  LTE_RTS       = -1,  LTE_CTS = -1, 
+    LTE_RI       = G4,  LTE_DSR        = -1,  LTE_DCD       = -1,  LTE_DTR = -1,
    
     // Power supply
-    VIN         = 39,  V33_EN         = -1,
+    VIN          = 39,  V33_EN         = -1,
     
     // Micro SD card
-    MICROSD_SCK = SCK, MICROSD_SDI  = MISO, MICROSD_SDO = MOSI, 
-    MICROSD_DET = -1,  MICROSD_PWR_EN = G1,  
-    MICROSD_CS  = G0,
+    MICROSD_SCK = SCK,  MICROSD_SDI  = MISO,  MICROSD_SDO = MOSI, // = default SCK / MISO / MOSI
+    MICROSD_DET  = -1,  MICROSD_PWR_EN = G1,  
+    MICROSD_CS   = G0,
 
 #elif ((HW_TARGET == SPARKFUN_MICROMOD_MAINBOARD_PT) || (HW_TARGET == SPARKFUN_MICROMOD_MAINBOARD_DOUBLE_PT)) // using ESP 32 MicroMod MCU
     // LTE (DCE)   // assignable D0,A0,G0 (G4 G5 can't be used as duplicated on ESP32)
-    LTE_RESET   = G2,  LTE_PWR_ON    = PWM0,  LTE_ON    = -1/*BUG G3/TX1*/,  LTE_INT = -1, 
-    LTE_TXI    = TX1,  LTE_RXO        = RX1,  LTE_RTS   = -1,  LTE_CTS = -1,  // TX1/RX1 were swapped, all PT V1 boards patched
-    LTE_RI      = G1,  LTE_DSR         = -1,  LTE_DCD   = -1,  LTE_DTR = -1,
-    LTE_NI      = -1, /*BUG G4/RXD*/
+    LTE_RESET    = G2,  LTE_PWR_ON   = PWM0,  LTE_ON        = -1/*BUG G3/TX1*/,  LTE_INT = -1, 
+    LTE_TXI     = TX1,  LTE_RXO       = RX1,  LTE_RTS       = -1,  LTE_CTS = -1,  // TX1/RX1 were swapped, all PT V1 boards patched
+    LTE_RI       = G1,  LTE_DSR        = -1,  LTE_DCD       = -1,  LTE_DTR = -1,
+    LTE_NI       = -1, /*BUG G4/RXD*/
     // Power supply
-    VIN         = 39,  V33_EN         = -1,
+    VIN          = 39,  V33_EN         = -1,
     
     // Micro SD card
-    MICROSD_SCK = SCK, MICROSD_SDI  = MISO, MICROSD_SDO = MOSI, 
-    MICROSD_DET = -1,  MICROSD_PWR_EN = 5,  
+    MICROSD_SCK = SCK,  MICROSD_SDI  = MISO,  MICROSD_SDO = MOSI,
+    MICROSD_DET  = -1,  MICROSD_PWR_EN  = 5,  
 # if (HW_TARGET == SPARKFUN_MICROMOD_MAINBOARD_PT)
-    MICROSD_CS  = D1,
+    MICROSD_CS   = D1,
 # else
-    MICROSD_CS  = G4,
+    MICROSD_CS   = G4,
 # endif
 
 #else // using ESP 32 MicroMod MCU
     // LTE (DCE)   // assignable D0,A0,G0 (G3/G4 can't be used as duplicated with TX1/RX1 on ESP32)
-    LTE_RESET = PWM0,  LTE_PWR_ON     = G2,  LTE_ON      = SS,  LTE_INT = -1, 
-    LTE_TXI    = TX1,  LTE_RXO       = RX1,  LTE_RTS     = -1,  LTE_CTS = -1, 
-    LTE_RI      = -1,  LTE_DSR        = -1,  LTE_DCD     = -1,  LTE_DTR = -1,
-    LTE_NI      = D0,
+    LTE_RESET  = PWM0,  LTE_PWR_ON     = G2,  LTE_ON        = SS,  LTE_INT = -1, 
+    LTE_TXI     = TX1,  LTE_RXO       = RX1,  LTE_RTS       = -1,  LTE_CTS = -1, 
+    LTE_RI       = -1,  LTE_DSR        = -1,  LTE_DCD       = -1,  LTE_DTR = -1,
+    LTE_NI       = D0,
     // Power supply
-    VIN         = 39,  V33_EN         = -1,
+    VIN          = 39,  V33_EN         = -1,
     
     // Micro SD card
-    MICROSD_SCK = SCK, MICROSD_SDI  = MISO, MICROSD_SDO = MOSI, 
-    MICROSD_DET = -1,  MICROSD_PWR_EN = 5,  
+    MICROSD_SCK = SCK,  MICROSD_SDI  = MISO,  MICROSD_SDO = MOSI, 
+    MICROSD_DET  = -1,  MICROSD_PWR_EN  = 5,  
 # if (HW_TARGET == SPARKFUN_MICROMOD_MAINBOARD)
-    MICROSD_CS  = D1,
+    MICROSD_CS   = D1,
 # else
     MICROSD_CS  = G4,
 # endif

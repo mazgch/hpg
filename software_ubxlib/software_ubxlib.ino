@@ -237,6 +237,15 @@ void setup() {
         String fwver = version.fw;
         const uint8_t one = 1;
         #define GNSS_CHECK(x) printf("GNSS config %d\n", x)
+        uGnssCfgVal_t values[] = {
+          { U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_PVT_I2C_U1,      (void*)&one, sizeof(one) },
+          { U_GNSS_CFG_VAL_KEY_ID_NMEA_HIGHPREC_L,                (void*)&one, sizeof(one) },
+          { U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_SAT_I2C_U1,      (void*)&one, sizeof(one) },
+        //  { U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_HPPOSLLH_I2C_U1, (void*)&one, sizeof(one) },
+        //  { U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_RXM_COR_I2C_U1,      (void*)&one, sizeof(one) },
+        };
+        GNSS_CHECK(uGnssCfgValSetList(devHandleGnss, values, sizeof(values)/sizeof(*values), U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
+        
         GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_PVT_I2C_U1,      (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
         GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_NMEA_HIGHPREC_L,                (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
         GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_SAT_I2C_U1,      (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
@@ -270,6 +279,10 @@ void setup() {
         uGnssInfoGetIdStr(devHandleLband, (char*)id, sizeof(id));
         printf("Added Lband version %s hw %s rom %s fw %s prot %s mod %s id %02x%02x%02x%02x%02x.\n", version.ver, version.hw, 
               version.rom, version.fw, version.prot, version.mod, id[0], id[1], id[2], id[3], id[4]);
+        
+        const uint32_t baud = 38400;
+        #define LBAND_CHECK(x) printf("LBAND config %d\n", x)
+        LBAND_CHECK(uGnssCfgValSet(devHandleLband, U_GNSS_CFG_VAL_KEY_ID_UART2_BAUDRATE_U4,      (void *) &baud, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
         
         errorCodeLband = uNetworkInterfaceUp(devHandleLband, U_NETWORK_TYPE_GNSS, 
                                         &gNetworkCfgLband);
