@@ -52,10 +52,16 @@
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
 #include <ArduinoJson.h>
 
-// WiFiManager by Tapzu, version 2.0.11-beta
+// WiFiManager by Tapzu, version 2.0.12-beta
 // Library Manager:    http://librarymanager/All#tzapu,WiFiManager  
 // Github Repository:  https://github.com/tzapu/WiFiManager
 #include <WiFiManager.h>
+#ifdef ARDUINO_UBLOX_NORA_W10
+  #error The WiFiManager triggers a race condition with ESP core > 2.3.0 -> please apply fix 
+  // See https://github.com/tzapu/WiFiManager/issues/1482 
+  // Change line WiFiManager.h:42  #ifndef ESP32
+  // Change line WiFiManager.h:487 bool _disableSTAConn = false; 
+#endif
 
 // Sparkfun libraries
 //-----------------------------------
@@ -142,7 +148,6 @@ void loop()
 #ifdef __CANBUS_H__
   Canbus.poll();
 #endif
-  Log.poll();
 #ifdef __CANBUS_H__
   delay(10);
 #else
