@@ -278,7 +278,7 @@ void setup() {
         String fwver = version.fw;
         bool qzss = fwver.startsWith("QZS");
         #define LBAND_FREQ_NOUPDATE 0xFFFFFFFFF
-        uint32_t freq = 1556290000;
+        uint32_t freq = 1545260000;
         if (qzss){ // NEO-D9C
           freq = LBAND_FREQ_NOUPDATE; // prevents freq update
           CHECK_INIT;
@@ -341,15 +341,21 @@ static void messageReceiveCallback(uDeviceHandle_t gnssHandle,
         if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x07/*PVT*/)) printf("%s Message size %d UBX-NAV-PVT\n", pCallbackParam, size);
         else if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x14/*HPPOSLLH*/)) printf("%s Message size %d UBX-NAV-HPPOSLLH\n", pCallbackParam, size);
         else if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x35/*SAT*/)) printf("%s Message size %d UBX-NAV-SAT\n", pCallbackParam, size);
-        else if ((pBuffer[2] == 0x02/*RXM*/) && (pBuffer[3] == 0x72/*PMP*/)) printf("%s Message size %d UBX-RXM-PMP\n", pCallbackParam, size);
         else if ((pBuffer[2] == 0x02/*RXM*/) && (pBuffer[3] == 0x34/*COR*/)) printf("%s Message size %d UBX-RXM-COR\n", pCallbackParam, size);
-        else if ((pBuffer[2] == 0x02/*RXM*/) && (pBuffer[3] == 0x73/*QZSS*/)) printf("%s Message size %d UBX-RXM-QZSSL6\n", pCallbackParam, size);
+        else if ((pBuffer[2] == 0x02/*RXM*/) && (pBuffer[3] == 0x72/*PMP*/)) {
+          uGnssMsgSend(devHandleGnss, pBuffer, size);
+          printf("%s Message size %d UBX-RXM-PMP forwarded\n", pCallbackParam, size);
+        }
+        else if ((pBuffer[2] == 0x02/*RXM*/) && (pBuffer[3] == 0x73/*QZSS*/)) {
+          uGnssMsgSend(devHandleGnss, pBuffer, size);
+          printf("%s Message size %d UBX-RXM-QZSSL6 forwarded\n", pCallbackParam, size);
+        }
         else if ((pBuffer[2] == 0x10/*ESF*/) && (pBuffer[3] == 0x10/*STATUS*/)) printf("%s Message size %d UBX-ESF-STATUS\n", pCallbackParam, size);
         else if (pMessageId->type == U_GNSS_PROTOCOL_UBX) {
           printf("%s Message size %d UBX-%02X-%02X\n", pCallbackParam, size, pBuffer[2], pBuffer[3]);
         } else if (pMessageId->type == U_GNSS_PROTOCOL_NMEA) {
           pBuffer[size-2] = 0;
-          printf("%s Message size %d NMEA %s\n", pCallbackParam, size, pBuffer);
+         // printf("%s Message size %d NMEA %s\n", pCallbackParam, size, pBuffer);
         } else {
           printf("%s Message size %d type %d\n", pCallbackParam, size, pMessageId->type);
         }
@@ -362,7 +368,7 @@ static void messageReceiveCallback(uDeviceHandle_t gnssHandle,
 void loop() {
     size_t txSize = 0;
     size_t rxSize = 0;
-    int32_t tries = 10;
+    int32_t tries = 1000;
     int32_t wait = 1000;
       
     uGnssMessageId_t messageId;
