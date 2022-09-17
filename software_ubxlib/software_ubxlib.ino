@@ -221,7 +221,12 @@ void setup() {
     uPortInit();
     uPortI2cInit(); // You only need this if an I2C interface is used
     uDeviceInit();
+#define CHECK_INIT        int _step = 0; bool _ok = 0
+#define CHECK_OK          (_ok >= 0)
+#define CHECK             if (_ok >= 0) _step ++, _ok
+#define CHECK_EVAL(txt)   if (_ok < 0) printf(txt ", sequence failed at step %d\n", _step); else printf(txt " everything ok\n")
 
+    printf("SCL %d %d SDA %d %d\n", SDA, I2C_SDA, SCL, I2C_SCL);
     returnCode = uDeviceOpen(&gDeviceCfgGnss, &devHandleGnss);
     if (returnCode >= 0) {
         printf("Added Gnss network with handle %p.\n", devHandleGnss);
@@ -235,32 +240,23 @@ void setup() {
               version.rom, version.fw, version.prot, version.mod, id[0], id[1], id[2], id[3], id[4]);
 
         String fwver = version.fw;
-        const uint8_t one = 1;
-        #define GNSS_CHECK(x) printf("GNSS config %d\n", x)
-        uGnssCfgVal_t values[] = {
-          { U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_PVT_I2C_U1,      (void*)&one, sizeof(one) },
-          { U_GNSS_CFG_VAL_KEY_ID_NMEA_HIGHPREC_L,                (void*)&one, sizeof(one) },
-          { U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_SAT_I2C_U1,      (void*)&one, sizeof(one) },
-        //  { U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_HPPOSLLH_I2C_U1, (void*)&one, sizeof(one) },
-        //  { U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_RXM_COR_I2C_U1,      (void*)&one, sizeof(one) },
-        };
-        GNSS_CHECK(uGnssCfgValSetList(devHandleGnss, values, sizeof(values)/sizeof(*values), U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
-        
-        GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_PVT_I2C_U1,      (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
-        GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_NMEA_HIGHPREC_L,                (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
-        GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_SAT_I2C_U1,      (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
-      //  GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_HPPOSLLH_I2C_U1, (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
-      //  GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_RXM_COR_I2C_U1,      (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
+        CHECK_INIT;
+        CHECK = U_GNSS_CFG_SET_VAL(devHandleGnss, NMEA_HIGHPREC_L,                1, U_GNSS_CFG_VAL_LAYER_RAM);
+        CHECK = U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_NAV_PVT_I2C_U1,      1, U_GNSS_CFG_VAL_LAYER_RAM);
+        CHECK = U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_NAV_SAT_I2C_U1,      1, U_GNSS_CFG_VAL_LAYER_RAM);
+        CHECK = U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_NAV_HPPOSLLH_I2C_U1, 1, U_GNSS_CFG_VAL_LAYER_RAM);
+        CHECK = U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_RXM_COR_I2C_U1,      1, U_GNSS_CFG_VAL_LAYER_RAM);
         if (fwver.startsWith("HPS ")) {
-          //GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_ESF_STATUS_I2C_U1, (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_ESF_STATUS_I2C_U1, 1, U_GNSS_CFG_VAL_LAYER_RAM);
         }
-        if (fwver.equals("HPS 1.30A01")) { // ZED-F9R LAP demo firmware, Supports 2.0 but doesn't have protection level
-       //   Log.warning("GNSS firmware %s is a time-limited demonstrator, please update firmware in Q4/2022", fwver.c_str());
+        if (fwver.equals("HPS 1.30A01") || fwver.equals("HPS 1.30B01")) { // ZED-F9R LAP demo firmware, Supports 2.0 but doesn't have protection level
+          printf("GNSS firmware %s is a time-limited demonstrator, please update firmware in Q4/2022\n", fwver.c_str());
         } else if (fwver.substring(4).toDouble() < 1.30) { // ZED-F9R/P old release firmware, no Spartan 2.0 support
-       //   Log.error("GNSS firmware %s does not support Spartan 2.0, please update firmware", fwver.c_str());
+          printf("GNSS firmware %s does not support Spartan 2.0, please update firmware\n", fwver.c_str());
         } else {
-          //GNSS_CHECK(uGnssCfgValSet(devHandleGnss, U_GNSS_CFG_VAL_KEY_ID_MSGOUT_UBX_NAV_PL_I2C_U1, (void *) &one, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_NAV_PL_I2C_U1,     1, U_GNSS_CFG_VAL_LAYER_RAM);
         }
+        CHECK_EVAL("ZED-F9"); 
         errorCodeGnss = uNetworkInterfaceUp(devHandleGnss, U_NETWORK_TYPE_GNSS, 
                                         &gNetworkCfgGnss);
         printf("Bringing up the Gnss network... %d\n", errorCodeGnss);
@@ -279,11 +275,35 @@ void setup() {
         uGnssInfoGetIdStr(devHandleLband, (char*)id, sizeof(id));
         printf("Added Lband version %s hw %s rom %s fw %s prot %s mod %s id %02x%02x%02x%02x%02x.\n", version.ver, version.hw, 
               version.rom, version.fw, version.prot, version.mod, id[0], id[1], id[2], id[3], id[4]);
-        
-        const uint32_t baud = 38400;
-        #define LBAND_CHECK(x) printf("LBAND config %d\n", x)
-        LBAND_CHECK(uGnssCfgValSet(devHandleLband, U_GNSS_CFG_VAL_KEY_ID_UART2_BAUDRATE_U4,      (void *) &baud, U_GNSS_CFG_VAL_TRANSACTION_NONE, U_GNSS_CFG_VAL_LAYER_RAM));
-        
+        String fwver = version.fw;
+        bool qzss = fwver.startsWith("QZS");
+        #define LBAND_FREQ_NOUPDATE 0xFFFFFFFFF
+        uint32_t freq = 1556290000;
+        if (qzss){ // NEO-D9C
+          freq = LBAND_FREQ_NOUPDATE; // prevents freq update
+          CHECK_INIT;
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, MSGOUT_UBX_RXM_QZSSL6_I2C_U1,   1, U_GNSS_CFG_VAL_LAYER_RAM);    
+          // prepare the UART 2
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, MSGOUT_UBX_RXM_QZSSL6_UART2_U1, 1, U_GNSS_CFG_VAL_LAYER_RAM);    
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, UART2_BAUDRATE_U4,          38400, U_GNSS_CFG_VAL_LAYER_RAM); 
+          CHECK_EVAL("NEO-D9C");      
+        } else
+        { // NEO-D9S
+          CHECK_INIT;
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, PMP_SEARCH_WINDOW_U2,        2200, U_GNSS_CFG_VAL_LAYER_RAM);    
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, PMP_USE_SERVICE_ID_L,           0, U_GNSS_CFG_VAL_LAYER_RAM);    
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, PMP_SERVICE_ID_U2,          21845, U_GNSS_CFG_VAL_LAYER_RAM);    
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, PMP_DATA_RATE_E2,            2400, U_GNSS_CFG_VAL_LAYER_RAM);    
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, PMP_USE_DESCRAMBLER_L,          1, U_GNSS_CFG_VAL_LAYER_RAM);    
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, PMP_DESCRAMBLER_INIT_U2,    26969, U_GNSS_CFG_VAL_LAYER_RAM);    
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, PMP_USE_PRESCRAMBLING_L,        0, U_GNSS_CFG_VAL_LAYER_RAM);    
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, PMP_UNIQUE_WORD_U8, 16238547128276412563ull, U_GNSS_CFG_VAL_LAYER_RAM);    
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, PMP_CENTER_FREQUENCY_U4,     freq, U_GNSS_CFG_VAL_LAYER_RAM);    
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, MSGOUT_UBX_RXM_PMP_I2C_U1,      1, U_GNSS_CFG_VAL_LAYER_RAM);    
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, MSGOUT_UBX_RXM_PMP_UART2_U1,    1, U_GNSS_CFG_VAL_LAYER_RAM);    
+          CHECK = U_GNSS_CFG_SET_VAL(devHandleLband, UART2_BAUDRATE_U4,          38400, U_GNSS_CFG_VAL_LAYER_RAM); 
+          CHECK_EVAL("NEO-D9S");   
+        }
         errorCodeLband = uNetworkInterfaceUp(devHandleLband, U_NETWORK_TYPE_GNSS, 
                                         &gNetworkCfgLband);
         printf("Bringing up the Lband network... %d\n", errorCodeLband);
@@ -318,8 +338,15 @@ static void messageReceiveCallback(uDeviceHandle_t gnssHandle,
     char* pBuffer = (char*) malloc(size);
     if (pBuffer) {
       if (uGnssMsgReceiveCallbackRead(gnssHandle, pBuffer, size) == size) {
-        if (pMessageId->type == U_GNSS_PROTOCOL_UBX) {
-          printf("%s Message size %d UBX-%02X-%02X\n", pCallbackParam, size, pBuffer[3], pBuffer[4]);
+        if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x07/*PVT*/)) printf("%s Message size %d UBX-NAV-PVT\n", pCallbackParam, size);
+        else if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x14/*HPPOSLLH*/)) printf("%s Message size %d UBX-NAV-HPPOSLLH\n", pCallbackParam, size);
+        else if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x35/*SAT*/)) printf("%s Message size %d UBX-NAV-SAT\n", pCallbackParam, size);
+        else if ((pBuffer[2] == 0x02/*RXM*/) && (pBuffer[3] == 0x72/*PMP*/)) printf("%s Message size %d UBX-RXM-PMP\n", pCallbackParam, size);
+        else if ((pBuffer[2] == 0x02/*RXM*/) && (pBuffer[3] == 0x34/*COR*/)) printf("%s Message size %d UBX-RXM-COR\n", pCallbackParam, size);
+        else if ((pBuffer[2] == 0x02/*RXM*/) && (pBuffer[3] == 0x73/*QZSS*/)) printf("%s Message size %d UBX-RXM-QZSSL6\n", pCallbackParam, size);
+        else if ((pBuffer[2] == 0x10/*ESF*/) && (pBuffer[3] == 0x10/*STATUS*/)) printf("%s Message size %d UBX-ESF-STATUS\n", pCallbackParam, size);
+        else if (pMessageId->type == U_GNSS_PROTOCOL_UBX) {
+          printf("%s Message size %d UBX-%02X-%02X\n", pCallbackParam, size, pBuffer[2], pBuffer[3]);
         } else if (pMessageId->type == U_GNSS_PROTOCOL_NMEA) {
           pBuffer[size-2] = 0;
           printf("%s Message size %d NMEA %s\n", pCallbackParam, size, pBuffer);
