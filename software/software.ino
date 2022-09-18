@@ -57,7 +57,7 @@
 // Github Repository:  https://github.com/tzapu/WiFiManager
 #include <WiFiManager.h>
 #ifdef ARDUINO_UBLOX_NORA_W10
-  #error The WiFiManager triggers a race condition with ESP core > 2.3.0 -> please apply fix 
+  //#error The WiFiManager triggers a race condition with ESP core > 2.3.0 -> please apply fix 
   // See https://github.com/tzapu/WiFiManager/issues/1482 
   // Change line WiFiManager.h:42  #ifndef ESP32
   // Change line WiFiManager.h:487 bool _disableSTAConn = false; 
@@ -66,15 +66,27 @@
 // Sparkfun libraries
 //-----------------------------------
 
-// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.12
+// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.15
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
-#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
+//#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
 
 // SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.3
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_SARA-R5_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_SARA-R5_Arduino_Library
 #include <SparkFun_u-blox_SARA-R5_Arduino_Library.h>
+
+// UBXLIB 
+//-----------------------------------
+// Github Repository:  https://github.com/u-blox/ubxlib
+// Execute: cd port/platform/arduino 
+//          python3 u_arduino.py -o <ArduinoLibPath>/libraries/ubxlib
+/* So for me this will do the job
+   rm -rf /Users/michaelammann/Documents/Arduino/libraries/ubxlib
+   cd /Users/michaelammann/Documents/GitHub/ubxlib_priv/port/platform/arduino
+   python3 u_arduino.py -o /Users/michaelammann/Documents/Arduino/libraries/ubxlib
+*/
+#include <ubxlib.h>
 
 // Header files of this project
 //-----------------------------------
@@ -96,7 +108,11 @@ void setup()
 {
   // initialisation --------------------------------
   // serial port
+#if ((CDC_RX != RX) || (CDC_TX != TX))
   Serial.begin(115200, SERIAL_8N1, CDC_RX, CDC_TX);
+#else
+  Serial.begin(115200);
+#endif
   while (!Serial);
     /*nothing*/;
   //Log.init(LOG::LOG_LEVEL_DEBUG, &Serial);
@@ -109,29 +125,36 @@ void setup()
   Log.info("Version IDF %s Arduino_esp32 %d.%d.%d", esp_get_idf_version(),
         ESP_ARDUINO_VERSION_MAJOR,ESP_ARDUINO_VERSION_MINOR,ESP_ARDUINO_VERSION_PATCH);
 #endif
-  // i2c wire
-  UbxWire.begin(I2C_SDA, I2C_SCL); // Start I2C
-  UbxWire.setClock(400000); //Increase I2C clock speed to 400kHz
   // SD card 
   UbxSd.init(); // handling SD card and files runs in a task
+
+  Wlan.init(); // WLAN runs in a tasks, creates an additional LED task 
+
+#ifdef SPARKFUN_SARA_R5_ARDUINO_LIBRARY_H
   //Lte.enableDebugging(Serial);
   //Lte.enableAtDebugging(Serial); // we use UbxSerial for data logging instead
 #ifdef WEBSOCKET_STREAM
   //Lte.enableAtDebugging(Websocket); // forward all messages
 #endif  
   Lte.init();  // LTE runs in a task
-  Wlan.init(); // WLAN runs in a tasks, creates an additional LED task 
-  //LBand.enableDebugging()
-#ifdef WEBSOCKET_STREAM
-  //LBand.setOutputPort(Websocket); // forward all messages
-#endif  
+#endif
+
+#ifdef SPARKFUN_UBLOX_ARDUINO_LIBRARY_H
+  // i2c wire
+#if ((I2C_SDA != SDA) || (I2C_SCL != SCL))
+  UbxWire.begin(I2C_SDA, I2C_SCL); // Start I2C
+#else
+  UbxWire.begin(); // Start I2C
+#endif
+  UbxWire.setClock(400000); //Increase I2C clock speed to 400kHz
+#else
+  uPortInit();
+  uPortI2cInit(); // You only need this if an I2C interface is used
+  uDeviceInit();
+#endif
   if (!LBand.detect()) {
     Log.warning("LBAND NEO-D9 not detected, check wiring");
   }
-  //Gnss.enableDebugging();
-#ifdef WEBSOCKET_STREAM
-  Gnss.setOutputPort(Websocket); // forward all messages
-#endif  
   if (!Gnss.detect()) { 
     Log.warning("GNSS ZED-F9 not detected, check wiring");
   }
