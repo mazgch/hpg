@@ -341,7 +341,7 @@ static void messageReceiveCallback(uDeviceHandle_t gnssHandle,
         if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x07/*PVT*/)) {
           printf("%s Message size %d UBX-NAV-PVT\n", pCallbackParam, size);
           //printf("LOSS %d %d\n", uGnssMsgReceiveStatStreamLoss(gnssHandle), uGnssMsgReceiveStatReadLoss(gnssHandle));
-        } else if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x14/*HPPOSLLH*/)) }
+        } else if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x14/*HPPOSLLH*/)) {
           printf("%s Message size %d UBX-NAV-HPPOSLLH\n", pCallbackParam, size);
         } else if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x35/*SAT*/)) {
           printf("%s Message size %d UBX-NAV-SAT\n", pCallbackParam, size);
