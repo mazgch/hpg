@@ -151,7 +151,10 @@ public:
 
 /* #*/GNSS_CHECK_INIT;
 #ifdef SPARKFUN_UBLOX_ARDUINO_LIBRARY_H
-      String fwver = ubxVersion("GNSS", &rx);    
+      String fwver = ubxVersion("GNSS", &rx);
+      if ((fwver.substring(4).toDouble() <= 1.30) && !fwver.substring(4).equals("1.30")) { // ZED-F9R/P old release firmware, no Spartan 2.0 support
+        Log.error("GNSS firmware \"%s\" is old, please update firmware to release \"HPS 1.30\"", fwver.c_str());
+      } 
 /* 1*/GNSS_CHECK = rx.setAutoPVTcallbackPtr(onPVTdata);
 /* 2*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,      1, VAL_LAYER_RAM); // required for this app and the monitor web page
       // add some usefull messages to store in the logfile
@@ -159,16 +162,11 @@ public:
 /* 4*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,      1, VAL_LAYER_RAM); 
 /* 5*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C, 1, VAL_LAYER_RAM);
 /* 6*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,      1, VAL_LAYER_RAM);
-      if (fwver.startsWith("HPS ")) {
-/* 7*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C, 1, VAL_LAYER_RAM);
-/* 8*///GNSS_CHECK = rx.setVal(UBLOX_CFG_SFCORE_USE_SF,             0, VAL_LAYER_RAM);
+      if ((fwver.substring(4).toDouble() > 1.30) || fwver.substring(4).equals("1.30")) {
+/* 7*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,       1, VAL_LAYER_RAM);
       }
-      if (fwver.equals("HPS 1.30A01")) { // ZED-F9R LAP demo firmware, Supports 2.0 but doesn't have protection level
-        Log.warning("GNSS firmware %s is a time-limited demonstrator, please update firmware in Q4/2022", fwver.c_str());
-      } else if (fwver.substring(4).toDouble() < 1.30) { // ZED-F9R/P old release firmware, no Spartan 2.0 support
-        Log.error("GNSS firmware %s does not support Spartan 2.0, please update firmware", fwver.c_str());
-      } else {
-/* 9*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,     1, VAL_LAYER_RAM);
+      if (fwver.startsWith("HPS ")) {
+/* 8*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C, 1, VAL_LAYER_RAM);
       }
 #else
       uGnssSetUbxMessagePrint(devHandleGnss, false);
@@ -177,20 +175,19 @@ public:
       Log.info("GNSS detect receiver detected, version %s hw %s rom %s fw %s prot %s mod %s.", version.ver, version.hw, 
               version.rom, version.fw, version.prot, version.mod);
       String fwver = version.fw;
+      if ((fwver.substring(4).toDouble() <= 1.30) && !fwver.substring(4).equals("1.30")) { // ZED-F9R/P old release firmware, no Spartan 2.0 support
+        Log.error("GNSS firmware \"%s\" is old, please update firmware to release \"HPS 1.30\"", fwver.c_str());
+      }
       GNSS_CHECK = 0 <= U_GNSS_CFG_SET_VAL(devHandleGnss, NMEA_HIGHPREC_L,                1, U_GNSS_CFG_VAL_LAYER_RAM);
       GNSS_CHECK = 0 <= U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_NAV_PVT_I2C_U1,      1, U_GNSS_CFG_VAL_LAYER_RAM);
       GNSS_CHECK = 0 <= U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_NAV_SAT_I2C_U1,      1, U_GNSS_CFG_VAL_LAYER_RAM);
       GNSS_CHECK = 0 <= U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_NAV_HPPOSLLH_I2C_U1, 1, U_GNSS_CFG_VAL_LAYER_RAM);
       GNSS_CHECK = 0 <= U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_RXM_COR_I2C_U1,      1, U_GNSS_CFG_VAL_LAYER_RAM);
+      if ((fwver.substring(4).toDouble() > 1.30) || fwver.substring(4).equals("1.30")) {
+        GNSS_CHECK = 0 <= U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_NAV_PL_I2C_U1,     1, U_GNSS_CFG_VAL_LAYER_RAM);
+      }
       if (fwver.startsWith("HPS ")) {
         GNSS_CHECK = 0 <= U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_ESF_STATUS_I2C_U1, 1, U_GNSS_CFG_VAL_LAYER_RAM);
-      }
-      if (fwver.equals("HPS 1.30A01") || fwver.equals("HPS 1.30B01")) { // ZED-F9R LAP demo firmware, Supports 2.0 but doesn't have protection level
-        Log.warning("GNSS firmware %s is a time-limited demonstrator, please update firmware in Q4/2022", fwver.c_str());
-      } else if (fwver.substring(4).toDouble() < 1.30) { // ZED-F9R/P old release firmware, no Spartan 2.0 support
-        Log.error("GNSS firmware %s does not support Spartan 2.0, please update firmware", fwver.c_str());
-      } else {
-        GNSS_CHECK = 0 <= U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_NAV_PL_I2C_U1,     1, U_GNSS_CFG_VAL_LAYER_RAM);
       }
       GNSS_CHECK = 0 <= uNetworkInterfaceUp(devHandleGnss, U_NETWORK_TYPE_GNSS, &gNetworkCfgGnss);  
       uGnssMessageId_t messageId;

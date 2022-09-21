@@ -34,27 +34,6 @@ const int LBAND_I2C_ADR         = 0x43;  //!< NEO-D9S I2C address
 
 #ifdef SPARKFUN_UBLOX_ARDUINO_LIBRARY_H
 
-String ubxVersion(const char* tag, SFE_UBLOX_GNSS* pRx) {
-  String fwver; 
-  struct { char sw[30]; char hw[10]; char ext[10][30]; } info;
-  ubxPacket cfg = { UBX_CLASS_MON, UBX_MON_VER, 0, 0, 0, (uint8_t*)&info, 0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
-  pRx->setPacketCfgPayloadSize(sizeof(info)+8);
-  if (pRx->sendCommand(&cfg, 300) == SFE_UBLOX_STATUS_DATA_RECEIVED) {
-    char ext[10*34+6] = "";
-    char* p = ext;
-    for (int i = 0; cfg.len > (30 * i + 40); i ++) {
-      if (*info.ext[i]) {
-        p += sprintf(p, "%s \"%s\"", (p==ext) ? " ext" : ",", info.ext[i]);
-        if (0 == strncmp(info.ext[i], "FWVER=",6)) {
-          fwver = info.ext[i] + 6;
-        }
-      }
-    }
-    Log.info("%s version hw %s sw \"%s\"%s", tag, info.hw, info.sw, ext);
-  }
-  return fwver;
-} 
-
 #else
 
 static const uDeviceCfg_t rxCfgLband = {

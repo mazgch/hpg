@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-// ESP32 libraries, version 2.0.4
+// ESP32 libraries, version 2.0.5
 //-----------------------------------
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
 // Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
@@ -52,15 +52,12 @@
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
 #include <ArduinoJson.h>
 
-// WiFiManager by Tapzu, version 2.0.12-beta
+// WiFiManager by Tapzu, version 2.0.13-beta
 // Library Manager:    http://librarymanager/All#tzapu,WiFiManager  
 // Github Repository:  https://github.com/tzapu/WiFiManager
 #include <WiFiManager.h>
-#ifdef ARDUINO_UBLOX_NORA_W10
-  //#error The WiFiManager triggers a race condition with ESP core > 2.3.0 -> please apply fix 
-  // See https://github.com/tzapu/WiFiManager/issues/1482 
-  // Change line WiFiManager.h:42  #ifndef ESP32
-  // Change line WiFiManager.h:487 bool _disableSTAConn = false; 
+#if defined(ARDUINO_UBLOX_NORA_W10) && defined(ESP_ARDUINO_VERSION) && (ESP_ARDUINO_VERSION < ESP_ARDUINO_VERSION_VAL(2,0,5))
+  #error The WiFiManager triggers a race condition with ESP core > 2.3.0 -> please use Arduino_esp32 2.0.5 and 
 #endif
 
 // Sparkfun libraries
@@ -69,7 +66,7 @@
 // SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.15
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
-//#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
+#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
 
 // SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.3
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_SARA-R5_Arduino_Library
@@ -141,22 +138,18 @@ void setup()
 
 #ifdef SPARKFUN_UBLOX_ARDUINO_LIBRARY_H
   // i2c wire
-#if ((I2C_SDA != SDA) || (I2C_SCL != SCL))
   UbxWire.begin(I2C_SDA, I2C_SCL); // Start I2C
-#else
-  UbxWire.begin(); // Start I2C
-#endif
   UbxWire.setClock(400000); //Increase I2C clock speed to 400kHz
 #else
   uPortInit();
   uPortI2cInit(); // You only need this if an I2C interface is used
   uDeviceInit();
 #endif
-  if (!LBand.detect()) {
-    Log.warning("LBAND NEO-D9 not detected, check wiring");
-  }
   if (!Gnss.detect()) { 
     Log.warning("GNSS ZED-F9 not detected, check wiring");
+  }
+  if (!LBand.detect()) {
+    Log.warning("LBAND NEO-D9 not detected, check wiring");
   }
 
 #ifdef __CANBUS_H__
