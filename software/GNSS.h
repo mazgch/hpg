@@ -164,7 +164,7 @@ public:
 /* 5*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C, 1, VAL_LAYER_RAM);
 /* 6*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,      1, VAL_LAYER_RAM);
       if ((fwver.substring(4).toDouble() > 1.30) || fwver.substring(4).equals("1.30")) {
-/* 7*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,       1, VAL_LAYER_RAM);
+/* 7*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,     1, VAL_LAYER_RAM);
       }
       if (fwver.startsWith("HPS ")) {
 /* 8*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C, 1, VAL_LAYER_RAM);
@@ -319,7 +319,7 @@ public:
       uint8_t fixType = ubxDataStruct->fixType; // Print the fix type
       uint8_t carrSoln = ubxDataStruct->flags.bits.carrSoln; // Print the carrier solution
       double fLat = 1e-7 * ubxDataStruct->lat;
-      double fLon = 1e-7 * ubxDataStruct->lon; 
+      double fLon = 1e-7 * ubxDataStruct->lon;
       Log.info("GNSS %d:%d:%d %02d:%02d:%02d lat %.7f lon %.7f msl %.3f fix %d(%s) carr %d(%s) hacc %.3f source %s heap %d", 
             ubxDataStruct->day, ubxDataStruct->month, ubxDataStruct->year, ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, 
             fLat, fLon, 1e-3 * ubxDataStruct->hMSL, fixType, fixLut[fixType & 7], carrSoln, carrLut[carrSoln & 3], 
