@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-// ESP32 libraries, version 2.0.4
+// ESP32 libraries, version 2.0.5
 //-----------------------------------
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
 // Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
@@ -52,15 +52,12 @@
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
 #include <ArduinoJson.h>
 
-// WiFiManager by Tapzu, version 2.0.12-beta
+// WiFiManager by Tapzu, version 2.0.13-beta
 // Library Manager:    http://librarymanager/All#tzapu,WiFiManager  
 // Github Repository:  https://github.com/tzapu/WiFiManager
 #include <WiFiManager.h>
-#ifdef ARDUINO_UBLOX_NORA_W10
-  #error The WiFiManager triggers a race condition with ESP core > 2.3.0 -> please apply fix 
-  // See https://github.com/tzapu/WiFiManager/issues/1482 
-  // Change line WiFiManager.h:42  #ifndef ESP32
-  // Change line WiFiManager.h:487 bool _disableSTAConn = false; 
+#if defined(ARDUINO_UBLOX_NORA_W10) && defined(ESP_ARDUINO_VERSION) && (ESP_ARDUINO_VERSION < ESP_ARDUINO_VERSION_VAL(2,0,5))
+  #error The WiFiManager triggers a race condition with ESP core > 2.3.0 -> please use Arduino_esp32 2.0.5 and 
 #endif
 
 // Sparkfun libraries
@@ -96,7 +93,7 @@ void setup()
 {
   // initialisation --------------------------------
   // serial port
-  Serial.begin(115200, SERIAL_8N1, CDC_RX, CDC_TX);
+  Serial.begin(115200);
   while (!Serial);
     /*nothing*/;
   //Log.init(LOG::LOG_LEVEL_DEBUG, &Serial);
@@ -109,29 +106,21 @@ void setup()
   Log.info("Version IDF %s Arduino_esp32 %d.%d.%d", esp_get_idf_version(),
         ESP_ARDUINO_VERSION_MAJOR,ESP_ARDUINO_VERSION_MINOR,ESP_ARDUINO_VERSION_PATCH);
 #endif
-  // i2c wire
-  UbxWire.begin(I2C_SDA, I2C_SCL); // Start I2C
-  UbxWire.setClock(400000); //Increase I2C clock speed to 400kHz
   // SD card 
   UbxSd.init(); // handling SD card and files runs in a task
+  Wlan.init(); // WLAN runs in a tasks, creates an additional LED task 
   //Lte.enableDebugging(Serial);
   //Lte.enableAtDebugging(Serial); // we use UbxSerial for data logging instead
 #ifdef WEBSOCKET_STREAM
   //Lte.enableAtDebugging(Websocket); // forward all messages
 #endif  
   Lte.init();  // LTE runs in a task
-  Wlan.init(); // WLAN runs in a tasks, creates an additional LED task 
-  //LBand.enableDebugging()
-#ifdef WEBSOCKET_STREAM
-  //LBand.setOutputPort(Websocket); // forward all messages
-#endif  
+  // i2c wire
+  UbxWire.begin(I2C_SDA, I2C_SCL); // Start I2C
+  UbxWire.setClock(400000); //Increase I2C clock speed to 400kHz
   if (!LBand.detect()) {
     Log.warning("LBAND NEO-D9 not detected, check wiring");
   }
-  //Gnss.enableDebugging();
-#ifdef WEBSOCKET_STREAM
-  Gnss.setOutputPort(Websocket); // forward all messages
-#endif  
   if (!Gnss.detect()) { 
     Log.warning("GNSS ZED-F9 not detected, check wiring");
   }
@@ -147,8 +136,6 @@ void loop()
   Gnss.poll();
 #ifdef __CANBUS_H__
   Canbus.poll();
-#endif
-#ifdef __CANBUS_H__
   delay(10);
 #else
   delay(50);

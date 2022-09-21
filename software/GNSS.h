@@ -33,12 +33,12 @@ const int GNSS_I2C_ADR            = 0x42;     //!< ZED-F9x I2C address
 #define GNSS_CHECK                if (_ok) _step ++, _ok 
 #define GNSS_CHECK_EVAL(txt)      if (!_ok) Log.error(txt ", sequence failed at step %d", _step)
 
-String ubxVersion(const char* tag, SFE_UBLOX_GNSS* rx) {
+String ubxVersion(const char* tag, SFE_UBLOX_GNSS* pRx) {
   String fwver; 
   struct { char sw[30]; char hw[10]; char ext[10][30]; } info;
   ubxPacket cfg = { UBX_CLASS_MON, UBX_MON_VER, 0, 0, 0, (uint8_t*)&info, 0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
-  rx->setPacketCfgPayloadSize(sizeof(info)+8);
-  if (rx->sendCommand(&cfg, 300) == SFE_UBLOX_STATUS_DATA_RECEIVED) {
+  pRx->setPacketCfgPayloadSize(sizeof(info)+8);
+  if (pRx->sendCommand(&cfg, 300) == SFE_UBLOX_STATUS_DATA_RECEIVED) {
     char ext[10*34+6] = "";
     char* p = ext;
     for (int i = 0; cfg.len > (30 * i + 40); i ++) {
@@ -56,7 +56,7 @@ String ubxVersion(const char* tag, SFE_UBLOX_GNSS* rx) {
 
 extern class GNSS Gnss;
     
-class GNSS : public SFE_UBLOX_GNSS {
+class GNSS {
 public:
   
   GNSS() {
@@ -70,30 +70,32 @@ public:
   }
 
   bool detect() {
-    bool ok = begin(UbxWire, GNSS_I2C_ADR); //Connect to the Ublox module using Wire port
+    //rx.enableDebugging();
+#ifdef WEBSOCKET_STREAM
+    rx.setOutputPort(Websocket); // forward all messages
+#endif  
+    bool ok = rx.begin(UbxWire, GNSS_I2C_ADR); //Connect to the Ublox module using Wire port
     if (ok) {
       Log.info("GNSS detect receiver detected");
 
-      String fwver = ubxVersion("GNSS", this);
-    
+      String fwver = ubxVersion("GNSS", &rx);
+      if ((fwver.substring(4).toDouble() <= 1.30) && !fwver.substring(4).equals("1.30")) { 
+        // ZED-F9R/P old release firmware, no Spartan 2.0 support
+        Log.error("GNSS firmware \"%s\" is old, please update firmware to release \"HPS 1.30\"", fwver.c_str());
+      } 
 /* #*/GNSS_CHECK_INIT;
-/* 1*/GNSS_CHECK = setAutoPVTcallbackPtr(onPVTdata);
-/* 2*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,      1, VAL_LAYER_RAM); // required for this app and the monitor web page
+/* 1*/GNSS_CHECK = rx.setAutoPVTcallbackPtr(onPVTdata);
+/* 2*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,      1, VAL_LAYER_RAM); // required for this app and the monitor web page
       // add some usefull messages to store in the logfile
-/* 3*/GNSS_CHECK = setVal(UBLOX_CFG_NMEA_HIGHPREC,               1, VAL_LAYER_RAM); // make sure we enable extended accuracy in NMEA protocol
-/* 4*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,      1, VAL_LAYER_RAM); 
-/* 5*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C, 1, VAL_LAYER_RAM);
-/* 6*/GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,      1, VAL_LAYER_RAM);
-      if (fwver.startsWith("HPS ")) {
-/* 7*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C, 1, VAL_LAYER_RAM);
-/* 8*/  //GNSS_CHECK = setVal(UBLOX_CFG_SFCORE_USE_SF,             1, VAL_LAYER_RAM);
+/* 3*/GNSS_CHECK = rx.setVal(UBLOX_CFG_NMEA_HIGHPREC,               1, VAL_LAYER_RAM); // make sure we enable extended accuracy in NMEA protocol
+/* 4*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,      1, VAL_LAYER_RAM); 
+/* 5*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C, 1, VAL_LAYER_RAM);
+/* 6*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,      1, VAL_LAYER_RAM);
+      if ((fwver.substring(4).toDouble() > 1.30) || fwver.substring(4).equals("1.30")) {
+/* 7*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,     1, VAL_LAYER_RAM);
       }
-      if (fwver.equals("HPS 1.30A01")) { // ZED-F9R LAP demo firmware, Supports 2.0 but doesn't have protection level
-        Log.warning("GNSS firmware %s is a time-limited demonstrator, please update firmware in Q4/2022", fwver.c_str());
-      } else if (fwver.substring(4).toDouble() < 1.30) { // ZED-F9R/P old release firmware, no Spartan 2.0 support
-        Log.error("GNSS firmware %s does not support Spartan 2.0, please update firmware", fwver.c_str());
-      } else {
-/* 9*/  GNSS_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,     1, VAL_LAYER_RAM);
+      if (fwver.startsWith("HPS ")) {
+/* 8*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C, 1, VAL_LAYER_RAM);
       }
       online = ok = GNSS_CHECK_OK;
       GNSS_CHECK_EVAL("GNSS detect configuration");
@@ -147,8 +149,8 @@ public:
       }
     }
     if (online) {
-      checkUblox();
-      checkCallbacks();
+      rx.checkUblox();
+      rx.checkCallbacks();
       if (online) {
         int len = 0;
         MSG msg;
@@ -157,7 +159,7 @@ public:
             if (msg.source != OTHER) {
               checkSpartanUseSourceCfg(msg.source);
             }
-            online = pushRawData(msg.data, msg.size);
+            online = rx.pushRawData(msg.data, msg.size);
             if (online) {
               len += msg.size;
               Log.debug("GNSS inject %d bytes from %s source", msg.size, LUT_SRC(msg.source));
@@ -184,7 +186,7 @@ public:
         if (  (curSource == OTHER) || // just use any source, if we never set it. 
              ((curSource == LBAND) && (source != LBAND)) || // prefer any IP source over LBAND
              ((curSource != LBAND) && TIMEOUT_SRC(now, curSource)) ) { // let IP source timeout before switching to any other source 
-          bool ok/*online*/ = setVal8(UBLOX_CFG_SPARTN_USE_SOURCE, GNSS_SPARTAN_USESOURCE(source), VAL_LAYER_RAM);
+          bool ok/*online*/ = rx.setVal8(UBLOX_CFG_SPARTN_USE_SOURCE, GNSS_SPARTAN_USESOURCE(source), VAL_LAYER_RAM);
           if (ok) {
             Log.info("GNSS spartanUseSource %s from source %s", GNSS_SPARTAN_USESOURCE_TXT(source), LUT_SRC(source));
             curSource = source;
@@ -235,7 +237,7 @@ public:
     message.data[0].data.bits.dataType = 11; // 11 = Speed
     ubxPacket packetEsfMeas = {UBX_CLASS_ESF, UBX_ESF_MEAS, 12, 0, 0, (uint8_t*)&message, 
           0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
-    sendCommand(&packetEsfMeas, 0); // don't expect ACK
+    rx.sendCommand(&packetEsfMeas, 0); // don't expect ACK
   }
 
 protected:
@@ -245,6 +247,7 @@ protected:
   long ttagSource[NUM_SOURCE];
   SOURCE curSource;
   xQueueHandle queue;
+  SFE_UBLOX_GNSS rx;
 };
 
 GNSS Gnss;

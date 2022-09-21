@@ -32,7 +32,7 @@ const int LBAND_I2C_ADR         = 0x43;  //!< NEO-D9S I2C address
 #define LBAND_FREQ_NONE          0
 #define LBAND_FREQ_NOUPDATE     -1
 
-class LBAND : public SFE_UBLOX_GNSS {
+class LBAND {
 public:
 
   LBAND () {
@@ -42,48 +42,52 @@ public:
   }
 
   bool detect() {
-    bool ok = begin(UbxWire, LBAND_I2C_ADR );
+    //rx.enableDebugging()
+#ifdef WEBSOCKET_STREAM
+    //rx.setOutputPort(Websocket); // forward all messages
+#endif  
+    bool ok = rx.begin(UbxWire, LBAND_I2C_ADR );
     if (ok)
     {
       Log.info("LBAND detect receiver detected");
       freq = Config.getFreq();
 
-      String fwver = ubxVersion("LBAND", this);
+      String fwver = ubxVersion("LBAND", &rx);
 /* #*/LBAND_CHECK_INIT;
       bool qzss = fwver.startsWith("QZS");
       if (qzss){ // NEO-D9C
         freq = LBAND_FREQ_NOUPDATE; // prevents freq update
 #ifdef UBX_RXM_QZSSL6_NUM_CHANNELS
-        setRXMQZSSL6messageCallbackPtr(onRXMQZSSL6data);
-/* 1*/  LBAND_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C, 1,                      VAL_LAYER_RAM);    
+        rx.setRXMQZSSL6messageCallbackPtr(onRXMQZSSL6data);
+/* 1*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1,                   VAL_LAYER_RAM);    
         // prepare the UART 2
-/* 2*/  LBAND_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2, 1,                    VAL_LAYER_RAM);
-/* 3*/  LBAND_CHECK = setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400,                   VAL_LAYER_RAM); // match baudrate with ZED default
+/* 2*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1,                   VAL_LAYER_RAM);
+/* 3*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400,                   VAL_LAYER_RAM); // match baudrate with ZED default
 #else
         Log.info("LBAND NEO-D9C receiver not supported by this Sparkfun library, please update library");
 #endif
       } else
       { // NEO-D9S
         freq = (freq == LBAND_FREQ_NOUPDATE) ? LBAND_FREQ_NONE : freq;
-        setRXMPMPmessageCallbackPtr(onRXMPMPdata);
-/* 1*/  LBAND_CHECK = setVal16(UBLOX_CFG_PMP_SEARCH_WINDOW,      2200,                    VAL_LAYER_RAM); 
-/* 2*/  LBAND_CHECK = setVal8(UBLOX_CFG_PMP_USE_SERVICE_ID,      0,                       VAL_LAYER_RAM); // Default 1 
-/* 3*/  LBAND_CHECK = setVal16(UBLOX_CFG_PMP_SERVICE_ID,         21845,                   VAL_LAYER_RAM); // Default 50851
-/* 4*/  LBAND_CHECK = setVal16(UBLOX_CFG_PMP_DATA_RATE,          2400,                    VAL_LAYER_RAM); 
-/* 5*/  LBAND_CHECK = setVal8(UBLOX_CFG_PMP_USE_DESCRAMBLER,     1,                       VAL_LAYER_RAM); 
-/* 6*/  LBAND_CHECK = setVal16(UBLOX_CFG_PMP_DESCRAMBLER_INIT,   26969,                   VAL_LAYER_RAM); // Default 23560
-/* 7*/  LBAND_CHECK = setVal8(UBLOX_CFG_PMP_USE_PRESCRAMBLING,   0,                       VAL_LAYER_RAM); 
-/* 8*/  LBAND_CHECK = setVal64(UBLOX_CFG_PMP_UNIQUE_WORD,        16238547128276412563ull, VAL_LAYER_RAM); 
-/* 9*/  LBAND_CHECK = setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY,   freq,                    VAL_LAYER_RAM);
-/*10*/  LBAND_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,   1,                       VAL_LAYER_RAM);
+        rx.setRXMPMPmessageCallbackPtr(onRXMPMPdata);
+/* 1*/  LBAND_CHECK = rx.setVal16(UBLOX_CFG_PMP_SEARCH_WINDOW,      2200,                    VAL_LAYER_RAM); 
+/* 2*/  LBAND_CHECK = rx.setVal8(UBLOX_CFG_PMP_USE_SERVICE_ID,      0,                       VAL_LAYER_RAM); // Default 1 
+/* 3*/  LBAND_CHECK = rx.setVal16(UBLOX_CFG_PMP_SERVICE_ID,         21845,                   VAL_LAYER_RAM); // Default 50851
+/* 4*/  LBAND_CHECK = rx.setVal16(UBLOX_CFG_PMP_DATA_RATE,          2400,                    VAL_LAYER_RAM); 
+/* 5*/  LBAND_CHECK = rx.setVal8(UBLOX_CFG_PMP_USE_DESCRAMBLER,     1,                       VAL_LAYER_RAM); 
+/* 6*/  LBAND_CHECK = rx.setVal16(UBLOX_CFG_PMP_DESCRAMBLER_INIT,   26969,                   VAL_LAYER_RAM); // Default 23560
+/* 7*/  LBAND_CHECK = rx.setVal8(UBLOX_CFG_PMP_USE_PRESCRAMBLING,   0,                       VAL_LAYER_RAM); 
+/* 8*/  LBAND_CHECK = rx.setVal64(UBLOX_CFG_PMP_UNIQUE_WORD,        16238547128276412563ull, VAL_LAYER_RAM); 
+/* 9*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY,   freq,                    VAL_LAYER_RAM);
+/*10*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,   1,                       VAL_LAYER_RAM);
         // prepare the UART 2
-/*11*/  LBAND_CHECK = setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2, 1,                       VAL_LAYER_RAM);
-/*12*/  LBAND_CHECK = setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400,                   VAL_LAYER_RAM); // match baudrate with ZED default
+/*11*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2, 1,                       VAL_LAYER_RAM);
+/*12*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400,                   VAL_LAYER_RAM); // match baudrate with ZED default
       }
       online = ok = LBAND_CHECK_OK;
       LBAND_CHECK_EVAL("LBAND detect configuration");
       if (ok) {
-        Log.info("LBAND detect configuration complete, %sreceiver online", qzss ? "CLAS " : "");
+        Log.info("LBAND detect configuration complete, %sreceiver online, freq %d", qzss ? "CLAS " : "", freq);
       }
     }
     return ok;
@@ -103,11 +107,11 @@ public:
         bool ok = true;
         bool changed = false;
         if (online) {
-          ok = setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY, newFreq, VAL_LAYER_RAM);
+          ok = rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY, newFreq, VAL_LAYER_RAM);
           if (ok) {
             freq = newFreq;
             changed = true;
-            softwareResetGNSSOnly(); // do a restart
+            rx.softwareResetGNSSOnly(); // do a restart
           }
           else {
             online = false;
@@ -121,8 +125,8 @@ public:
       }
     }
     if (online) {
-      checkUblox(); 
-      checkCallbacks();
+      rx.checkUblox(); 
+      rx.checkCallbacks();
     }
     HW_DBG_LO(HW_DBG_LBAND);
   }
@@ -171,6 +175,7 @@ protected:
   long freq;
   bool online;
   long ttagNextTry;
+  SFE_UBLOX_GNSS rx;
 };
 
 LBAND LBand;
