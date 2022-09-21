@@ -79,9 +79,9 @@
 // Execute: cd port/platform/arduino 
 //          python3 u_arduino.py -o <ArduinoLibPath>/libraries/ubxlib
 /* So for me this will do the job
-   rm -rf /Users/michaelammann/Documents/Arduino/libraries/ubxlib
-   cd /Users/michaelammann/Documents/GitHub/ubxlib_priv/port/platform/arduino
-   python3 u_arduino.py -o /Users/michaelammann/Documents/Arduino/libraries/ubxlib
+   rm -rf ~/Documents/Arduino/libraries/ubxlib
+   cd ~/Documents/GitHub/ubxlib_priv/port/platform/arduino
+   python3 u_arduino.py -o ~/Documents/Arduino/libraries/ubxlib
 */
 #include <ubxlib.h>
 
