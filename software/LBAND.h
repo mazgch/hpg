@@ -137,9 +137,9 @@ public:
         freq = LBAND_FREQ_NOUPDATE; // prevents freq update
 #ifdef UBX_RXM_QZSSL6_NUM_CHANNELS
         rx.setRXMQZSSL6messageCallbackPtr(onRXMQZSSL6data);
-/* 1*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C, 1,                      VAL_LAYER_RAM);    
+/* 1*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1,                   VAL_LAYER_RAM);    
         // prepare the UART 2
-/* 2*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2, 1,                    VAL_LAYER_RAM);
+/* 2*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1,                   VAL_LAYER_RAM);
 /* 3*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400,                   VAL_LAYER_RAM); // match baudrate with ZED default
 #else
         Log.info("LBAND NEO-D9C receiver not supported by this Sparkfun library, please update library");

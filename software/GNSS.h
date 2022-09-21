@@ -152,7 +152,8 @@ public:
 /* #*/GNSS_CHECK_INIT;
 #ifdef SPARKFUN_UBLOX_ARDUINO_LIBRARY_H
       String fwver = ubxVersion("GNSS", &rx);
-      if ((fwver.substring(4).toDouble() <= 1.30) && !fwver.substring(4).equals("1.30")) { // ZED-F9R/P old release firmware, no Spartan 2.0 support
+      if ((fwver.substring(4).toDouble() <= 1.30) && !fwver.substring(4).equals("1.30")) { 
+        // ZED-F9R/P old release firmware, no Spartan 2.0 support
         Log.error("GNSS firmware \"%s\" is old, please update firmware to release \"HPS 1.30\"", fwver.c_str());
       } 
 /* 1*/GNSS_CHECK = rx.setAutoPVTcallbackPtr(onPVTdata);
