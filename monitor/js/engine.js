@@ -1407,7 +1407,7 @@ function parse(data, i) {
 		const ix = ((crc >> 16) & 0xff);
         crc = ((crc << 8) | by) ^ _crc24qTable[ix];
 	}
-    if ((crc & 0xFFFFFF) != 0x000000) return NOT_FOUND;
+    if ((crc & 0xFFFFFF) != 0x000000) return NOTFOUND;
     return l;
 }
 

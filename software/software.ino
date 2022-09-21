@@ -105,11 +105,7 @@ void setup()
 {
   // initialisation --------------------------------
   // serial port
-#if ((CDC_RX != RX) || (CDC_TX != TX))
-  Serial.begin(115200, SERIAL_8N1, CDC_RX, CDC_TX);
-#else
   Serial.begin(115200);
-#endif
   while (!Serial);
     /*nothing*/;
   //Log.init(LOG::LOG_LEVEL_DEBUG, &Serial);
@@ -124,7 +120,6 @@ void setup()
 #endif
   // SD card 
   UbxSd.init(); // handling SD card and files runs in a task
-
   Wlan.init(); // WLAN runs in a tasks, creates an additional LED task 
 
 #ifdef SPARKFUN_SARA_R5_ARDUINO_LIBRARY_H
@@ -163,8 +158,6 @@ void loop()
   Gnss.poll();
 #ifdef __CANBUS_H__
   Canbus.poll();
-#endif
-#ifdef __CANBUS_H__
   delay(10);
 #else
   delay(50);
