@@ -63,7 +63,7 @@
 // Sparkfun libraries
 //-----------------------------------
 
-// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.12
+// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.15
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
 #include <SparkFun_u-blox_GNSS_Arduino_Library.h>

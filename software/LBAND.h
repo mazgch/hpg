@@ -46,7 +46,7 @@ public:
 #ifdef WEBSOCKET_STREAM
     //rx.setOutputPort(Websocket); // forward all messages
 #endif  
-    bool ok = rx.begin(UbxWire, LBAND_I2C_ADR );
+    bool ok = rx.begin(UbxWire, LBAND_I2C_ADR);
     if (ok)
     {
       Log.info("LBAND detect receiver detected");
