@@ -118,13 +118,13 @@ void setup()
   // i2c wire
   UbxWire.begin(I2C_SDA, I2C_SCL); // Start I2C
   UbxWire.setClock(400000); //Increase I2C clock speed to 400kHz
-  if (!LBand.detect()) {
-    Log.warning("LBAND NEO-D9 not detected, check wiring");
-  }
   if (!Gnss.detect()) { 
     Log.warning("GNSS ZED-F9 not detected, check wiring");
   }
-
+  if (!LBand.detect()) {
+    Log.warning("LBAND NEO-D9 not detected, check wiring");
+  }
+  
 #ifdef __CANBUS_H__
   Canbus.init();
 #endif
