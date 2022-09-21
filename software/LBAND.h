@@ -120,7 +120,7 @@ public:
 #ifdef WEBSOCKET_STREAM
     //rx.setOutputPort(Websocket); // forward all messages
 #endif  
-    bool ok = rx.begin(UbxWire, LBAND_I2C_ADR );
+    bool ok = rx.begin(UbxWire, LBAND_I2C_ADR);
 #else
     bool ok = 0 <= uDeviceOpen(&rxCfgLband, &devHandleLband);
 #endif

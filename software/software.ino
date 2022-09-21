@@ -146,7 +146,7 @@ void setup()
   if (!LBand.detect()) {
     Log.warning("LBAND NEO-D9 not detected, check wiring");
   }
-
+  
 #ifdef __CANBUS_H__
   Canbus.init();
 #endif
