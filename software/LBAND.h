@@ -129,9 +129,9 @@ public:
       Log.info("LBAND detect receiver detected");
       freq = Config.getFreq();
 
-/* #*/LBAND_CHECK_INIT;
 #ifdef SPARKFUN_UBLOX_ARDUINO_LIBRARY_H
       String fwver = ubxVersion("LBAND", &rx);
+/* #*/LBAND_CHECK_INIT;
       bool qzss = fwver.startsWith("QZS");
       if (qzss){ // NEO-D9C
         freq = LBAND_FREQ_NOUPDATE; // prevents freq update
@@ -165,7 +165,8 @@ public:
 #else
       uGnssSetUbxMessagePrint(devHandleLband, false);
       uGnssVersionType_t version;
-      GNSS_CHECK = 0 <= uGnssInfoGetVersions(devHandleLband, &version);
+      LBAND_CHECK_INIT;
+      LBAND_CHECK = 0 <= uGnssInfoGetVersions(devHandleLband, &version);
       Log.info("LBAND detect receiver detected, version %s hw %s rom %s fw %s prot %s mod %s.", version.ver, version.hw, 
               version.rom, version.fw, version.prot, version.mod);
       String fwver = version.fw;

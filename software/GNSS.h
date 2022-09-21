@@ -149,13 +149,13 @@ public:
     if (ok) {
       Log.info("GNSS detect receiver detected");
 
-/* #*/GNSS_CHECK_INIT;
 #ifdef SPARKFUN_UBLOX_ARDUINO_LIBRARY_H
       String fwver = ubxVersion("GNSS", &rx);
       if ((fwver.substring(4).toDouble() <= 1.30) && !fwver.substring(4).equals("1.30")) { 
         // ZED-F9R/P old release firmware, no Spartan 2.0 support
         Log.error("GNSS firmware \"%s\" is old, please update firmware to release \"HPS 1.30\"", fwver.c_str());
       } 
+/* #*/GNSS_CHECK_INIT;
 /* 1*/GNSS_CHECK = rx.setAutoPVTcallbackPtr(onPVTdata);
 /* 2*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,      1, VAL_LAYER_RAM); // required for this app and the monitor web page
       // add some usefull messages to store in the logfile
@@ -179,6 +179,7 @@ public:
       if ((fwver.substring(4).toDouble() <= 1.30) && !fwver.substring(4).equals("1.30")) { // ZED-F9R/P old release firmware, no Spartan 2.0 support
         Log.error("GNSS firmware \"%s\" is old, please update firmware to release \"HPS 1.30\"", fwver.c_str());
       }
+      GNSS_CHECK_INIT;
       GNSS_CHECK = 0 <= U_GNSS_CFG_SET_VAL(devHandleGnss, NMEA_HIGHPREC_L,                1, U_GNSS_CFG_VAL_LAYER_RAM);
       GNSS_CHECK = 0 <= U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_NAV_PVT_I2C_U1,      1, U_GNSS_CFG_VAL_LAYER_RAM);
       GNSS_CHECK = 0 <= U_GNSS_CFG_SET_VAL(devHandleGnss, MSGOUT_UBX_NAV_SAT_I2C_U1,      1, U_GNSS_CFG_VAL_LAYER_RAM);
