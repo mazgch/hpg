@@ -252,7 +252,7 @@ public:
     }
     if (online) {
 #ifdef SPARKFUN_UBLOX_ARDUINO_LIBRARY_H
-=     sendEsfMeas();
+      sendEsfMeas();
       rx.checkUblox();
       rx.checkCallbacks();
 #endif
