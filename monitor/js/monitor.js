@@ -1646,7 +1646,7 @@ var map;
 var point;
 var track;
 var user;
-const MAP_POINTS = 1000;
+const MAP_POINTS = 10000;
 
 function centerMap(lon, lat) {
     var el = document.getElementById('map');
