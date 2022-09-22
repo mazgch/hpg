@@ -67,6 +67,7 @@ public:
     for (int i = 0; i < NUM_SOURCE; i ++) {
       ttagSource[i] = ttagNextTry - GNSS_CORRECTION_TIMEOUT;
     }
+    esfData.ready = false;
   }
 
   bool detect() {
@@ -149,6 +150,7 @@ public:
       }
     }
     if (online) {
+      sendEsfMeas();
       rx.checkUblox();
       rx.checkCallbacks();
       if (online) {
@@ -228,18 +230,30 @@ public:
     }
   }
 
-  void sendEsfMeas(uint32_t ttag, uint32_t speed, bool reverse) {
-    UBX_ESF_MEAS_data_t message;
-    memset(&message, 0, sizeof(message));
-    message.timeTag = ttag;
-    message.flags.bits.numMeas = 1;
-    message.data[0].data.bits.dataField = (reverse ? (1<<24) : 0) | (speed & 0x7FFFFF); 
-    message.data[0].data.bits.dataType = 11; // 11 = Speed
-    ubxPacket packetEsfMeas = {UBX_CLASS_ESF, UBX_ESF_MEAS, 12, 0, 0, (uint8_t*)&message, 
+  void sendEsfMeas(void) {
+    if (esfData.ready) {
+      UBX_ESF_MEAS_data_t message;
+      memset(&message, 0, sizeof(message));
+      message.timeTag = esfData.ttag;
+      message.flags.bits.numMeas = 1;
+      message.data[0].data.bits.dataField = (esfData.reverse ? (1<<24) : 0) | (esfData.speed & 0x7FFFFF); 
+      message.data[0].data.bits.dataType = 11; // 11 = Speed
+      ubxPacket packetEsfMeas = {UBX_CLASS_ESF, UBX_ESF_MEAS, 12, 0, 0, (uint8_t*)&message, 
           0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
-    rx.sendCommand(&packetEsfMeas, 0); // don't expect ACK
+      rx.sendCommand(&packetEsfMeas, 0); // don't expect ACK
+      esfData.ready = false;
+    }
   }
 
+  void pushEsfMeas(uint32_t ttag, uint32_t speed, bool reverse) {
+    if (!esfData.ready) {
+      esfData.ttag = ttag;
+      esfData.speed = speed;
+      esfData.reverse = reverse;
+      esfData.ready = true;
+    }
+  }
+  
 protected:
   
   bool online;
@@ -248,6 +262,7 @@ protected:
   SOURCE curSource;
   xQueueHandle queue;
   SFE_UBLOX_GNSS rx;
+  struct { uint32_t ttag; uint32_t speed; bool reverse; bool ready; } esfData;
 };
 
 GNSS Gnss;

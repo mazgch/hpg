@@ -38,14 +38,10 @@ public:
     }
     CAN.observe();
     // ATTENTION the callback is executed from an ISR only do essential things
-    // CAN.onReceive(onPushESFMeas); 
+    CAN.onReceive(onPushESFMeas); 
   }
 
   void poll() {
-    int packetSize;
-    while (0 != (packetSize = CAN.parsePacket())) {
-      onPushESFMeas(packetSize);
-    }
     //writeTestPacket(); // need to remove the CAN.observe mode above
   }
 
@@ -59,7 +55,7 @@ protected:
       }
       uint32_t speed = ((0xF & packet[1]) << 8) + packet[0];  // speed  12 bits from 0
       bool reverse = (0x10 & packet[1]) >> 4;        // bit 12 == moving reverse
-      Gnss.sendEsfMeas(ttag, speed, reverse);
+      Gnss.pushEsfMeas(ttag, speed, reverse);
     }
   }
 
