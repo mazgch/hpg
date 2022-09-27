@@ -460,6 +460,8 @@ public:
                     if (SARA_R5_SUCCESS == err) {
                       Log.debug("LTE MQTT subscribe requested topic \"%s\" qos %d", topic.c_str(), 0);
                       subTopic = topic;
+                    } else {
+                      Log.error("LTE MQTT subscribe request topic \"%s\" qos %d, failed with error %d", topic.c_str(), 0, err);
                     }
                     busy = true;
                   }
@@ -473,6 +475,8 @@ public:
                     if (SARA_R5_SUCCESS == err) {
                       Log.debug("LTE MQTT unsubscribe requested topic \"%s\"", topic.c_str());
                       unsubTopic = topic;
+                    } else {
+                      Log.error("LTE MQTT unsubscribe request topic \"%s\", failed with error %d", topic.c_str(), err);
                     }
                     busy = true;
                   }
@@ -504,6 +508,8 @@ public:
                           if (SARA_R5_SUCCESS == err) {
                             Log.debug("LTE MQTT unsubscribe requested for unexpected topic \"%s\"", strTopic);
                             unsubTopic = topic;
+                          } else {
+                            Log.error("LTE MQTT unsubscribe request for unexpected topic \"%s\", failed with error %d", topic.c_str(), err);
                           }
                           busy = true;
                         }
