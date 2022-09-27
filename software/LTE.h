@@ -430,6 +430,8 @@ public:
                 LTE_CHECK_EVAL("LTE MQTT setup and connect");
                 mqttMsgs = 0;
                 topics.clear();
+                subTopic = "";
+                unsubTopic = "";
               }
             }
             else {
@@ -577,7 +579,10 @@ protected:
         case SARA_R5_MQTT_COMMAND_LOGOUT:
           {
             Log.info("LTE MQTT logout");
+            Lte.mqttMsgs = 0;
             Lte.topics.clear();
+            Lte.subTopic = "";
+            Lte.unsubTopic = "";
             if (Lte.state == CONNECTED) {
               Lte.setState(ACTIVATED);
             }
