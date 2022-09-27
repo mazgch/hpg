@@ -584,7 +584,7 @@ protected:
             Lte.subTopic = "";
             Lte.unsubTopic = "";
             if (Lte.state == CONNECTED) {
-              Lte.setState(ACTIVATED);
+              Lte.setState(ACTIVATED, LTE_MQTTCMD_DELAY);
             }
           }
           break;
