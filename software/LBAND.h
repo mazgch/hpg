@@ -57,7 +57,7 @@ static const uDeviceCfg_t rxCfgLband = {
             .pinSda = I2C_SDA,
             .pinScl = I2C_SCL,
             .clockHertz = 400000,
-            .alreadyOpen = true
+            .alreadyOpen = false
         },
     },
 };

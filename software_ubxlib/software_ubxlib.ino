@@ -25,9 +25,9 @@
 // Execute: cd port/platform/arduino 
 //          python3 u_arduino.py -o <ArduinoLibPath>/libraries/ubxlib
 /* So for me this will do the job
-   rm -rf /Users/michaelammann/Documents/Arduino/libraries/ubxlib
-   cd /Users/michaelammann/Documents/GitHub/ubxlib_priv/port/platform/arduino
-   python3 u_arduino.py -o /Users/michaelammann/Documents/Arduino/libraries/ubxlib
+   rm -rf ~/Documents/Arduino/libraries/ubxlib
+   cd ~/Documents/GitHub/ubxlib_priv/port/platform/arduino
+   python3 u_arduino.py -o ~/Documents/Arduino/libraries/ubxlib
 */
 #include <ubxlib.h>
 
@@ -337,33 +337,40 @@ static void messageReceiveCallback(uDeviceHandle_t gnssHandle,
   if (size > 0) {
     char* pBuffer = (char*) malloc(size);
     if (pBuffer) {
+#if 1
       if (uGnssMsgReceiveCallbackRead(gnssHandle, pBuffer, size) == size) {
-        if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x07/*PVT*/)) {
-          printf("%s Message size %d UBX-NAV-PVT\n", pCallbackParam, size);
-          //printf("LOSS %d %d\n", uGnssMsgReceiveStatStreamLoss(gnssHandle), uGnssMsgReceiveStatReadLoss(gnssHandle));
-        } else if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x14/*HPPOSLLH*/)) {
-          printf("%s Message size %d UBX-NAV-HPPOSLLH\n", pCallbackParam, size);
-        } else if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x35/*SAT*/)) {
-          printf("%s Message size %d UBX-NAV-SAT\n", pCallbackParam, size);
-        } else if ((pBuffer[2] == 0x02/*RXM*/) && (pBuffer[3] == 0x34/*COR*/)) {
-          printf("%s Message size %d UBX-RXM-COR\n", pCallbackParam, size);
-        } else if ((pBuffer[2] == 0x02/*RXM*/) && (pBuffer[3] == 0x72/*PMP*/)) {
-          uGnssMsgSend(devHandleGnss, pBuffer, size);
-          printf("%s Message size %d UBX-RXM-PMP forwarded\n", pCallbackParam, size);
-        } else if ((pBuffer[2] == 0x02/*RXM*/) && (pBuffer[3] == 0x73/*QZSS*/)) {
-          uGnssMsgSend(devHandleGnss, pBuffer, size);
-          printf("%s Message size %d UBX-RXM-QZSSL6 forwarded\n", pCallbackParam, size);
-        } else if ((pBuffer[2] == 0x10/*ESF*/) && (pBuffer[3] == 0x10/*STATUS*/)) {
-          printf("%s Message size %d UBX-ESF-STATUS\n", pCallbackParam, size);
-        } else if (pMessageId->type == U_GNSS_PROTOCOL_UBX) {
-          printf("%s Message size %d UBX-%02X-%02X\n", pCallbackParam, size, pBuffer[2], pBuffer[3]);
+        if (pMessageId->type == U_GNSS_PROTOCOL_UBX) {
+          if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x07/*PVT*/)) {
+            printf("%s Message size %d UBX-NAV-PVT\n", pCallbackParam, size);
+            //printf("LOSS %d %d\n", uGnssMsgReceiveStatStreamLoss(gnssHandle), uGnssMsgReceiveStatReadLoss(gnssHandle));
+          } else if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x14/*HPPOSLLH*/)) {
+            printf("%s Message size %d UBX-NAV-HPPOSLLH\n", pCallbackParam, size);
+          } else if ((pBuffer[2] == 0x01/*NAV*/) && (pBuffer[3] == 0x35/*SAT*/)) {
+            printf("%s Message size %d UBX-NAV-SAT\n", pCallbackParam, size);
+          } else if ((pBuffer[2] == 0x02/*RXM*/) && (pBuffer[3] == 0x34/*COR*/)) {
+            printf("%s Message size %d UBX-RXM-COR\n", pCallbackParam, size);
+          } else if ((pBuffer[2] == 0x02/*RXM*/) && (pBuffer[3] == 0x72/*PMP*/)) {
+            uGnssMsgSend(devHandleGnss, pBuffer, size);
+            printf("%s Message size %d UBX-RXM-PMP forwarded\n", pCallbackParam, size);
+          } else if ((pBuffer[2] == 0x02/*RXM*/) && (pBuffer[3] == 0x73/*QZSS*/)) {
+            uGnssMsgSend(devHandleGnss, pBuffer, size);
+            printf("%s Message size %d UBX-RXM-QZSSL6 forwarded\n", pCallbackParam, size);
+          } else if ((pBuffer[2] == 0x10/*ESF*/) && (pBuffer[3] == 0x10/*STATUS*/)) {
+            printf("%s Message size %d UBX-ESF-STATUS\n", pCallbackParam, size);
+          } else {
+            printf("%s Message size %d UBX-%04X\n", pCallbackParam, size, pMessageId->id.ubx);
+          }
         } else if (pMessageId->type == U_GNSS_PROTOCOL_NMEA) {
-          pBuffer[size-2] = 0;
-          printf("%s Message size %d NMEA %s\n", pCallbackParam, size, pBuffer);
+          printf("%s Message size %d NMEA %s data %.*s\n", pCallbackParam, size, pMessageId->id.pNmea, size-2, pBuffer);
+        } else if (pMessageId->type == U_GNSS_PROTOCOL_RTCM) {
+          printf("%s Message size %d RTCM %d\n", pCallbackParam, size, pMessageId->id.rtcm);
+        } else if (pMessageId->type == U_GNSS_PROTOCOL_UNKNOWN) {
+          printf("%s Message size %d UNKNOWN\n", pCallbackParam, size);
         } else {
-          printf("%s Message size %d type %d\n", pCallbackParam, size, pMessageId->type);
+          printf("%s Message size %d\n", pCallbackParam, size);
         }
       }
+#endif
       free(pBuffer);
      }
    }
@@ -376,8 +383,6 @@ void loop() {
     int32_t wait = 1000;
       
     uGnssMessageId_t messageId;
-    messageId.type = U_GNSS_PROTOCOL_UBX;
-    messageId.id.ubx = (U_GNSS_UBX_MESSAGE_CLASS_ALL << 8) | U_GNSS_UBX_MESSAGE_ID_ALL;
     messageId.type = U_GNSS_PROTOCOL_ALL;
     
     int32_t asyncHandleGnss = U_ERROR_COMMON_NOT_INITIALISED;
