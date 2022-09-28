@@ -509,8 +509,17 @@ function consoleAutocomplete(inp, arr) {
 
 let worker;
 function onConsoleExecute(el, code) {
-    code = 'importScripts(\''+window.location.origin+MOD_DIR+'console/api.js\');\r\n' + code;
-    //code += api;
+    //code = 'importScripts(\''+window.location.origin+MOD_DIR+'console/api.js\');\r\n' + code;
+    const api = '\
+function action(t) { postMessage( { msg:"action", task:t } ); }\
+function send(d) { postMessage( { msg:"send", data:d } ); }\
+function sendAt(d) { postMessage( { msg:"sendAt", data:d } ); }\
+function sendNmea(d) { postMessage( { msg:"sendNmea", data:d } ); }\
+function sendUbx(c,i,d) { postMessage( { msg:"sendUbx", cls:c, id:i, data:d } ); }\
+function trace(d,c) { postMessage( { msg:"trace", txt:d, col:c } ); }\
+function close() { postMessage( { msg:"close" } ); }\
+';
+    code += api;
     const blob = new Blob([code], { type: 'text/javascript' });
     if (worker) {
         consoleTrace('ERROR', 'Script still running');
