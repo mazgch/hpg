@@ -34,7 +34,7 @@ To make this device work as intended you need some accessories like LTE and GNSS
 
 [![HPG Monitor Getting Started Video](docu/HPG_MonitorSmallPlay.png)](https://youtu.be/LLKUxa8krcs)
   
-11. You can also access and find your hpg devices using the HPG Monitor webpage at [hpg.mazg.ch](http://hpa.mazg.ch) This webpage displays various status information, messages and can even plot graphs of parameter or satellite signal strenghs. A map overlay completes the functionality of the HPG Monitor. You can even export your data a text, in common file formats for offline tools.
+11. You can also access and find your hpg devices using the HPG Monitor webpage at [hpg.mazg.ch](http://hpg.mazg.ch) This webpage displays various status information, messages and can even plot graphs of parameter or satellite signal strenghs. A map overlay completes the functionality of the HPG Monitor. You can even export your data a text, in common file formats for offline tools.
 12. You are now ready to start experimenting with this exciting technology and go outside and test RTK positioning in your use cases. The solution is suitable for a variety of applications from Lawn Mower, Heavy machine and Construction vehicles, Drones, Precision Agriculture, Cars and of course Mobile Robotics. 
 13. To get best performance sure that the GNSS/LBAND antenna is well positioned and has good visibility to the sky!
 14. So have fun and put this solution on your robot, [scooter](docu/Scooter.md) or [lawn mower](docu/Mower.md) project. Feel free to connect with me even if it’s just to share the projects you are building using this exciting technology and solution.
