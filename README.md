@@ -55,7 +55,7 @@ This solution is an attempt to design a 'full u-blox solution' using various pro
 | [LARA-R6001D](https://www.u-blox.com/en/product/lara-r6-series) | A LTE Cat 1 cellular modem with 2G / 3G fallback. |
 | [ZED-F9R](https://www.u-blox.com/en/product/zed-f9r-module) | A GNSS Module with RTK, DR and L1/L2 multiband capability. |
 | [NEO-D9S](https://www.u-blox.com/en/product/neo-d9s-series) | A LBAND receiver to get PointPerfect correction service. | 
-| [ANN-MB](https://www.u-blox.com/en/product/ann-mb-series) | L1/L2 multi-band, high precision GNSS antenna | 
+| [ANN-MB](https://www.u-blox.com/en/product/ann-mb-series) | L1/L2 multi-band, high precision GNSS antenna (LBAND is not offically supported, it may work but there is a slight degradation depending on the frequency) | 
 | [PointPerfect](https://www.u-blox.com/en/product/pointperfect) | A continental wide SSR correction service with coverage in Europe and North America. |
 | [AssistNow](https://www.u-blox.com/en/product/assistnow) | A assisted GNSS services that allows to speed up the system start. |
 
