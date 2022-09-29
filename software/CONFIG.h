@@ -70,7 +70,7 @@ const char CONFIG_FFS_FILE[]            = "/config.ffs";
 const char CONFIG_VALUE_ZTPTOKEN[]      = "ztpToken";
 const char CONFIG_VALUE_BROKERHOST[]    = "brokerHost";
 const char CONFIG_VALUE_STREAM[]        = "stream";
-const char CONFIG_VALUE_ROOTCA[]        = "rootCa"; // not using the root CA 
+const char CONFIG_VALUE_ROOTCA[]        = "rootCa";
 const char CONFIG_VALUE_CLIENTCERT[]    = "clientCert";
 const char CONFIG_VALUE_CLIENTKEY[]     = "clientKey";
 const char CONFIG_VALUE_CLIENTID[]      = "clientId";
@@ -88,7 +88,7 @@ const char CONFIG_VALUE_KEY[]           = "ppKey";
 class CONFIG {
 public:
 
-  CONFIG() : json(8192) {
+  CONFIG() : json(1024*9) {
     mutex = xSemaphoreCreateMutex();
     ffsOk = false;
     // create a unique name from the mac 
