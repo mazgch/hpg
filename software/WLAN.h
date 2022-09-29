@@ -353,7 +353,6 @@ protected:
   
   void bindCallback(void) {
     Log.debug("WLAN bind server");
-    manager.server->on(PROVISION_URL,    std::bind(&WLAN::proivsionUpload, this));
 #ifdef __WEBSOCKET__H__
     Websocket.bind();
 #endif
