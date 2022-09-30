@@ -48,7 +48,6 @@ public:
   
   void setup(WiFiManager& manager) {
     pManager = &manager;
-    pManager->setWebServerCallback(std::bind(&WEBSOCKET::bindCallback, this));
     pManager->setCustomMenuHTML("<form action=\"" WEBSOCKET_URL "\" method=\"get\"><button>" WEBSOCKET_BUTTON "</button></form><br>"
 #ifdef WEBSOCKET_STREAM
             "<button onclick=\"window.location.href='" WEBSOCKET_HPGMAZGCHURL "?ip='+window.location.hostname\">" WEBSOCKET_HPGMAZGCHNAME "</button><br><br>"
@@ -156,17 +155,16 @@ public:
   int read() override { return -1; } 
   int peek() override  { return -1; }
 #endif
-   
-protected:
-  void bindCallback(void) {
-    Log.debug("WEBSOCKET bind server");
+  
+  void bind(void) {
     if ((NULL != pManager) && (NULL != pManager->server)) {
       pManager->server->on(WEBSOCKET_URL,    std::bind(&WEBSOCKET::serveHtml, this));
       pManager->server->on(WEBSOCKET_JSURL,  std::bind(&WEBSOCKET::serveJs,   this));           
       pManager->server->on(WEBSOCKET_CSSURL, std::bind(&WEBSOCKET::serveCss,  this));           
     }
   }
-
+   
+protected:
   void serve(const char* file, const char* format, const char* content) {
     Log.info("WEBSOCKET serve \"%s\" as \"%s\"", file, format);  
     if ((NULL != pManager) && (NULL != pManager->server)) {

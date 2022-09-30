@@ -37,7 +37,7 @@ To make this device work as intended you need some accessories like LTE and GNSS
 11. You can also access and find your hpg devices using the HPG Monitor webpage at [hpg.mazg.ch](http://hpg.mazg.ch) This webpage displays various status information, messages and can even plot graphs of parameter or satellite signal strenghs. A map overlay completes the functionality of the HPG Monitor. You can even export your data a text, in common file formats for offline tools.
 12. You are now ready to start experimenting with this exciting technology and go outside and test RTK positioning in your use cases. The solution is suitable for a variety of applications from Lawn Mower, Heavy machine and Construction vehicles, Drones, Precision Agriculture, Cars and of course Mobile Robotics. 
 13. To get best performance sure that the GNSS/LBAND antenna is well positioned and has good visibility to the sky!
-14. So have fun and put this solution on your robot, [scooter](docu/Scooter.md) or [lawn mower](docu/Mower.md) project. Feel free to connect with me even if it’s just to share the projects you are building using this exciting technology and solution.
+14. So have fun and put this solution on your robot, [vehicle](docu/Vehicle.md), [scooter](docu/Scooter.md) or [lawn mower](docu/Mower.md) project. Feel free to connect with me even if it’s just to share the projects you are building using this exciting technology and solution.
 
 <img width ="49%" src="docu/Scooter.jpg"> <img width ="49%" src="docu/Mower.jpg"> 
 
@@ -55,7 +55,7 @@ This solution is an attempt to design a 'full u-blox solution' using various pro
 | [LARA-R6001D](https://www.u-blox.com/en/product/lara-r6-series) | A LTE Cat 1 cellular modem with 2G / 3G fallback. |
 | [ZED-F9R](https://www.u-blox.com/en/product/zed-f9r-module) | A GNSS Module with RTK, DR and L1/L2 multiband capability. |
 | [NEO-D9S](https://www.u-blox.com/en/product/neo-d9s-series) | A LBAND receiver to get PointPerfect correction service. | 
-| [ANN-MB](https://www.u-blox.com/en/product/ann-mb-series) | L1/L2 multi-band, high precision GNSS antenna | 
+| [ANN-MB](https://www.u-blox.com/en/product/ann-mb-series) | L1/L2 multi-band, high precision GNSS antenna (LBAND is not offically supported, it may work but there is a slight degradation depending on the frequency) | 
 | [PointPerfect](https://www.u-blox.com/en/product/pointperfect) | A continental wide SSR correction service with coverage in Europe and North America. |
 | [AssistNow](https://www.u-blox.com/en/product/assistnow) | A assisted GNSS services that allows to speed up the system start. |
 

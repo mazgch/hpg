@@ -74,6 +74,7 @@ public:
     //manager.resetSettings();
     manager.setDebugOutput(false, "WLAN MGR");
     manager.setAPCallback(apCallback);
+    manager.setWebServerCallback(std::bind(&WLAN::bindCallback, this)); 
     manager.setSaveConfigCallback(std::bind(&WLAN::saveConfigCallback, this));
     manager.setSaveParamsCallback(std::bind(&WLAN::saveParamCallback, this));
     manager.setConfigPortalBlocking(false);  // default = true
@@ -99,18 +100,56 @@ public:
       "exit" 
     };
     manager.setMenu(menu);
-    manager.setCustomHeadElement("<style>"
-                                   ".wrap{max-width:800px;}"
-                                   "a,a:hover{color:" HERO_COLOR ";}"
-                                   "button,.msg{border-radius:0;}"
-                                   "input,select{border-radius:0;border:2px solid #ccc;outline:none;}"
-                                   "input:focus{border: 2px solid #555;}input[readonly]:focus{border: 2px solid #ccc;}"
-                                   "input[type='file']{border-color:" HERO_COLOR ";}"
-                                   "button,input[type='button'],input[type='submit']{background-color:" HERO_COLOR ";}"
-                                 "</style>");
+    manager.setCustomHeadElement("\
+<style>\
+  .wrap{max-width:800px;}\
+  a,a:hover{color:" HERO_COLOR ";}\
+  button,.msg{border-radius:0;}\
+  input[type='file'],input,select{border-radius:0;border:2px solid #ccc;outline:none;}\
+  input[type='file']:focus,input:focus{border: 2px solid #555;}input[readonly]:focus{border: 2px solid #ccc;}\
+  button,input[type='button'],input[type='submit']{background-color:" HERO_COLOR ";}\
+</style>\
+<script>\
+  function _l(_i){\
+    var _r = new FileReader();\
+    function _s(_n,_v,_h){ \
+      var _e=document.getElementById(_n);\
+      if (!_e) {\
+        _e=document.createElement('input');\
+        if (_e) {\
+          _e.id=_n;\
+          _i.appendChild(_e);\
+        }\
+      }\
+      if (_e) {\
+        _e.name=_n;\
+        _e.value=_v;\
+      }\
+      if (_e && (null != _h)) _h ? _e.setAttribute('hidden','') : _e.removeAttribute('hidden')\
+    }\
+    _r.onload = function _d(){\
+      try {\
+        var _j = JSON.parse(_r.result);\
+        var _c = _j.MQTT.Connectivity;\
+        var _o = { };\
+        _s('clientId', _c.ClientID);\
+        _s('brokerHost', _c.ServerURI.match(/\\s*:\\/\\/(.*):\\d+/)[1]);\
+        _c = _c.ClientCredentials;\
+        _s('clientKey', _c.Key, true);\
+        _s('clientCert', _c.Cert, true);\
+        _s('rootCa', _c.RootCA, true);\
+        _s('stream', _j.MQTT.Subscriptions.Key.KeyTopics[0].match(/.{2}$/)[0]);\
+        _s('ztpToken', '');\
+        _i.value = '';\
+      } catch(e) { alert('bad json content'); }\
+    };\
+    if (_i.files[0]) _r.readAsText(_i.files[0]);\
+  };\
+</script>\
+");
     new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">PointPerfect configuration</p>"
-            "<p>Don't have a device profile? Visit the <a href=\"https://portal.thingstream.io/app/location-services/device-profiles\">Thingstream Portal</a> to create one.</p>");
-    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_ZTPTOKEN, "Device profile", 
+            "<p>Don't have a device profile or u-center-config.json? Visit the <a href=\"https://portal.thingstream.io/app/location-services\">Thingstream Portal</a> to create one.</p>");
+    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_ZTPTOKEN, "<a href=\"#\" onclick=\"document.getElementById('file').click();\">Load JSON</a> file or enter a Device Profile Token.<input hidden accept=\".json,.csv\" type=\"file\" id=\"file\" onchange=\"_l(this);\"/>", 
             Config.getValue(CONFIG_VALUE_ZTPTOKEN).c_str(), 36, " type=\"password\" pattern=\"[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}\"");
     updateManagerParameters();
     new (&parameters[p++]) WiFiManagerParameter(bufParam);
@@ -122,7 +161,7 @@ public:
 #ifdef __WEBSOCKET__H__
     Websocket.setup(manager);
 #endif    
-    
+      
     Log.info("WLAN init autoconnect using wifi/hostname \"%s\"", nameStr);
     manager.autoConnect(nameStr);  
     setState(SEARCHING);
@@ -255,8 +294,8 @@ public:
               } else {
                 int err = mqttClient.connectError(); 
                 const char* LUT[] = { "REFUSED", "TIMEOUT", "OK", "PROT VER", "ID BAD", "SRV NA", "BAD USER/PWD", "NOT AUTH" };
-                Log.error("WLAN MQTT connect \"%s\" as client \"%s\" failed with error %d(%s)",
-                          brokerStr, idStr, err, LUT[err + 2]);
+                Log.error("WLAN MQTT connect to \"%s\":%d as client \"%s\" failed with error %d(%s)",
+                          brokerStr, MQTT_BROKER_PORT, idStr, err, LUT[err + 2]);
               }
             }
           }
@@ -312,6 +351,13 @@ protected:
     }
   }
   
+  void bindCallback(void) {
+    Log.debug("WLAN bind server");
+#ifdef __WEBSOCKET__H__
+    Websocket.bind();
+#endif
+  }
+  
   static void apCallback(WiFiManager *pManager) {
     String ip = WiFi.softAPIP().toString();
     
@@ -325,31 +371,45 @@ protected:
   void saveParamCallback() {
     int args = Wlan.manager.server->args();
     bool save = false;
-    bool rstZtp = false;
+    bool reconnect = false;
     for (uint8_t i = 0; i < args; i++) {
       String param = Wlan.manager.server->argName(i);
       String value = Wlan.manager.server->arg(param);
       Log.debug("WIFI saveParamCallback \"%s\" \"%s\"", param.c_str(), value.c_str());
+      if (param.equals(CONFIG_VALUE_ROOTCA) || param.equals(CONFIG_VALUE_CLIENTCERT) || param.equals(CONFIG_VALUE_CLIENTKEY)) {
+        String tag = param.equals(CONFIG_VALUE_CLIENTKEY) ? "RSA PRIVATE KEY" : "CERTIFICATE";
+        String out = "-----BEGIN " + tag + "-----\n";
+        while (value.length()) {
+          out += value.substring(0,64) + "\n";
+          value = value.substring(64);
+        }
+        out += "-----END " + tag + "-----\n";
+        value = out;
+        reconnect = true;
+      }
       bool changed = Config.setValue(param.c_str(), value);
       if (changed) {
         save = true;
-        Log.debug("WIFI clear ZTP");
-        if (param.equals(CONFIG_VALUE_ZTPTOKEN)) {
-          rstZtp = true;
+        if (param.equals(CONFIG_VALUE_ZTPTOKEN) && (value.length()>0)) {
+          reconnect = true;
+          Config.delZtp();      
         }
-      }
-    }
-    if (rstZtp) {
-      Log.info("WIFI saveParamCallback restart MQTT/ZTP due to setting change");
-      Config.delZtp();
-      if (Wlan.state > SEARCHING) { 
-        Wlan.mqttStop();
-        Wlan.setState(SEARCHING);
       }
     }
     if (save) {
       Config.save();
       Wlan.updateManagerParameters();
+    }
+    if (reconnect) {
+      Log.info("WIFI saveParamCallback reconnect MQTT/ZTP due to setting change");
+      if (Wlan.state > SEARCHING) { 
+        Wlan.mqttStop();
+        Wlan.setState(SEARCHING);
+      }
+      /* Need to reset LTE here / rely on user to reset device
+      if (Lte.connected) {
+        Lte.disconnectMQTT();
+      }*/
     }
   }
 
@@ -357,9 +417,9 @@ protected:
     String name = Config.getDeviceName();
     int len = sprintf(bufParam, "<label>Hardware Id</label><br><input maxlength=\"20\" value=\"%s\" readonly>", name.c_str());
     String clientId = Config.getValue(CONFIG_VALUE_CLIENTID);
-    if (clientId.length()) {
-      len += sprintf(&bufParam[len], "<label>Client Id</label><br><input value=\"%s\" readonly>", clientId.c_str());
-    }
+    len += sprintf(&bufParam[len], "<label for=\"%s\">Client Id</label><br>"
+                                     "<input id=\"%s\" value=\"%s\" readonly>", 
+                                      CONFIG_VALUE_CLIENTID, CONFIG_VALUE_CLIENTID, clientId.c_str());
     len += sprintf(&bufParam[len], //"<p style=\"font-weight:Bold;\">GNSS configuration</p>"
                                    "<label for=\"%s\">Correction source</label><br>"
                                    "<select id=\"%s\" name=\"%s\">", CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE);
@@ -521,7 +581,7 @@ protected:
   
   WiFiManager manager;
   WiFiManagerParameter parameters[5];
-  char bufParam[512*3];
+  char bufParam[512*4];
 
   WiFiClientSecure wifiClient;
   MqttClient mqttClient;
