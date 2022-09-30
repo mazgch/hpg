@@ -149,7 +149,7 @@ public:
 ");
     new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">PointPerfect configuration</p>"
             "<p>Don't have a device profile or u-center-config.json? Visit the <a href=\"https://portal.thingstream.io/app/location-services\">Thingstream Portal</a> to create one.</p>");
-    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_ZTPTOKEN, "<a href=\"#\" onclick=\"document.getElementById('file').click();\">Load JSON</a> file or enter a Device Profile Token.<input hidden accept=\".json\" type=\"file\" id=\"file\" onchange=\"_l(this);\"/>", 
+    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_ZTPTOKEN, "<a href=\"#\" onclick=\"document.getElementById('file').click();\">Load JSON</a> file or enter a Device Profile Token.<input hidden accept=\".json,.csv\" type=\"file\" id=\"file\" onchange=\"_l(this);\"/>", 
             Config.getValue(CONFIG_VALUE_ZTPTOKEN).c_str(), 36, " type=\"password\" pattern=\"[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}\"");
     updateManagerParameters();
     new (&parameters[p++]) WiFiManagerParameter(bufParam);
@@ -294,8 +294,8 @@ public:
               } else {
                 int err = mqttClient.connectError(); 
                 const char* LUT[] = { "REFUSED", "TIMEOUT", "OK", "PROT VER", "ID BAD", "SRV NA", "BAD USER/PWD", "NOT AUTH" };
-                Log.error("WLAN MQTT connect \"%s\" as client \"%s\" failed with error %d(%s)",
-                          brokerStr, idStr, err, LUT[err + 2]);
+                Log.error("WLAN MQTT connect to \"%s\":%d as client \"%s\" failed with error %d(%s)",
+                          brokerStr, MQTT_BROKER_PORT, idStr, err, LUT[err + 2]);
               }
             }
           }
@@ -371,7 +371,7 @@ protected:
   void saveParamCallback() {
     int args = Wlan.manager.server->args();
     bool save = false;
-    bool rstZtp = false;
+    bool reconnect = false;
     for (uint8_t i = 0; i < args; i++) {
       String param = Wlan.manager.server->argName(i);
       String value = Wlan.manager.server->arg(param);
@@ -385,65 +385,30 @@ protected:
         }
         out += "-----END " + tag + "-----\n";
         value = out;
+        reconnect = true;
       }
       bool changed = Config.setValue(param.c_str(), value);
       if (changed) {
         save = true;
-        if (param.equals(CONFIG_VALUE_ZTPTOKEN)) {
-          rstZtp = value.length()>0;
+        if (param.equals(CONFIG_VALUE_ZTPTOKEN) && (value.length()>0)) {
+          reconnect = true;
+          Config.delZtp();      
         }
-      }
-    }
-    if (rstZtp) {
-      Log.info("WIFI saveParamCallback restart MQTT/ZTP due to setting change");
-      Config.delZtp();
-      if (Wlan.state > SEARCHING) { 
-        Wlan.mqttStop();
-        Wlan.setState(SEARCHING);
       }
     }
     if (save) {
       Config.save();
       Wlan.updateManagerParameters();
     }
-  }
-
-  void proivsionUpload(void){
-    HTTPUpload& upload = manager.server->upload();
-    if(upload.status == UPLOAD_FILE_START)
-    {
-      Log.info("WLAN upload start");
-    /*  String filename = uploadfile.filename;
-      if(!filename.startsWith("/")) filename = "/"+filename;
-      Serial.print("Upload File Name: "); Serial.println(filename);
-      SD.remove(filename);                         // Remove a previous version, otherwise data is appended the file again
-      UploadFile = SD.open(filename, FILE_WRITE);  // Open the file for writing in SPIFFS (create it, if doesn't exist)
-      filename = String();*/
-    }
-    else if (upload.status == UPLOAD_FILE_WRITE)
-    {
-      Log.info("WLAN upload write %d bytes", upload.currentSize);
-      //if(UploadFile) UploadFile.write(uploadfile.buf, upload.currentSize); // Write the received bytes to the file
-    }
-    else if (upload.status == UPLOAD_FILE_END)
-    {
-      Log.info("WLAN upload end");
-      
-      /*if(UploadFile)          // If the file was successfully created
-      {                                   
-        UploadFile.close();   // Close the file again
-        Serial.print("Upload Size: "); Serial.println(uploadfile.totalSize);
-        webpage = "";
-        append_page_header();
-        webpage += F("<h3>File was successfully uploaded</h3>");
-        webpage += F("<h2>Uploaded File Name: "); webpage += uploadfile.filename+"</h2>";
-        webpage += F("<h2>File Size: "); webpage += file_size(uploadfile.totalSize) + "</h2><br>";
-        append_page_footer();
-        server.send(200,"text/html",webpage);
+    if (reconnect) {
+      Log.info("WIFI saveParamCallback reconnect MQTT/ZTP due to setting change");
+      if (Wlan.state > SEARCHING) { 
+        Wlan.mqttStop();
+        Wlan.setState(SEARCHING);
       }
-      else
-      {
-        ReportCouldNotCreateFile("upload");
+      /* Need to reset LTE here / rely on user to reset device
+      if (Lte.connected) {
+        Lte.disconnectMQTT();
       }*/
     }
   }
