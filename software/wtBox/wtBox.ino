@@ -60,7 +60,7 @@ enum { LEFT = 0, RIGHT = 1, SINGLE = 2, SPEED = 3, ESF_MEAS_NUM } MEAS;
 #define ESF_DATA_DIRECTION 0x00800000
 #define ESF_DATA_TYPE      0xFF000000
 // convert ticks per period to a speed (e.g. 0.05 = 5cm / tick) 
-#define ESF_METER_PER_TICK   (0.53 /* wheel circumference */ / 1200 /* ticks per revolution*/) // BOSCH Indigo S+ 500
+#define ESF_METER_PER_TICK   (0.53 /* wheel circumference in m */ / (1540 /* ticks per revolution */ * 2 /* left and right wheel */)) // BOSCH Indigo S+ 500
 #define ESF_TICKtoSPEED(t) (int32_t)((ESF_METER_PER_TICK/*tick*/ * 1e3 /*scale*/ * (1e3/*ms*/ / ESF_PERIOD_MS)) * t) 
 
 #define LED_RATE_100MS     20
