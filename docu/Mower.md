@@ -1,6 +1,6 @@
-# Lawn Mower
+# Lawn Mower & Slow Moving Robots
 
-The HPG solution can be easily fitted to a lawn mower to test the performance. 
+The HPG solution can be easily fitted to a lawn mower or slow moving robot to test the performance. 
 
 ![Bosch lawn mower](Mower.jpg)
 
