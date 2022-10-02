@@ -21,7 +21,7 @@
 const int8_t PINIDS[SIDES][PINS] = { 
 #ifdef ARDUINO_ESP8266_WEMOS_D1MINI
   {  D2/*GREEN*/, D1/*YELLOW*/, D0/*BLUE*/ }, // LEFT
-  {  D5/*GREEN*/, D6/*YELLOW*/, D7/*BLUE*/ },  // RIGHT
+  {  D5/*GREEN*/, D6/*YELLOW*/, D7/*BLUE*/ }, // RIGHT
 #define ESF_MEAS_TX D3
 /*
  *                         --- ANTENNA ---
@@ -30,8 +30,8 @@ const int8_t PINIDS[SIDES][PINS] = {
  *     BLUE / HALL_RL_A -> D0,WAKE      D1 <- HALL_RL_B / YELLOW 
  *    GREEN / HALL_RR_C -> D5           D2 <- HALL_RL_C / GREEN
  *   YELLOW / HALL_RR_B -> D6   CHIPS   D3
- *     BLUE / HALL_RR_A -> D7           D4 -> LED
- *             ESF_MEAS <- D8          GND
+ *     BLUE / HALL_RR_A -> D7           D4 -> ESF_MEAS / ZED RXI
+ *                         D8          GND
  *                         3v3          5V <- IN
  *                         ---------------
  *                               USB
@@ -71,7 +71,6 @@ int32_t wt[ESF_MEAS_NUM];
 uint32_t esfWt[ESF_MEAS_NUM];
 uint32_t esfMs;
 uint32_t esfTtag;
-uint32_t ledCnt;
 
 size_t esfMeas(uint8_t* m) {
   size_t i = 0;
@@ -115,9 +114,6 @@ void setup() {
               "    esfTtag    wt   esfWt Rev    esfWt Pin St    wt   esfWt Rev    esfWt Pin St    wt   esfWt Rev    esfWt    wt    speed    esfWt\n"); 
   // the default baud rate of u-blox GNSS is 38400 baud
   Serial1.begin(38400);
-  // prepare the status led
-  //pinMode(LED_BUILTIN, OUTPUT);
-  //digitalWrite(LED_BUILTIN, HIGH);
   // init pins to hall sensor pins
   for (int s = 0; s < SIDES; s ++) {
     for (int i = 0; i < PINS; i ++) {
@@ -183,8 +179,6 @@ void loop() {
   }
   uint32_t now = millis();
   if ((now - esfMs) > ESF_PERIOD_MS) {
-    //digitalWrite(LED_BUILTIN, ledCnt ? HIGH : LOW);
-    ledCnt = (ledCnt + 1) % LED_RATE_100MS;
     esfMs += ESF_PERIOD_MS;
     esfTtag += ESF_PERIOD_MS;
     char buf[256];
