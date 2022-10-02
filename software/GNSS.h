@@ -97,7 +97,7 @@ public:
       }
       if (fwver.startsWith("HPS ")) {
 /* 8*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C, 1, VAL_LAYER_RAM);
-        uint8_t dynModel = DYN_MODEL_MOWER;
+        uint8_t dynModel = DYN_MODEL_UNKNOWN;
         if (dynModel != DYN_MODEL_UNKNOWN) {
           GNSS_CHECK = rx.setVal(UBLOX_CFG_NAVSPG_DYNMODEL,  dynModel, VAL_LAYER_RAM);
           if (dynModel == DYN_MODEL_MOWER) {
