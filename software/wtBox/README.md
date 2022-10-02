@@ -1,4 +1,4 @@
-# WHeel tick to ESF-MEAS conversion box.
+# Hall sensor wheel tick to ESF-MEAS conversion box.
 
 This small project converts the Hall sensor signals from two motors (e.g from a small robot) to a ``UBX-ESF-MEAS`` mesage that can be directly injected into the UART port (``ZED-RXI``) of the HPG solution board. You can probably use any Arduino that has 7 spare GPIOs and at least one UART. Any u-blox Arduino compatible modules like NINA-B10x, ANNA-B10x, NINA-W10x or NORA.W10x will probably work well.
 
