@@ -8,7 +8,7 @@ The scooters from BOSCH can be easily hacked to extract the Hall sensor signals 
 
 ![Bosch lawn mower](Mower_Hack.png)
 
-To convert the Hall sensors signals to a UBX-ESF-MEAS a small Arduino MCU with at least 7 GPIOs is used. This code could be integrated with the main project but we don't have enough spare GPIOs on the hpg board and maybe it also better to avoid lareg delays in processing and sampling the signals. For details about standalone software project [wtBox](../software/wtBox/README.md). I used 1kOhm resistors to connect the wtBox to the Hall sensor wires, and also for the connection to the HPG board ZED RXI pin and GND pins.   
+To convert the Hall sensors signals to a ``UBX-ESF-MEAS`` a small Arduino MCU with at least 7 GPIOs is used. This code could be integrated with the main project but we don't have enough spare GPIOs on the hpg board and maybe it also better to avoid lareg delays in processing and sampling the signals. For details about standalone software project [wtBox](../software/wtBox/README.md). I used 1kOhm resistors to connect the wtBox to the Hall sensor wires, and also for the connection to the HPG board ``ZED RXI`` pin and ``GND`` pins.   
 
 ![Bosch lawn mower](Mower_WtBox.png)
 
