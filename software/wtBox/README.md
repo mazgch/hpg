@@ -22,3 +22,5 @@ Here is the default pin assignement of the WT conversion code when running on th
                           ---------------
                                 USB
 ```
+
+Please check the [Mower](../../docu/Mower.md) documentation for an example use of this conversion box. 
