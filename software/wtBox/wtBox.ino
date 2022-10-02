@@ -17,53 +17,70 @@
 #define SIDES 2
 #define PINS 3
 
-// Using D1 mini Wemos
 const int8_t PINIDS[SIDES][PINS] = { 
 #ifdef ARDUINO_ESP8266_WEMOS_D1MINI
-  {  D2/*GREEN*/, D1/*YELLOW*/, D0/*BLUE*/ }, // LEFT
-  {  D5/*GREEN*/, D6/*YELLOW*/, D7/*BLUE*/ }, // RIGHT
-#define ESF_MEAS_TX D3
-/*
- *                         --- ANTENNA ---
- *                         |        LED  |
- *                         RST          TX -> CDC @ 115200
- *                         ADC0         RX 
- *     BLUE / HALL_RL_A -> D0,WAKE      D1 <- HALL_RL_B / YELLOW 
- *    GREEN / HALL_RR_C -> D5           D2 <- HALL_RL_C / GREEN
- *   YELLOW / HALL_RR_B -> D6   CHIPS   D3
- *     BLUE / HALL_RR_A -> D7   LED,TXI,D4 -> ESF-MEAS @ 38400 -> ZED RXI
- *                         D8          GND
- *                         3v3          5V <- IN
- *                         ---------------
- *                               USB
+/*  Using Board: LOLIN (WEMOS) D1 R2 & mini
+ * 
+ *                         ---------- ANTENNA --
+ *                         |              LED  |
+ *                         RST   ESP8266      TX -> CDC @ 115200
+ *                         ADC0               RX 
+ *     BLUE / HALL_RL_A -> D0/WAKE            D1 <- HALL_RL_C / GREEN 
+ *    GREEN / HALL_RR_C -> D5                 D2 <- HALL_RL_B / YELLOW
+ *   YELLOW / HALL_RR_B -> D6            BOOT/D3
+ *     BLUE / HALL_RR_A -> D7         LED/TX1/D4 -> ESF-MEAS @ 38400 -> ZED RXI
+ *                         D8   FLASH        GND
+ *                         3v3                5V <- IN
+ *                         [BTN                |
+ *                          ------- USB --------
+ *                               
  */
+  { // REAR LEFT (RL) WHEEL pins of hall sensors  
+    D0, // HALL_RL_A / BLUE 
+    D2, // HALL_RL_B / YELLOW 
+    D1  // HALL_RL_C / GREEN
+  },  
+  {  // REAR RIGHT (RR) WHEEL pins of hall sensors (reverse order)
+    D5, // HALL_RR_C / GREEN
+    D6, // HALL_RR_B / YELLOW, 
+    D7  // HALL_RR_A / BLUE
+  },
 #else
   #error "add the pins for your target here"
 #endif
 };
 
+/* convert ticks per period to a speed, 
+ * 
+ * example for BOSCH Indigo S+ 500
+ * - wheel diameter:       ~16.5 cm
+ * - wheel circumference:  ~53.0 cm 
+ * - ticks per revolution:  1540 ticks
+*/
+#define ESF_TICKS_PER_METER  ( 1540 /* ticks per revolution */ \
+                                * 2 /* left and right wheel */ \
+                             / 0.53 /* wheel circumference m */ )
+#define ESF_OUT_MEAS              4 // ESF-MEAS measurement data, 2: rear wheels, 3: and single tick, 4: and speed 
+#define ESF_PROVIDER         0x0000 // ESF-MEAS provider id 
+#define ESF_PERIOD_MS           100 // ESF-MEAS output rate in ms => 100 = 10Hz
+
+// you should not have to changes what is here below. 
+#define ESF_TICKS_TO_MM_PER_S ( 1e3 /* value unit scale to 1e-3m/s = mm */ \
+                              * 1e3 /* s/ms */ / ESF_PERIOD_MS /* mesurement perios ms */ \
+                              / ESF_TICKS_PER_METER /* ticks / m */ )
+#define ESF_TICKtoSPEED(t) (int32_t)(ESF_TICKS_TO_MM_PER_S * t)
+#define ESF_SIZE            (8 + 4 * ESF_OUT_MEAS) // four measurements (e.g. RR, RL)
+#define ESF_FLAGS           (ESF_OUT_MEAS<<11)
+#define ESF_DATA_TICKS      0x007FFFFF
+#define ESF_DATA_DIRECTION  0x00800000
+#define ESF_DATA_TYPE       0xFF000000
 #define ESF_DATATYPE_FRONTLEFT       6
 #define ESF_DATATYPE_FRONTRIGHT      7
 #define ESF_DATATYPE_REARLEFT        8
 #define ESF_DATATYPE_REARRIGHT       9
 #define ESF_DATATYPE_SINGLETICK      10
 #define ESF_DATATYPE_SPEED           11
-
 enum { LEFT = 0, RIGHT = 1, SINGLE = 2, SPEED = 3, ESF_MEAS_NUM } MEAS;
-
-#define ESF_OUT_MEAS       4
-#define ESF_SIZE (8 + 4 * ESF_OUT_MEAS) // four measurements (e.g. RR, RL)
-#define ESF_PERIOD_MS      100
-#define ESF_FLAGS          (ESF_OUT_MEAS<<11)
-#define ESF_PROVIDER       0x0000
-#define ESF_DATA_TICKS     0x007FFFFF
-#define ESF_DATA_DIRECTION 0x00800000
-#define ESF_DATA_TYPE      0xFF000000
-// convert ticks per period to a speed (e.g. 0.05 = 5cm / tick) 
-#define ESF_METER_PER_TICK   (0.53 /* wheel circumference in m */ / (1540 /* ticks per revolution */ * 2 /* left and right wheel */)) // BOSCH Indigo S+ 500
-#define ESF_TICKtoSPEED(t) (int32_t)((ESF_METER_PER_TICK/*tick*/ * 1e3 /*scale*/ * (1e3/*ms*/ / ESF_PERIOD_MS)) * t) 
-
-#define LED_RATE_100MS     20
 
 #define STATES 6
 #define IGNORE -1
@@ -123,7 +140,6 @@ void setup() {
     state[s] = IGNORE;
   }
   // prepare the variables 
-  ledCnt = 0;
   esfMs = millis();
   esfTtag = 0;
   for (int s = 0; s < ESF_MEAS_NUM; s ++) {
@@ -134,15 +150,14 @@ void setup() {
     
 void loop() {
   /*  
-   *  Phase   | A . B . C . D . E . F | A . B . C . D . E . F | A . B . C . D . E . F | 
-   *          |   .   .   .   .   .   |   .   .   .   .   .   |   .   .   .   .   .   | 
-   *  Hall 1: ________/-----------\___________/-----------\___________/-----------\____
-   *          |   .   .   .   .   .   |   .   .   .   .   .   |   .   .   .   .   .   |  
-   *  Hall 2: ----\___________/-----------\___________/-----------\___________/--------
-   *          |   .   .   .   .   .   |   .   .   .   .   .   |   .   .   .   .   .   | 
-   *  Hall 3: ------------\___________/-----------\___________/-----------\___________/
-   *          |   .   .   .   .   .   |   .   .   .   .   .   |   .   .   .   .   .   | 
    *  State:  -000-111-222-333-444-555-000-111-222-333-444-555-000-111-222-333-444-555-
+   *          |   .   .   .   .   .   |   .   .   .   .   .   |   .   .   .   .   .   | 
+   *  Hall C: ________/-----------\___________/-----------\___________/-----------\____
+   *          |   .   .   .   .   .   |   .   .   .   .   .   |   .   .   .   .   .   |  
+   *  Hall B: ----\___________/-----------\___________/-----------\___________/--------
+   *          |   .   .   .   .   .   |   .   .   .   .   .   |   .   .   .   .   .   | 
+   *  Hall A: ------------\___________/-----------\___________/-----------\___________/
+   *          |   .   .   .   .   .   |   .   .   .   .   .   |   .   .   .   .   .   | 
    */
   char lvl[SIDES][PINS+1] { "---", "---" };
   int8_t st[SIDES];
@@ -171,7 +186,7 @@ void loop() {
         else if (-PINS >= inc) {
           inc += 2*PINS;
         }
-        wt[s]      += inc;
+        wt[s]      += inc*2; // multiply by 2 to make same scale as the single tick which integrates both wheels 
         wt[SINGLE] += inc;
         wt[SPEED]  += inc;
       }

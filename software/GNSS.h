@@ -106,9 +106,18 @@ public:
             GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_USE_WT_PIN,       0, VAL_LAYER_RAM); // my guess
             GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_COMBINE_TICKS,    1, VAL_LAYER_RAM);
             GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_DIS_AUTODIRPINPOL,1, VAL_LAYER_RAM);
-            GNSS_CHECK = rx.setVal32(UBLOX_CFG_SFODO_COUNT_MAX,     0x7FFFFF, VAL_LAYER_RAM);  
-            // BOSCH Indigo S+ 500: ~1200 ticks_per_revolution / 0.53m wheel_circumference
-            GNSS_CHECK = rx.setVal32(UBLOX_CFG_SFODO_FACTOR, (uint32_t)(1200/*ticks*/ / 0.53/*m*/), VAL_LAYER_RAM); 
+            GNSS_CHECK = rx.setVal32(UBLOX_CFG_SFODO_COUNT_MAX,      0x7FFFFF, VAL_LAYER_RAM);  
+            /* convert ticks per period to a speed, 
+             * 
+             * example for BOSCH Indigo S+ 500
+             * - wheel diameter:       ~16.5 cm
+             * - wheel circumference:  ~53.0 cm 
+             * - ticks per revolution:  1540 ticks
+            */
+            const int32_t odoFactor = (uint32_t)( 1540 /* ticks per revolution */
+                                                   * 2 /* left and right wheel */ 
+                                                / 0.53 /* wheel circumference m */ );
+            GNSS_CHECK = rx.setVal32(UBLOX_CFG_SFODO_FACTOR, odoFactor, VAL_LAYER_RAM); 
           } else if (dynModel == DYN_MODEL_ESCOOTER) {
             // do whateever you need to do
             Log.info("GNSS dynModel ESCOOTER");
