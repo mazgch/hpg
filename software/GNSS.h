@@ -97,6 +97,23 @@ public:
       }
       if (fwver.startsWith("HPS ")) {
 /* 8*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C, 1, VAL_LAYER_RAM);
+        uint8_t dynModel = DYN_MODEL_UNKNOWN;
+        if (dynModel != DYN_MODEL_UNKNOWN) {
+          GNSS_CHECK = rx.setVal(UBLOX_CFG_NAVSPG_DYNMODEL,  dynModel, VAL_LAYER_RAM);
+          if (dynModel == DYN_MODEL_MOWER) {
+            Log.info("GNSS dynModel MOWER", fwver.c_str());
+            // using https://github.com/mazgch/wtBox as hall sensor to WT converter
+            GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_USE_WT_PIN,       0, VAL_LAYER_RAM); // my guess
+            GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_COMBINE_TICKS,    1, VAL_LAYER_RAM);
+            GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_DIS_AUTODIRPINPOL,1, VAL_LAYER_RAM);
+            GNSS_CHECK = rx.setVal32(UBLOX_CFG_SFODO_COUNT_MAX,     0x7FFFFF, VAL_LAYER_RAM);  
+            // BOSCH Indigo S+ 500: ~1200 ticks_per_revolution / 0.53m wheel_circumference
+            GNSS_CHECK = rx.setVal32(UBLOX_CFG_SFODO_FACTOR, (uint32_t)(1200/*ticks*/ / 0.53/*m*/), VAL_LAYER_RAM); 
+          } else if (dynModel == DYN_MODEL_ESCOOTER) {
+            // do whateever you need to do
+            Log.info("GNSS dynModel ESCOOTER");
+          } 
+        } 
       }
       online = ok = GNSS_CHECK_OK;
       GNSS_CHECK_EVAL("GNSS detect configuration");
