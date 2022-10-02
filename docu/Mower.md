@@ -8,7 +8,7 @@ The scooters from BOSCH can be easily hacked to extract the Hall sensor signals 
 
 ![Bosch lawn mower](Mower_Hack.png)
 
-To convert the Hall sensors signals to a ``UBX-ESF-MEAS`` a small Arduino MCU with at least 7 GPIOs is used. This code could be integrated with the main project but we don't have enough spare GPIOs on the hpg board and maybe it also better to avoid lareg delays in processing and sampling the signals. For details about standalone software project [wtBox](../software/wtBox/). I used 1kOhm resistors to connect the wtBox to the Hall sensor wires, and also for the connection to the HPG board ``ZED RXI`` pin and ``GND`` pins.The following picture shows how the board is connected to the wires, at the time of this photo the non defualt ``D8`` was used for ``TX1 -> ESF-MEAS -> ZED RXI``, this was later changed to the default ''D4 TX1'' location.
+To convert the Hall sensors signals to a ``UBX-ESF-MEAS`` a small Arduino MCU with at least 7 GPIOs is used. This code could be integrated with the main project but we don't have enough spare GPIOs on the hpg board and maybe it also better to avoid lareg delays in processing and sampling the signals. For details about standalone software project [wtBox](../software/wtBox/). I used 1kOhm resistors to connect the wtBox to the Hall sensor wires, and also for the connection to the HPG board ``ZED RXI`` pin and ``GND`` pins.The following picture shows how the board is connected to the wires, at the time of this photo the non defualt ``D8`` was used for ``D4 TX1 -> ESF-MEAS -> ZED RXI``, this was later changed to the default ``D4 TX1`` location.
 
 ![Bosch lawn mower](Mower_WtBox.png)
 
@@ -17,4 +17,5 @@ Here is the HPG board and antenna mounted to the Mower the GNSS antenna and the 
 <img width ="49%" src="Mower_Proto1.png"> <img width ="49%" src="Mower_Proto2.png"> 
 
 Here is a short video of the mower and the monitor in action.The first 10 minutes shows the calibration of the sensors and the wheel ticks, during this time Sensor fusion is initializing and calibrating. At position [9:50](https://youtu.be/d0S1z9fmatQ?t=590) the Sensor Fusion swiches into fusion mode and is now able to naviagte more reliably using the sensors and determine the heading even while rotatig at its location. 
+
 [![HPG Mower with DWT and IMU Sensor Fusion Video](HPG_MowerPlay.png)](https://youtu.be/d0S1z9fmatQ)
