@@ -12,4 +12,9 @@ To convert the Hall sensors signals to a ``UBX-ESF-MEAS`` a small Arduino MCU wi
 
 ![Bosch lawn mower](Mower_WtBox.png)
 
+Here is the HPG board and antenna mounted to the Mower the GNSS antenna and the IMU sensnor is positioned with X axis twards the front and, centered above the rear axle. This will ensure best performance and minila configuration sensor fusion is needed.  
 
+<img width ="49%" src="Mower_Proto1.png"> <img width ="49%" src="Mower_Proto2.png"> 
+
+Here is a short video of the mower and the monitor in action.The first 10 minutes shows the calibration of the sensors and the wheel ticks, during this time Sensor fusion is initializing and calibrating. At position [9:50](https://youtu.be/d0S1z9fmatQ?t=590) the Sensor Fusion swiches into fusion mode and is now able to naviagte more reliably using the sensors and determine the heading even while rotatig at its location. 
+[![HPG Mower with DWT and IMU Sensor Fusion Video](HPG_MowerPlay.png)](https://youtu.be/d0S1z9fmatQ)
