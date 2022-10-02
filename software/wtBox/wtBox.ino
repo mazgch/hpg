@@ -25,12 +25,13 @@ const int8_t PINIDS[SIDES][PINS] = {
 #define ESF_MEAS_TX D3
 /*
  *                         --- ANTENNA ---
- *                         RST      LED TX  
+ *                         |        LED  |
+ *                         RST          TX -> CDC @ 115200
  *                         ADC0         RX 
  *     BLUE / HALL_RL_A -> D0,WAKE      D1 <- HALL_RL_B / YELLOW 
  *    GREEN / HALL_RR_C -> D5           D2 <- HALL_RL_C / GREEN
  *   YELLOW / HALL_RR_B -> D6   CHIPS   D3
- *     BLUE / HALL_RR_A -> D7           D4 -> ESF_MEAS / ZED RXI
+ *     BLUE / HALL_RR_A -> D7   LED,TXI,D4 -> ESF-MEAS @ 38400 -> ZED RXI
  *                         D8          GND
  *                         3v3          5V <- IN
  *                         ---------------
