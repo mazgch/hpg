@@ -12,7 +12,7 @@ To convert the Hall sensors signals to a ``UBX-ESF-MEAS`` a small Arduino MCU wi
 
 ![Bosch lawn mower](Mower_WtBox.png)
 
-Here is the HPG board and antenna mounted to the Mower the GNSS antenna and the IMU sensnor is positioned with X axis twards the front and, centered above the rear axle. This will ensure best performance and minila configuration sensor fusion is needed.  
+Here is the HPG board and antenna mounted to the Mower the GNSS antenna and the IMU sensnor is positioned with X axis pointing accurately towards the front and centered above the rear axle. This will ensure best performance and only minimal configuration for sensor fusion is needed.  
 
 <img width ="49%" src="Mower_Proto1.png"> <img width ="49%" src="Mower_Proto2.png"> 
 
