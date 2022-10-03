@@ -60,7 +60,6 @@ const int8_t PINIDS[SIDES][PINS] = {
 #define ESF_TICKS_PER_METER  ( 1540 /* ticks per revolution */ \
                                 * 2 /* left and right wheel */ \
                              / 0.53 /* wheel circumference m */ )
-#define ESF_OUT_MEAS              4 // ESF-MEAS measurement data, 2: rear wheels, 3: and single tick, 4: and speed 
 #define ESF_PROVIDER         0x0000 // ESF-MEAS provider id 
 #define ESF_PERIOD_MS           100 // ESF-MEAS output rate in ms => 100 = 10Hz
 
@@ -69,8 +68,6 @@ const int8_t PINIDS[SIDES][PINS] = {
                               * 1e3 /* s/ms */ / ESF_PERIOD_MS /* mesurement perios ms */ \
                               / ESF_TICKS_PER_METER /* ticks / m */ )
 #define ESF_TICKtoSPEED(t) (int32_t)(ESF_TICKS_TO_MM_PER_S * t)
-#define ESF_SIZE            (8 + 4 * ESF_OUT_MEAS) // four measurements (e.g. RR, RL)
-#define ESF_FLAGS           (ESF_OUT_MEAS<<11)
 #define ESF_DATA_TICKS      0x007FFFFF
 #define ESF_DATA_DIRECTION  0x00800000
 #define ESF_DATA_TYPE       0xFF000000
@@ -90,27 +87,30 @@ uint32_t esfWt[ESF_MEAS_NUM];
 uint32_t esfMs;
 uint32_t esfTtag;
 
-size_t esfMeas(uint8_t* m) {
+size_t esfMeas(uint32_t* p, size_t num) {
   size_t i = 0;
+  uint8_t m[6 + 8 + (4 * num) + 2];  
   m[i++] = 0xB5; // µ
   m[i++] = 0x62; // b
   m[i++] = 0x10; // ESF
   m[i++] = 0x02; // MEAS
-  m[i++] = ESF_SIZE >> 0; 
-  m[i++] = ESF_SIZE >> 8;
+  uint16_t esfSize = (8 + 4 * num);
+  m[i++] = esfSize >> 0; 
+  m[i++] = esfSize >> 8;
   m[i++] = esfTtag >> 0;
   m[i++] = esfTtag >> 8;
   m[i++] = esfTtag >> 16;
   m[i++] = esfTtag >> 24;
-  m[i++] = ESF_FLAGS >> 0;
-  m[i++] = ESF_FLAGS >> 8;
+  uint16_t esfFlags = num << 11;
+  m[i++] = esfFlags >> 0;
+  m[i++] = esfFlags >> 8;
   m[i++] = ESF_PROVIDER >> 0;
   m[i++] = ESF_PROVIDER >> 8;
-  for (int s = 0; s < ESF_OUT_MEAS; s ++) {
-    m[i++] = esfWt[s] >> 0;
-    m[i++] = esfWt[s] >> 8;
-    m[i++] = esfWt[s] >> 16;
-    m[i++] = esfWt[s] >> 24;
+  for (int s = 0; s < num; s ++) {
+    m[i++] = p[s] >> 0;
+    m[i++] = p[s] >> 8;
+    m[i++] = p[s] >> 16;
+    m[i++] = p[s] >> 24;
   }
   uint8_t cka = 0;
   uint8_t ckb = 0;
@@ -120,7 +120,7 @@ size_t esfMeas(uint8_t* m) {
   }
   m[i++] = cka;
   m[i++] = ckb;
-  return i;
+  return Serial1.write(m, i);
 }
 
 void setup() {
@@ -224,9 +224,8 @@ void loop() {
       wt[s] = 0;
     }
     // assemble the UBX-ESF-MEAS message
-    uint8_t msg[6 + ESF_SIZE + 2];
-    size_t size = esfMeas(msg);
-    Serial1.write(msg, size);
+    esfMeas(&esfWt[LEFT], 2); // output LEFT and RIGHT wheel only, use (&esfWt[SINGLE],1) single tick or (&esfWt[SPEED],1) for speed 
+        
     // print the debug string
     Serial.println(buf);
   }
