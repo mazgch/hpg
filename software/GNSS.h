@@ -104,7 +104,7 @@ public:
             Log.info("GNSS dynModel MOWER");
             /* using https://github.com/mazgch/wtBox as hall sensor to WT converter
              *  
-              * example for BOSCH Indigo S+ 500
+             * example for BOSCH Indigo S+ 500
              * - wheel diameter:       ~16.5 cm
              * - wheel circumference:  ~53.0 cm 
              * - ticks per revolution:  1540 ticks

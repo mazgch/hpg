@@ -46,7 +46,17 @@ const int8_t PINIDS[SIDES][PINS] = {
     D7  // HALL_RR_A / BLUE
   },
 #else
-  #error "add the pins for your target here"
+  #error "add the pins for your target here, and make sure that TX1 is free and availble"
+  { // REAR LEFT (RL) WHEEL pins of hall sensors  
+    D2, // HALL_RL_A / BLUE 
+    D3, // HALL_RL_B / YELLOW 
+    D4  // HALL_RL_C / GREEN
+  },  
+  {  // REAR RIGHT (RR) WHEEL pins of hall sensors (reverse order)
+    D5, // HALL_RR_C / GREEN
+    D6, // HALL_RR_B / YELLOW, 
+    D7  // HALL_RR_A / BLUE
+  },
 #endif
 };
 
