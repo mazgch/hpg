@@ -8,7 +8,7 @@ The scooters from BOSCH can be easily modified to extract the Hall sensor signal
 
 ![Bosch lawn mower](Mower_Hack.png)
 
-To convert the Hall sensors signals to a ``UBX-ESF-MEAS`` a small Arduino MCU with at least 7 GPIOs is used. This code could be integrated with the main project but we don't have enough spare GPIOs on the hpg board and maybe it also better to avoid large delays in processing and sampling the Hall signals. For details about standalone software project go to [wtBox](../software/wtBox/). I used 1kOhm resistors to connect the wtBox to the Hall sensor wires of the mower, and also for the connection to the HPG board ``ZED RXI`` pin and ``GND`` pins. This reduces the risk for accidential issues in case one of the boards is msibehaving or off. The following picture shows how the board is connected to the wires, at the time of this photo the non defualt ``D8`` was used for ``D4 TX1 -> ESF-MEAS -> ZED RXI``, this was later changed to the default ``D4 TX1`` location that is also connected to the LED on the board.
+To convert the Hall sensors signals to a ``UBX-ESF-MEAS`` a small Arduino MCU with at least 7 GPIOs is used. This code could be integrated with the main project but we don't have enough spare GPIOs on the hpg board and maybe it also better to avoid large delays in processing and sampling the Hall signals. For details about standalone software project go to [wtBox](../software/wtBox/). I used 1kOhm resistors to connect the wtBox to the Hall sensor wires of the mower, and also for the connection to the HPG board ``ZED RXI`` pin and ``GND`` pins. This reduces the risk for accidential issues in case one of the boards is msibehaving or off. The following picture shows how the board is connected to the wires, at the time of this photo the non defualt ``D8`` was used for ``D4 TX1 -> ESF-MEAS -> ZED RXI``, this was later changed to the default ``D4 TX1`` location that is also connected to the LED on the board. In [``GNSS.h``](../software/GNSS.h) you need to set the ``dynModel = DYN_MODEL_MOWER`` that applies certain configurations required to ZED. 
 
 ![Bosch lawn mower](Mower_WtBox.png)
 
@@ -19,3 +19,5 @@ Here is the HPG board and antenna mounted to the mower. The GNSS antenna and the
 Below a short video of the mower and the monitor website in action. The first 10 minutes shows the calibration of the sensors and the wheel ticks, during this time, sensor fusion is initializing and calibrating. At position [9:50](https://youtu.be/d0S1z9fmatQ?t=590) the sensor fusion swiches into fusion mode and is now able to naviagte more reliably using the sensors and determine the heading or course over ground even while rotateing at its location. 
 
 [![HPG Mower with DWT and IMU Sensor Fusion Video](HPG_MowerPlay.png)](https://youtu.be/d0S1z9fmatQ)
+
+
