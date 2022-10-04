@@ -18,6 +18,7 @@ Here is the HPG board and antenna mounted to the mower. The GNSS antenna and the
 
 Below a short video of the mower and the monitor website in action. The first 10 minutes shows the calibration of the sensors and the wheel ticks, during this time, sensor fusion is initializing and calibrating. At position [9:50](https://youtu.be/d0S1z9fmatQ?t=590) the sensor fusion swiches into fusion mode and is now able to naviagte more reliably using the sensors and determine the heading or course over ground even while rotateing at its location. 
 
-[![HPG Mower with DWT and IMU Sensor Fusion Video](HPG_MowerPlay.png)](https://youtu.be/d0S1z9fmatQ)
+[![HPG Mower with IMU and DWT Sensor Fusion Video](HPG_MowerPlay2.png)](https://youtu.be/o-bJSjF51Sc)
 
+[![HPG Mower with IMU only Sensor Fusion Video](HPG_MowerPlay.png)](https://youtu.be/d0S1z9fmatQ)
 
