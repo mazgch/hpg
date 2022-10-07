@@ -84,7 +84,20 @@ public:
           size_t len = buffer.read((char*)temp, sizeof(temp));
           xSemaphoreGive(mutex);
           if (0 < len) {
+#if 1
             int ret = file.write(temp, len);
+#else
+            // Retry multiple times in case we run low on memory due to a temprorary large 
+            // buffer in the queue and hope this gets freed quite soon. 
+            long timeout = millis() + 400;
+            while (1) {
+              ^int ret = file.write(temp, len);
+              if ((ret != 0) || (timeout - millis() < 0))
+                break;
+              // just wait a bit
+              vTaskDelay(10);
+            }
+#endif
             if (len == ret) {
               Log.debug("UBXFILE \"%s\" writing %d bytes", file.name(), len);
               size += len;
