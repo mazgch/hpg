@@ -134,10 +134,5 @@ void loop()
 {
   LBand.poll();
   Gnss.poll();
-#ifdef __CANBUS_H__
-  Canbus.poll();
-  delay(10);
-#else
   delay(50);
-#endif
 }

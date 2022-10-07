@@ -22,70 +22,112 @@
 // Github Repository: https://github.com/sandeepmistry/arduino-CAN
 #include <CAN.h>
 
-const int CAN_TEST_ID  = 0x55;
-const int CAN_SPEED_ID = 0x55;
+/*  https://github.com/commaai/opendbc/ 
+ *  has lots of information on different car models. Extracting CAN data is highly 
+ *  vehicle specific and not standardized. You may need to change the code if ticks 
+ *  should be used or data spreads accross two messages.  
+ *  
+ *  e.g. BMW https://github.com/commaai/opendbc/blob/master/bmw_e9x_e8x.dbc
+ */
+const long CAN_FREQ     = 500000;
+const int CAN_MESSAGE_ID = 416 /* BMW*/; 
+#define CAN_SPEED(p)      (1e6/3600 /* kmh => mm/s */ *  0.103/* unit => km/h */ * (((p[1] & 0xF) << 8) | p[0]))
+#define CAN_REVERSE(p)    (0x10 == (p[1] & 0x10))
+
+#define CAN_ESF_MEAS_TXO LTE_DTR  // -> make a connection from this pin to ZED-RXI 
+
+extern class CANBUS Canbus;
 
 class CANBUS {
 public: 
   void init() {
-    // start the CAN bus at 500kbps
-    const int freq = 500E3; // use 250kbps in the Logic analyzer? unclear why
-    CAN.setPins(CAN_RX, CAN_TX);
-    if (!CAN.begin(freq)) {
-      Log.warning("CAN init failed");
-    } else {
-      Log.info("CAN init %d successful", freq);
-    }
-    CAN.observe();
-    // ATTENTION the callback is executed from an ISR only do essential things
-    CAN.onReceive(onPushESFMeas); 
-  }
-
-  void poll() {
-    //writeTestPacket(); // need to remove the CAN.observe mode above
+    xTaskCreatePinnedToCore(task, "Can",  1024,  this, 3,  NULL, 1);
   }
 
 protected:
-  void onPushESFMeas(int packetSize) {
-    if (!CAN.packetRtr() && (CAN.packetId() == CAN_SPEED_ID)) {
-      uint32_t ttag = millis();
+  typedef struct { uint32_t ttag; uint32_t data; } ESF_QUEUE_STRUCT;
+  
+  static void task(void * pvParameters) {
+    Canbus.queue  = xQueueCreate(2, sizeof(ESF_QUEUE_STRUCT));
+    Serial2.begin(38400, SERIAL_8N1, -1/*no input*/, CAN_ESF_MEAS_TXO);
+    CAN.setPins(CAN_RX, CAN_TX);
+    if (!CAN.begin(CAN_FREQ)) {
+      //Log.warning("CAN init failed");
+    } else {
+      //Log.info("CAN init %d successful", CAN_FREQ);
+    }
+    CAN.observe(); // make sure we never write
+    CAN.onReceive(Canbus.onPushESFMeasFromISR);
+    
+    while(1)
+    {
+      ESF_QUEUE_STRUCT meas;
+      if( xQueueReceive(Canbus.queue,&meas,portMAX_DELAY) == pdPASS ) {
+        Canbus.esfMeas(meas.ttag, &meas.data, 1);
+        //Log.info("CAN rx %d %08X", meas.ttag, meas.data);
+      }
+    }
+  }
+  
+  // ATTENTION the callback is executed from an ISR only do essential things
+  static void onPushESFMeasFromISR(int packetSize) {
+    if (!CAN.packetRtr() && (CAN.packetId() == CAN_MESSAGE_ID) && (packetSize <= 8)) {
+      uint32_t ms = millis();
       uint8_t packet[packetSize];
       for (int i = 0; i < packetSize; i ++) {
         packet[i] = CAN.read();
       }
-      uint32_t speed = ((0xF & packet[1]) << 8) + packet[0];  // speed  12 bits from 0
-      bool reverse = (0x10 & packet[1]) >> 4;        // bit 12 == moving reverse
-      Gnss.pushEsfMeas(ttag, speed, reverse);
-    }
-  }
-
-#if 0
-  void onPacketDump(int packetSize) {
-    char txt[packetSize+1] = "";
-    if (!CAN.packetRtr()) {
-      for (int i = 0; i < packetSize; i ++) {
-        char ch = CAN.read();
-        txt[i] = isprint(ch) ? ch : '?';
+      uint32_t speed = CAN_SPEED(packet);
+      bool reverse = CAN_REVERSE(packet);
+      speed = reverse ? -speed : speed;
+      ESF_QUEUE_STRUCT meas = { ms, (11/*SPEED*/ << 24)  | (speed & 0xFFFFFF) };
+      BaseType_t xHigherPriorityTaskWoken;
+      if (xQueueSendToBackFromISR(Canbus.queue,&meas,&xHigherPriorityTaskWoken) == pdPASS ) {
+        if(xHigherPriorityTaskWoken){
+          portYIELD_FROM_ISR();
+        }
       }
     }
-    else {
-      packetSize = CAN.packetDlc();
-      strcpy(txt, "RTR");
-    } 
-    Log.info("CAN read 0x%0*X %d \"%s\"", CAN.packetExtended() ? 8 : 3, CAN.packetId(), packetSize, txt);
   }
 
-  void writeTestPacket(void) {
-    int id = CAN_TEST_ID;
-    uint8_t test[9];
-    static uint8_t cnt = 0;
-    int len = sprintf((char*)test, "mazgch%02X", cnt++); 
-    CAN.beginPacket(id);
-    CAN.write(test, len);
-    CAN.endPacket();
-    Log.info("CAN write 0x%03X %d \"%s\"", id, len, test);
+  size_t esfMeas(uint32_t ttag, uint32_t* p, size_t num) {
+    size_t i = 0;
+    uint8_t m[6 + 8 + (4 * num) + 2];  
+    m[i++] = 0xB5; // µ
+    m[i++] = 0x62; // b
+    m[i++] = 0x10; // ESF
+    m[i++] = 0x02; // MEAS
+    uint16_t esfSize = (8 + 4 * num);
+    m[i++] = esfSize >> 0; 
+    m[i++] = esfSize >> 8;
+    m[i++] = ttag >> 0;
+    m[i++] = ttag >> 8;
+    m[i++] = ttag >> 16;
+    m[i++] = ttag >> 24;
+    uint16_t esfFlags = num << 11;
+    m[i++] = esfFlags >> 0;
+    m[i++] = esfFlags >> 8;
+    uint16_t esfProvider = 0;
+    m[i++] = esfProvider >> 0;
+    m[i++] = esfProvider >> 8;
+    for (int s = 0; s < num; s ++) {
+      m[i++] = p[s] >> 0;
+      m[i++] = p[s] >> 8;
+      m[i++] = p[s] >> 16;
+      m[i++] = p[s] >> 24;
+    }
+    uint8_t cka = 0;
+    uint8_t ckb = 0;
+    for (int c = 2; c < i; c++) {
+      cka += m[c];
+      ckb += cka;
+    }
+    m[i++] = cka;
+    m[i++] = ckb;
+    return Serial2.write(m, i);
   }
-#endif
+
+  xQueueHandle queue;
 };
 
 CANBUS Canbus;

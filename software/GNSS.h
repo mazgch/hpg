@@ -67,7 +67,6 @@ public:
     for (int i = 0; i < NUM_SOURCE; i ++) {
       ttagSource[i] = ttagNextTry - GNSS_CORRECTION_TIMEOUT;
     }
-    esfData.ready = false;
   }
 
   bool detect() {
@@ -102,23 +101,32 @@ public:
           GNSS_CHECK = rx.setVal(UBLOX_CFG_NAVSPG_DYNMODEL,  dynModel, VAL_LAYER_RAM);
           if (dynModel == DYN_MODEL_MOWER) {
             Log.info("GNSS dynModel MOWER");
-            /* using https://github.com/mazgch/wtBox as hall sensor to WT converter
+            /*  using wtBox.ino as hall sensor to WT converter,  ESF-MEAS is injected over ZED-RX1
              *  
              * example for BOSCH Indigo S+ 500
              * - wheel diameter:       ~16.5 cm
              * - wheel circumference:  ~53.0 cm 
              * - ticks per revolution:  1540 ticks
             */
-            const int32_t odoFactor = (uint32_t)( ( 0.53 /* wheel circumference m */ 
-                                                   * 1e6 /* scale value to unit needed */ 
-                                                  / 1540 /* ticks per revolution */
-                                                     / 2 /* left and right wheel */) );
+            const int32_t odoFactor = (uint32_t)( 0.53 /* wheel circumference m */ 
+                                                 * 1e6 /* scale value to unit needed */ 
+                                                / 1540 /* ticks per revolution */
+                                                   / 2 /* left and right wheel */);
             GNSS_CHECK = rx.setVal32(UBLOX_CFG_SFODO_FACTOR, odoFactor, VAL_LAYER_RAM);
             GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_COMBINE_TICKS,    1, VAL_LAYER_RAM);
             GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_DIS_AUTODIRPINPOL,1, VAL_LAYER_RAM);
           } else if (dynModel == DYN_MODEL_ESCOOTER) {
             // do whateever you need to do
             Log.info("GNSS dynModel ESCOOTER");
+          } else if (dynModel == DYN_MODEL_AUTOMOTIVE) {
+            /*  We assume we use CANBUS.h to inject speed extracted from the CAN bus as ESF-MEAS 
+             *  to the GNSS. if this is not the case change the settings here, if ticks are used, 
+             *  you should also set the UBLOX_CFG_SFODO_FACTOR factor. 
+             *  
+             *  You can use the canEmu.ino to create a test setup for can injecton. 
+             */
+            GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_DIS_AUTOSW,        0, VAL_LAYER_RAM); // enable it
+            Log.info("GNSS dynModel AUTOMOTIVE");
           } else {
             Log.info("GNSS dynModel %d", dynModel);
           }
@@ -176,7 +184,6 @@ public:
       }
     }
     if (online) {
-      sendEsfMeas();
       rx.checkUblox();
       rx.checkCallbacks();
       if (online) {
@@ -255,40 +262,14 @@ public:
 #endif
     }
   }
-
-  void sendEsfMeas(void) {
-    if (esfData.ready) {
-      UBX_ESF_MEAS_data_t message;
-      memset(&message, 0, sizeof(message));
-      message.timeTag = esfData.ttag;
-      message.flags.bits.numMeas = 1;
-      message.data[0].data.bits.dataField = (esfData.reverse ? (1<<24) : 0) | (esfData.speed & 0x7FFFFF); 
-      message.data[0].data.bits.dataType = 11; // 11 = Speed
-      ubxPacket packetEsfMeas = {UBX_CLASS_ESF, UBX_ESF_MEAS, 12, 0, 0, (uint8_t*)&message, 
-          0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
-      rx.sendCommand(&packetEsfMeas, 0); // don't expect ACK
-      esfData.ready = false;
-    }
-  }
-
-  void pushEsfMeas(uint32_t ttag, uint32_t speed, bool reverse) {
-    if (!esfData.ready) {
-      esfData.ttag = ttag;
-      esfData.speed = speed;
-      esfData.reverse = reverse;
-      esfData.ready = true;
-    }
-  }
   
 protected:
-  
   bool online;
   long ttagNextTry;
   long ttagSource[NUM_SOURCE];
   SOURCE curSource;
   xQueueHandle queue;
   SFE_UBLOX_GNSS rx;
-  struct { uint32_t ttag; uint32_t speed; bool reverse; bool ready; } esfData;
 };
 
 GNSS Gnss;
