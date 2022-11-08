@@ -29,7 +29,7 @@
 
 #define MAZGCH_HPG_SOLUTION_V08              0 // Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
 #define MAZGCH_HPG_SOLUTION_V09              1 // Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
-#define MAZGCH_HPG_SOLUTION_V10              2 // Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
+#define MAZGCH_HPG_SOLUTION_C214_revA        2 // Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
 
 #define MAZGCH_HPG_MODULAR_V01               5 // Select ESP32 Arduino / u-blox NORA-W10 series (ESP32-S3), LTE in slot 1
 
@@ -81,14 +81,14 @@ enum HW_PINS {
     MICROSD_SCK = 18,  MICROSD_SDI    = 19,  MICROSD_SDO = 23,   
     MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
     
-#elif (HW_TARGET == MAZGCH_HPG_SOLUTION_V10)
+#elif (HW_TARGET == MAZGCH_HPG_SOLUTION_C214_revA)
     // LTE (DCE)
-    LTE_RESET   = 12,  LTE_PWR_ON     = 13,  LTE_ON      = 37,  LTE_INT = -1,
-    LTE_TXI     = 25,  LTE_RXO        = 26,  LTE_RTS     = 27,  LTE_CTS = 36, 
-    LTE_RI      = 34,  LTE_DSR        = 39,  LTE_DCD     = 14,  LTE_DTR = 15,
+    LTE_RESET   = 33,  LTE_PWR_ON     = 26,  LTE_ON      = 37,  LTE_INT = -1,
+    LTE_TXI     = 25,  LTE_RXO        = 34,  LTE_RTS     = 27,  LTE_CTS = 36, 
+    LTE_RI      = 12,  LTE_DSR        = 13,  LTE_DCD     = 14,  LTE_DTR = 15,
 
     // Power supply
-    VIN         = 35,  V33_EN         = 33,
+    VIN         = 35,  V33_EN         = -1,
     
     // Micro SD card
     MICROSD_SCK = 18,  MICROSD_SDI    = 19,  MICROSD_SDO = 23,   
