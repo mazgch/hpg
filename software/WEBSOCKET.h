@@ -97,7 +97,7 @@ public:
     bool loop;
     do {
       loop = false;
-      if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
         uint8_t temp[UBXFILE_BLOCK_SIZE];
         size_t len = buffer.read((char*)temp, sizeof(temp));
         xSemaphoreGive(mutex);
@@ -137,14 +137,14 @@ public:
   // Stream
   size_t write(uint8_t ch) override {
     size_t size = sizeof(ch);
-    if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
       size = buffer.write(ch);
       xSemaphoreGive(mutex);
     }
     return size;
   }
   size_t write(const uint8_t *ptr, size_t size) override {
-    if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
       size = buffer.write((const char*)ptr, size);
       xSemaphoreGive(mutex);
     }

@@ -79,21 +79,22 @@ public:
   }
 
   void poll() {
-    xSemaphoreTake(mutex, portMAX_DELAY); 
-    if (Serial.available()) {
-      Serial1.write("ATE1\r\n");
-      while (true) {
-        if (Serial.available()) {
-          char ch = Serial.read();
-          Serial1.write(ch);
-        }
-        if (Serial1.available()) {
-          char ch = Serial1.read();
-          Serial.write(ch);
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      if (Serial.available()) {
+        Serial1.write("ATE1\r\n");
+        while (true) {
+          if (Serial.available()) {
+            char ch = Serial.read();
+            Serial1.write(ch);
+          }
+          if (Serial1.available()) {
+            char ch = Serial1.read();
+            Serial.write(ch);
+          }
         }
       }
+      xSemaphoreGive(mutex);
     }
-    xSemaphoreGive(mutex);
   }
   
 protected:
@@ -116,20 +117,21 @@ protected:
           temp[len-3] = temp[len-2] = temp[len-1] = '.';
         }
       }
-      xSemaphoreTake(mutex, portMAX_DELAY); 
-      if (NULL != stream) {
-        if (l <= LOG_LEVEL_WARNING) {
-          HW_DBG_HI(HW_DBG_LOG_ERR);
+      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+        if (NULL != stream) {
+          if (l <= LOG_LEVEL_WARNING) {
+            HW_DBG_HI(HW_DBG_LOG_ERR);
+          }
+          if      (l == LOG_LEVEL_ERROR)   stream->print(F("ERROR: "));
+          else if (l == LOG_LEVEL_WARNING) stream->print(F("WARNING:  "));
+          else if (l == LOG_LEVEL_INFO)    stream->print(F("INFO:  "));
+          else if (l == LOG_LEVEL_DEBUG)   stream->print(F("DEBUG: "));
+          stream->write(buf, len);
+          stream->println();
+          HW_DBG_LO(HW_DBG_LOG_ERR);
         }
-        if      (l == LOG_LEVEL_ERROR)   stream->print(F("ERROR: "));
-        else if (l == LOG_LEVEL_WARNING) stream->print(F("WARNING:  "));
-        else if (l == LOG_LEVEL_INFO)    stream->print(F("INFO:  "));
-        else if (l == LOG_LEVEL_DEBUG)   stream->print(F("DEBUG: "));
-        stream->write(buf, len);
-        stream->println();
-        HW_DBG_LO(HW_DBG_LOG_ERR);
+        xSemaphoreGive(mutex);
       }
-      xSemaphoreGive(mutex); 
       if (buf != temp) {
           free(buf);
       }

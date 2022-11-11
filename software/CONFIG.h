@@ -119,29 +119,31 @@ public:
   }
 
   void reset(void) {
-    xSemaphoreTake(mutex, portMAX_DELAY); 
-    if (ffsOk) {
-      if (SPIFFS.exists(CONFIG_FFS_FILE)) {
-        SPIFFS.remove(CONFIG_FFS_FILE);
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      if (ffsOk) {
+        if (SPIFFS.exists(CONFIG_FFS_FILE)) {
+          SPIFFS.remove(CONFIG_FFS_FILE);
+        }
       }
+      xSemaphoreGive(mutex);
     }
-    xSemaphoreGive(mutex);
   }
   
   bool save(void) {
     int len = -1;
-    xSemaphoreTake(mutex, portMAX_DELAY); 
-    if (ffsOk) {
-      if (SPIFFS.exists(CONFIG_FFS_FILE)) {
-        SPIFFS.remove(CONFIG_FFS_FILE);
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      if (ffsOk) {
+        if (SPIFFS.exists(CONFIG_FFS_FILE)) {
+          SPIFFS.remove(CONFIG_FFS_FILE);
+        }
+        File file = SPIFFS.open(CONFIG_FFS_FILE, FILE_WRITE);
+        if (file) {
+          len = serializeJson(json, file);
+          file.close();
+        }
       }
-      File file = SPIFFS.open(CONFIG_FFS_FILE, FILE_WRITE);
-      if (file) {
-        len = serializeJson(json, file);
-        file.close();
-      }
+      xSemaphoreGive(mutex);
     }
-    xSemaphoreGive(mutex);
     if (-1 == len) {
       Log.error("CONFIG::save \"FFS%s\" open failed", CONFIG_FFS_FILE);
     } else if (0 == len) {
@@ -155,16 +157,17 @@ public:
   bool read(void) {
     bool openOk = false;
     DeserializationError err = DeserializationError::EmptyInput;
-    xSemaphoreTake(mutex, portMAX_DELAY); 
-    if (ffsOk && SPIFFS.exists(CONFIG_FFS_FILE)) {
-      File file = SPIFFS.open(CONFIG_FFS_FILE, FILE_READ);
-      if (file) {
-        openOk = true;
-        err = deserializeJson(json, file);
-        file.close();
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      if (ffsOk && SPIFFS.exists(CONFIG_FFS_FILE)) {
+        File file = SPIFFS.open(CONFIG_FFS_FILE, FILE_READ);
+        if (file) {
+          openOk = true;
+          err = deserializeJson(json, file);
+          file.close();
+        }
       }
+      xSemaphoreGive(mutex);
     }
-    xSemaphoreGive(mutex);
     if (!openOk) {
       Log.debug("CONFIG::read \"FFS&s\" open failed", CONFIG_FFS_FILE);
     } else if (DeserializationError::Ok != err) {
@@ -176,21 +179,26 @@ public:
   }
 
   String getValue(const char *param) {
-    xSemaphoreTake(mutex, portMAX_DELAY); 
-    String str = json.containsKey(param) ? json[param] : String();
-    xSemaphoreGive(mutex);
+    String str;
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      str = json.containsKey(param) ? json[param] : String();
+      xSemaphoreGive(mutex);
+    }
     Log.debug("CONFIG::getValue %s = \"%s\"", param, str.c_str());
     return str;
   }
   
   bool setValue(const char *param, String value) {
-    xSemaphoreTake(mutex, portMAX_DELAY); 
-    String old = json.containsKey(param) ? json[param] : String();
-    bool changed = !old.equals(value);
-    if (changed) {
-      json[String(param)] = value;
+    String old;
+    bool changed = false;
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) { 
+      old = json.containsKey(param) ? json[param] : String();
+      changed = !old.equals(value);
+      if (changed) {
+        json[String(param)] = value;
+      }
+      xSemaphoreGive(mutex); 
     }
-    xSemaphoreGive(mutex); 
     if (changed) {
       Log.debug("CONFIG::setValue %s changed from \"%s\" to \"%s\"", param, old.c_str(), value.c_str()); 
     } else {
@@ -201,12 +209,13 @@ public:
 
   bool delValue(const char *param) {
     bool changed = false;
-    xSemaphoreTake(mutex, portMAX_DELAY); 
-    changed = json.containsKey(param);
-    if (changed) {
-      json.remove(param);
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      changed = json.containsKey(param);
+      if (changed) {
+        json.remove(param);
+      }
+      xSemaphoreGive(mutex); 
     }
-    xSemaphoreGive(mutex); 
     if (changed) {
       Log.debug("CONFIG::delValue %s", param);
     }
@@ -238,11 +247,15 @@ public:
   
   std::vector<String> getTopics(void)
   { 
-    xSemaphoreTake(mutex, portMAX_DELAY); 
-    String stream = json.containsKey(CONFIG_VALUE_STREAM) ? json[CONFIG_VALUE_STREAM] : String();
-    String region = json.containsKey(CONFIG_VALUE_REGION) ? json[CONFIG_VALUE_REGION] : POINTPERFECT_REGIONS[0].region;
-    String source = json.containsKey(CONFIG_VALUE_USESOURCE) ? json[CONFIG_VALUE_USESOURCE] : String();
-    xSemaphoreGive(mutex); 
+    String stream;
+    String region;
+    String source;
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      stream = json.containsKey(CONFIG_VALUE_STREAM) ? json[CONFIG_VALUE_STREAM] : String();
+      region = json.containsKey(CONFIG_VALUE_REGION) ? json[CONFIG_VALUE_REGION] : POINTPERFECT_REGIONS[0].region;
+      source = json.containsKey(CONFIG_VALUE_USESOURCE) ? json[CONFIG_VALUE_USESOURCE] : String();
+      xSemaphoreGive(mutex); 
+    }
     std::vector<String> topics;
     topics.push_back(MQTT_TOPIC_MGA);
     if (0 < stream.length()) {
@@ -260,9 +273,11 @@ public:
   }
   
   int getFreq(void) {
-    xSemaphoreTake(mutex, portMAX_DELAY); 
-    int freq = json.containsKey(CONFIG_VALUE_FREQ) ? json[CONFIG_VALUE_FREQ] : POINTPERFECT_REGIONS[0].freq;
-    xSemaphoreGive(mutex); 
+    int freq = -1;
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      freq = json.containsKey(CONFIG_VALUE_FREQ) ? json[CONFIG_VALUE_FREQ] : POINTPERFECT_REGIONS[0].freq;
+      xSemaphoreGive(mutex); 
+    }
     return freq;
   }
   
@@ -281,26 +296,27 @@ public:
         }
       }
     } 
-    xSemaphoreTake(mutex, portMAX_DELAY); 
     bool changed = false;
-    if (region) {
-      String oldRegion = json.containsKey(CONFIG_VALUE_REGION) ? json[CONFIG_VALUE_REGION] : String();
-      if (!oldRegion.equals(region)) {
-        json[CONFIG_VALUE_REGION] = region;
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      if (region) {
+        String oldRegion = json.containsKey(CONFIG_VALUE_REGION) ? json[CONFIG_VALUE_REGION] : String();
+        if (!oldRegion.equals(region)) {
+          json[CONFIG_VALUE_REGION] = region;
+          changed = true;
+        }
+      } else if (json.containsKey(CONFIG_VALUE_REGION)) { // we leave coverage area
+        json.remove(CONFIG_VALUE_REGION);
         changed = true;
       }
-    } else if (json.containsKey(CONFIG_VALUE_REGION)) { // we leave coverage area
-      json.remove(CONFIG_VALUE_REGION);
-      changed = true;
-    }
-    if (freq) {
-      int oldFreq = json.containsKey(CONFIG_VALUE_FREQ) ? json[CONFIG_VALUE_FREQ] : 0;
-      if (freq != oldFreq) {
-          json[CONFIG_VALUE_FREQ] = freq;
-          changed = true;
+      if (freq) {
+        int oldFreq = json.containsKey(CONFIG_VALUE_FREQ) ? json[CONFIG_VALUE_FREQ] : 0;
+        if (freq != oldFreq) {
+            json[CONFIG_VALUE_FREQ] = freq;
+            changed = true;
+        }
       }
+      xSemaphoreGive(mutex); 
     }
-    xSemaphoreGive(mutex); 
     if (changed) {
       Log.info("CONFIG::updateLocation \"%s\" freq %d", region ? region : "", freq);
       save();
@@ -308,14 +324,15 @@ public:
   }
  
   void delZtp(void) {
-    xSemaphoreTake(mutex, portMAX_DELAY); 
-    json.remove(CONFIG_VALUE_BROKERHOST);
-    json.remove(CONFIG_VALUE_STREAM);
-    json.remove(CONFIG_VALUE_ROOTCA);
-    json.remove(CONFIG_VALUE_CLIENTCERT);
-    json.remove(CONFIG_VALUE_CLIENTKEY);
-    json.remove(CONFIG_VALUE_CLIENTID);
-    xSemaphoreGive(mutex); 
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      json.remove(CONFIG_VALUE_BROKERHOST);
+      json.remove(CONFIG_VALUE_STREAM);
+      json.remove(CONFIG_VALUE_ROOTCA);
+      json.remove(CONFIG_VALUE_CLIENTCERT);
+      json.remove(CONFIG_VALUE_CLIENTKEY);
+      json.remove(CONFIG_VALUE_CLIENTID);
+      xSemaphoreGive(mutex); 
+    }
     Log.info("CONFIG::delZtp");
   }
   
@@ -339,14 +356,15 @@ public:
       bool lband = jsonZtp["supportsLband"];
       if (cert.length() && key.length() && id.length() && broker.length() && rootCa.length()) {
         Log.info("CONFIG::setZtp complete clientId is \"%s\"", id.c_str());
-        xSemaphoreTake(mutex, portMAX_DELAY); 
-        json[CONFIG_VALUE_BROKERHOST] = broker;
-        json[CONFIG_VALUE_STREAM]     = lband ? MQTT_STREAM_LBAND : MQTT_STREAM_IP;
-        json[CONFIG_VALUE_ROOTCA]     = rootCa;
-        json[CONFIG_VALUE_CLIENTCERT] = cert;
-        json[CONFIG_VALUE_CLIENTKEY]  = key;
-        json[CONFIG_VALUE_CLIENTID]   = id;
-        xSemaphoreGive(mutex); 
+        if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+          json[CONFIG_VALUE_BROKERHOST] = broker;
+          json[CONFIG_VALUE_STREAM]     = lband ? MQTT_STREAM_LBAND : MQTT_STREAM_IP;
+          json[CONFIG_VALUE_ROOTCA]     = rootCa;
+          json[CONFIG_VALUE_CLIENTCERT] = cert;
+          json[CONFIG_VALUE_CLIENTKEY]  = key;
+          json[CONFIG_VALUE_CLIENTID]   = id;
+          xSemaphoreGive(mutex); 
+        }
         save();
       } else {
         Log.error("CONFIG::setZtp some json fields missing");
@@ -356,9 +374,11 @@ public:
   }
 
   String ztpRequest(void) {
-    xSemaphoreTake(mutex, portMAX_DELAY); 
-    String token = json.containsKey(CONFIG_VALUE_ZTPTOKEN) ? json[CONFIG_VALUE_ZTPTOKEN] : String();
-    xSemaphoreGive(mutex); 
+    String token;
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      token = json.containsKey(CONFIG_VALUE_ZTPTOKEN) ? json[CONFIG_VALUE_ZTPTOKEN] : String();
+      xSemaphoreGive(mutex); 
+    }
     String str;
     if (token.length()) {
       DynamicJsonDocument json(256);

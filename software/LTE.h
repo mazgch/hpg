@@ -186,7 +186,7 @@ public:
       }  
       delay(DETECT_DELAY);
     }
-    Log.info(ready ? "LTE ready" : "LTE not ready %d %d %d", lastRxo, lastOn, lastCts); 
+    Log.info(ready ? "LTE ready" : "LTE not ready RXO PWRON CTS : %d %d %d != 1 0 0", lastRxo, lastOn, lastCts); 
     
     bool ok = false;
     if (ready) {
@@ -200,8 +200,11 @@ public:
         String version = getFirmwareVersion();
         Log.info("LTE config manufacturer \"%s\" model=\"%s\" version=\"%s\"", 
             getManufacturerID().c_str(), module.c_str(), version.c_str());
-        if (version.equals("00.11")) {
-          Log.error("LTE firmware %s has MQTT limitations, please update firmware", version.c_str());
+        if ((version.toDouble() < 0.13) && module.startsWith("LARA-R6")) {
+          Log.error("LTE LARA firmware %s has MQTT limitations, please update firmware", version.c_str());
+        }
+        else if ((version.toDouble() < 2.00) && module.startsWith("LENA-R8")) {
+          Log.error("LTE LENA firmware %s has limitations, please update firmware", version.c_str());
         }
 #if (HW_TARGET == MAZGCH_HPG_SOLUTION_V09)
         //enableSIMDetectAndHotswap();
@@ -280,11 +283,13 @@ public:
           break;
         case SIMREADY:
           {
-            String mno = Config.getValue(CONFIG_VALUE_MNOPROF);
-            if (mno.length()) {
-              mobile_network_operator_t eMno = (mobile_network_operator_t)mno.toInt();
-              if (!setNetworkProfile(eMno)) {
-                Log.error("LTE detect setting network profile for MNO %d failed", eMno);
+            if (!module.startsWith("LENA-R8")) {
+              String mno = Config.getValue(CONFIG_VALUE_MNOPROF);
+              if (mno.length()) {
+                mobile_network_operator_t eMno = (mobile_network_operator_t)mno.toInt();
+                if (!setNetworkProfile(eMno)) {
+                  Log.error("LTE detect setting network profile for MNO %d failed", eMno);
+                }
               }
             }
 
@@ -319,11 +324,18 @@ public:
           }
           break;
         case REGISTERED:
-          if (module.startsWith("LARA-R6")) {
+          if (!module.startsWith("SARA-R5")) {
             String apn;
             IPAddress ip(0, 0, 0, 0);
             SARA_R5_pdp_type pdpType = PDP_TYPE_INVALID;
-            getAPN(0, &apn, &ip, &pdpType);
+            SARA_R5_error_t err = getAPN(0, &apn, &ip, &pdpType);
+            // on LENA-R8 we need to move the context to a different context id other than 0
+            if (module.startsWith("LENA-R8") && (err == SARA_R5_SUCCESS) && (0 < apn.length())) {
+              const uint8_t cid = 5;
+              setAPN(apn, cid, pdpType);
+              Log.info("LTE set and activate context %d with apn \"%s\" pdp %d", cid, apn.c_str(), pdpType);                
+              activatePDPcontext(true, cid);
+            }
             setState(ACTIVATED);
           } else {
             ttagNextTry = now + LTE_ACTIVATION_RETRY;
@@ -356,40 +368,44 @@ public:
           {
             ttagNextTry = now + LTE_HTTPZTP_RETRY;
             String id = Config.getValue(CONFIG_VALUE_CLIENTID);
-            if (id.length()) {
+            if (0 < id.length()) {
+              disconnectMQTT(); // make sure we are disconnected 
               setState(PROVISIONED);
             } else {
               String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
-              if (!rootCa.length()) {
+              if (0 == rootCa.length()) {
                 Log.info("LTE HTTP AWS connect to \"%s\" and GET", AWSTRUST_ROOTCAURL);
                 setHTTPCommandCallback(httpCallback);
-                String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
     /* step */  LTE_CHECK_INIT;
-    /*  1   */  LTE_CHECK = resetSecurityProfile(LTE_SEC_PROFILE_HTTP);
+    /*  1   */  LTE_CHECK = LTE_IGNORE_LENA(resetSecurityProfile(LTE_SEC_PROFILE_HTTP));
     /*  2   */  LTE_CHECK = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL, SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_NO); // no certificate and url/sni check
-    /*  3   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_SNI, AWSTRUST_SERVER);
-    /*  4   */  LTE_CHECK = resetHTTPprofile(LTE_HTTP_PROFILE);
-    /*  5   */  LTE_CHECK = setHTTPserverName(LTE_HTTP_PROFILE, AWSTRUST_SERVER);
-    /*  6   */  LTE_CHECK = setHTTPsecure(LTE_HTTP_PROFILE, true, LTE_SEC_PROFILE_HTTP);
-    /*  7   */  LTE_CHECK = sendHTTPGET(LTE_HTTP_PROFILE, AWSTRUST_ROOTCAPATH, FILE_RESP);
+    /*  3   */  LTE_CHECK = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,        SARA_R5_SEC_PROFILE_TLS_OPCODE_VER1_2);
+    /*  4   */  LTE_CHECK = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,   SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
+    /*  5   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_SNI,      AWSTRUST_SERVER);
+    /*  6   */  LTE_CHECK = resetHTTPprofile(LTE_HTTP_PROFILE);
+    /*  7   */  LTE_CHECK = setHTTPserverName(LTE_HTTP_PROFILE, AWSTRUST_SERVER);
+    /*  8   */  LTE_CHECK = setHTTPsecure(LTE_HTTP_PROFILE, true, LTE_SEC_PROFILE_HTTP);
+    /*  9   */  LTE_CHECK = sendHTTPGET(LTE_HTTP_PROFILE, AWSTRUST_ROOTCAPATH, FILE_RESP);
                 LTE_CHECK_EVAL("LTE HTTP AWS request");
               } else {
                 String str = Config.ztpRequest(); 
-                if (str.length()) {
+                if (0 < str.length()) {
                   Log.info("LTE HTTP ZTP connect to \"%s\" and POST \"%s\"", THINGSTREAM_ZTPURL, str.c_str());
                   setHTTPCommandCallback(httpCallback);
       /* step */  LTE_CHECK_INIT;
-      /*  1   */  LTE_CHECK = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_SERVER_CERT, SEC_ROOT_CA, rootCa);
-      /*  2   */  LTE_CHECK = resetSecurityProfile(LTE_SEC_PROFILE_HTTP);
+      /*  1   */  LTE_CHECK = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_ROOTCA,     SEC_ROOT_CA, rootCa);
+      /*  2   */  LTE_CHECK = LTE_IGNORE_LENA(resetSecurityProfile(LTE_SEC_PROFILE_HTTP));
       /*  3   */  LTE_CHECK = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL, SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_YESNOURL);
-      /*  4   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_ROOT_CA, SEC_ROOT_CA);
-      /*  5   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_SNI, THINGSTREAM_SERVER);
+      /*  4   */  LTE_CHECK = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,        SARA_R5_SEC_PROFILE_TLS_OPCODE_VER1_2);
+      /*  5   */  LTE_CHECK = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,   SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
+      /*  6   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_ROOT_CA,  SEC_ROOT_CA);
+      /*  7   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_SNI,      THINGSTREAM_SERVER);
                   deleteFile(FILE_REQUEST); // okay if this fails
-      /*  6   */  LTE_CHECK = appendFileContents(FILE_REQUEST, str);
-      /*  7   */  LTE_CHECK = resetHTTPprofile(LTE_HTTP_PROFILE);
-      /*  8   */  LTE_CHECK = setHTTPserverName(LTE_HTTP_PROFILE, THINGSTREAM_SERVER);
-      /*  9   */  LTE_CHECK = setHTTPsecure(LTE_HTTP_PROFILE, true,LTE_SEC_PROFILE_HTTP);
-      /* 10   */  LTE_CHECK = sendHTTPPOSTfile(LTE_HTTP_PROFILE, THINGSTREAM_ZTPPATH, FILE_RESP, FILE_REQUEST, SARA_R5_HTTP_CONTENT_APPLICATION_JSON);
+      /*  8   */  LTE_CHECK = appendFileContents(FILE_REQUEST, str);
+      /*  9   */  LTE_CHECK = resetHTTPprofile(LTE_HTTP_PROFILE);
+      /* 10   */  LTE_CHECK = setHTTPserverName(LTE_HTTP_PROFILE, THINGSTREAM_SERVER);
+      /* 11   */  LTE_CHECK = setHTTPsecure(LTE_HTTP_PROFILE, true, LTE_SEC_PROFILE_HTTP);
+      /* 12   */  LTE_CHECK = sendHTTPPOSTfile(LTE_HTTP_PROFILE, THINGSTREAM_ZTPPATH, FILE_RESP, FILE_REQUEST, SARA_R5_HTTP_CONTENT_APPLICATION_JSON);
                   LTE_CHECK_EVAL("LTE HTTP ZTP request");
                 }
               }
@@ -400,7 +416,7 @@ public:
           {
             ttagNextTry = now + LTE_MQTTCONNECT_RETRY;
             String id = Config.getValue(CONFIG_VALUE_CLIENTID);
-            if (id.length()) {
+            if (0 < id.length()) {
               String useSource = Config.getValue(CONFIG_VALUE_USESOURCE);
               if ((-1 != useSource.indexOf("LTE")) && ((-1 == useSource.indexOf("WLAN")) || (WiFi.status() != WL_CONNECTED))) {
                 String broker = Config.getValue(CONFIG_VALUE_BROKERHOST);
@@ -409,24 +425,23 @@ public:
                 String cert = Config.getValue(CONFIG_VALUE_CLIENTCERT);
                 String key = Config.getValue(CONFIG_VALUE_CLIENTKEY);
                 setMQTTCommandCallback(mqttCallback);
-                disconnectMQTT();
     /* step */  LTE_CHECK_INIT;
-    /*  1   */  LTE_CHECK = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_SERVER_CERT,    SEC_ROOT_CA,     rootCa);
+    /*  1   */  LTE_CHECK = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_ROOTCA,         SEC_ROOT_CA,     rootCa);
     /*  2   */  LTE_CHECK = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_CLIENT_CERT,    SEC_CLIENT_CERT, cert);
     /*  3   */  LTE_CHECK = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_CLIENT_KEY,     SEC_CLIENT_KEY,  key);
-    /*  4   */  LTE_CHECK = resetSecurityProfile(LTE_SEC_PROFILE_MQTT);
+    /*  4   */  LTE_CHECK = LTE_IGNORE_LENA(resetSecurityProfile(LTE_SEC_PROFILE_MQTT));
     /*  5   */  LTE_CHECK = configSecurityProfile(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL,     SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_YESNOURL);
-//              LTE_CHECK = configSecurityProfile(LTE_SEC_PROFILE_MQTT,   SARA_R5_SEC_PROFILE_PARAM_TLS_VER,          SARA_R5_SEC_PROFILE_TLS_OPCODE_VER1_2); // default
-//              LTE_CHECK = configSecurityProfile(LTE_SEC_PROFILE_MQTT,   SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,     SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT); // default
-    /*  6   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_ROOT_CA,      SEC_ROOT_CA);
-    /*  7   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_CLIENT_CERT,  SEC_CLIENT_CERT);
-    /*  8   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_CLIENT_KEY,   SEC_CLIENT_KEY);
-    /*  9   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_SNI,          broker);
-    /* 10   */  LTE_CHECK = nvMQTT(SARA_R5_MQTT_NV_RESTORE);
-    /* 11   */  LTE_CHECK = setMQTTclientId(id);
-    /* 12   */  LTE_CHECK = setMQTTserver(broker, MQTT_BROKER_PORT);
-    /* 13   */  LTE_CHECK = setMQTTsecure(true, LTE_SEC_PROFILE_MQTT);
-    /* 14   */  LTE_CHECK = connectMQTT();
+    /*  6   */  LTE_CHECK = configSecurityProfile(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,            SARA_R5_SEC_PROFILE_TLS_OPCODE_VER1_2);
+    /*  7   */  LTE_CHECK = configSecurityProfile(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,       SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
+    /*  8   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_ROOT_CA,      SEC_ROOT_CA);
+    /*  9   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_CLIENT_CERT,  SEC_CLIENT_CERT);
+    /* 10   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_CLIENT_KEY,   SEC_CLIENT_KEY);
+    /* 11   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_SNI,          broker);
+    /* 12   */  LTE_CHECK = nvMQTT(SARA_R5_MQTT_NV_RESTORE);
+    /* 13   */  LTE_CHECK = setMQTTclientId(id);
+    /* 14   */  LTE_CHECK = setMQTTserver(broker, MQTT_BROKER_PORT);
+    /* 15   */  LTE_CHECK = setMQTTsecure(true, LTE_SEC_PROFILE_MQTT);
+    /* 16   */  LTE_CHECK = connectMQTT();
                 LTE_CHECK_EVAL("LTE MQTT setup and connect");
                 mqttMsgs = 0;
                 topics.clear();
@@ -448,7 +463,7 @@ public:
             String useSource = Config.getValue(CONFIG_VALUE_USESOURCE);
             /// only stay in this mode if we are not connected by WI-FI
             bool noWlan = WiFi.status() != WL_CONNECTED;
-            if (id.length() && (-1 != useSource.indexOf("LTE")) && ((-1 == useSource.indexOf("WLAN")) || noWlan)) {
+            if ((0 < id.length()) && (-1 != useSource.indexOf("LTE")) && ((-1 == useSource.indexOf("WLAN")) || noWlan)) {
               // the LTE modem has difficulties subscribing/unsubscribing more than one topic at the same time
               bool busy = (0 < subTopic.length()) || (0 < unsubTopic.length());
               if (!busy) {
@@ -526,7 +541,7 @@ public:
                 }
               }
             } else {
-              if (!id.length()) {
+              if (0 == id.length()) {
                 Log.info("LTE not provisioned in state %s", STATE_LUT[state]);
               } else {  
                 Log.info("LTE source %s wlan %s", useSource.c_str(), noWlan ? "NO" : "YES");             
@@ -634,7 +649,7 @@ protected:
       if (SARA_R5_SUCCESS == err) {
         Log.error("LTE HTTP protocol error class %d code %d", cls, code);
       } else {
-        Log.error("LTE HTTP protocol error failed with error", err);
+        Log.error("LTE HTTP protocol error failed with error %d", err);
       }
     } else if ((profile == LTE_HTTP_PROFILE) && ((command == SARA_R5_HTTP_COMMAND_GET) || (command == SARA_R5_HTTP_COMMAND_POST_FILE))) {
       String str;
@@ -691,6 +706,10 @@ protected:
     } else if ((status == SARA_R5_REGISTRATION_SEARCHING) && (Lte.state >= REGISTERED)) {
       Lte.setState(WAITREGISTER);
     }
+  }
+  
+  SARA_R5_error_t LTE_IGNORE_LENA(SARA_R5_error_t error) { 
+    return ((error != SARA_R5_SUCCESS) && module.startsWith("LENA-R8")) ? SARA_R5_SUCCESS : error; 
   }
 
   typedef enum { INIT = 0, CHECKSIM, SIMREADY, WAITREGISTER, REGISTERED, ACTIVATED, PROVISIONED_AWS, PROVISIONED, CONNECTED, NUM_STATE } STATE;

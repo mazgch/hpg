@@ -49,7 +49,9 @@ protected:
   
   static void task(void * pvParameters) {
     Canbus.queue  = xQueueCreate(2, sizeof(ESF_QUEUE_STRUCT));
-    Serial2.begin(38400, SERIAL_8N1, -1/*no input*/, CAN_ESF_MEAS_TXO);
+    if (CAN_ESF_MEAS_TXO != PIN_INVALID) {
+      Serial2.begin(38400, SERIAL_8N1, -1/*no input*/, CAN_ESF_MEAS_TXO);
+    }
     CAN.setPins(CAN_RX, CAN_TX);
     if (!CAN.begin(CAN_FREQ)) {
       //Log.warning("CAN init failed");
@@ -124,7 +126,10 @@ protected:
     }
     m[i++] = cka;
     m[i++] = ckb;
-    return Serial2.write(m, i);
+    if (CAN_ESF_MEAS_TXO != PIN_INVALID) {
+      i = Serial2.write(m, i)
+    }
+    return i;
   }
 
   xQueueHandle queue;

@@ -79,7 +79,7 @@ public:
       bool loop;
       do {
         loop = false;
-        if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+        if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
           uint8_t temp[UBXFILE_BLOCK_SIZE];
           size_t len = buffer.read((char*)temp, sizeof(temp));
           xSemaphoreGive(mutex);
@@ -91,7 +91,7 @@ public:
             // buffer in the queue and hope this gets freed quite soon. 
             long timeout = millis() + 400;
             while (1) {
-              ^int ret = file.write(temp, len);
+              int ret = file.write(temp, len);
               if ((ret != 0) || (timeout - millis() < 0))
                 break;
               // just wait a bit
@@ -139,7 +139,7 @@ public:
   }
 
   size_t write(uint8_t ch) override {
-    if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
       if (buffer.size() > 1) { 
         buffer.write(ch);
       }
@@ -149,7 +149,7 @@ public:
   }
   
   size_t write(const uint8_t *ptr, size_t size) override {
-    if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
       if (buffer.size() > 1) { 
         buffer.write((const char*)ptr, size);
       } 
@@ -161,7 +161,7 @@ public:
   int read(void) override {
     int ch = HardwareSerial::read();
     if (-1 != ch) {
-      if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
         if (buffer.size() > 1) { 
           buffer.write((const char*)&ch, 1);
         } 
@@ -201,7 +201,7 @@ public:
   
   size_t write(uint8_t ch) override {
     if (state == READFD) {
-      if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
         if (buffer.size() > 1) {
           buffer.write(0xFD);  // seems we ar just writing after assumed address set to length field
           buffer.write(ch);
@@ -209,7 +209,7 @@ public:
         xSemaphoreGive(mutex);
       }
     } else if (state == READFE) {
-      if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
         if (buffer.size() > 1) {
           buffer.write(0xFD);     // quite unusal should never happen 
           buffer.write(lenLo);     // we set register address and read part of the length 
@@ -223,7 +223,7 @@ public:
       // do not write this now
     } else {
       state = WRITE;
-      if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
         if (buffer.size() > 1) {
           buffer.write(ch);
         } 
@@ -237,7 +237,7 @@ public:
     if ((1 == size) && (0xFD == *ptr)) {
       state = READFD;
     } else {
-      if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
         if (buffer.size() > 1) {
           if (state == READFD) {
             buffer.write(0xFD);
@@ -260,7 +260,7 @@ public:
       state = READ;
       //lenHi = ch;
     } else {
-      if (xSemaphoreTake(mutex, portMAX_DELAY)) {
+      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
         if (buffer.size() > 1) {
           buffer.write(ch);
         } 
