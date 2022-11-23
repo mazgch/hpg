@@ -59,10 +59,10 @@ public:
         freq = LBAND_FREQ_NOUPDATE; // prevents freq update
 #ifdef UBX_RXM_QZSSL6_NUM_CHANNELS
         rx.setRXMQZSSL6messageCallbackPtr(onRXMQZSSL6data);
-/* 1*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1,                   VAL_LAYER_RAM);    
+/* 1*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1, VAL_LAYER_RAM);    
         // prepare the UART 2
-/* 2*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1,                   VAL_LAYER_RAM);
-/* 3*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400,                   VAL_LAYER_RAM); // match baudrate with ZED default
+/* 2*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1, VAL_LAYER_RAM);
+/* 3*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
 #else
         Log.info("LBAND NEO-D9C receiver not supported by this Sparkfun library, please update library");
 #endif
@@ -70,19 +70,15 @@ public:
       { // NEO-D9S
         freq = (freq == LBAND_FREQ_NOUPDATE) ? LBAND_FREQ_NONE : freq;
         rx.setRXMPMPmessageCallbackPtr(onRXMPMPdata);
-/* 1*/  LBAND_CHECK = rx.setVal16(UBLOX_CFG_PMP_SEARCH_WINDOW,      2200,                    VAL_LAYER_RAM); 
-/* 2*/  LBAND_CHECK = rx.setVal8(UBLOX_CFG_PMP_USE_SERVICE_ID,      0,                       VAL_LAYER_RAM); // Default 1 
-/* 3*/  LBAND_CHECK = rx.setVal16(UBLOX_CFG_PMP_SERVICE_ID,         21845,                   VAL_LAYER_RAM); // Default 50851
-/* 4*/  LBAND_CHECK = rx.setVal16(UBLOX_CFG_PMP_DATA_RATE,          2400,                    VAL_LAYER_RAM); 
-/* 5*/  LBAND_CHECK = rx.setVal8(UBLOX_CFG_PMP_USE_DESCRAMBLER,     1,                       VAL_LAYER_RAM); 
-/* 6*/  LBAND_CHECK = rx.setVal16(UBLOX_CFG_PMP_DESCRAMBLER_INIT,   26969,                   VAL_LAYER_RAM); // Default 23560
-/* 7*/  LBAND_CHECK = rx.setVal8(UBLOX_CFG_PMP_USE_PRESCRAMBLING,   0,                       VAL_LAYER_RAM); 
-/* 8*/  LBAND_CHECK = rx.setVal64(UBLOX_CFG_PMP_UNIQUE_WORD,        16238547128276412563ull, VAL_LAYER_RAM); 
-/* 9*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY,   freq,                    VAL_LAYER_RAM);
-/*10*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,   1,                       VAL_LAYER_RAM);
+        // contact support@thingstream.io to get NEO-D9S configuration parameters for PointPerfect LBAND satellite augmentation service in EU / US
+        // https://developer.thingstream.io/guides/location-services/pointperfect-getting-started/pointperfect-l-band-configuration
+/* 1*/  LBAND_CHECK = rx.setVal8(0x10b10016,                            0, VAL_LAYER_RAM);
+/* 2*/  LBAND_CHECK = rx.setVal16(0x30b10015,                      0x6959, VAL_LAYER_RAM);
+/* 3*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY,    freq, VAL_LAYER_RAM);
+/* 4*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,       1, VAL_LAYER_RAM);
         // prepare the UART 2
-/*11*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2, 1,                       VAL_LAYER_RAM);
-/*12*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400,                   VAL_LAYER_RAM); // match baudrate with ZED default
+/* 5*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2,     1, VAL_LAYER_RAM);
+/* 6*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
       }
       online = ok = LBAND_CHECK_OK;
       LBAND_CHECK_EVAL("LBAND detect configuration");
@@ -139,14 +135,16 @@ protected:
       uint16_t size = ((uint16_t)pmpData->lengthMSB << 8) | (uint16_t)pmpData->lengthLSB;
       msg.size = size + 8;
       msg.data = new uint8_t[msg.size];
+      double ebn0 = 0.125 * pmpData->payload[22];
+      uint16_t serviceId = pmpData->payload[16] + ((uint16_t)pmpData->payload[17] << 8);
       if (NULL != msg.data) {
         msg.source = GNSS::SOURCE::LBAND;
         memcpy(msg.data, &pmpData->sync1, size + 6);
         memcpy(&msg.data[size + 6], &pmpData->checksumA, 2);
-        Log.info("LBAND received RXM-PMP with %d bytes Eb/N0 %.1f dB", msg.size, 0.125 * pmpData->payload[22]);
+        Log.info("LBAND received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X", msg.size, ebn0, serviceId);
         Gnss.inject(msg); // Push the sync chars, class, ID, length and payload
       } else {
-        Log.error("LBAND received RXM-PMP with %d bytes Eb/N0 %.1f dB, no memory", msg.size, 0.125 * pmpData->payload[22]);
+        Log.error("LBAND received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X, no memory", msg.size, ebn0, serviceId);
       }
     }
   }

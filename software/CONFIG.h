@@ -37,6 +37,8 @@ const int MQTT_MAX_MSG_SIZE             = 9*1024;
 
 // this table defines the recional coverage (by a bounding box and its region tag and frequency
 // the lower the higher the priority and more targeted the lat/lon region should be
+// PointPerfect LBAND satellite augmentation service EU / US LBAND frequencies taken from: 
+// https://developer.thingstream.io/guides/location-services/pointperfect-service-description
 const struct { const char* region; short lon1; short lon2; short lat1; short lat2; long freq; } POINTPERFECT_REGIONS[] = {
   // Continental
   { "us", -170, -50,   20, 75, 1556290000 }, // Continental US
@@ -46,7 +48,7 @@ const struct { const char* region; short lon1; short lon2; short lat1; short lat
   { "au",  111,  160, -43, -9,          0 }, // Australia
   { "jp",  128,  147,  30, 47,          0 }, // Japan
   { "kr",  126,  130,  34, 39,          0 }, // Korea
-  { "sa",   34,   56,  15, 33,          0 } // Saudi Arabia
+  { "sa",   34,   56,  15, 33,          0 }  // Saudi Arabia
 };
 
 const char MQTT_TOPIC_MGA[]             = "/pp/ubx/mga";
