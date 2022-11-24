@@ -49,6 +49,7 @@ const char* FILE_RESP             = "resp.json";
 const char* SEC_ROOT_CA           = "aws-rootCA";
 const char* SEC_CLIENT_CERT       = "pp-cert";
 const char* SEC_CLIENT_KEY        = "pp-key";
+const uint16_t HTTPS_PORT              = 443;
 
 const int LTE_STACK_SIZE          = 5*1024;      //!< Stack size of LTE task
 const int LTE_TASK_PRIO           = 1;
@@ -201,13 +202,13 @@ public:
         Log.info("LTE config manufacturer \"%s\" model=\"%s\" version=\"%s\"", 
             getManufacturerID().c_str(), module.c_str(), version.c_str());
         if ((version.toDouble() < 0.13) && module.startsWith("LARA-R6")) {
-          Log.error("LTE LARA firmware %s has MQTT limitations, please update firmware", version.c_str());
+          Log.error("LTE LARA-R6 firmware %s has MQTT limitations, please update firmware", version.c_str());
         }
         else if ((version.toDouble() < 2.00) && module.startsWith("LENA-R8")) {
-          Log.error("LTE LENA firmware %s has limitations, please update firmware", version.c_str());
+          Log.error("LTE LENA-R8 firmware %s has limitations, please update firmware", version.c_str());
         }
-#if (HW_TARGET == MAZGCH_HPG_SOLUTION_V09)
-        //enableSIMDetectAndHotswap();
+#if ((HW_TARGET == MAZGCH_HPG_SOLUTION_C214_revA) || (HW_TARGET == MAZGCH_HPG_SOLUTION_V09))
+        // enableSIMDetectAndHotswap();
 #endif
   
         // wait for the SIM to get ready ... this can take a while (<4s)
@@ -324,20 +325,25 @@ public:
           }
           break;
         case REGISTERED:
-          if (!module.startsWith("SARA-R5")) {
+          if (module.startsWith("LARA-R6")) {
+            setState(ACTIVATED);
+          } else if (module.startsWith("LENA-R8")) {
             String apn;
             IPAddress ip(0, 0, 0, 0);
             SARA_R5_pdp_type pdpType = PDP_TYPE_INVALID;
-            SARA_R5_error_t err = getAPN(0, &apn, &ip, &pdpType);
-            // on LENA-R8 we need to move the context to a different context id other than 0
-            if (module.startsWith("LENA-R8") && (err == SARA_R5_SUCCESS) && (0 < apn.length())) {
-              const uint8_t cid = 5;
-              setAPN(apn, cid, pdpType);
-              Log.info("LTE set and activate context %d with apn \"%s\" pdp %d", cid, apn.c_str(), pdpType);                
-              activatePDPcontext(true, cid);
+ /* step */ LTE_CHECK_INIT;
+ /*  1   */ LTE_CHECK = getAPN(0, &apn, &ip, &pdpType);
+            // on LENA-R8 we need to move a IP context 0 to a different context id other than 0
+            // ok if these commands fail as the context could be already active ... 
+            if (LTE_CHECK_OK && (0 < apn.length()) && (pdpType != PDP_TYPE_NONIP)) {
+ /*  2   */   /*LTE_CHECK = */setAPN(apn, 1 /* LENA only has contexts 0 to 7, do not use SARA_R5_NUM_PDP_CONTEXT_IDENTIFIERS-1 */ , pdpType);
             }
-            setState(ACTIVATED);
-          } else {
+ /*  3   */ /*LTE_CHECK =*/ activatePDPcontext(true);           
+            LTE_CHECK_EVAL("LTE activate context");
+            if (LTE_CHECK_OK) {
+              setState(ACTIVATED);
+            }
+          } else /* SARA-R5 */ {
             ttagNextTry = now + LTE_ACTIVATION_RETRY;
             performPDPaction(LTE_PSD_PROFILE, SARA_R5_PSD_ACTION_DEACTIVATE);
             for (int cid = 0; cid < SARA_R5_NUM_PDP_CONTEXT_IDENTIFIERS; cid++)
@@ -369,7 +375,7 @@ public:
             ttagNextTry = now + LTE_HTTPZTP_RETRY;
             String id = Config.getValue(CONFIG_VALUE_CLIENTID);
             if (0 < id.length()) {
-              disconnectMQTT(); // make sure we are disconnected 
+              //disconnectMQTT(); // make sure we are disconnected 
               setState(PROVISIONED);
             } else {
               String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
@@ -384,8 +390,10 @@ public:
     /*  5   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_SNI,      AWSTRUST_SERVER);
     /*  6   */  LTE_CHECK = resetHTTPprofile(LTE_HTTP_PROFILE);
     /*  7   */  LTE_CHECK = setHTTPserverName(LTE_HTTP_PROFILE, AWSTRUST_SERVER);
-    /*  8   */  LTE_CHECK = setHTTPsecure(LTE_HTTP_PROFILE, true, LTE_SEC_PROFILE_HTTP);
-    /*  9   */  LTE_CHECK = sendHTTPGET(LTE_HTTP_PROFILE, AWSTRUST_ROOTCAPATH, FILE_RESP);
+    /*  8   */  LTE_CHECK = setHTTPserverPort(LTE_HTTP_PROFILE, HTTPS_PORT);
+    /*  9   */  LTE_CHECK = setHTTPauthentication(LTE_HTTP_PROFILE, false);
+    /* 10   */  LTE_CHECK = setHTTPsecure(LTE_HTTP_PROFILE, true, LTE_SEC_PROFILE_HTTP);
+    /* 11   */  LTE_CHECK = sendHTTPGET(LTE_HTTP_PROFILE, AWSTRUST_ROOTCAPATH, FILE_RESP);
                 LTE_CHECK_EVAL("LTE HTTP AWS request");
               } else {
                 String str = Config.ztpRequest(); 
@@ -404,8 +412,10 @@ public:
       /*  8   */  LTE_CHECK = appendFileContents(FILE_REQUEST, str);
       /*  9   */  LTE_CHECK = resetHTTPprofile(LTE_HTTP_PROFILE);
       /* 10   */  LTE_CHECK = setHTTPserverName(LTE_HTTP_PROFILE, THINGSTREAM_SERVER);
-      /* 11   */  LTE_CHECK = setHTTPsecure(LTE_HTTP_PROFILE, true, LTE_SEC_PROFILE_HTTP);
-      /* 12   */  LTE_CHECK = sendHTTPPOSTfile(LTE_HTTP_PROFILE, THINGSTREAM_ZTPPATH, FILE_RESP, FILE_REQUEST, SARA_R5_HTTP_CONTENT_APPLICATION_JSON);
+      /* 11   */  LTE_CHECK = setHTTPserverPort(LTE_HTTP_PROFILE, HTTPS_PORT); // make sure port is set
+      /* 12   */  LTE_CHECK = setHTTPauthentication(LTE_HTTP_PROFILE, false);
+      /* 13   */  LTE_CHECK = setHTTPsecure(LTE_HTTP_PROFILE, true, LTE_SEC_PROFILE_HTTP);
+      /* 14   */  LTE_CHECK = sendHTTPPOSTfile(LTE_HTTP_PROFILE, THINGSTREAM_ZTPPATH, FILE_RESP, FILE_REQUEST, SARA_R5_HTTP_CONTENT_APPLICATION_JSON);
                   LTE_CHECK_EVAL("LTE HTTP ZTP request");
                 }
               }
