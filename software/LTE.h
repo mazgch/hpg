@@ -540,7 +540,9 @@ public:
                           }
                           busy = true;
                         }
-                      } else { 
+                      } else if (topic.equals(MQTT_TOPIC_FREQ)) {
+                        Config.setLbandFreqs(buf, (size_t)len);
+                      } else {
                         Gnss.inject(buf, (size_t)len, source);
                       }
                     } else {

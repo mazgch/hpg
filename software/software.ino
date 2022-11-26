@@ -63,12 +63,12 @@
 // Sparkfun libraries
 //-----------------------------------
 
-// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.15
+// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.20
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
 #include <SparkFun_u-blox_GNSS_Arduino_Library.h>
 
-// SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.3
+// SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.5
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_SARA-R5_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_SARA-R5_Arduino_Library
 #include <SparkFun_u-blox_SARA-R5_Arduino_Library.h>

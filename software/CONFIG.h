@@ -39,7 +39,8 @@ const int MQTT_MAX_MSG_SIZE             = 9*1024;
 // the lower the higher the priority and more targeted the lat/lon region should be
 // PointPerfect LBAND satellite augmentation service EU / US LBAND frequencies taken from: 
 // https://developer.thingstream.io/guides/location-services/pointperfect-service-description
-const struct { const char* region; short lon1; short lon2; short lat1; short lat2; long freq; } POINTPERFECT_REGIONS[] = {
+typedef struct { const char* region; short lon1; short lon2; short lat1; short lat2; long freq; } POINTPERFECT_REGIONS_t;
+POINTPERFECT_REGIONS_t POINTPERFECT_REGIONS[] = {
   // Continental
   { "us", -170, -50,   20, 75, 1556290000 }, // Continental US
   { "eu",  -30,  40,   35, 75, 1545260000 }, // Europe
@@ -262,6 +263,9 @@ public:
     topics.push_back(MQTT_TOPIC_MGA);
     if (0 < stream.length()) {
       topics.push_back(MQTT_TOPIC_KEY_FORMAT + stream);
+      if (stream.equals(MQTT_STREAM_LBAND)) {
+        topics.push_back(MQTT_TOPIC_FREQ);
+      }
       if (0 < region.length()) {
         //topics.push_back(MQTT_TOPIC_IP_FORMAT + stream + "/" + region);
         // subscribe individually to subtopics, as this should speedup time to first fix
@@ -287,7 +291,7 @@ public:
     // the highest entries have highest priority
     long freq = 0;
     const char* region = NULL;
-    for (int i = 0; (i < sizeof(POINTPERFECT_REGIONS)/sizeof(*POINTPERFECT_REGIONS)); i ++) {
+    for (int i = 0; i < sizeof(POINTPERFECT_REGIONS)/sizeof(POINTPERFECT_REGIONS_t); i ++) {
       if ((lat >= POINTPERFECT_REGIONS[i].lat1 && lat <= POINTPERFECT_REGIONS[i].lat2) &&
           (lon >= POINTPERFECT_REGIONS[i].lon1 && lon <= POINTPERFECT_REGIONS[i].lon2)) {
         if (POINTPERFECT_REGIONS[i].freq) {
@@ -336,6 +340,28 @@ public:
       xSemaphoreGive(mutex); 
     }
     Log.info("CONFIG::delZtp");
+  }
+
+  void setLbandFreqs(const uint8_t *buf, size_t size) {
+    DynamicJsonDocument json(512);
+    DeserializationError error = deserializeJson(json, buf, size);
+    if (DeserializationError::Ok != error) {
+      Log.error("CONFIG::setLbandFreqs deserializeJson failed with error %d", error);
+    } else {
+      for (int i = 0; i < sizeof(POINTPERFECT_REGIONS)/sizeof(POINTPERFECT_REGIONS_t); i ++) {
+        const char* region = POINTPERFECT_REGIONS[i].region;
+        if (region && json["frequencies"].containsKey(region)) {
+          String str = json["frequencies"][region]["current"]["value"];
+          if (0 < str.length()) {
+            long freq = (long)(1e6 * str.toDouble());
+            if (POINTPERFECT_REGIONS[i].freq != freq) {
+              Log.warning("CONFIG::setLbandFreqs for region %s update to %li from %li", region, freq, POINTPERFECT_REGIONS[i].freq);
+              POINTPERFECT_REGIONS[i].freq = freq; 
+            }
+          }
+        }
+      }
+    }
   }
   
   String setZtp(String &ztp, String &rootCa) {

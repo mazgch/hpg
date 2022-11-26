@@ -479,14 +479,19 @@ protected:
         msg.size = Wlan.mqttClient.read(msg.data, messageSize);
         if (msg.size == messageSize) {
           msg.source = GNSS::SOURCE::WLAN;
+          Log.info("WLAN MQTT topic \"%s\" with %d bytes", topic.c_str(), msg.size); 
           if (topic.startsWith(MQTT_TOPIC_KEY_FORMAT)) {
             msg.source = GNSS::SOURCE::OTHER; // inject key as other
             if (Config.setValue(CONFIG_VALUE_KEY, msg.data, msg.size)) {
               Config.save();
             }
           }
-          Log.info("WLAN MQTT topic \"%s\" with %d bytes", topic.c_str(), msg.size); 
-          Gnss.inject(msg);
+          if (topic.equals(MQTT_TOPIC_FREQ)) {
+            Config.setLbandFreqs(msg.data, msg.size);
+            delete [] msg.data; // not injecting to queue to the GNSS, so we need to delete the buffer here
+          } else {
+            Gnss.inject(msg); // we do not have to delete msg.data here, this is done by receiving side of the queue 
+          }
         } else { 
           Log.error("WLAN MQTT topic \"%s\" with %d bytes failed reading after %d", topic.c_str(), messageSize, msg.size); 
           delete [] msg.data;
