@@ -182,6 +182,7 @@ const gnssLut = {
                         147:'NSAS',   // NIGCOMSAT-1R         42.5 E    Active until Oct 2018
                         148:''    ,   // ALCOMSAT-1           24.8 W    Active until Jan 2019
                     }, },
+    LBAND    : { flag:'un', ch:'LB', }, // LBAND / Pointperfect
 };
 const flagsEmojy = {
     'us': '🇺🇸',
@@ -306,7 +307,8 @@ let db = { // a database with values values to capture an report
     quality:new dbY( { name: 'NMEA quality',	                    map:mapNmeaQuality, 	   } ),
     // 
     fusionMode: new dbY( { name: 'ESF fusion mode',                 map:mapEsfFusionMode,      } ),
-    ebn0:   new dbY( { name: 'LBAND Eb/N0',                         unit:'dB',         prec:1, } ),
+    lBebn0: new dbY( { name: 'LBAND Eb/N0',                         unit:'dB',         prec:1, } ),
+    lBcn0:  new dbY( { name: 'LBAND C/N0',                          unit:'dB',         prec:1, } ),
     // internals
 	epIndex:new dbY( { name: 'Epoch index',                                                    } ),
     epNumMsg:new dbY({ name: 'Messages in epoch',                                      prec:0, } ),
@@ -1213,7 +1215,20 @@ double X = m_pStorageX->GetValue();
                 }
             } else if (message.name === 'INF-NOTICE') {
                 infTextExtract(fields.infTxt);
-            }
+            } if (message.name === 'MON-PMP') {
+                var cn0 = fields.entry[0].cn0 + fields.entry[0].cn0Frac;
+                if (cn0 > 0) {
+                    db.lBcn0.set(cn0);
+                    nmeaSvsSet('LBAND', 'PP', 'LBAND', Math.round(cn0))
+                    nmeaSvDb.dirty = true;
+                }
+            } if (message.name === 'RXM-QZSSL6') {
+                nmeaSvsSet('QZSS', fields.svId, 'L6', fields.cno);
+                nmeaSvDb.dirty = true;
+            } if (message.name === 'RXM-COR') {
+                if (fields.ebn0 > 0)
+                    db.lBebn0.set(fields.ebn0);
+            } 
         } else if (message.protocol === 'NMEA') {
             if ((message.id === 'GSA') || (message.id === 'GSV')) {
                 nmeaSvsExtract(fields, message.talker);
@@ -1238,6 +1253,22 @@ function infTextExtract(v) {
 	}
 }
 
+function nmeaSvsSet(sys, sv, sig, cno, nmeaSv, az, elv) {
+    if (!nmeaSvDb[sys]) 	nmeaSvDb[sys] = {};
+    const used = (-1 !== nmeaSvUsed.indexOf(sv));
+    if (!nmeaSvDb[sys][sv]) nmeaSvDb[sys][sv] = { used:used, cno:[] };
+    if (nmeaSv)				nmeaSvDb[sys][sv].nmea = nmeaSv;
+    if ((0 <= az) && (360 >= az) && (0 <= elv)) {
+        nmeaSvDb[sys][sv].az  = az;
+        nmeaSvDb[sys][sv].elv = elv;
+    }
+    if (cno) {
+        nmeaSvDb[sys][sv].cno[sig] = cno;
+        const len = Object.keys(nmeaSvDb[sys][sv].cno).length;
+        if (len > nmeaSvDb.freqs) nmeaSvDb.freqs = len;
+    }
+}
+
 // this function is intended to run either on GSA or GSV
 function nmeaSvsExtract(fields, talker) {
 	if (fields.sv) {
@@ -1254,19 +1285,7 @@ function nmeaSvsExtract(fields, talker) {
 			const nmeaSv = ret[1];
 			const sys = ret[2];
 			const sig = (gnssLut[sys].sig && gnssLut[sys].sig[fields.signalId]) ? gnssLut[sys].sig[fields.signalId] : 'L1 C/A';
-			const used = (-1 !== nmeaSvUsed.indexOf(sv));
-			if (!nmeaSvDb[sys]) 	nmeaSvDb[sys] = {};
-			if (!nmeaSvDb[sys][sv]) nmeaSvDb[sys][sv] = { used:used, cno:[] };
-			if (nmeaSv)				nmeaSvDb[sys][sv].nmea = nmeaSv;
-			if ((0 <= fields.svs[s].az) && (360 >= fields.svs[s].az) && (0<= fields.svs[s].elv)) {
-                nmeaSvDb[sys][sv].az  = fields.svs[s].az;
-			    nmeaSvDb[sys][sv].elv = fields.svs[s].elv;
-            }
-			if (fields.svs[s].cno) {
-				nmeaSvDb[sys][sv].cno[sig] = fields.svs[s].cno;
-				const len = Object.keys(nmeaSvDb[sys][sv].cno).length;
-				if (len > nmeaSvDb.freqs) nmeaSvDb.freqs = len;
-			}
+			nmeaSvsSet(sys, sv, sig, fields.svs[s].cno, nmeaSv, fields.svs[s].az, fields.svs[s].elv);
 		}
         nmeaSvDb.dirty = true;
 	}
