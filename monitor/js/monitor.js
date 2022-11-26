@@ -182,7 +182,11 @@ const gnssLut = {
                         147:'NSAS',   // NIGCOMSAT-1R         42.5 E    Active until Oct 2018
                         148:''    ,   // ALCOMSAT-1           24.8 W    Active until Jan 2019
                     }, },
-    LBAND    : { flag:'un', ch:'LB', }, // LBAND / Pointperfect
+    PointPerfect : { flag:'un', ch:'PP', 
+                     freq: {
+                        eu: 1545260000,
+                        us: 1556290000,
+                     } },
 };
 const flagsEmojy = {
     'us': '🇺🇸',
@@ -199,6 +203,7 @@ const flagsEmojy = {
 
 var nmeaSvUsed = [];
 var nmeaSvDb = { freqs:0 };
+var oldSvDb = { freqs:0 };
 // convert some fields to text
 const mapNmeaStatus = { 
 	'V':'Data invalid',
@@ -954,9 +959,11 @@ function dbPublish() {
     if (db.long.dirty && db.lat.dirty)
         centerMap(db.long.val, db.lat.val);
     if (nmeaSvDb.dirty) {
-        chartSvs(nmeaSvDb);
-        tableSvs(nmeaSvDb);
         nmeaSvDb.dirty = false;
+        // Merge the new values with the old ones avoid flickering, every epoch we will replace the old with new
+        Object.assign(oldSvDb, nmeaSvDb);
+        chartSvs(oldSvDb);
+        tableSvs(oldSvDb);
     }
     // show the Tiles
     let el = document.getElementById('db');
@@ -1022,8 +1029,10 @@ function updateStatus( message ) {
             epoch.data = '';
             epoch.numMsg = 0;
             epoch.index ++;
+            oldSvDb = nmeaSvDb; // take a copy 
             nmeaSvUsed = [];
             nmeaSvDb = { freqs:0 };
+            nmeaSvDb.dirty = true;
             for (let name in db)
                 db[name].update();
         }
@@ -1216,12 +1225,22 @@ double X = m_pStorageX->GetValue();
             } else if (message.name === 'INF-NOTICE') {
                 infTextExtract(fields.infTxt);
             } if (message.name === 'MON-PMP') {
-                var cn0 = fields.entry[0].cn0 + fields.entry[0].cn0Frac;
-                if (cn0 > 0) {
-                    db.lBcn0.set(cn0);
-                    nmeaSvsSet('LBAND', 'PP', 'LBAND', Math.round(cn0))
-                    nmeaSvDb.dirty = true;
-                }
+                for (let i = 0; i <fields.entries; i ++) {
+                    const cn0 = fields.entry[i].cn0 + fields.entry[0].cn0Frac;
+                    if (cn0 > 0) {
+                        db.lBcn0.set(cn0);
+                        const sys = 'PointPerfect';
+                        const sig = 'LBAND';
+                        const keys = Object.keys(gnssLut[sys].freq);
+                        let id = gnssLut[sys].ch;
+                        keys.forEach( function Check(key) {
+                            if (Math.abs(fields.entry[i].centerFreq - gnssLut[sys].freq[key]) < 100000)
+                                id = gnssLut[sys].ch + key;
+                        } );
+                        nmeaSvsSet(sys, id, sig, Math.round(cn0))
+                        nmeaSvDb.dirty = true;
+                    }
+                }   
             } if (message.name === 'RXM-QZSSL6') {
                 nmeaSvsSet('QZSS', fields.svId, 'L6', fields.cno);
                 nmeaSvDb.dirty = true;
@@ -1253,12 +1272,12 @@ function infTextExtract(v) {
 	}
 }
 
-function nmeaSvsSet(sys, sv, sig, cno, nmeaSv, az, elv) {
+function nmeaSvsSet(sys, sv, sig, cno, az, elv, used, nmeaSv) {
     if (!nmeaSvDb[sys]) 	nmeaSvDb[sys] = {};
-    const used = (-1 !== nmeaSvUsed.indexOf(sv));
-    if (!nmeaSvDb[sys][sv]) nmeaSvDb[sys][sv] = { used:used, cno:[] };
-    if (nmeaSv)				nmeaSvDb[sys][sv].nmea = nmeaSv;
-    if ((0 <= az) && (360 >= az) && (0 <= elv)) {
+    if (!nmeaSvDb[sys][sv]) nmeaSvDb[sys][sv] = { cno:[] };
+    if (used !== undefined) nmeaSvDb[sys][sv].used = used;
+    if (nmeaSv !== undefined) nmeaSvDb[sys][sv].nmea = nmeaSv;
+    if ((az !== undefined) && (0 <= az) && (360 >= az) && (elv !== undefined) && (0 <= elv)) {
         nmeaSvDb[sys][sv].az  = az;
         nmeaSvDb[sys][sv].elv = elv;
     }
@@ -1285,7 +1304,8 @@ function nmeaSvsExtract(fields, talker) {
 			const nmeaSv = ret[1];
 			const sys = ret[2];
 			const sig = (gnssLut[sys].sig && gnssLut[sys].sig[fields.signalId]) ? gnssLut[sys].sig[fields.signalId] : 'L1 C/A';
-			nmeaSvsSet(sys, sv, sig, fields.svs[s].cno, nmeaSv, fields.svs[s].az, fields.svs[s].elv);
+            const used = (-1 !== nmeaSvUsed.indexOf(sv));
+			nmeaSvsSet(sys, sv, sig, fields.svs[s].cno, fields.svs[s].az, fields.svs[s].elv, used, nmeaSv);
 		}
         nmeaSvDb.dirty = true;
 	}
@@ -1421,8 +1441,8 @@ function tableSvs(svdb) {
 					let sv = svdb[sys][svid];
                     //let icon =  (sv.used) ? feather.icons["x-square"] : feather.icons["square"];
                     //let srcUsed = 'data:image/svg+xml;utf8,' + icon.toSvg();
-					let iconUsed = sv.used ? '◾' : '◽'; // 🟩🟥🟢🔴⚪⭕◾◽
-					const txtUsed =  'Satellite ' + (sv.used ? '' :'is not ') + 'used in navigation solution';
+					let iconUsed  = (sv.used === undefined) ? '' : sv.used ? '◾' : '◽'; // 🟩🟥🟢🔴⚪⭕◾◽
+					const txtUsed = (sv.used === undefined) ? '' : 'Satellite ' + (sv.used ? '' :'is not ') + 'used in navigation solution';
                     const txtSys = flagsEmojy[lut.flag] + ' ' + sys;
 					let sig = Object.keys(sv.cno);
 					let cno = sig.map( function(freq) { 
