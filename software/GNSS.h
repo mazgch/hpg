@@ -85,21 +85,25 @@ public:
       } 
 /* #*/GNSS_CHECK_INIT;
 /* 1*/GNSS_CHECK = rx.setAutoPVTcallbackPtr(onPVTdata);
-/* 2*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,      1, VAL_LAYER_RAM); // required for this app and the monitor web page
+/* 2*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,        1, VAL_LAYER_RAM); // required for this app and the monitor web page
       // add some usefull messages to store in the logfile
-/* 3*/GNSS_CHECK = rx.setVal(UBLOX_CFG_NMEA_HIGHPREC,               1, VAL_LAYER_RAM); // make sure we enable extended accuracy in NMEA protocol
-/* 4*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,      1, VAL_LAYER_RAM); 
-/* 5*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C, 1, VAL_LAYER_RAM);
-/* 6*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,      1, VAL_LAYER_RAM);
+/* 3*/GNSS_CHECK = rx.setVal(UBLOX_CFG_NMEA_HIGHPREC,                 1, VAL_LAYER_RAM); // make sure we enable extended accuracy in NMEA protocol
+/* 4*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,        1, VAL_LAYER_RAM); 
+/* 5*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C,   1, VAL_LAYER_RAM);
+/* 6*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,        1, VAL_LAYER_RAM);
       if ((fwver.substring(4).toDouble() > 1.30) || fwver.substring(4).equals("1.30")) {
-/* 7*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,     1, VAL_LAYER_RAM);
+/* 7*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,       1, VAL_LAYER_RAM);
       }
       if (fwver.startsWith("HPS ")) {
-/* 8*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C, 1, VAL_LAYER_RAM);
+/* 8*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C,   1, VAL_LAYER_RAM);
         uint8_t dynModel = DYN_MODEL_UNKNOWN;
         if (dynModel != DYN_MODEL_UNKNOWN) {
-          GNSS_CHECK = rx.setVal(UBLOX_CFG_NAVSPG_DYNMODEL,  dynModel, VAL_LAYER_RAM);
-          if (dynModel == DYN_MODEL_MOWER) {
+          GNSS_CHECK = rx.setVal(UBLOX_CFG_NAVSPG_DYNMODEL,   dynModel, VAL_LAYER_RAM);
+          if (dynModel == DYN_MODEL_PORTABLE) {
+            Log.info("GNSS dynModel PORTABLE, disable DR/SF modes");
+            // disable sensor fusion mode in case we use a portable dynamic model
+            GNSS_CHECK = rx.setVal(UBLOX_CFG_SFCORE_USE_SF,           0, VAL_LAYER_RAM);
+          } else if (dynModel == DYN_MODEL_MOWER) {
             Log.info("GNSS dynModel MOWER");
             /*  using wtBox.ino as hall sensor to WT converter,  ESF-MEAS is injected over ZED-RX1
              *  
@@ -112,13 +116,14 @@ public:
                                                  * 1e6 /* scale value to unit needed */ 
                                                 / 1540 /* ticks per revolution */
                                                    / 2 /* left and right wheel */);
-            GNSS_CHECK = rx.setVal32(UBLOX_CFG_SFODO_FACTOR, odoFactor, VAL_LAYER_RAM);
-            GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_COMBINE_TICKS,    1, VAL_LAYER_RAM);
-            GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_DIS_AUTODIRPINPOL,1, VAL_LAYER_RAM);
+            GNSS_CHECK = rx.setVal32(UBLOX_CFG_SFODO_FACTOR,  odoFactor, VAL_LAYER_RAM);
+            GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_COMBINE_TICKS,     1, VAL_LAYER_RAM);
+            GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_DIS_AUTODIRPINPOL, 1, VAL_LAYER_RAM);
           } else if (dynModel == DYN_MODEL_ESCOOTER) {
-            // do whateever you need to do
             Log.info("GNSS dynModel ESCOOTER");
+            // do whateever you need to do
           } else if (dynModel == DYN_MODEL_AUTOMOTIVE) {
+            Log.info("GNSS dynModel AUTOMOTIVE");
             /*  We assume we use CANBUS.h to inject speed extracted from the CAN bus as ESF-MEAS 
              *  to the GNSS. if this is not the case change the settings here, if ticks are used, 
              *  you should also set the UBLOX_CFG_SFODO_FACTOR factor. 
@@ -126,7 +131,6 @@ public:
              *  You can use the canEmu.ino to create a test setup for can injecton. 
              */
             GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_DIS_AUTOSW,        0, VAL_LAYER_RAM); // enable it
-            Log.info("GNSS dynModel AUTOMOTIVE");
           } else {
             Log.info("GNSS dynModel %d", dynModel);
           }
