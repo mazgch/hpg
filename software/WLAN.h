@@ -161,7 +161,7 @@ public:
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_LTEAPN, "APN", Config.getValue(CONFIG_VALUE_LTEAPN).c_str(), 64);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_SIMPIN, "SIM pin", Config.getValue(CONFIG_VALUE_SIMPIN).c_str(), 8, " type=\"password\"");
     new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">NTRIP configuration</p>");
-    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_SERVER, "Server", Config.getValue(CONFIG_VALUE_NTRIP_SERVER).c_str(), 64);
+    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_SERVER, "Server:Port", Config.getValue(CONFIG_VALUE_NTRIP_SERVER).c_str(), 64");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_MOUNTPT, "Mount point", Config.getValue(CONFIG_VALUE_NTRIP_MOUNTPT).c_str(), 64);  
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_USERNAME, "Username", Config.getValue(CONFIG_VALUE_NTRIP_USERNAME).c_str(), 64);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_PASSWORD, "Password", Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD).c_str(), 64, " type=\"password\"");
@@ -350,12 +350,15 @@ public:
             setState(ONLINE);
           } else {
             ttagNextTry = now + WIFI_NTRIP_RETRY;
-            Log.info("WLAN NTRIP connecting to \"%s\":%d", ntrip.c_str(), NTRIP_SERVER_PORT);
-            int ok = ntripWifiClient.connect(ntrip.c_str(), NTRIP_SERVER_PORT);
+            int pos = ntrip.indexOf(':');
+            String server = (-1 == pos) ? ntrip : ntrip.substring(0,pos);
+            uint16_t port = (-1 == pos) ? NTRIP_SERVER_PORT : ntrip.substring(pos+1).toInt();
+            Log.info("WLAN NTRIP connecting to \"%s:%d\"", server.c_str(), port);
+            int ok = ntripWifiClient.connect(server.c_str(), port);
             if (!ok) {
-              Log.error("WLAN NTRIP connect to \"%s\":%d failed with error", ntrip.c_str(), NTRIP_SERVER_PORT);
+              Log.error("WLAN NTRIP connect to \"%s:%d\" failed with error", server.c_str(), port);
             } else {
-              Log.info("WLAN NTRIP connected to \"%s\":%d", ntrip.c_str(), NTRIP_SERVER_PORT);
+              Log.info("WLAN NTRIP connected to \"%s:%d", server.c_str(), port);
               String mntpnt = Config.getValue(CONFIG_VALUE_NTRIP_MOUNTPT);
               String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
               String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
