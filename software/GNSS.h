@@ -264,7 +264,7 @@ public:
             fixLut[fixType & 7], carrLut[carrSoln & 3], 1e-3*ubxDataStruct->hAcc, fLat, fLon, 1e-3 * ubxDataStruct->hMSL);
       Websocket.write(string, len);
 #endif
-#if 1
+#if 0
       char chLat = (fLat < 0) ? 'W' : 'E';
       if (fLat < 0) fLat = -fLat;
       int iLat = (int)(fLat)
