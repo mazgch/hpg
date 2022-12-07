@@ -264,27 +264,32 @@ public:
             fixLut[fixType & 7], carrLut[carrSoln & 3], 1e-3*ubxDataStruct->hAcc, fLat, fLon, 1e-3 * ubxDataStruct->hMSL);
       Websocket.write(string, len);
 #endif
-#if 0
-      char chLat = (fLat < 0) ? 'W' : 'E';
-      if (fLat < 0) fLat = -fLat;
-      int iLat = (int)(fLat)
-      fLat *= 60.0;
-      fLat = (fLat - iLat) * 60.0;
-      char chLon = (fLon < 0) ? 'S' : 'N';
-      if (fLon < 0) fLon = -fLon;
-      int iLon = (int)(fLat)
-      fLon *= 60.0;
-      fLon = (fLon - iLon) * 60.0;
-      //                        "$GPGGA,HHMMSS.ss,DDmm.mmm,N/S,DDmm.mmm,E/W,q,sat,dop,alt,M,und,M,age,dgps"
-      //                        "$GPGGA,134658.00,5106.9792,N,11402.3003,W,1,12,1.0,1048.47,M,,M,,*60"
-      len = snprintf(string, sizeof(string), "$GPGGA,%02d:%02d:%02d.00,%02d%7.4f,%c,%02d%7.4f,%c,%c,10,%.1f,%.2f,M,,M,,*",
-            ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, iLat, fLat, iLon, fLon, 
-            ((fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) ? '1' : '0', ubxDataStruct->nSAT, ubxDataStruct->pDOP, ubxDataStruct->hMSL);
-      char crc = 0;
-      for (int i = 1; i < len-1, i ++);
-        crc ^= string[i];
-      sprintf(&string[len], "%02D\r\n", crc);
-#endif
+      // construct a GGA string form the PVT and safe it, so that we do not have to rely on any additional messages
+      if ((fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) {
+        int iLat = ubxDataStruct->lat;
+        char chLat = (iLat < 0) ? 'S' : 'N';
+        if (iLat < 0) iLat = -iLat;
+        int dLat = iLat / 10000000;
+        double fLat = (iLat - dLat * 10000000) * 60.0e-7; 
+        fLat = (fLat >= 59.999) ? 59.999 : (fLat < 0.0) ? 0.0 : fLat;
+        int iLon = ubxDataStruct->lon;
+        char chLon = (iLon < 0) ? 'W' : 'E';
+        if (iLon < 0) iLon = -iLon;
+        int dLon = iLon / 10000000;
+        double fLon = (iLon - dLon * 10000000) * 60.0e-7;
+        fLon = (fLon >= 59.999) ? 59.999 : (fLon < 0.0) ? 0.0 : fLon;
+        //                        "$GPGGA,HHMMSS.ss,DDmm.mmm,N/S,DDmm.mmm,E/W,q,sat,dop,alt,M,und,M,age,dgps"
+        len = snprintf(string, sizeof(string), "$GPGGA,%02d%02d%02d.00,%02d%06.3f,%c,%03d%06.3f,%c,%c,%d,%.2f,%.1f,M,%.1f,M,,",
+              ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, dLat, fLat, chLat, dLon, fLon, chLon, 
+              ((fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) ? '1' : '0', ubxDataStruct->numSV, 
+              ubxDataStruct->pDOP * 1e-2, ubxDataStruct->hMSL * 1e-3, (ubxDataStruct->height - ubxDataStruct->hMSL) * 1e-3);
+        char crc = 0;
+        for (int i = 1; i < len; i ++) {
+          crc ^= string[i];
+        }
+        len += sprintf(&string[len], "*%02X", crc);
+        Config.setValue(CONFIG_VALUE_NTRIP_GGA, string);
+      }
     }
   }
   
