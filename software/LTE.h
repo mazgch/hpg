@@ -27,7 +27,7 @@ extern class LTE Lte;
 
 const int LTE_DETECT_RETRY        =  5000;
 const int LTE_WAITREGISTER_RETRY  =  1000;
-const int LTE_CHECKSIM_RETRY      =  5000;
+const int LTE_CHECKSIM_RETRY      = 60000;
 const int LTE_ACTIVATION_RETRY    = 10000;
 const int LTE_HTTPZTP_RETRY       = 60000;
 const int LTE_MQTTCONNECT_RETRY   = 10000;

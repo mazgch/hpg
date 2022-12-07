@@ -32,6 +32,8 @@ const char THINGSTREAM_ZTPURL[]         = "https://" THINGSTREAM_SERVER THINGSTR
 #define    AWSTRUST_ROOTCAPATH            "/repository/AmazonRootCA1.pem"
 const char AWSTRUST_ROOTCAURL[]         = "https://" AWSTRUST_SERVER AWSTRUST_ROOTCAPATH;
 
+const unsigned short NTRIP_SERVER_PORT  = 2101;
+
 const unsigned short MQTT_BROKER_PORT   = 8883; 
 const int MQTT_MAX_MSG_SIZE             = 9*1024;
 
@@ -87,7 +89,12 @@ const char CONFIG_VALUE_MNOPROF[]       = "mnoProfile";
 const char CONFIG_VALUE_REGION[]        = "region";          
 const char CONFIG_VALUE_FREQ[]          = "freq";
 const char CONFIG_VALUE_KEY[]           = "ppKey";
-                  
+
+const char CONFIG_VALUE_NTRIP_SERVER[]  = "ntripServer";
+const char CONFIG_VALUE_NTRIP_MOUNTPT[] = "ntripMountpoint";
+const char CONFIG_VALUE_NTRIP_USERNAME[]= "ntripUsername";
+const char CONFIG_VALUE_NTRIP_PASSWORD[]= "ntripPassword";
+                      
 class CONFIG {
 public:
 
