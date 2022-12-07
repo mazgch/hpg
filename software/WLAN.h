@@ -32,11 +32,9 @@ const int WIFI_INIT_RETRY       = 60000;
 const int WIFI_RECONNECT_RETRY  = 60000;
 const int WIFI_CONNECT_RETRY    = 10000;
 const int WIFI_PROVISION_RETRY  = 10000;
-const int WIFI_SUBSCRIBE_RETRY  =  1000;
-const int WIFI_DNS_RETRY        =  1000;
+const int WIFI_1S_RETRY         =  1000;
 
 const int WIFI_NTRIP_RETRY      = 60000;
-const int WIFI_NTRIP_READ       =  1000;
 const int WIFI_NTRIP_GGARATE    = 20000;
 
 const int WLAN_STACK_SIZE       = 7*1024;      //!< Stack size of WLAN task
@@ -162,7 +160,8 @@ public:
     new (&parameters[p++]) WiFiManagerParameter(bufParam);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_LTEAPN, "APN", Config.getValue(CONFIG_VALUE_LTEAPN).c_str(), 64);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_SIMPIN, "SIM pin", Config.getValue(CONFIG_VALUE_SIMPIN).c_str(), 8, " type=\"password\"");
-    new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">NTRIP configuration</p>");
+    new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">NTRIP configuration</p>"
+             "<p>To use NTRIP you need to set Correction source to none.</p>");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_SERVER, "Server:Port", Config.getValue(CONFIG_VALUE_NTRIP_SERVER).c_str(), 64);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_MOUNTPT, "Mount point", Config.getValue(CONFIG_VALUE_NTRIP_MOUNTPT).c_str(), 64);  
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_USERNAME, "Username", Config.getValue(CONFIG_VALUE_NTRIP_USERNAME).c_str(), 64);
@@ -227,7 +226,9 @@ public:
       bool online = WiFi.status() == WL_CONNECTED;
       String id = Config.getValue(CONFIG_VALUE_CLIENTID);
       String ntrip = Config.getValue(CONFIG_VALUE_NTRIP_SERVER);
-      bool useWlan = (-1 != Config.getValue(CONFIG_VALUE_USESOURCE).indexOf("WLAN"));
+      String useSrc = Config.getValue(CONFIG_VALUE_USESOURCE);
+      bool useWlan = (-1 != useSrc.indexOf("WLAN"));
+      bool useNtrip = (-1 != useSrc.indexOf("none")); // we can use nTrip on WLAN
       switch (state) {
         case INIT:
           ttagNextTry = now + WIFI_INIT_RETRY;
@@ -246,7 +247,7 @@ public:
           }
           break;
         case CONNECTED:
-          ttagNextTry = now + WIFI_DNS_RETRY;
+          ttagNextTry = now + WIFI_1S_RETRY;
           if (online) 
           { 
             IPAddress ip;
@@ -256,12 +257,15 @@ public:
           }
           break;
         case ONLINE:
-          ttagNextTry = now + WIFI_PROVISION_RETRY;
-          if (ntrip.length()) {
-            setState(NTRIP);
+          ttagNextTry = now + WIFI_1S_RETRY;
+          if (useNtrip) {
+            if (ntrip.length()) {
+              setState(NTRIP);
+            } 
           } else if (id.length()) {
             setState(PROVISIONED);
           } else {
+            ttagNextTry = now + WIFI_PROVISION_RETRY;
             String ztpReq = Config.ztpRequest();
             if (ztpReq.length()) {
               // Fetch the AWS Root CA
@@ -299,7 +303,7 @@ public:
           break;
         case PROVISIONED:
           ttagNextTry = now + WIFI_CONNECT_RETRY;
-          if (!id.length()) {
+          if (!id.length() || useNtrip) {
             setState(ONLINE);
           } else {
             if (useWlan) {
@@ -327,8 +331,8 @@ public:
           break;
         case STATE::MQTT_CONNECTED:
           {
-            ttagNextTry = now + WIFI_SUBSCRIBE_RETRY;
-            if (!id.length() /*|| !mqttCon */ || !useWlan) {
+            ttagNextTry = now + WIFI_1S_RETRY;
+            if (!id.length() /*|| !mqttCon */ || !useWlan || useNtrip) {
               mqttStop();
               setState(ONLINE);
             } else {
@@ -358,7 +362,7 @@ public:
           }
           break;
         case NTRIP: 
-          if (!ntrip.length()) {
+          if (!useNtrip || !ntrip.length()) {
             setState(ONLINE);
           } else {
             ttagNextTry = now + WIFI_NTRIP_RETRY;
@@ -421,11 +425,11 @@ public:
           }  
           break;
         case NTRIP_CONNECTED: 
-          if (!ntrip.length() || !ntripWifiClient.connected()) {
+          if (!useNtrip || !ntrip.length() || !ntripWifiClient.connected()) {
             ntripWifiClient.stop();
             setState(ONLINE);
           } else {
-            ttagNextTry = now + WIFI_NTRIP_READ;
+            ttagNextTry = now + WIFI_1S_RETRY;
             int len = 0;
             int total = 0;
             uint8_t buf[512];
