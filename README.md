@@ -1,7 +1,7 @@
 # <img src="./monitor/img/favicon.svg" height="48" width="48"/> mazg.ch - HPG Solution
 
-> **Note**
-> This is a private project from [@mazgch](https://github.com/mazgch) that was developped during free time. u-blox has decided to launch a simliar product under the name [XPLR-HPG-2](https://www.u-blox.com/en/product/xplr-hpg-2). The software of this project can also be compiled for the XPLR-HPG-2 by adjusting the defines `software\HW.h` file.
+> **Note** This is a private project from [@mazgch](https://github.com/mazgch) <br>The code and hardware was developped during my free time. u-blox recently decided to launch a simliar product under the name [XPLR-HPG-2](https://www.u-blox.com/en/product/xplr-hpg-2) along with production grade software. The software of this project can be compiled for the XPLR-HPG-2 by adjusting the defines in the `software\HW.h` file.
+
 
 ![Board with accessories](docu/Board_v09_onSchematic.png)
 
