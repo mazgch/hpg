@@ -17,6 +17,8 @@
 #ifndef __LTE_H__
 #define __LTE_H__
 
+#include <base64.h>
+
 #include "HW.h"
 #include "LOG.h"
 #include "CONFIG.h"
@@ -29,9 +31,10 @@ const int LTE_DETECT_RETRY        =  5000;
 const int LTE_WAITREGISTER_RETRY  =  1000;
 const int LTE_CHECKSIM_RETRY      = 60000;
 const int LTE_ACTIVATION_RETRY    = 10000;
-const int LTE_HTTPZTP_RETRY       = 60000;
-const int LTE_MQTTCONNECT_RETRY   = 10000;
-const int LTE_CONNECTED_RETRY     =  2000;
+const int LTE_PROVISION_RETRY     = 60000;
+const int LTE_CONNECT_RETRY       = 10000;
+const int LTE_1S_RETRY            =  1000;
+
 const int LTE_MQTTCMD_DELAY       =   100; // the client is not happy if multiple commands are sent too fast
 const int LTE_BAUDRATE            = 115200; // baudrates 230400, 460800 or 921600 cause issues even when CTS/RTS is enabled
 
@@ -49,7 +52,7 @@ const char* FILE_RESP             = "resp.json";
 const char* SEC_ROOT_CA           = "aws-rootCA";
 const char* SEC_CLIENT_CERT       = "pp-cert";
 const char* SEC_CLIENT_KEY        = "pp-key";
-const uint16_t HTTPS_PORT              = 443;
+const uint16_t HTTPS_PORT         = 443;
 
 const int LTE_STACK_SIZE          = 5*1024;      //!< Stack size of LTE task
 const int LTE_TASK_PRIO           = 1;
@@ -128,6 +131,7 @@ public:
     if (PIN_INVALID != LTE_RI)  pinMode(LTE_RI,  INPUT);
     if (PIN_INVALID != LTE_INT) pinMode(LTE_INT, INPUT);
     state = INIT;
+    ntripSocket = -1;
   }
 
   void init(void) {
@@ -245,6 +249,14 @@ public:
     
     long now = millis();
     if (ttagNextTry <= now) {
+      String id = Config.getValue(CONFIG_VALUE_CLIENTID);
+      String ntrip = Config.getValue(CONFIG_VALUE_NTRIP_SERVER);
+      String useSrc = Config.getValue(CONFIG_VALUE_USESOURCE);
+      bool onlineWlan = WiFi.status() == WL_CONNECTED;
+      bool useWlan   = (-1 != useSrc.indexOf("WLAN")) && onlineWlan;
+      bool useLte    = (-1 != useSrc.indexOf("LTE"))  && !useWlan;
+      bool useNtrip = useLte && useSrc.startsWith("NTRIP:");
+      bool useMqtt  = useLte && !useNtrip;
       switch (state) {
         case INIT:
           {
@@ -326,7 +338,7 @@ public:
           break;
         case REGISTERED:
           if (module.startsWith("LARA-R6")) {
-            setState(ACTIVATED);
+            setState(ONLINE);
           } else if (module.startsWith("LENA-R8")) {
             String apn;
             IPAddress ip(0, 0, 0, 0);
@@ -341,7 +353,7 @@ public:
  /*  3   */ /*LTE_CHECK =*/ activatePDPcontext(true);           
             LTE_CHECK_EVAL("LTE activate context");
             if (LTE_CHECK_OK) {
-              setState(ACTIVATED);
+              setState(ONLINE);
             }
           } else /* SARA-R5 */ {
             ttagNextTry = now + LTE_ACTIVATION_RETRY;
@@ -369,19 +381,73 @@ public:
             }
           }
           break;
-        case ACTIVATED:
-        case PROVISIONED_AWS:
-          {
-            ttagNextTry = now + LTE_HTTPZTP_RETRY;
-            String id = Config.getValue(CONFIG_VALUE_CLIENTID);
-            if (0 < id.length()) {
-              //disconnectMQTT(); // make sure we are disconnected 
-              setState(PROVISIONED);
-            } else {
-              String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
+        case ONLINE:
+          ttagNextTry = now + LTE_1S_RETRY;
+          if (useNtrip) {
+            if (0 < ntrip.length()) {
+              ttagNextTry = now + LTE_CONNECT_RETRY;
+              int pos = ntrip.indexOf(':');
+              String server = (-1 == pos) ? ntrip : ntrip.substring(0,pos);
+              uint16_t port = (-1 == pos) ? NTRIP_SERVER_PORT : ntrip.substring(pos+1).toInt();
+              String mntpnt = Config.getValue(CONFIG_VALUE_NTRIP_MOUNTPT);
+              String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
+              String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
+              //setSocketReadCallbackPlus(&processSocketData);
+              //setSocketCloseCallback(&processSocketClose);
+              ntripSocket = socketOpen(SARA_R5_TCP);
+              if (ntripSocket >= 0) {
+                String authEnc;
+                String authHead;
+                if (0 < user.length() && 0 < pwd.length()) {
+                  authEnc = base64::encode(user + ":" + pwd);
+                  authHead = "Authorization: Basic ";
+                  authHead += authEnc + "\r\n";
+                }                    
+                const char* expectedReply = 0 == mntpnt.length() ? "SOURCETABLE 200 OK\r\n" : "ICY 200 OK\r\n";
+                Log.info("LTE NTRIP connect to \"%s:%d\" and GET \"/%s\" auth \"%s\"", server.c_str(), port, mntpnt.c_str(), authEnc.c_str());
+                char buf[256];
+                int len = sprintf(buf, "GET /%s HTTP/1.0\r\n"
+                          "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
+                          "%s\r\n", mntpnt.c_str(), authHead.c_str());
+    /* step */  LTE_CHECK_INIT;
+    /*  1   */  LTE_CHECK = socketConnect(ntripSocket, server.c_str(), port);
+    /*  2   */  LTE_CHECK = socketWrite(ntripSocket, buf, len);
+                int avail = 0;
+                len = strlen(expectedReply);
+                unsigned long start = millis();
+                while (((millis() - start) < NTRIP_CONNECT_TIMEOUT) && (avail < len) && LTE_CHECK_OK) {
+    /*  3   */    LTE_CHECK = socketReadAvailable(ntripSocket, &avail);
+                  delay(0);
+                }
+                if (avail >= len) avail = len;
+                memset(&buf, 0, len+1);
+    /*  4   */  LTE_CHECK = socketRead(ntripSocket, avail, buf, &avail);
+                LTE_CHECK_EVAL("LTE NTRIP connect");
+                if (LTE_CHECK_OK) {
+                  buf[avail] = 0;
+                  if ((avail == len) && (0 == strncmp(buf, expectedReply, len))) {
+                    Log.info("LTE NTRIP got expected reply \"%.*s\\r\\n\"", len-2, expectedReply);
+                    ntripGgaMs = now;
+                    setState(NTRIP);
+                  } else {
+                    Log.error("LTE NTRIP expected reply \"%.*s\\r\\n\" failed after %d ms, got \"%s\"", len-2, expectedReply, millis() - start, buf);
+                  }
+                }
+                // no need to keep the socket open if we are not in NTRIP state
+                if ((state != NTRIP) && (ntripSocket >= 0)) {
+                  Log.info("LTE NTRIP disconnect");
+                  socketClose(ntripSocket);
+                  ntripSocket = -1;
+                }
+              }
+            } 
+          } else if (useMqtt) {
+            String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
+            if (0 == id.length()) {
               if (0 == rootCa.length()) {
-                Log.info("LTE HTTP AWS connect to \"%s\" and GET", AWSTRUST_ROOTCAURL);
-                setHTTPCommandCallback(httpCallback);
+                ttagNextTry = now + LTE_PROVISION_RETRY;
+                Log.info("LTE HTTP AWS connect to \"%s:%d\" and GET \"%s\"", AWSTRUST_SERVER, HTTPS_PORT, AWSTRUST_ROOTCAPATH);
+                setHTTPCommandCallback(httpCallback); // callback will advance state
     /* step */  LTE_CHECK_INIT;
     /*  1   */  LTE_CHECK = LTE_IGNORE_LENA(resetSecurityProfile(LTE_SEC_PROFILE_HTTP));
     /*  2   */  LTE_CHECK = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL, SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_NO); // no certificate and url/sni check
@@ -396,10 +462,11 @@ public:
     /* 11   */  LTE_CHECK = sendHTTPGET(LTE_HTTP_PROFILE, AWSTRUST_ROOTCAPATH, FILE_RESP);
                 LTE_CHECK_EVAL("LTE HTTP AWS request");
               } else {
-                String str = Config.ztpRequest(); 
-                if (0 < str.length()) {
-                  Log.info("LTE HTTP ZTP connect to \"%s\" and POST \"%s\"", THINGSTREAM_ZTPURL, str.c_str());
-                  setHTTPCommandCallback(httpCallback);
+                String ztpReq = Config.ztpRequest(); 
+                if (0 < ztpReq.length()) {
+                  ttagNextTry = now + LTE_PROVISION_RETRY;
+                  Log.info("LTE HTTP ZTP connect to \"%s\" and POST \"%s\"", THINGSTREAM_ZTPURL, ztpReq.c_str());
+                  setHTTPCommandCallback(httpCallback); // callback will advance state
       /* step */  LTE_CHECK_INIT;
       /*  1   */  LTE_CHECK = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_ROOTCA,     SEC_ROOT_CA, rootCa);
       /*  2   */  LTE_CHECK = LTE_IGNORE_LENA(resetSecurityProfile(LTE_SEC_PROFILE_HTTP));
@@ -409,7 +476,7 @@ public:
       /*  6   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_ROOT_CA,  SEC_ROOT_CA);
       /*  7   */  LTE_CHECK = configSecurityProfileString(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_SNI,      THINGSTREAM_SERVER);
                   deleteFile(FILE_REQUEST); // okay if this fails
-      /*  8   */  LTE_CHECK = appendFileContents(FILE_REQUEST, str);
+      /*  8   */  LTE_CHECK = appendFileContents(FILE_REQUEST, ztpReq);
       /*  9   */  LTE_CHECK = resetHTTPprofile(LTE_HTTP_PROFILE);
       /* 10   */  LTE_CHECK = setHTTPserverName(LTE_HTTP_PROFILE, THINGSTREAM_SERVER);
       /* 11   */  LTE_CHECK = setHTTPserverPort(LTE_HTTP_PROFILE, HTTPS_PORT); // make sure port is set
@@ -419,22 +486,18 @@ public:
                   LTE_CHECK_EVAL("LTE HTTP ZTP request");
                 }
               }
-            }
-          }
-          break;
-        case PROVISIONED:
-          {
-            ttagNextTry = now + LTE_MQTTCONNECT_RETRY;
-            String id = Config.getValue(CONFIG_VALUE_CLIENTID);
-            if (0 < id.length()) {
-              String useSource = Config.getValue(CONFIG_VALUE_USESOURCE);
-              if ((-1 != useSource.indexOf("LTE")) && ((-1 == useSource.indexOf("WLAN")) || (WiFi.status() != WL_CONNECTED))) {
-                String broker = Config.getValue(CONFIG_VALUE_BROKERHOST);
+            } else {
+              ttagNextTry = now + LTE_CONNECT_RETRY;
+              String broker = Config.getValue(CONFIG_VALUE_BROKERHOST);
+              String cert = Config.getValue(CONFIG_VALUE_CLIENTCERT);
+              String key = Config.getValue(CONFIG_VALUE_CLIENTKEY);
+              // disconncect must fail here, so that we can connect 
+              setMQTTCommandCallback(mqttCallback); // callback will advance state
+              // make sure the client is disconnected here
+              if (SARA_R5_SUCCESS == disconnectMQTT()) {
+                Log.info("LTE MQTT forced disconnect");
+              } else {
                 Log.info("LTE MQTT connect to \"%s\":%d as client \"%s\"", broker.c_str(), MQTT_BROKER_PORT, id.c_str());
-                String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
-                String cert = Config.getValue(CONFIG_VALUE_CLIENTCERT);
-                String key = Config.getValue(CONFIG_VALUE_CLIENTKEY);
-                setMQTTCommandCallback(mqttCallback);
     /* step */  LTE_CHECK_INIT;
     /*  1   */  LTE_CHECK = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_ROOTCA,         SEC_ROOT_CA,     rootCa);
     /*  2   */  LTE_CHECK = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_CLIENT_CERT,    SEC_CLIENT_CERT, cert);
@@ -459,106 +522,146 @@ public:
                 unsubTopic = "";
               }
             }
-            else {
-              Log.info("LTE not provisioned in state %s", STATE_LUT[state]);                
-              disconnectMQTT();
-              setState(ACTIVATED);
+          }
+          break;
+        case MQTT: 
+          ttagNextTry = now + LTE_1S_RETRY;
+          if (!useLte || (0 == id.length())) {
+            SARA_R5_error_t err = disconnectMQTT();
+            if (SARA_R5_SUCCESS == err) {
+              Log.info("LTE MQTT disconnect");
+            } else {
+              Log.error("LTE MQTT disconnect, failed with error %d", err);
+              setState(ONLINE);
+            }
+          } else {
+            // the LTE modem has difficulties subscribing/unsubscribing more than one topic at the same time
+            bool busy = (0 < subTopic.length()) || (0 < unsubTopic.length());
+            if (!busy) {
+              std::vector<String> newTopics = Config.getTopics();
+              // loop through new topics and subscribe to the first topic that is not in our curent topics list. 
+              for (auto it = newTopics.begin(); (it != newTopics.end()) && !busy; it = std::next(it)) {
+                String topic = *it;
+                std::vector<String>::iterator pos = std::find(topics.begin(), topics.end(), topic);
+                if (pos == topics.end()) {
+                  SARA_R5_error_t err = subscribeMQTTtopic(0,topic);
+                  if (SARA_R5_SUCCESS == err) {
+                    Log.debug("LTE MQTT subscribe requested topic \"%s\" qos %d", topic.c_str(), 0);
+                    subTopic = topic;
+                  } else {
+                    Log.error("LTE MQTT subscribe request topic \"%s\" qos %d, failed with error %d", topic.c_str(), 0, err);
+                  }
+                  busy = true;
+                }
+              }
+              // loop through current topics and unsubscribe to the first topic that is not in the new topics list. 
+              for (auto it = topics.begin(); (it != topics.end()) && !busy; it = std::next(it)) {
+                String topic = *it;
+                std::vector<String>::iterator pos = std::find(newTopics.begin(), newTopics.end(), topic);
+                if (pos == newTopics.end()) {
+                  SARA_R5_error_t err = unsubscribeMQTTtopic(topic);
+                  if (SARA_R5_SUCCESS == err) {
+                    Log.debug("LTE MQTT unsubscribe requested topic \"%s\"", topic.c_str());
+                    unsubTopic = topic;
+                  } else {
+                    Log.error("LTE MQTT unsubscribe request topic \"%s\", failed with error %d", topic.c_str(), err);
+                  }
+                  busy = true;
+                }
+              }
+              if (!busy && (0 < mqttMsgs)) {
+                Log.debug("LTE MQTT read request %d msg", mqttMsgs);
+                uint8_t *buf = new uint8_t[MQTT_MAX_MSG_SIZE];
+                if (buf) {
+                  String topic;
+                  int len = -1;
+                  int qos = -1;
+                  SARA_R5_error_t err = readMQTT(&qos, &topic, buf, MQTT_MAX_MSG_SIZE, &len);
+                  if (SARA_R5_SUCCESS == err) {
+                    mqttMsgs = 0; // expect a URC afterwards
+                    const char* strTopic = topic.c_str();
+                    Log.info("LTE MQTT topic \"%s\" read %d bytes", strTopic, len);
+                    GNSS::SOURCE source = GNSS::SOURCE::LTE;
+                    if (topic.startsWith(MQTT_TOPIC_KEY_FORMAT)) {
+                      source = GNSS::SOURCE::OTHER; // inject key as other
+                      if (Config.setValue(CONFIG_VALUE_KEY, buf, len)) {
+                        Config.save();
+                      }
+                    }
+                    std::vector<String>::iterator pos = std::find(topics.begin(), topics.end(), topic);
+                    if (pos == Lte.topics.end()) {
+                      Log.error("LTE MQTT getting data from an unexpected topic \"%s\"", strTopic);
+                      if (!busy) {
+                        err = unsubscribeMQTTtopic(topic);
+                        if (SARA_R5_SUCCESS == err) {
+                          Log.debug("LTE MQTT unsubscribe requested for unexpected topic \"%s\"", strTopic);
+                          unsubTopic = topic;
+                        } else {
+                          Log.error("LTE MQTT unsubscribe request for unexpected topic \"%s\", failed with error %d", topic.c_str(), err);
+                        }
+                        busy = true;
+                      }
+                    } else if (topic.equals(MQTT_TOPIC_FREQ)) {
+                      Config.setLbandFreqs(buf, (size_t)len);
+                    } else {
+                      Gnss.inject(buf, (size_t)len, source);
+                    }
+                  } else {
+                    Log.error("LTE MQTT read failed with error %d", err);
+                  }
+                  delete [] buf;
+                }
+              }
             }
           }
           break;
-        case CONNECTED: 
-          {
-            ttagNextTry = now + LTE_CONNECTED_RETRY;
-            String id = Config.getValue(CONFIG_VALUE_CLIENTID);
-            String useSource = Config.getValue(CONFIG_VALUE_USESOURCE);
-            /// only stay in this mode if we are not connected by WI-FI
-            bool noWlan = WiFi.status() != WL_CONNECTED;
-            if ((0 < id.length()) && (-1 != useSource.indexOf("LTE")) && ((-1 == useSource.indexOf("WLAN")) || noWlan)) {
-              // the LTE modem has difficulties subscribing/unsubscribing more than one topic at the same time
-              bool busy = (0 < subTopic.length()) || (0 < unsubTopic.length());
-              if (!busy) {
-                std::vector<String> newTopics = Config.getTopics();
-                // loop through new topics and subscribe to the first topic that is not in our curent topics list. 
-                for (auto it = newTopics.begin(); (it != newTopics.end()) && !busy; it = std::next(it)) {
-                  String topic = *it;
-                  std::vector<String>::iterator pos = std::find(topics.begin(), topics.end(), topic);
-                  if (pos == topics.end()) {
-                    SARA_R5_error_t err = subscribeMQTTtopic(0,topic);
-                    if (SARA_R5_SUCCESS == err) {
-                      Log.debug("LTE MQTT subscribe requested topic \"%s\" qos %d", topic.c_str(), 0);
-                      subTopic = topic;
-                    } else {
-                      Log.error("LTE MQTT subscribe request topic \"%s\" qos %d, failed with error %d", topic.c_str(), 0, err);
-                    }
-                    busy = true;
-                  }
-                }
-                // loop through current topics and unsubscribe to the first topic that is not in the new topics list. 
-                for (auto it = topics.begin(); (it != topics.end()) && !busy; it = std::next(it)) {
-                  String topic = *it;
-                  std::vector<String>::iterator pos = std::find(newTopics.begin(), newTopics.end(), topic);
-                  if (pos == newTopics.end()) {
-                    SARA_R5_error_t err = unsubscribeMQTTtopic(topic);
-                    if (SARA_R5_SUCCESS == err) {
-                      Log.debug("LTE MQTT unsubscribe requested topic \"%s\"", topic.c_str());
-                      unsubTopic = topic;
-                    } else {
-                      Log.error("LTE MQTT unsubscribe request topic \"%s\", failed with error %d", topic.c_str(), err);
-                    }
-                    busy = true;
-                  }
-                }
-                if (!busy && (0 < mqttMsgs)) {
-                  Log.debug("LTE MQTT read request %d msg", mqttMsgs);
-                  uint8_t *buf = new uint8_t[MQTT_MAX_MSG_SIZE];
-                  if (buf) {
-                    String topic;
-                    int len = -1;
-                    int qos = -1;
-                    SARA_R5_error_t err = readMQTT(&qos, &topic, buf, MQTT_MAX_MSG_SIZE, &len);
-                    if (SARA_R5_SUCCESS == err) {
-                      mqttMsgs = 0; // expect a URC afterwards
-                      const char* strTopic = topic.c_str();
-                      Log.info("LTE MQTT topic \"%s\" read %d bytes", strTopic, len);
-                      GNSS::SOURCE source = GNSS::SOURCE::LTE;
-                      if (topic.startsWith(MQTT_TOPIC_KEY_FORMAT)) {
-                        source = GNSS::SOURCE::OTHER; // inject key as other
-                        if (Config.setValue(CONFIG_VALUE_KEY, buf, len)) {
-                          Config.save();
-                        }
-                      }
-                      std::vector<String>::iterator pos = std::find(topics.begin(), topics.end(), topic);
-                      if (pos == Lte.topics.end()) {
-                        Log.error("LTE MQTT getting data from an unexpected topic \"%s\"", strTopic);
-                        if (!busy) {
-                          err = unsubscribeMQTTtopic(topic);
-                          if (SARA_R5_SUCCESS == err) {
-                            Log.debug("LTE MQTT unsubscribe requested for unexpected topic \"%s\"", strTopic);
-                            unsubTopic = topic;
-                          } else {
-                            Log.error("LTE MQTT unsubscribe request for unexpected topic \"%s\", failed with error %d", topic.c_str(), err);
-                          }
-                          busy = true;
-                        }
-                      } else if (topic.equals(MQTT_TOPIC_FREQ)) {
-                        Config.setLbandFreqs(buf, (size_t)len);
-                      } else {
-                        Gnss.inject(buf, (size_t)len, source);
-                      }
-                    } else {
-                      Log.error("LTE MQTT read failed with error %d", err);
-                    }
-                    delete [] buf;
-                  }
+        case NTRIP: 
+          ttagNextTry = now + LTE_1S_RETRY;
+          if (!useNtrip || (0 == ntrip.length())) {
+            if (ntripSocket >= 0) {
+              Log.error("LTE NTRIP disconnect");
+              socketClose(ntripSocket);
+              ntripSocket = -1;
+            }
+            setState(ONLINE);
+          } else {
+            int total = 0;
+            int len;
+            do {
+              len = 0;
+              char buf[NTRIP_BUFFER_SIZE];
+  /* step */  LTE_CHECK_INIT;
+  /*  1   */  LTE_CHECK = socketReadAvailable(ntripSocket, &len);
+              if (0 < len) {
+                int got = 0;
+                if (len > sizeof(buf)) len = sizeof(buf);
+  /*  2   */    LTE_CHECK = socketRead(ntripSocket, len, buf, &got);
+                len = LTE_CHECK_OK ? got : 0;
+              }
+              LTE_CHECK_EVAL("LTE NTRIP read");
+              if (0 < len) {
+                total += len;
+                Gnss.inject((const uint8_t*)buf, len, GNSS::SOURCE::LTE);
+              }
+              delay(0);
+            } while (0 < len);
+            if (0 < total) {
+              Log.info("LTE NTRIP got %d bytes", total);
+            }
+            if (ntripGgaMs - now <= 0) {
+              ntripGgaMs = now + NTRIP_GGA_RATE;
+              String gga = Config.getValue(CONFIG_VALUE_NTRIP_GGA);
+              int len = gga.length();
+              if (0 < len) {
+                gga += "\r\n";
+                const char* strGga = gga.c_str();
+    /* step */  LTE_CHECK_INIT;
+    /*  1   */  LTE_CHECK = socketWrite(ntripSocket, gga);
+                LTE_CHECK_EVAL("LTE NTRIP write");
+                if (LTE_CHECK_OK) {
+                  Log.info("LTE NTRIP write \"%.*s\\r\\n\" %d bytes",len, strGga, len+2);
                 }
               }
-            } else {
-              if (0 == id.length()) {
-                Log.info("LTE not provisioned in state %s", STATE_LUT[state]);
-              } else {  
-                Log.info("LTE source %s wlan %s", useSource.c_str(), noWlan ? "NO" : "YES");             
-              }
-              disconnectMQTT();
             }
           }
           break;
@@ -598,53 +701,61 @@ protected:
     } else { 
       switch (command) {
         case SARA_R5_MQTT_COMMAND_LOGIN:
-          {
+          if (Lte.state != ONLINE) {
+            Log.error("LTE MQTT login wrong state");
+          } else {
             Log.info("LTE MQTT login");
-            Lte.setState(CONNECTED, LTE_MQTTCMD_DELAY);
+            Lte.setState(MQTT, LTE_MQTTCMD_DELAY);
           }
           break;
         case SARA_R5_MQTT_COMMAND_LOGOUT:
-          {
+          if ((Lte.state != MQTT) && (Lte.state != ONLINE)) {
+            Log.error("LTE MQTT logout wrong state");
+          } else {
             Log.info("LTE MQTT logout");
             Lte.mqttMsgs = 0;
             Lte.topics.clear();
             Lte.subTopic = "";
             Lte.unsubTopic = "";
-            if (Lte.state == CONNECTED) {
-              Lte.setState(ACTIVATED, LTE_MQTTCMD_DELAY);
-            }
+            Lte.setState(ONLINE, LTE_MQTTCMD_DELAY);
           }
           break;
         case SARA_R5_MQTT_COMMAND_SUBSCRIBE:
-          if (Lte.subTopic.length()) {
+          if (Lte.state != MQTT) {
+            Log.error("LTE MQTT subscribe wrong state");
+          } else if (!Lte.subTopic.length()) {
+            Log.error("LTE MQTT subscribe result %d but no topic", result);
+          } else {
             Log.info("LTE MQTT subscribe result %d topic \"%s\"", result, Lte.subTopic.c_str());
             Lte.topics.push_back(Lte.subTopic);
             Lte.subTopic = "";
-            Lte.setState(CONNECTED, LTE_MQTTCMD_DELAY);
-          } else {
-            Log.error("LTE MQTT subscribe result %d but no topic", result);
+            Lte.setState(MQTT, LTE_MQTTCMD_DELAY);
           }  
           break;
         case SARA_R5_MQTT_COMMAND_UNSUBSCRIBE:
-          if (Lte.unsubTopic.length()) {
+          if (Lte.state != MQTT) {
+            Log.error("LTE MQTT unsubscribe wrong state");
+          } else if (!Lte.unsubTopic.length()) {
+            Log.error("LTE MQTT unsubscribe result %d but no topic", result);
+          } else {
             std::vector<String>::iterator pos = std::find(Lte.topics.begin(), Lte.topics.end(), Lte.unsubTopic);
             if (pos == Lte.topics.end()) {
               Lte.topics.erase(pos);
               Log.info("LTE MQTT unsubscribe result %d topic \"%s\"", result, Lte.unsubTopic.c_str());
               Lte.unsubTopic = "";
-              Lte.setState(CONNECTED, LTE_MQTTCMD_DELAY);
+              Lte.setState(MQTT, LTE_MQTTCMD_DELAY);
             } else {
               Log.error("LTE MQTT unsubscribe result %d topic \"%s\" but topic not in list", result, Lte.unsubTopic.c_str());
             }
-          } else {
-            Log.error("LTE MQTT unsubscribe result %d but no topic", result);
-          }  
+          } 
           break;
         case SARA_R5_MQTT_COMMAND_READ: 
-          {
+          if (Lte.state != MQTT) {
+            Log.error("LTE MQTT read wrong state");
+          } else {
             Log.debug("LTE MQTT read result %d", result);
             Lte.mqttMsgs = result;
-            Lte.setState(CONNECTED, LTE_MQTTCMD_DELAY);
+            Lte.setState(MQTT, LTE_MQTTCMD_DELAY);
           }
           break;
         default:
@@ -663,7 +774,8 @@ protected:
       } else {
         Log.error("LTE HTTP protocol error failed with error %d", err);
       }
-    } else if ((profile == LTE_HTTP_PROFILE) && ((command == SARA_R5_HTTP_COMMAND_GET) || (command == SARA_R5_HTTP_COMMAND_POST_FILE))) {
+    } else if ((profile == LTE_HTTP_PROFILE) && ((command == SARA_R5_HTTP_COMMAND_GET) || 
+                                                 (command == SARA_R5_HTTP_COMMAND_POST_FILE))) {
       String str;
 /* #*/LTE_CHECK_INIT;
 /* 1*/LTE_CHECK = Lte.getFileContents(FILE_RESP, &str);
@@ -677,14 +789,12 @@ protected:
           if (command == SARA_R5_HTTP_COMMAND_GET) {
             // save the AWS root CA
             Config.setValue(CONFIG_VALUE_ROOTCA, str);
-            Lte.setState(PROVISIONED_AWS);
+            Lte.setState(ONLINE);
           } else if (command == SARA_R5_HTTP_COMMAND_POST_FILE) {
             // save the ZTP
             String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
             String id = Config.setZtp(str, rootCa);
-            if (id.length()) {
-              Lte.setState(PROVISIONED);
-            }
+            Lte.setState(ONLINE);
           }
         }
       }
@@ -695,7 +805,7 @@ protected:
     Log.debug("LTE psdCallback profile %d  IP %s", profile, ip.toString().c_str());
     if (profile == LTE_PSD_PROFILE) {
       String id = Config.getValue(CONFIG_VALUE_CLIENTID);
-      Lte.setState(id.length() ? PROVISIONED : ACTIVATED);
+      Lte.setState(ONLINE);
     }
   }
 
@@ -724,7 +834,7 @@ protected:
     return ((error != SARA_R5_SUCCESS) && module.startsWith("LENA-R8")) ? SARA_R5_SUCCESS : error; 
   }
 
-  typedef enum { INIT = 0, CHECKSIM, SIMREADY, WAITREGISTER, REGISTERED, ACTIVATED, PROVISIONED_AWS, PROVISIONED, CONNECTED, NUM_STATE } STATE;
+  typedef enum { INIT = 0, CHECKSIM, SIMREADY, WAITREGISTER, REGISTERED, ONLINE, MQTT, NTRIP, NUM_STATE } STATE;
   static const char* STATE_LUT[NUM_STATE]; 
   void setState(STATE value, long delay = 0) {
     if (state != value) {
@@ -741,6 +851,8 @@ protected:
   String subTopic;
   String unsubTopic;
   int mqttMsgs;
+  long ntripGgaMs;
+  int ntripSocket; 
 };
 
 const char * LTE::REG_STATUS_LUT[] = { 
@@ -774,11 +886,10 @@ const char* LTE::STATE_LUT[NUM_STATE] = {
   "check sim", 
   "sim ready", 
   "wait register", 
-  "registered", 
-  "activated", 
-  "provisioned aws", 
-  "provisioned", 
-  "connected", 
+  "registered",
+  "online",
+  "mqtt", 
+  "ntrip"
 }; 
     
 LTE Lte;

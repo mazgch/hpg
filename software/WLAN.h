@@ -16,7 +16,7 @@
  
 #ifndef __WLAN_H__
 
-#include<base64.h>
+#include <base64.h>
 
 #include "LOG.h"
 #include "HW.h"
@@ -30,12 +30,9 @@ extern class WLAN Wlan;
 
 const int WIFI_INIT_RETRY       = 60000;
 const int WIFI_RECONNECT_RETRY  = 60000;
-const int WIFI_CONNECT_RETRY    = 10000;
 const int WIFI_PROVISION_RETRY  = 10000;
+const int WIFI_CONNECT_RETRY    = 10000;
 const int WIFI_1S_RETRY         =  1000;
-
-const int WIFI_NTRIP_RETRY      = 60000;
-const int WIFI_NTRIP_GGARATE    = 20000;
 
 const int WLAN_STACK_SIZE       = 7*1024;      //!< Stack size of WLAN task
 const int WLAN_TASK_PRIO        = 1;
@@ -161,7 +158,7 @@ public:
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_LTEAPN, "APN", Config.getValue(CONFIG_VALUE_LTEAPN).c_str(), 64);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_SIMPIN, "SIM pin", Config.getValue(CONFIG_VALUE_SIMPIN).c_str(), 8, " type=\"password\"");
     new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">NTRIP configuration</p>"
-             "<p>To use NTRIP you need to set Correction source to none.</p>");
+             "<p>To use NTRIP you need to set Correction source to one of the NTRIP options.</p>");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_SERVER, "Server:Port", Config.getValue(CONFIG_VALUE_NTRIP_SERVER).c_str(), 64);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_MOUNTPT, "Mount point", Config.getValue(CONFIG_VALUE_NTRIP_MOUNTPT).c_str(), 64);  
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_USERNAME, "Username", Config.getValue(CONFIG_VALUE_NTRIP_USERNAME).c_str(), 64);
@@ -207,7 +204,7 @@ public:
     }
     
     long now = millis();
-    bool online = WiFi.status() == WL_CONNECTED;
+    bool online  = WiFi.status() == WL_CONNECTED;
     if (!online && wasOnline) {
       Log.warning("WLAN poll lost connection");
       wasOnline = false;
@@ -223,12 +220,12 @@ public:
 #endif
  
     if (ttagNextTry <= now) {
-      bool online = WiFi.status() == WL_CONNECTED;
-      String id = Config.getValue(CONFIG_VALUE_CLIENTID);
-      String ntrip = Config.getValue(CONFIG_VALUE_NTRIP_SERVER);
+      String id     = Config.getValue(CONFIG_VALUE_CLIENTID);
+      String ntrip  = Config.getValue(CONFIG_VALUE_NTRIP_SERVER);
       String useSrc = Config.getValue(CONFIG_VALUE_USESOURCE);
-      bool useWlan = (-1 != useSrc.indexOf("WLAN"));
-      bool useNtrip = (-1 != useSrc.indexOf("none")); // we can use nTrip on WLAN
+      bool useWlan  = (-1 != useSrc.indexOf("WLAN"));
+      bool useNtrip = useWlan && useSrc.startsWith("NTRIP:");
+      bool useMqtt  = useWlan && !useNtrip;
       switch (state) {
         case INIT:
           ttagNextTry = now + WIFI_INIT_RETRY;
@@ -258,55 +255,43 @@ public:
           break;
         case ONLINE:
           ttagNextTry = now + WIFI_1S_RETRY;
-          if (useNtrip) {
-            if (ntrip.length()) {
-              setState(NTRIP);
-            } 
-          } else if (id.length()) {
-            setState(PROVISIONED);
-          } else {
-            ttagNextTry = now + WIFI_PROVISION_RETRY;
-            String ztpReq = Config.ztpRequest();
-            if (ztpReq.length()) {
-              // Fetch the AWS Root CA
-              HTTPClient http;
-              http.begin(AWSTRUST_ROOTCAURL);
-              Log.info("WLAN HTTP get to \"%s\"", AWSTRUST_ROOTCAURL);
-              int httpResponseCode = http.GET();
-              String rootCa = http.getString();
-              http.end();
-              if (httpResponseCode != 200) {
-                Log.error("WLAN HTTP AWS response error %d %s", httpResponseCode, rootCa.c_str());
-              } else {
-                Log.debug("WLAN HTTP AWS response %s", rootCa.c_str());
-                
-                // Perform PointPerfect ZTP 
-                wifiClient.setCACert(rootCa.c_str());
-                http.begin(THINGSTREAM_ZTPURL);
-                http.addHeader(F("Content-Type"), F("application/json"));
-                Log.info("WLAN HTTP ZTP connect to \"%s\" and post \"%s\"", THINGSTREAM_ZTPURL, ztpReq.c_str());
-                int httpResponseCode = http.POST(ztpReq.c_str());
-                String ztp = http.getString();
+          if (useMqtt) {
+            if (0 == id.length()) {
+              ttagNextTry = now + WIFI_PROVISION_RETRY;
+              String ztpReq = Config.ztpRequest();
+              if (ztpReq.length()) {
+                // Fetch the AWS Root CA
+                HTTPClient http;
+                http.begin(AWSTRUST_ROOTCAURL);
+                Log.info("WLAN HTTP get to \"%s\"", AWSTRUST_ROOTCAURL);
+                int httpResponseCode = http.GET();
+                String rootCa = http.getString();
                 http.end();
                 if (httpResponseCode != 200) {
-                  Log.error("WLAN HTTP ZTP response error %d %s", httpResponseCode, ztp.c_str());
+                  Log.error("WLAN HTTP AWS response error %d %s", httpResponseCode, rootCa.c_str());
                 } else {
-                  Log.debug("WLAN HTTP ZTP response %s", ztp.c_str());
-                  id = Config.setZtp(ztp, rootCa); 
-                  if (id.length()) {
-                    setState(PROVISIONED);
+                  Log.debug("WLAN HTTP AWS response %s", rootCa.c_str());
+                  
+                  // Perform PointPerfect ZTP 
+                  wifiClient.setCACert(rootCa.c_str());
+                  http.begin(THINGSTREAM_ZTPURL);
+                  http.addHeader(F("Content-Type"), F("application/json"));
+                  Log.info("WLAN HTTP ZTP connect to \"%s\" and post \"%s\"", THINGSTREAM_ZTPURL, ztpReq.c_str());
+                  int httpResponseCode = http.POST(ztpReq.c_str());
+                  String ztp = http.getString();
+                  http.end();
+                  if (httpResponseCode != 200) {
+                    Log.error("WLAN HTTP ZTP response error %d %s", httpResponseCode, ztp.c_str());
+                  } else {
+                    Log.debug("WLAN HTTP ZTP response %s", ztp.c_str());
+                    id = Config.setZtp(ztp, rootCa); 
                   }
                 }
               }
             }
-          }
-          break;
-        case PROVISIONED:
-          ttagNextTry = now + WIFI_CONNECT_RETRY;
-          if (!id.length() || useNtrip) {
-            setState(ONLINE);
-          } else {
-            if (useWlan) {
+            // we may now have a id if ZTP was sucessful
+            if (0 < id.length()){
+              ttagNextTry = now + WIFI_CONNECT_RETRY;
               String broker = Config.getValue(CONFIG_VALUE_BROKERHOST);
               String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
               String cert = Config.getValue(CONFIG_VALUE_CLIENTCERT);
@@ -319,120 +304,109 @@ public:
               mqttClient.setId(idStr);
               if (mqttClient.connect(brokerStr, MQTT_BROKER_PORT)) {
                 Log.info("WLAN MQTT connect to \"%s\":%d as client \"%s\"", brokerStr, MQTT_BROKER_PORT, idStr);
-                setState(MQTT_CONNECTED);
+                setState(MQTT);
               } else {
                 int err = mqttClient.connectError(); 
                 const char* LUT[] = { "REFUSED", "TIMEOUT", "OK", "PROT VER", "ID BAD", "SRV NA", "BAD USER/PWD", "NOT AUTH" };
                 Log.error("WLAN MQTT connect to \"%s\":%d as client \"%s\" failed with error %d(%s)",
                           brokerStr, MQTT_BROKER_PORT, idStr, err, LUT[err + 2]);
               }
-            }
-          }
-          break;
-        case STATE::MQTT_CONNECTED:
-          {
-            ttagNextTry = now + WIFI_1S_RETRY;
-            if (!id.length() /*|| !mqttCon */ || !useWlan || useNtrip) {
-              mqttStop();
-              setState(ONLINE);
-            } else {
-              std::vector<String> newTopics = Config.getTopics();
-              // filter out the common ones that need no change 
-              for (auto rit = topics.rbegin(); rit != topics.rend(); rit = std::next(rit)) {
-                String topic = *rit;
-                std::vector<String>::iterator pos = std::find(newTopics.begin(), newTopics.end(), topic);
-                if (pos != topics.end()) {
-                  newTopics.erase(pos);
-                } else {
-                  Log.info("WLAN MQTT unsubscribe \"%s\"", topic.c_str());
-                  if (mqttClient.unsubscribe(topic)) {
-                    topics.erase(std::next(rit).base());
+            } 
+          } else if (useNtrip) {
+            if (0 < ntrip.length()) {
+              ttagNextTry = now + WIFI_CONNECT_RETRY;
+              int pos = ntrip.indexOf(':');
+              String server = (-1 == pos) ? ntrip : ntrip.substring(0,pos);
+              uint16_t port = (-1 == pos) ? NTRIP_SERVER_PORT : ntrip.substring(pos+1).toInt();
+              Log.info("WLAN NTRIP connecting to \"%s:%d\"", server.c_str(), port);
+              int ok = ntripWifiClient.connect(server.c_str(), port);
+              if (!ok) {
+                Log.error("WLAN NTRIP connect to \"%s:%d\" failed with error", server.c_str(), port);
+              } else {
+                Log.info("WLAN NTRIP connected to \"%s:%d\"", server.c_str(), port);
+                String mntpnt = Config.getValue(CONFIG_VALUE_NTRIP_MOUNTPT);
+                String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
+                String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
+                String authEnc;
+                String authHead;
+                if (0 < user.length() && 0 < pwd.length()) {
+                  authEnc = base64::encode(user + ":" + pwd);
+                  authHead = "Authorization: Basic ";
+                  authHead += authEnc + "\r\n";
+                }                    
+                const char* expectedReply = 0 == mntpnt.length() ? "SOURCETABLE 200 OK\r\n" : "ICY 200 OK\r\n";
+                Log.info("WLAN NTRIP GET \"/%s\" auth \"%s\"", mntpnt.c_str(), authEnc.c_str());
+                ntripWifiClient.printf("GET /%s HTTP/1.0\r\n"
+                          "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
+                          "%s\r\n", mntpnt.c_str(), authHead.c_str());
+                int len = 0;
+                unsigned long start = millis();
+                while (ntripWifiClient.connected() && ((millis() - start) < NTRIP_CONNECT_TIMEOUT) && (expectedReply[len] != 0) && ok) {
+                  if (ntripWifiClient.available()) {
+                    char ch = ntripWifiClient.read();
+                    ok = (expectedReply[len] == ch) && ok;
+                    if (!ok) Log.warning("WLAN NTRIP %d got '%c' %02X != '%c'", len, ch, ch, expectedReply[len]);
+                    len ++;
+                  } else { 
+                    delay(0);
                   }
                 }
-              }
-              for(int n = 0; n < newTopics.size(); n ++) {
-                String topic = newTopics[n];
-                Log.info("WLAN MQTT subscribe \"%s\"", topic.c_str());
-                if (mqttClient.subscribe(topic)) {
-                  topics.push_back(topic);
+                ok = (expectedReply[len] == 0) && ok;
+                if (ok) { 
+                  Log.info("WLAN NTRIP got expected reply \"%.*s\\r\\n\"", len-2, expectedReply);
+                  ntripGgaMs = now;
+                  setState(NTRIP);
+                }
+                else {
+                  int lenReply = strlen(expectedReply);
+                  Log.error("WLAN NTRIP expected reply \"%.*s\\r\\n\" failed after %d bytes and %d ms", lenReply-2, expectedReply, len, millis() - start);
+                  ntripWifiClient.stop();
                 }
               } 
             }
-            //Log.info("WLAN stack free %d total %d\n", uxTaskGetStackHighWaterMark(0), WLAN_STACK_SIZE);
+          }
+          break;
+        case STATE::MQTT:
+          ttagNextTry = now + WIFI_1S_RETRY;
+          if (!useMqtt || (0 == id.length()) || !mqttClient.connected()) {
+            mqttStop();
+            setState(ONLINE);
+          } else {
+            std::vector<String> newTopics = Config.getTopics();
+            // filter out the common ones that need no change 
+            for (auto rit = topics.rbegin(); rit != topics.rend(); rit = std::next(rit)) {
+              String topic = *rit;
+              std::vector<String>::iterator pos = std::find(newTopics.begin(), newTopics.end(), topic);
+              if (pos != topics.end()) {
+                newTopics.erase(pos);
+              } else {
+                Log.info("WLAN MQTT unsubscribe \"%s\"", topic.c_str());
+                if (mqttClient.unsubscribe(topic)) {
+                  topics.erase(std::next(rit).base());
+                }
+              }
+            }
+            for(int n = 0; n < newTopics.size(); n ++) {
+              String topic = newTopics[n];
+              Log.info("WLAN MQTT subscribe \"%s\"", topic.c_str());
+              if (mqttClient.subscribe(topic)) {
+                topics.push_back(topic);
+              }
+            } 
           }
           break;
         case NTRIP: 
-          if (!useNtrip || !ntrip.length()) {
+          ttagNextTry = now + WIFI_1S_RETRY;
+          if (!useNtrip || (0 == ntrip.length()) || !ntripWifiClient.connected()) {
+            if (ntripWifiClient.connected()) {
+              Log.info("WLAN NTRIP disconnect");
+              ntripWifiClient.stop();
+            }
             setState(ONLINE);
           } else {
-            ttagNextTry = now + WIFI_NTRIP_RETRY;
-            int pos = ntrip.indexOf(':');
-            String server = (-1 == pos) ? ntrip : ntrip.substring(0,pos);
-            uint16_t port = (-1 == pos) ? NTRIP_SERVER_PORT : ntrip.substring(pos+1).toInt();
-            Log.info("WLAN NTRIP connecting to \"%s:%d\"", server.c_str(), port);
-            int ok = ntripWifiClient.connect(server.c_str(), port);
-            if (!ok) {
-              Log.error("WLAN NTRIP connect to \"%s:%d\" failed with error", server.c_str(), port);
-            } else {
-              Log.info("WLAN NTRIP connected to \"%s:%d", server.c_str(), port);
-              String mntpnt = Config.getValue(CONFIG_VALUE_NTRIP_MOUNTPT);
-              String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
-              String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
-              String authEnc;
-              String authHead;
-              if (0 < user.length() && 0 < pwd.length()) {
-                authEnc = base64::encode(user + ":" + pwd);
-                authHead = "Authorization: Basic ";
-                authHead += authEnc + "\r\n";
-              }                    
-              const char* expectedReply;
-              unsigned long timeout;
-              if (0 == mntpnt.length()) {
-                timeout = 5000;
-                expectedReply = "SOURCETABLE 200 OK\r\n";
-              } else {
-                timeout = 20000;
-                expectedReply = "ICY 200 OK\r\n";
-              }
-              Log.info("WLAN NTRIP GET \"/%s\" auth \"%s\"", mntpnt.c_str(), authEnc.c_str());
-              ntripWifiClient.printf("GET /%s HTTP/1.0\r\n"
-                        "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
-                        "%s\r\n", mntpnt.c_str(), authHead.c_str());
-              int len = 0;
-              unsigned long start = millis();
-              while (ntripWifiClient.connected() && ((millis() - start) < timeout) && (expectedReply[len] != 0) && ok) {
-                if (ntripWifiClient.available()) {
-                  char ch = ntripWifiClient.read();
-                  ok = (expectedReply[len] == ch) && ok;
-                  if (!ok) Log.warning("WLAN NTRIP %d got '%c' %02X != '%c'", len, ch, ch, expectedReply[len]);
-                  len ++;
-                } else { 
-                  delay(0);
-                }
-              }
-              ok = (expectedReply[len] == 0) && ok;
-              if (ok) { 
-                Log.info("WLAN NTRIP got expected reply \"%.*s\\r\\n\"", len-2, expectedReply);
-                ntripGgaMs = now;
-                setState(NTRIP_CONNECTED);
-              }
-              else {
-                int lenReply = strlen(expectedReply);
-                Log.error("WLAN NTRIP expected reply \"%.*s\\r\\n\" failed after %d bytes and %d ms", lenReply-2, expectedReply, len, millis() - start);
-                ntripWifiClient.stop();
-              }
-            } 
-          }  
-          break;
-        case NTRIP_CONNECTED: 
-          if (!useNtrip || !ntrip.length() || !ntripWifiClient.connected()) {
-            ntripWifiClient.stop();
-            setState(ONLINE);
-          } else {
-            ttagNextTry = now + WIFI_1S_RETRY;
             int len = 0;
             int total = 0;
-            uint8_t buf[512];
+            uint8_t buf[NTRIP_BUFFER_SIZE];
             while (ntripWifiClient.available()) {
               uint8_t ch = ntripWifiClient.read();
               buf[len++] = ch;
@@ -447,10 +421,10 @@ public:
               Gnss.inject(buf, len, GNSS::SOURCE::WLAN);
             }
             if (0 < total) {
-              Log.info("WLAN NTRIP got %d bytes", len);
+              Log.info("WLAN NTRIP got %d bytes", total);
             }
             if (ntripGgaMs - now <= 0) {
-              ntripGgaMs = now + WIFI_NTRIP_GGARATE;
+              ntripGgaMs = now + NTRIP_GGA_RATE;
               String gga = Config.getValue(CONFIG_VALUE_NTRIP_GGA);
               if (0 < gga.length()) {
                 const char* strGga = gga.c_str();
@@ -555,7 +529,8 @@ protected:
                                    "<label for=\"%s\">Correction source</label><br>"
                                    "<select id=\"%s\" name=\"%s\">", CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE);
     String selected = Config.getValue(CONFIG_VALUE_USESOURCE); 
-    const char *optSource[] = { "WLAN + LTE + LBAND", "WLAN + LBAND", "LTE + LBAND", "WLAN", "LTE", "LBAND", "none" };
+    const char *optSource[] = { "WLAN + LTE + LBAND", "WLAN + LBAND", "LTE + LBAND", "WLAN", "LTE", "LBAND", 
+                                "NTRIP: WLAN + LTE", "NTRIP: WLAN", "NTRIP: LTE", "none" };
     if (!selected.length()) {
       selected = optSource[0]; 
       Config.setValue(CONFIG_VALUE_USESOURCE, optSource[0]);
@@ -694,7 +669,7 @@ protected:
     ledDelay = newDelay;
     ledBit = 0;    
   }
-  typedef enum { INIT = 0, SEARCHING, CONNECTED, ONLINE, PROVISIONED, MQTT_CONNECTED, NTRIP, NTRIP_CONNECTED, NUM_STATE } STATE;
+  typedef enum { INIT = 0, SEARCHING, CONNECTED, ONLINE, MQTT, NTRIP, NUM_STATE } STATE;
   typedef const struct { const char* name; LED_PATTERN pattern; } STATE_LUT_TYPE; 
   static STATE_LUT_TYPE STATE_LUT[NUM_STATE];
   void setState(STATE value, long delay = 0) {
@@ -731,11 +706,9 @@ WLAN::STATE_LUT_TYPE WLAN::STATE_LUT[NUM_STATE] = {
   { "init",           LED_PATTERN_OFF },
   { "searching",      LED_PATTERN_4Hz }, 
   { "connected",      LED_PATTERN_2Hz }, 
-  { "online",         LED_PATTERN_2Hz },
-  { "provisioned",    LED_PATTERN_1Hz },
-  { "mqtt connected", LED_PATTERN_2s  },
-  { "ntrip",          LED_PATTERN_1Hz },
-  { "ntrip connected",LED_PATTERN_2s  }
+  { "online",         LED_PATTERN_1Hz },
+  { "mqtt",           LED_PATTERN_2s  },
+  { "ntrip",          LED_PATTERN_2s  }
 }; 
 
 WLAN Wlan;

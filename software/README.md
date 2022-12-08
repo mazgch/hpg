@@ -10,7 +10,7 @@ The software ensures full autonomous operation of a high precision solution usin
 - Storing of GNSS UBX and AT commands file to SD card
 - Provisioning of PointPerfect credentials using zero touch provisioning (ZTP) by providing device profile token
 - Reception of Pointperfect corerection data using the MQTT protocol over WIFI an LTE
-- Reception of NTRIP corrections using WIFI (when PointPerfect Correction source set to `none`)
+- Reception of NTRIP corrections using WIFI or LTE (when PointPerfect Correction source set to a `NTRIP:` option)
 - Management of different regional correction stream to only ensure one active connection per device. 
 - configuration of LBAND frequency and communication settings depending on location and PointPerfect subscription plan. 
 - Configuration of the GNSS correction source depending on incoming LBAND or IP data
