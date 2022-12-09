@@ -404,24 +404,23 @@ public:
             }
             setState(ONLINE);
           } else {
-            int len = 0;
-            int total = 0;
-            uint8_t buf[NTRIP_BUFFER_SIZE];
-            while (ntripWifiClient.available()) {
-              uint8_t ch = ntripWifiClient.read();
-              buf[len++] = ch;
-              if (len == sizeof(buf)) {
-                total += len;
-                Gnss.inject(buf, len, GNSS::SOURCE::WLAN);
-                len = 0;
-              }  
-            }
-            if(0 < len) {
-              total += len;
-              Gnss.inject(buf, len, GNSS::SOURCE::WLAN);
-            }
-            if (0 < total) {
-              Log.info("WLAN NTRIP got %d bytes", total);
+            int messageSize = ntripWifiClient.available();
+            if (0 < messageSize) {
+              GNSS::MSG msg;
+              msg.data = new uint8_t[messageSize];
+              if (NULL != msg.data) {
+                msg.size = ntripWifiClient.read(msg.data, messageSize);
+                if (msg.size == messageSize) {
+                  msg.source = GNSS::SOURCE::WLAN;
+                  Log.info("WLAN NTRIP read %d bytes", messageSize);
+                  Gnss.inject(msg);
+                } else {
+                  Log.error("WLAN NTRIP read %d bytes failed reading after %d", messageSize, msg.size); 
+                  delete [] msg.data;
+                }
+              } else {
+                Log.error("WLAN NTRIP read %d bytes failed, no memory",  messageSize);
+              }
             }
             if (ntripGgaMs - now <= 0) {
               ntripGgaMs = now + NTRIP_GGA_RATE;

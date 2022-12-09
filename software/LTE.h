@@ -604,7 +604,7 @@ public:
                     } else if (topic.equals(MQTT_TOPIC_FREQ)) {
                       Config.setLbandFreqs(buf, (size_t)len);
                     } else {
-                      Gnss.inject(buf, (size_t)len, source);
+                      len = Gnss.inject(buf, (size_t)len, source);
                     }
                   } else {
                     Log.error("LTE MQTT read failed with error %d", err);
@@ -625,29 +625,29 @@ public:
             }
             setState(ONLINE);
           } else {
-            int total = 0;
-            int len;
-            do {
-              len = 0;
-              char buf[NTRIP_BUFFER_SIZE];
-  /* step */  LTE_CHECK_INIT;
-  /*  1   */  LTE_CHECK = socketReadAvailable(ntripSocket, &len);
-              if (0 < len) {
-                int got = 0;
-                if (len > sizeof(buf)) len = sizeof(buf);
-  /*  2   */    LTE_CHECK = socketRead(ntripSocket, len, buf, &got);
-                len = LTE_CHECK_OK ? got : 0;
+            int messageSize = 0;
+/* step */  LTE_CHECK_INIT;
+/*  1   */  LTE_CHECK = socketReadAvailable(ntripSocket, &messageSize);
+            if (LTE_CHECK_OK && (0 < messageSize)) {
+              GNSS::MSG msg;
+              msg.data = new uint8_t[messageSize];
+              if (NULL != msg.data) {
+                int readSize = 0;
+/*  2   */      LTE_CHECK = socketRead(ntripSocket, messageSize, (char*)msg.data, &readSize);
+                if (LTE_CHECK_OK && (readSize == messageSize)) {
+                  msg.size = readSize;
+                  msg.source = GNSS::SOURCE::LTE;
+                  Log.info("LTE NTRIP read %d bytes", readSize);
+                  Gnss.inject(msg);
+                } else {
+                  Log.error("LTE NTRIP read %d bytes failed reading after %d", messageSize, readSize); 
+                  delete [] msg.data;
+                }
+              } else {
+                Log.error("LTE NTRIP read %d bytes failed, no memory", messageSize);
               }
-              LTE_CHECK_EVAL("LTE NTRIP read");
-              if (0 < len) {
-                total += len;
-                Gnss.inject((const uint8_t*)buf, len, GNSS::SOURCE::LTE);
-              }
-              delay(0);
-            } while (0 < len);
-            if (0 < total) {
-              Log.info("LTE NTRIP got %d bytes", total);
             }
+            LTE_CHECK_EVAL("LTE NTRIP read");
             if (ntripGgaMs - now <= 0) {
               ntripGgaMs = now + NTRIP_GGA_RATE;
               String gga = Config.getValue(CONFIG_VALUE_NTRIP_GGA);

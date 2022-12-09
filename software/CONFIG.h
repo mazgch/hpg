@@ -97,7 +97,6 @@ const char CONFIG_VALUE_NTRIP_GGA[]     = "ntripGga";
 const unsigned short NTRIP_SERVER_PORT  = 2101;
 const int NTRIP_GGA_RATE                = 20000;
 const int NTRIP_CONNECT_TIMEOUT         = 20000;
-const int NTRIP_BUFFER_SIZE             = 515;
                      
 class CONFIG {
 public:
