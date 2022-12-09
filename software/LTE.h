@@ -417,7 +417,7 @@ public:
                 unsigned long start = millis();
                 while (((millis() - start) < NTRIP_CONNECT_TIMEOUT) && (avail < len) && LTE_CHECK_OK) {
     /*  3   */    LTE_CHECK = socketReadAvailable(ntripSocket, &avail);
-                  delay(0);
+                  vTaskDelay(10);
                 }
                 if (avail >= len) avail = len;
                 memset(&buf, 0, len+1);
@@ -526,7 +526,7 @@ public:
           break;
         case MQTT: 
           ttagNextTry = now + LTE_1S_RETRY;
-          if (!useLte || (0 == id.length())) {
+          if (!useMqtt || (0 == id.length())) {
             SARA_R5_error_t err = disconnectMQTT();
             if (SARA_R5_SUCCESS == err) {
               Log.info("LTE MQTT disconnect");
