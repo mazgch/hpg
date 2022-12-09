@@ -199,6 +199,10 @@ public:
               checkSpartanUseSourceCfg(msg.source);
             }
             online = rx.pushRawData(msg.data, msg.size);
+#ifdef __WEBSOCKET__H__
+            // Uncomment if you like to make the messages that are written to the GNSS visible to the Monitor
+            // Websocket.write(msg.data, msg.size);
+#endif
             if (online) {
               len += msg.size;
               Log.debug("GNSS inject %d bytes from %s source", msg.size, LUT_SRC(msg.source));
