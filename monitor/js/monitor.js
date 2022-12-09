@@ -1237,12 +1237,15 @@ double X = m_pStorageX->GetValue();
                             if (Math.abs(fields.entry[i].centerFreq - gnssLut[sys].freq[key]) < 100000)
                                 id = gnssLut[sys].ch + key;
                         } );
-                        nmeaSvsSet(sys, id, sig, Math.round(cn0))
+                        nmeaSvsSet(sys, id, sig, cn0)
                         nmeaSvDb.dirty = true;
                     }
                 }   
             } if (message.name === 'RXM-QZSSL6') {
-                nmeaSvsSet('QZSS', fields.svId, 'L6', fields.cno);
+                const sys = 'QZSS';
+                const sig = 'L6';
+                const id = gnssLut[sys].ch + fields.svId;
+                nmeaSvsSet(sys, id, sig, fields.cno);
                 nmeaSvDb.dirty = true;
             } if (message.name === 'RXM-COR') {
                 if (fields.ebn0 > 0)
@@ -1282,7 +1285,7 @@ function nmeaSvsSet(sys, sv, sig, cno, az, elv, used, nmeaSv) {
         nmeaSvDb[sys][sv].elv = elv;
     }
     if (cno) {
-        nmeaSvDb[sys][sv].cno[sig] = cno;
+        nmeaSvDb[sys][sv].cno[sig] = cno.toFixed(0);
         const len = Object.keys(nmeaSvDb[sys][sv].cno).length;
         if (len > nmeaSvDb.freqs) nmeaSvDb.freqs = len;
     }
