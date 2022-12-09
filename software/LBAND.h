@@ -44,7 +44,7 @@ public:
   bool detect() {
     //rx.enableDebugging()
 #ifdef WEBSOCKET_STREAM
-    //rx.setOutputPort(Websocket); // forward all messages
+    rx.setOutputPort(Websocket); // forward all messages
 #endif  
     bool ok = rx.begin(UbxWire, LBAND_I2C_ADR);
     if (ok)

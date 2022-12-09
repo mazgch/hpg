@@ -63,7 +63,7 @@ public:
     queue = xQueueCreate( 10, sizeof( MSG ) );
     online = false;
     ttagNextTry = millis();
-    curSource = OTHER;
+    curSource = NONE;
     for (int i = 0; i < NUM_SOURCE; i ++) {
       ttagSource[i] = ttagNextTry - GNSS_CORRECTION_TIMEOUT;
     }
@@ -144,16 +144,16 @@ public:
         int keySize = Config.getValue(CONFIG_VALUE_KEY, key, sizeof(key));
         if (keySize > 0) {
           Log.info("GNSS inject saved keys");
-          inject(key, keySize, OTHER);
+          inject(key, keySize, KEYS);
         }
       }
     }
     return ok;
   }
 
-  typedef enum { WLAN = 0, LTE = 1, LBAND = 2, OTHER = 3, NUM_SOURCE = 3, } SOURCE;
+  typedef enum { WLAN = 0, LTE, LBAND, KEYS, WEBSOCKET, NONE, NUM_SOURCE, } SOURCE;
+  static const char* SOURCE_LUT[];
   typedef struct { SOURCE source; uint8_t* data; size_t size; } MSG;
-  #define LUT_SRC(s) ((s == WLAN) ? "WLAN" : (s == LTE) ? "LTE" : (s == LBAND) ? "LBAND" : "other") 
   
   size_t inject(MSG& msg) {
     if (xQueueSendToBack(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
@@ -161,7 +161,7 @@ public:
     }
     delete [] msg.data;
     msg.data = NULL;
-    Log.error("GNSS inject %d bytes from %s source failed, queue full", msg.size, LUT_SRC(msg.source));
+    Log.error("GNSS inject %d bytes from %s source failed, queue full", msg.size, SOURCE_LUT[msg.source]);
     return 0;
   }
   
@@ -174,7 +174,7 @@ public:
       msg.source = src;
       return inject(msg);
     }
-    Log.error("GNSS inject %d bytes from %s source failed, no memory", msg.size, LUT_SRC(msg.source));
+    Log.error("GNSS inject %d bytes from %s source failed, no memory", msg.size, SOURCE_LUT[msg.source]);
     return 0;
   }
   
@@ -195,18 +195,20 @@ public:
         MSG msg;
         while (xQueueReceive(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
           if (online) {
-            if (msg.source != OTHER) {
-              checkSpartanUseSourceCfg(msg.source);
+            checkSpartanUseSourceCfg(msg.source);
 #ifdef __WEBSOCKET__H__
+            // Forward also messages from the IP services (LTE and WIFI) to the GUI though the WEBSOCKET
+            // LBAND and GNSS are already sent directly, and we dont want KEYS and WEBSOCKET injections to loop back to the GUI
+            if ((msg.source == WLAN) || (msg.source == LTE)) {
               Websocket.write(msg.data, msg.size);
-#endif
             }
+#endif
             online = rx.pushRawData(msg.data, msg.size);
             if (online) {
               len += msg.size;
-              Log.debug("GNSS inject %d bytes from %s source", msg.size, LUT_SRC(msg.source));
+              Log.debug("GNSS inject %d bytes from %s source", msg.size, SOURCE_LUT[msg.source]);
             } else {
-              Log.error("GNSS inject %d bytes from %s source failed", msg.size, LUT_SRC(msg.source));
+              Log.error("GNSS inject %d bytes from %s source failed", msg.size, SOURCE_LUT[msg.source]);
             }
           }
           delete [] msg.data;
@@ -220,21 +222,21 @@ public:
   #define TIMEOUT_SRC(now, src) ((src < NUM_SOURCE) ? (signed long)((now) - ttagSource[src]) > GNSS_CORRECTION_TIMEOUT : true)
 
   void checkSpartanUseSourceCfg(SOURCE source) {
-    if ((source < NUM_SOURCE) && (source != OTHER)) {
+    if ((source == WLAN) || (source == LTE) || (source == LBAND)) {
       // manage correction stream selection 
       long now = millis();
       ttagSource[source] = millis();
       if (source != curSource) { // source would change
-        if (  (curSource == OTHER) || // just use any source, if we never set it. 
+        if (  (curSource == NONE) || // just use any source, if we never set it. 
              ((curSource == LBAND) && (source != LBAND)) || // prefer any IP source over LBAND
              ((curSource != LBAND) && TIMEOUT_SRC(now, curSource)) ) { // let IP source timeout before switching to any other source 
           bool ok/*online*/ = rx.setVal8(UBLOX_CFG_SPARTN_USE_SOURCE, GNSS_SPARTAN_USESOURCE(source), VAL_LAYER_RAM);
           if (ok) {
-            Log.info("GNSS spartanUseSource %s from source %s", GNSS_SPARTAN_USESOURCE_TXT(source), LUT_SRC(source));
+            Log.info("GNSS spartanUseSource %s from source %s", GNSS_SPARTAN_USESOURCE_TXT(source), SOURCE_LUT[source]);
             curSource = source;
           } else {
             // WORKAROUND: for some reson the spartanUseSource command fails, reason is unknow, we dont realy worry here and will do it just again next time 
-            Log.warning("GNSS spartanUseSource %s from source %s failed", GNSS_SPARTAN_USESOURCE_TXT(source), LUT_SRC(source));
+            Log.warning("GNSS spartanUseSource %s from source %s failed", GNSS_SPARTAN_USESOURCE_TXT(source), SOURCE_LUT[source]);
           }
         }
       }
@@ -253,7 +255,7 @@ public:
       Log.info("GNSS %d:%d:%d %02d:%02d:%02d lat %.7f lon %.7f msl %.3f fix %d(%s) carr %d(%s) hacc %.3f source %s heap %d", 
             ubxDataStruct->day, ubxDataStruct->month, ubxDataStruct->year, ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, 
             fLat, fLon, 1e-3 * ubxDataStruct->hMSL, fixType, fixLut[fixType & 7], carrSoln, carrLut[carrSoln & 3], 
-            1e-3*ubxDataStruct->hAcc, LUT_SRC(Gnss.curSource), ESP.getFreeHeap());
+            1e-3*ubxDataStruct->hAcc, SOURCE_LUT[Gnss.curSource], ESP.getFreeHeap());
             
       // update the pointperfect topic and lband frequency depending on region we are in
       if ((fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) {
@@ -263,7 +265,7 @@ public:
 #ifdef __WEBSOCKET__H__
       char string[128];
       int len = snprintf(string, sizeof(string), "%02d:%02d:%02d %s %s %s %.3f %.7f %.7f %.3f\r\n",
-            ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, LUT_SRC(Gnss.curSource), 
+            ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, SOURCE_LUT[Gnss.curSource], 
             fixLut[fixType & 7], carrLut[carrSoln & 3], 1e-3*ubxDataStruct->hAcc, fLat, fLon, 1e-3 * ubxDataStruct->hMSL);
       Websocket.write(string, len);
 #endif
@@ -308,8 +310,17 @@ protected:
 GNSS Gnss;
 
 // static function that can be easily called from other modules avoiding include dependencies)
-size_t GNSSINJECT(const void* ptr, size_t len) { 
-  return Gnss.inject((const uint8_t*)ptr, len, GNSS::SOURCE::OTHER); 
+size_t GNSSINJECT_WEBSOCKET(const void* ptr, size_t len) { 
+  return Gnss.inject((const uint8_t*)ptr, len, GNSS::SOURCE::WEBSOCKET); 
 }
+
+const char* GNSS::SOURCE_LUT[NUM_SOURCE] = {
+  "WLAN", 
+  "LTE", 
+  "LBAND",
+  "KEYS", 
+  "WEBSOCKET", 
+  "-"
+}; 
 
 #endif // __GNSS_H__

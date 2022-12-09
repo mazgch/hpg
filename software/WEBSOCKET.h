@@ -184,9 +184,10 @@ protected:
       client.send(data.c_str());
 #ifdef WEBSOCKET_STREAM
     } else {
-      Log.info("WEBSOCKET message %d bytes", message.length()); 
-      extern size_t GNSSINJECT(const void* ptr, size_t len);
-      GNSSINJECT(message.c_str(), message.length());
+      Log.info("WEBSOCKET message %d bytes", message.length());
+      // function is declared here to avoid include dependency
+      extern size_t GNSSINJECT_WEBSOCKET(const void* ptr, size_t len);
+      GNSSINJECT_WEBSOCKET(message.c_str(), message.length());
 #endif
     }
   }
