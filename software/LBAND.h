@@ -76,9 +76,10 @@ public:
 /* 2*/  LBAND_CHECK = rx.setVal16(0x30b10015,                      0x6959, VAL_LAYER_RAM);
 /* 3*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY,    freq, VAL_LAYER_RAM);
 /* 4*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,       1, VAL_LAYER_RAM);
+/* 5*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_MON_PMP_I2C,       1, VAL_LAYER_RAM);
         // prepare the UART 2
-/* 5*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2,     1, VAL_LAYER_RAM);
-/* 6*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
+/* 6*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2,     1, VAL_LAYER_RAM);
+/* 7*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
       }
       online = ok = LBAND_CHECK_OK;
       LBAND_CHECK_EVAL("LBAND detect configuration");
