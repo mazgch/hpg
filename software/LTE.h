@@ -583,7 +583,7 @@ public:
                     Log.info("LTE MQTT topic \"%s\" read %d bytes", strTopic, len);
                     GNSS::SOURCE source = GNSS::SOURCE::LTE;
                     if (topic.startsWith(MQTT_TOPIC_KEY_FORMAT)) {
-                      source = GNSS::SOURCE::OTHER; // inject key as other
+                      source = GNSS::SOURCE::OTHER; // inject key as other, so it goes though always
                       if (Config.setValue(CONFIG_VALUE_KEY, buf, len)) {
                         Config.save();
                       }

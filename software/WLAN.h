@@ -586,7 +586,7 @@ protected:
           msg.source = GNSS::SOURCE::WLAN;
           Log.info("WLAN MQTT topic \"%s\" with %d bytes", topic.c_str(), msg.size); 
           if (topic.startsWith(MQTT_TOPIC_KEY_FORMAT)) {
-            msg.source = GNSS::SOURCE::OTHER; // inject key as other
+            msg.source = GNSS::SOURCE::OTHER; // inject key as other, so it goes though always
             if (Config.setValue(CONFIG_VALUE_KEY, msg.data, msg.size)) {
               Config.save();
             }
