@@ -17,17 +17,21 @@ public:
   BLUETOOTH(size_t size) : buffer{size} {
     mutex = xSemaphoreCreateMutex();
     txChar = NULL;
+    rxChar = NULL;
+    connected = false;
   }
     
   void init(String name) {
     BLEDevice::init(std::string(name.c_str()));
+    //NimBLEDevice::setPower(ESP_PWR_LVL_P9); /** +9db */
     BLEServer *server = BLEDevice::createServer();    
     if (server) {
+      
       server->setCallbacks(this);
-      BLEService *service = server->createService(SERVICE_UUID);
+      BLEService *service = server->createService(UART_SERVICE_UUID);
       if (service) {
-        txChar = service->createCharacteristic(TXCHAR_UUID, NIMBLE_PROPERTY::NOTIFY);
-        BLECharacteristic *rxChar = service->createCharacteristic(RXCHAR_UUID, NIMBLE_PROPERTY::WRITE);
+        txChar = service->createCharacteristic(TX_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::NOTIFY);
+        rxChar = service->createCharacteristic(RX_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::WRITE);
         if (rxChar) {
           rxChar->setCallbacks(this);
         }
@@ -35,9 +39,7 @@ public:
       }
       BLEAdvertising *advertising = server->getAdvertising(); 
       if (advertising) {
-        advertising->addServiceUUID(SERVICE_UUID);
-        advertising->setScanResponse(true);
-        advertising->setMinPreferred(0x12);
+        advertising->addServiceUUID(UART_SERVICE_UUID);
         advertising->start();        
       }
       log_i("device \"%s\"", name.c_str());
@@ -86,7 +88,7 @@ protected:
           uint8_t temp[BLE_ATT_ATTR_MAX_LEN]; // limit 
           size_t len = buffer.read((char*)temp, sizeof(temp));
           xSemaphoreGive(mutex);
-          if (0 < len) {
+          if (connected && (0 < len)) {
             txChar->setValue(temp, len);
             txChar->notify(true);
             wrote += len;
@@ -104,31 +106,17 @@ protected:
   
   void onConnect(NimBLEServer *pServer) {
     log_i("connected");
+    connected = true;
   }
   
   void onDisconnect(NimBLEServer *pServer) {
     log_i("disconnected");
+    connected = false;
     //pServer->startAdvertising();
   }
-
-  /*const uint32_t PASS_KEY = 123456;
-  
-  uint32_t onPassKeyRequest() {
-    log_i("passKey %d", PASS_KEY);
-    return PASS_KEY; 
-  }
-
-  bool onConfirmPIN(uint32_t passKey) {
-    log_i("confirm PIN %d", passKey);
-    return (passKey == PASS_KEY); 
-  }
-
-  void onAuthenticationComplete(ble_gap_conn_desc desc) {
-    log_i("auth complete");
-  }*/
     
   void onWrite(BLECharacteristic *pCharacteristic) {
-    if (pCharacteristic->getUUID().toString() == RXCHAR_UUID) {
+    if (pCharacteristic == rxChar) {
       std::string value = pCharacteristic->getValue();
       extern size_t GNSSINJECT_BLUETOOTH(const void* ptr, size_t len);
       int read = GNSSINJECT_BLUETOOTH(value.c_str(), value.length());
@@ -139,10 +127,12 @@ protected:
   SemaphoreHandle_t mutex;
   cbuf buffer;
   BLECharacteristic *txChar;
+  BLECharacteristic *rxChar;
+  volatile bool connected;
   
-  const char *SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-  const char *RXCHAR_UUID  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-  const char *TXCHAR_UUID  = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+  const char *UART_SERVICE_UUID      = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
+  const char *RX_CHARACTERISTIC_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";
+  const char *TX_CHARACTERISTIC_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
 };
 
 BLUETOOTH Bluetooth(BLUETOOTH_BUFFER_SIZE);

@@ -125,12 +125,14 @@ void setup()
 #endif
 }
 
-#define DUMP_STACK_INTERVAL 10000
+#define DUMP_STACK_INTERVAL 10000 // Dump interval in ms, set to 0 to disable
 
-void dumpStacks(void) {
+/* helper function to diagnose the health of this application dumping the free stacks and heap 
+*/
+void diagnoseHealth(void) {
   // this code allows to print all the stacks of the different tasks
   static long lastMs = 0; 
-  if (millis() - lastMs > DUMP_STACK_INTERVAL) {
+  if (DUMP_STACK_INTERVAL && (millis() - lastMs > DUMP_STACK_INTERVAL)) {
     lastMs = millis();
     char buf[128];
     int len = 0;
@@ -143,7 +145,7 @@ void dumpStacks(void) {
         len += sprintf(&buf[len], " %s %u", tasks[i], stack);
       }
     }
-    log_i("stacks%s", buf);
+    log_i("stacks:%s heap: min %d cur %d size %d", buf, ESP.getMinFreeHeap(), ESP.getFreeHeap(), ESP.getHeapSize());
   }
 }
 
@@ -153,5 +155,5 @@ void loop()
   Gnss.poll();
   delay(50);
 
-  dumpStacks();
+  diagnoseHealth();
 }

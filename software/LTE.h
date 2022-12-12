@@ -622,23 +622,23 @@ protected:
     }
     return false;
   }
-  
-  static void epsRegCallback(SARA_R5_registration_status_t status, unsigned int tac, unsigned int ci, int Act) {
-    log_d("status %d(%s) tac \"%04X\", ci \"%08X\" Act %d(%s)", status, LUT(REG_STATUS_LUT, status), tac, ci, Act, LUT(REG_ACT_LUT, Act));
-    if (((status == SARA_R5_REGISTRATION_HOME) || (status == SARA_R5_REGISTRATION_ROAMING)) && (Lte.state < REGISTERED)) {
-      Lte.setState(REGISTERED);
-    } else if ((status == SARA_R5_REGISTRATION_SEARCHING) && (Lte.state >= REGISTERED)) {
-      Lte.setState(WAITREGISTER);
+
+  void regCallback(SARA_R5_registration_status_t status, unsigned int tacLac, unsigned int ci, int Act, const char* strTacLac)
+  {
+    log_d("status %d(%s) %s \"%04X\" ci \"%08X\" Act %d(%s)", status, LUT(REG_STATUS_LUT, status), strTacLac, tacLac, ci, Act, LUT(REG_ACT_LUT, Act));
+    if (((status == SARA_R5_REGISTRATION_HOME) || (status == SARA_R5_REGISTRATION_ROAMING)) && (state < REGISTERED)) {
+      setState(REGISTERED);
+    } else if ((status == SARA_R5_REGISTRATION_SEARCHING) && (state >= REGISTERED)) {
+      setState(WAITREGISTER);
     }
   }
   
+  static void epsRegCallback(SARA_R5_registration_status_t status, unsigned int tac, unsigned int ci, int Act) {
+    Lte.regCallback(status, tac, ci, Act, "tac");
+  }
+  
   static void regCallback(SARA_R5_registration_status_t status, unsigned int lac, unsigned int ci, int Act) {
-    log_d("status %d(%s) lac \"%04X\", ci \"%04X\" Act %d(%s)", status, LUT(REG_STATUS_LUT, status), lac, ci, Act, LUT(REG_ACT_LUT, Act));
-    if (((status == SARA_R5_REGISTRATION_HOME) || (status == SARA_R5_REGISTRATION_ROAMING)) && (Lte.state < REGISTERED)) {
-      Lte.setState(REGISTERED);
-    } else if ((status == SARA_R5_REGISTRATION_SEARCHING) && (Lte.state >= REGISTERED)) {
-      Lte.setState(WAITREGISTER);
-    }
+    Lte.regCallback(status, lac, ci, Act, "lac");
   }
 
   bool lteActivate(void) {
@@ -922,7 +922,7 @@ protected:
       if (PIN_INVALID != LTE_RXO) {
         char rxo = digitalRead(LTE_RXO);
         if (lastRxo != rxo) {
-          log_d((rxo == LOW) ? "LTE pin RXO LOW(active)" : "LTE pin RXO HIGH(idle)"); 
+          log_d("LTE pin RXO %s", (rxo == LOW) ? "LOW(active)" : "HIGH(idle)"); 
           lastRxo = rxo;
         }
         ready = ready && (rxo == HIGH);
@@ -930,7 +930,7 @@ protected:
       if (PIN_INVALID != LTE_ON) {
         char on = digitalRead(LTE_ON);
         if (on != lastOn) {
-          log_d((on == LOW) ? "LTE pin ON LOW(on)" : "LTE pin ON HIGH(off)"); 
+          log_d("LTE pin ON %s", (on == LOW) ? "LOW(on)" : "HIGH(off)"); 
           lastOn = on;
         }
         ready = ready && (on == LOW);
@@ -938,7 +938,7 @@ protected:
       if (PIN_INVALID != LTE_CTS) {
         char cts = digitalRead(LTE_CTS);
         if (lastCts != cts) {
-          log_d((cts == LOW) ? "LTE pin CTS LOW(idle)" : "LTE pin CTS HIGH(wait)"); 
+          log_d("LTE pin CTS %s", (cts == LOW) ? "LOW(idle)" : "HIGH(wait)"); 
           lastCts = cts;
         }
         ready = ready && (cts == LOW);

@@ -266,16 +266,15 @@ protected:
       uint8_t carrSoln = ubxDataStruct->flags.bits.carrSoln; // Print the carrier solution
       double fLat = 1e-7 * ubxDataStruct->lat;
       double fLon = 1e-7 * ubxDataStruct->lon;
-      log_i("%d:%d:%d %02d:%02d:%02d lat %.7f lon %.7f msl %.3f fix %d(%s) carr %d(%s) hacc %.3f source %s heap %d", 
+      log_i("%d:%d:%d %02d:%02d:%02d lat %.7f lon %.7f msl %.3f fix %d(%s) carr %d(%s) hacc %.3f source %s", 
             ubxDataStruct->day, ubxDataStruct->month, ubxDataStruct->year, ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, 
             fLat, fLon, 1e-3 * ubxDataStruct->hMSL, fixType, fixLut[fixType & 7], carrSoln, carrLut[carrSoln & 3], 
-            1e-3*ubxDataStruct->hAcc, Gnss.SOURCE_LUT[Gnss.curSource], ESP.getFreeHeap());
+            1e-3*ubxDataStruct->hAcc, Gnss.SOURCE_LUT[Gnss.curSource]);
             
       // update the pointperfect topic and lband frequency depending on region we are in
       if ((fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) {
         Config.updateLocation(fLat, fLon);
       }
-
 #ifdef __WEBSOCKET__H__
       char string[128];
       snprintf(string, sizeof(string), "%02d:%02d:%02d %s %s %s %.3f %.7f %.7f %.3f\r\n",
@@ -283,7 +282,6 @@ protected:
             fixLut[fixType & 7], carrLut[carrSoln & 3], 1e-3*ubxDataStruct->hAcc, fLat, fLon, 1e-3 * ubxDataStruct->hMSL);
       Websocket.write(string, WEBSOCKET::SOURCE::GNSS);
 #endif
-
       saveGGA(ubxDataStruct);
     }
   }

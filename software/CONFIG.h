@@ -199,7 +199,7 @@ public:
       str = json.containsKey(param) ? json[param] : String();
       xSemaphoreGive(mutex);
     }
-    log_d("param %s = \"%s\"", param, str.c_str());
+    log_v("param %s = \"%s\"", param, str.c_str());
     return str;
   }
   
@@ -216,9 +216,9 @@ public:
       xSemaphoreGive(mutex); 
     }
     if (changed) {
-      log_d("param %s changed from \"%s\" to \"%s\"", param, old.c_str(), value.c_str()); 
+      log_v("param %s changed from \"%s\" to \"%s\"", param, old.c_str(), value.c_str()); 
     } else {
-      log_d("param  %s keep \"%s\" as unchanged", param,  old.c_str()); 
+      log_v("param  %s keep \"%s\" as unchanged", param,  old.c_str()); 
     }
     return changed;
   } 
@@ -234,7 +234,7 @@ public:
       xSemaphoreGive(mutex); 
     }
     if (changed) {
-      log_d("param  %s", param);
+      log_v("param  %s", param);
     }
     return changed;
   }
@@ -411,7 +411,7 @@ public:
       json["hardwareId"] = getDeviceName();
       json["givenName"] = getDeviceTitle();
       if (0 < serializeJson(json,str)) {
-        log_d("ZTP request %s", str.c_str());
+        log_v("ZTP request %s", str.c_str());
       }
     }
     return str;

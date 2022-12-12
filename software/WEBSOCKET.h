@@ -108,7 +108,7 @@ public:
         }
       }
       total += msg.size;
-      log_d("queue %d bytes from %d(%s)", msg.size, msg.source, SOURCE_LUT(msg.source));
+      log_d("queue %d bytes from %d(%s)", msg.size, msg.source, SOURCE_LUT[msg.source]);
       delete [] msg.data;
       msg.data = NULL;
     }
@@ -133,7 +133,9 @@ public:
       }
       vTaskDelay(0); // Yield
     } while (loop);
-    log_d("total %d bytes", total);
+    if (0 < total) {
+      log_d("total %d bytes", total);
+    }
 #endif
   }
     
