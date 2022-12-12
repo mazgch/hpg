@@ -1,58 +1,45 @@
 #ifndef __BLUETOOTH_H__
 #define __BLUETOOTH_H__
 
-#include <BLEDevice.h>
-#include <BLEUtils.h>
-#include <BLEServer.h>
-#include <BLE2902.h>
+#include <NimBLEDevice.h>
 
-const int BLUETOOTH_BUFFER_SIZE = 2*1024;
-const int BLUETOOTH_STACK_SIZE  = 3*1024; //!< Stack size of Bluetooth Logging task
-const int BLUETOOTH_TASK_PRIO   =      1;
-const int BLUETOOTH_TASK_CORE   =      1;
-const char* BLUETOOTH_TASK_NAME = "Bluetooth";
+const int BLUETOOTH_PACKET_DELAY  =    10;
+const int BLUETOOTH_NODATA_DELAY  =    30;
+
+const int BLUETOOTH_BUFFER_SIZE   = 2*1024;
+const int BLUETOOTH_STACK_SIZE    = 3*1024; //!< Stack size of Bluetooth Logging task
+const int BLUETOOTH_TASK_PRIO     =      1;
+const int BLUETOOTH_TASK_CORE     =      1;
+const char* BLUETOOTH_TASK_NAME   = "Bluetooth";
 
 class BLUETOOTH : public BLECharacteristicCallbacks, public BLEServerCallbacks, public Stream {
 public:
   BLUETOOTH(size_t size) : buffer{size} {
     mutex = xSemaphoreCreateMutex();
-    rxChar = NULL;
     txChar = NULL;
   }
     
   void init(String name) {
     BLEDevice::init(std::string(name.c_str()));
-    BLEServer *server = BLEDevice::createServer();
+    BLEServer *server = BLEDevice::createServer();    
     if (server) {
       server->setCallbacks(this);
-      
       BLEService *service = server->createService(SERVICE_UUID);
       if (service) {
-        rxChar = service->createCharacteristic(RXCHAR_UUID, BLECharacteristic::PROPERTY_WRITE);
+        txChar = service->createCharacteristic(TXCHAR_UUID, NIMBLE_PROPERTY::NOTIFY);
+        BLECharacteristic *rxChar = service->createCharacteristic(RXCHAR_UUID, NIMBLE_PROPERTY::WRITE);
         if (rxChar) {
-          rxChar->setAccessPermissions(ESP_GATT_PERM_WRITE_ENCRYPTED);
-          rxChar->addDescriptor(new BLE2902());
-          rxChar->setWriteProperty(true);
           rxChar->setCallbacks(this);
-        }
-        txChar = service->createCharacteristic(TXCHAR_UUID, BLECharacteristic::PROPERTY_NOTIFY);
-        if (txChar) {
-          txChar->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED);
-          txChar->addDescriptor(new BLE2902());
-          txChar->setReadProperty(true);
-          txChar->setCallbacks(this);
         }
         service->start();
       }
-      BLEAdvertising *advertising = BLEDevice::getAdvertising(); 
+      BLEAdvertising *advertising = server->getAdvertising(); 
       if (advertising) {
         advertising->addServiceUUID(SERVICE_UUID);
         advertising->setScanResponse(true);
-        advertising->setMinPreferred(0x06); // functions that help with iPhone connections issue
         advertising->setMinPreferred(0x12);
         advertising->start();        
       }
-
       log_i("device \"%s\"", name.c_str());
       xTaskCreatePinnedToCore(task, BLUETOOTH_TASK_NAME, BLUETOOTH_STACK_SIZE, this, BLUETOOTH_TASK_PRIO, NULL, BLUETOOTH_TASK_CORE);
     }
@@ -91,13 +78,12 @@ protected:
   }
 
   void task(void) {
-    while(NULL != txChar) {
+    while(true) {
       size_t wrote = 0;
-      bool loop;
-      do {
-        loop = false;
+      bool loop = (NULL != txChar);
+      while (loop) {
         if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-          uint8_t temp[512]; // limit 
+          uint8_t temp[BLE_ATT_ATTR_MAX_LEN]; // limit 
           size_t len = buffer.read((char*)temp, sizeof(temp));
           xSemaphoreGive(mutex);
           if (0 < len) {
@@ -105,28 +91,42 @@ protected:
             txChar->notify(true);
             wrote += len;
           }
+          vTaskDelay(BLUETOOTH_PACKET_DELAY); // Yield
           loop = (len == sizeof(temp));
         }
-        vTaskDelay(10); // Yield
-      } while (loop);
+      }
       if (0 < wrote) {
         log_d("wrote %d bytes", wrote);
-      } 
+      }
+      vTaskDelay(BLUETOOTH_NODATA_DELAY); // Yield
     }
   }
   
-  void onConnect(BLEServer *pServer) {
-    int id = pServer->getConnId();
-    //maxLen = pServer->getPeerMTU(id) - 5;
-    log_i("connected id %d", id);
+  void onConnect(NimBLEServer *pServer) {
+    log_i("connected");
   }
   
-  void onDisconnect(BLEServer *pServer) {
-    int id = pServer->getConnId();
-    log_i("disconnected id %d", id);
-    pServer->startAdvertising();
+  void onDisconnect(NimBLEServer *pServer) {
+    log_i("disconnected");
+    //pServer->startAdvertising();
   }
+
+  /*const uint32_t PASS_KEY = 123456;
   
+  uint32_t onPassKeyRequest() {
+    log_i("passKey %d", PASS_KEY);
+    return PASS_KEY; 
+  }
+
+  bool onConfirmPIN(uint32_t passKey) {
+    log_i("confirm PIN %d", passKey);
+    return (passKey == PASS_KEY); 
+  }
+
+  void onAuthenticationComplete(ble_gap_conn_desc desc) {
+    log_i("auth complete");
+  }*/
+    
   void onWrite(BLECharacteristic *pCharacteristic) {
     if (pCharacteristic->getUUID().toString() == RXCHAR_UUID) {
       std::string value = pCharacteristic->getValue();
@@ -139,7 +139,6 @@ protected:
   SemaphoreHandle_t mutex;
   cbuf buffer;
   BLECharacteristic *txChar;
-  BLECharacteristic *rxChar;
   
   const char *SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
   const char *RXCHAR_UUID  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";

@@ -278,10 +278,10 @@ protected:
 
 #ifdef __WEBSOCKET__H__
       char string[128];
-      int len = snprintf(string, sizeof(string), "%02d:%02d:%02d %s %s %s %.3f %.7f %.7f %.3f\r\n",
+      snprintf(string, sizeof(string), "%02d:%02d:%02d %s %s %s %.3f %.7f %.7f %.3f\r\n",
             ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, Gnss.SOURCE_LUT[Gnss.curSource], 
             fixLut[fixType & 7], carrLut[carrSoln & 3], 1e-3*ubxDataStruct->hAcc, fLat, fLon, 1e-3 * ubxDataStruct->hMSL);
-      Websocket.write(string, len, WEBSOCKET::SOURCE::GNSS);
+      Websocket.write(string, WEBSOCKET::SOURCE::GNSS);
 #endif
 
       saveGGA(ubxDataStruct);

@@ -72,9 +72,9 @@ public:
     }
     if (wsServer.poll()) {
       WebsocketsClient client = wsServer.accept();
+      client.onMessage(onMessage);
+      client.onEvent(onEvent);
       client.ping();
-      client.onMessage(wsMessage);
-      client.onEvent(wsEvent);
       String string = Config.getDeviceName();
       string = "Connected to " + string + "\r\n";
       client.send(string.c_str());
@@ -85,12 +85,13 @@ public:
     send();
   }
 
-  typedef enum                          {  WLAN = 0, LTE,   LBAND,   GNSS,  NUM } SOURCE; 
-  const char* SOURCE_LUT[SOURCE::NUM] = { "WLAN",   "LTE", "LBAND", "GNSS", };
+  typedef enum                          {  WLAN = 0, LTE,   LBAND,   GNSS, NUM } SOURCE; 
+  const char* SOURCE_LUT[SOURCE::NUM] = { "WLAN",   "LTE", "LBAND", "GNSS" };
   typedef struct { 
     SOURCE source; 
     char* data; 
-    size_t size; 
+    size_t size;
+    bool binary;
   } MSG;
   
   void send(void) {
@@ -99,7 +100,11 @@ public:
     while (xQueueReceive(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
       for (auto it = wsClients.begin(); (it != wsClients.end()); it = std::next(it)) {
         if (it->available()) {
-          it->send(msg.data, msg.size);
+          if (msg.binary) {
+            it->sendBinary(msg.data, msg.size);
+          } else {
+            it->send(msg.data, msg.size);
+          }
         }
       }
       total += msg.size;
@@ -126,12 +131,13 @@ public:
           loop = true;
         }
       }
+      vTaskDelay(0); // Yield
     } while (loop);
     log_d("total %d bytes", total);
 #endif
   }
     
-  size_t write(const void* buffer, size_t size, SOURCE source) {
+  size_t write(const void* buffer, size_t size, SOURCE source, bool binary = true) {
     size_t wrote = 0;
     if (connected) {
       MSG msg;
@@ -140,6 +146,7 @@ public:
         memcpy(msg.data, buffer, size);
         msg.size = size;
         msg.source = source;
+        msg.binary = binary;
         if (xQueueSendToBack(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
           log_d("queue %d bytes from %d(%s)", size, source, SOURCE_LUT[source]);
           wrote += msg.size;
@@ -155,7 +162,7 @@ public:
   }
 
   size_t write(const char* buffer, SOURCE source) {
-    return write(buffer, strlen(buffer), source);
+    return write(buffer, strlen(buffer), source, false);
   }
 
 #ifdef WEBSOCKET_STREAM
@@ -205,7 +212,7 @@ protected:
   void serveJs(void)    { serve(WEBSOCKET_JSURL,  "text/javascript",  JS);   }
   void serveCss(void)   { serve(WEBSOCKET_CSSURL, "text/css",         CSS);  }
   
-  static void wsMessage(WebsocketsClient &client, WebsocketsMessage message) {
+  static void onMessage(WebsocketsClient &client, WebsocketsMessage message) {
     if (!message.isBinary()) {
       String data = message.data();
       log_i("string \"%s\" with %d bytes", data.c_str(), message.length()); 
@@ -221,7 +228,7 @@ protected:
     }
   }
 
-  static void wsEvent(WebsocketsClient &client, WebsocketsEvent event, String data) {
+  static void onEvent(WebsocketsClient &client, WebsocketsEvent event, String data) {
     if(event == WebsocketsEvent::ConnectionOpened) {
       log_i("opened");
     } else if(event == WebsocketsEvent::ConnectionClosed) {

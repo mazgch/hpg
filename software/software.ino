@@ -50,6 +50,10 @@
 // Library Manager:   http://librarymanager/All#arduino-CAN
 // Github Repository: https://github.com/sandeepmistry/arduino-CAN
 
+// NimBLE-Arduino by h2zero, version 1.4.1
+// Library Manager:   http://librarymanager/All#NimBLE-Arduino
+// Github Repository: https://github.com/h2zero/NimBLE-Arduino
+
 // Sparkfun libraries
 //-----------------------------------
 
@@ -66,7 +70,7 @@
 #include "HW.h"
 #include "CONFIG.h"
 #include "UBXFILE.h"
-//#include "BLUETOOTH.h"
+#include "BLUETOOTH.h"
 #include "WLAN.h"
 #include "GNSS.h"
 #include "LBAND.h"
@@ -98,9 +102,8 @@ void setup()
   UbxSd.init(); // handling SD card and files runs in a task
 #ifdef __BLUETOOTH_H__
   Bluetooth.init(hwName);
-#else
-  Wlan.init(); // WLAN runs in a tasks, creates an additional LED task 
 #endif
+  Wlan.init(); // WLAN runs in a tasks, creates an additional LED task 
   //Lte.enableDebugging(Serial);
   //Lte.enableAtDebugging(Serial); // we use UbxSerial for data logging instead
 #ifdef WEBSOCKET_STREAM

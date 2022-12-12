@@ -97,7 +97,7 @@ public:
             // buffer in the queue and hope this gets freed quite soon. 
             long start = millis();
             int ret = 0;
-            for (;;) {
+            while(true) {
               ret = file.write(temp, len);
               if ((ret != 0) || (millis() - start > 400))
                 break;
@@ -323,8 +323,8 @@ protected:
   }
   
   void task(void) {
-    STATE oldState = STATE::NUM;
-    for (;;) {
+    STATE oldState = (MICROSD_DET != PIN_INVALID) ? REMOVED : UNKNOWN;
+    while(true) {
       STATE state = getState();
       if (state != oldState) {
         oldState = state; 

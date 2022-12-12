@@ -26,16 +26,18 @@
  *  
  *  e.g. BMW https://github.com/commaai/opendbc/blob/master/bmw_e9x_e8x.dbc
  */
-const long CAN_FREQ       = 500000;
-const int CAN_MESSAGE_ID  = 416 /* BMW*/; 
-#define CAN_SPEED(p)        (1e6/3600 /* kmh => mm/s */ *  0.103/* unit => km/h */ * (((p[1] & 0xF) << 8) | p[0]))
-#define CAN_REVERSE(p)      (0x10 == (p[1] & 0x10))
-#define CAN_ESF_MEAS_TXO LTE_DTR  // -> make a connection from this pin to ZED-RXI 
+const long CAN_FREQ         = 500000;
+const int CAN_MESSAGE_ID    = 416 /* BMW*/; 
+#define CAN_SPEED(p)          (1e6/3600 /* kmh => mm/s */ *  0.103/* unit => km/h */ * (((p[1] & 0xF) << 8) | p[0]))
+#define CAN_REVERSE(p)        (0x10 == (p[1] & 0x10))
 
-const int CAN_STACK_SIZE  = 1*1024; //!< Stack size of Bluetooth Logging task
-const int CAN_TASK_PRIO   =      3;
-const int CAN_TASK_CORE   =      1;
-const char* CAN_TASK_NAME = "Can";
+#define CAN_ESF_MEAS_TXO      LTE_DTR  // -> make a connection from this pin to ZED-RXI 
+const int CAN_ESF_BAUDRATE  = 38400;
+
+const int CAN_STACK_SIZE    = 1*1024; //!< Stack size of Bluetooth Logging task
+const int CAN_TASK_PRIO     =      3;
+const int CAN_TASK_CORE     =      1;
+const char* CAN_TASK_NAME   =  "Can";
 
 extern class CANBUS Canbus;
 
@@ -51,7 +53,7 @@ protected:
   static void task(void * pvParameters) {
     Canbus.queue  = xQueueCreate(2, sizeof(ESF_QUEUE_STRUCT));
     if (CAN_ESF_MEAS_TXO != PIN_INVALID) {
-      Serial2.begin(38400, SERIAL_8N1, -1/*no input*/, CAN_ESF_MEAS_TXO);
+      Serial2.begin(CAN_ESF_BAUDRATE, SERIAL_8N1, -1/*no input*/, CAN_ESF_MEAS_TXO);
     }
     CAN.setPins(CAN_RX, CAN_TX);
     if (!CAN.begin(CAN_FREQ)) {
@@ -62,7 +64,7 @@ protected:
     CAN.observe(); // make sure we never write
     CAN.onReceive(Canbus.onPushESFMeasFromISR);
     
-    for (;;) {
+    while (true) {
       ESF_QUEUE_STRUCT meas;
       if( xQueueReceive(Canbus.queue,&meas,portMAX_DELAY) == pdPASS ) {
         Canbus.esfMeas(meas.ttag, &meas.data, 1);
