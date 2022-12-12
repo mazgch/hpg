@@ -137,7 +137,7 @@ void dumpStacks(void) {
       TaskHandle_t h = xTaskGetHandle(name);
       if (h) {
         uint32_t stack = uxTaskGetStackHighWaterMark(h);
-        len += sprintf(&buf[len], " %s=%u", tasks[i], stack);
+        len += sprintf(&buf[len], " %s %u", tasks[i], stack);
       }
     }
     log_i("stacks%s", buf);

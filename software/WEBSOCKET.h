@@ -19,9 +19,9 @@
 
 #include <ArduinoWebsockets.h>
 
-#define WEBSOCKET_STREAM            // for the more powerful u-center UI
+#define WEBSOCKET_STREAM            // enable this for the more powerful u-center UI
 
-#define WEBSOCKET_WEBSOCKET_PORT    8080 // needs to match WEBSOCKET_HTML and hpg.mazg.ch value
+const unsigned short WEBSOCKET_WEBSOCKET_PORT = 8080; // needs to match WEBSOCKET_HTML and hpg.mazg.ch value
 #ifdef WEBSOCKET_STREAM
   #define WEBSOCKET_HPGMAZGCHURL    "http://hpg.mazg.ch"
   #define WEBSOCKET_HPGMAZGCHNAME   "mazg.ch HPG Monitor"
@@ -77,7 +77,7 @@ public:
       client.onEvent(wsEvent);
       String string = Config.getDeviceName();
       string = "Connected to " + string + "\r\n";
-      write(string.c_str(), WLAN);
+      client.send(string.c_str());
       log_i("new client, total %d", wsClients.size() + 1);
       wsClients.push_back(client);
     }
@@ -85,8 +85,8 @@ public:
     send();
   }
 
-  typedef enum                          {  WLAN = 0, LTE,   LBAND,   GNSS, NUM } SOURCE; 
-  const char* SOURCE_LUT[SOURCE::NUM] = { "WLAN",   "LTE", "LBAND", "GNSS" };
+  typedef enum                          {  WLAN = 0, LTE,   LBAND,   GNSS,  NUM } SOURCE; 
+  const char* SOURCE_LUT[SOURCE::NUM] = { "WLAN",   "LTE", "LBAND", "GNSS", };
   typedef struct { 
     SOURCE source; 
     char* data; 
@@ -121,13 +121,13 @@ public:
               it->sendBinary((const char*)temp, len);
             }
           }
-          total += len;
           log_d("buffer %d bytes", len);
+          total += len;
+          loop = true;
         }
       }
-      vTaskDelay(0); // Yield
     } while (loop);
-    log_d("%d bytes", len);
+    log_d("total %d bytes", total);
 #endif
   }
     
@@ -179,10 +179,10 @@ public:
     }
     return size;
   }
-  void flush() override { /* nothing */ }
-  int available() override { return 0; };
-  int read() override { return -1; } 
-  int peek() override  { return -1; }
+  void flush(void)    override { /* nothing */ }
+  int available(void) override { return 0; };
+  int read(void)      override { return -1; } 
+  int peek(void)      override { return -1; }
 #endif
   
   void bind(void) {

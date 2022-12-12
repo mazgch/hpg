@@ -64,7 +64,7 @@ public:
           }
         }
       }
-      log_i("%s version hw %s sw \"%s\"%s", tag, info.hw, info.sw, ext);
+      log_i("receiver %s hw %s sw \"%s\"%s", tag, info.hw, info.sw, ext);
     }
     return fwver;
   } 
@@ -186,8 +186,7 @@ public:
     return 0;
   }
 
-  void inject(void)
-  {
+  void inject(void) {
     int len = 0;
     MSG msg;
     while (xQueueReceive(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
@@ -259,8 +258,7 @@ protected:
     }
   }
   
-  static void onPVT(UBX_NAV_PVT_data_t *ubxDataStruct)
-  {
+  static void onPVT(UBX_NAV_PVT_data_t *ubxDataStruct) {
     if (ubxDataStruct) {
       const char* fixLut[] = { "No","DR", "2D", "3D", "3D+DR", "TM", "", "" }; 
       const char* carrLut[] = { "No","Float", "Fixed", "" }; 
@@ -286,34 +284,39 @@ protected:
       Websocket.write(string, len, WEBSOCKET::SOURCE::GNSS);
 #endif
 
-      // construct a GGA string form the PVT and safe it, so that we do not have to rely on any additional messages
-      if ((fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) {
-        int iLat = ubxDataStruct->lat;
-        char chLat = (iLat < 0) ? 'S' : 'N';
-        if (iLat < 0) iLat = -iLat;
-        int dLat = iLat / 10000000;
-        double fLat = (iLat - dLat * 10000000) * 60.0e-7; 
-        fLat = (fLat >= 59.999) ? 59.999 : (fLat < 0.0) ? 0.0 : fLat;
-        int iLon = ubxDataStruct->lon;
-        char chLon = (iLon < 0) ? 'W' : 'E';
-        if (iLon < 0) iLon = -iLon;
-        int dLon = iLon / 10000000;
-        double fLon = (iLon - dLon * 10000000) * 60.0e-7;
-        fLon = (fLon >= 59.999) ? 59.999 : (fLon < 0.0) ? 0.0 : fLon;
-        //                        "$GPGGA,HHMMSS.ss,DDmm.mmm,N/S,DDmm.mmm,E/W,q,sat,dop,alt,M,und,M,age,dgps"
-        len = snprintf(string, sizeof(string), "$GPGGA,%02d%02d%02d.00,%02d%06.3f,%c,%03d%06.3f,%c,%c,%d,%.2f,%.1f,M,%.1f,M,,",
-              ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, dLat, fLat, chLat, dLon, fLon, chLon, 
-              ((fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) ? '1' : '0', ubxDataStruct->numSV, 
-              ubxDataStruct->pDOP * 1e-2, ubxDataStruct->hMSL * 1e-3, (ubxDataStruct->height - ubxDataStruct->hMSL) * 1e-3);
-        char crc = 0;
-        for (int i = 1; i < len; i ++) {
-          crc ^= string[i];
-        }
-        len += sprintf(&string[len], "*%02X", crc);
-        Config.setValue(CONFIG_VALUE_NTRIP_GGA, string);
-     }
+      saveGGA(ubxDataStruct);
     }
   }
+
+  // construct a GGA string form the PVT and safe it, so that we do not have to rely on any additional messages
+  static void saveGGA(UBX_NAV_PVT_data_t *ubxDataStruct) {
+    if ((ubxDataStruct->fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) {
+      char string[128] = "";
+      int iLat = ubxDataStruct->lat;
+      char chLat = (iLat < 0) ? 'S' : 'N';
+      if (iLat < 0) iLat = -iLat;
+      int dLat = iLat / 10000000;
+      double fLat = (iLat - dLat * 10000000) * 60.0e-7; 
+      fLat = (fLat >= 59.999) ? 59.999 : (fLat < 0.0) ? 0.0 : fLat;
+      int iLon = ubxDataStruct->lon;
+      char chLon = (iLon < 0) ? 'W' : 'E';
+      if (iLon < 0) iLon = -iLon;
+      int dLon = iLon / 10000000;
+      double fLon = (iLon - dLon * 10000000) * 60.0e-7;
+      fLon = (fLon >= 59.999) ? 59.999 : (fLon < 0.0) ? 0.0 : fLon;
+      //                        "$GPGGA,HHMMSS.ss,DDmm.mmm,N/S,DDmm.mmm,E/W,q,sat,dop,alt,M,und,M,age,dgps"
+      int len = snprintf(string, sizeof(string), "$GPGGA,%02d%02d%02d.00,%02d%06.3f,%c,%03d%06.3f,%c,%c,%d,%.2f,%.1f,M,%.1f,M,,",
+            ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, dLat, fLat, chLat, dLon, fLon, chLon, 
+            ((ubxDataStruct->fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) ? '1' : '0', ubxDataStruct->numSV, 
+            ubxDataStruct->pDOP * 1e-2, ubxDataStruct->hMSL * 1e-3, (ubxDataStruct->height - ubxDataStruct->hMSL) * 1e-3);
+      char crc = 0;
+      for (int i = 1; i < len; i ++) {
+        crc ^= string[i];
+      }
+      len += sprintf(&string[len], "*%02X", crc);
+      Config.setValue(CONFIG_VALUE_NTRIP_GGA, string);
+    }
+  } 
   
   bool online;
   long ttagNextTry;

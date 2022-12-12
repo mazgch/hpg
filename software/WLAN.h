@@ -35,8 +35,7 @@
 
 extern class WLAN Wlan;
 
-#define WLAN_RESETPORTAL_TIME     10000       // Hold Boot pin down for this time to restart AP and captive portal 
-
+const int WLAN_RESETPORTAL_TIME = 10000;      // Hold Boot pin down for this time to restart AP and captive portal 
 const int WIFI_INIT_RETRY       = 60000;
 const int WIFI_RECONNECT_RETRY  = 60000;
 const int WIFI_PROVISION_RETRY  = 10000;
@@ -46,10 +45,12 @@ const int WIFI_1S_RETRY         =  1000;
 const int WLAN_STACK_SIZE       = 4*1024;      //!< Stack size of WLAN task
 const int WLAN_TASK_PRIO        = 1;
 const int WLAN_TASK_CORE        = 0;
+const char* WLAN_TASK_NAME      = "Wlan";
 
-const int LED_STACK_SIZE        =   1024;      //!< Stack size of LED task
+const int LED_STACK_SIZE        = 1*1024;      //!< Stack size of LED task
 const int LED_TASK_PRIO         = 2;
 const int LED_TASK_CORE         = 1;
+const char* LED_TASK_NAME       = "Led";
 
 class WLAN {
 public:
@@ -62,8 +63,8 @@ public:
   }
 
   void init(void) {
-    xTaskCreatePinnedToCore(task,    "Wlan", WLAN_STACK_SIZE, this, WLAN_TASK_PRIO, NULL, WLAN_TASK_CORE);
-    xTaskCreatePinnedToCore(ledTask, "Led",  LED_STACK_SIZE,  this, LED_TASK_PRIO,  NULL, LED_TASK_CORE);
+    xTaskCreatePinnedToCore(task,    WLAN_TASK_NAME, WLAN_STACK_SIZE, this, WLAN_TASK_PRIO, NULL, WLAN_TASK_CORE);
+    xTaskCreatePinnedToCore(ledTask, LED_TASK_NAME,  LED_STACK_SIZE,  this, LED_TASK_PRIO,  NULL, LED_TASK_CORE);
   }
   
 protected:

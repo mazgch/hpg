@@ -30,15 +30,19 @@ const long CAN_FREQ       = 500000;
 const int CAN_MESSAGE_ID  = 416 /* BMW*/; 
 #define CAN_SPEED(p)        (1e6/3600 /* kmh => mm/s */ *  0.103/* unit => km/h */ * (((p[1] & 0xF) << 8) | p[0]))
 #define CAN_REVERSE(p)      (0x10 == (p[1] & 0x10))
-
 #define CAN_ESF_MEAS_TXO LTE_DTR  // -> make a connection from this pin to ZED-RXI 
+
+const int CAN_STACK_SIZE  = 1*1024; //!< Stack size of Bluetooth Logging task
+const int CAN_TASK_PRIO   =      3;
+const int CAN_TASK_CORE   =      1;
+const char* CAN_TASK_NAME = "Can";
 
 extern class CANBUS Canbus;
 
 class CANBUS {
 public: 
   void init() {
-    xTaskCreatePinnedToCore(task, "Can",  1024,  this, 3,  NULL, 1);
+    xTaskCreatePinnedToCore(task, CAN_TASK_NAME, CAN_STACK_SIZE, this, CAN_TASK_PRIO, NULL, CAN_TASK_CORE);
   }
 
 protected:
@@ -58,8 +62,7 @@ protected:
     CAN.observe(); // make sure we never write
     CAN.onReceive(Canbus.onPushESFMeasFromISR);
     
-    while(1)
-    {
+    for (;;) {
       ESF_QUEUE_STRUCT meas;
       if( xQueueReceive(Canbus.queue,&meas,portMAX_DELAY) == pdPASS ) {
         Canbus.esfMeas(meas.ttag, &meas.data, 1);
@@ -68,7 +71,7 @@ protected:
     }
   }
   
-  // ATTENTION the callback is executed from an ISR only do essential things
+  // ATTENTION the callback is executed from an ISR only do essential things, no log_x calls please
   static void onPushESFMeasFromISR(int packetSize) {
     if (!CAN.packetRtr() && (CAN.packetId() == CAN_MESSAGE_ID) && (packetSize <= 8)) {
       uint32_t ms = millis();
@@ -82,7 +85,7 @@ protected:
       ESF_QUEUE_STRUCT meas = { ms, (11/*SPEED*/ << 24)  | (speed & 0xFFFFFF) };
       BaseType_t xHigherPriorityTaskWoken;
       if (xQueueSendToBackFromISR(Canbus.queue,&meas,&xHigherPriorityTaskWoken) == pdPASS ) {
-        if(xHigherPriorityTaskWoken){
+        if(xHigherPriorityTaskWoken) {
           portYIELD_FROM_ISR();
         }
       }

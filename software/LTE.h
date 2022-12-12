@@ -57,6 +57,7 @@ const uint16_t HTTPS_PORT         = 443;
 const int LTE_STACK_SIZE          = 3*1024;      //!< Stack size of LTE task
 const int LTE_TASK_PRIO           = 1;
 const int LTE_TASK_CORE           = 1;
+const char* LTE_TASK_NAME         = "Lte";
 
 #define LTE_CHECK_INIT            int _step = 0; SARA_R5_error_t _err = SARA_R5_SUCCESS
 #define LTE_CHECK_OK              (SARA_R5_SUCCESS == _err)
@@ -74,7 +75,7 @@ public:
  }
 
   void init(void) {
-    xTaskCreatePinnedToCore(task, "Lte", LTE_STACK_SIZE, this, LTE_TASK_PRIO, NULL, LTE_TASK_CORE);
+    xTaskCreatePinnedToCore(task, LTE_TASK_NAME, LTE_STACK_SIZE, this, LTE_TASK_PRIO, NULL, LTE_TASK_CORE);
   }
   
 protected:

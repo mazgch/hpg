@@ -24,7 +24,6 @@
 
 const int UBXSERIAL_BUFFER_SIZE =  0*1024;        //!< Size of circular buffer, typically AT modem gets bursts upto 9kB of MQTT data 
 const int UBXWIRE_BUFFER_SIZE   = 12*1024;        //!< Size of circular buffer, typically we see about 2.5kBs coming from the GNSS
-
 const int UBXFILE_BLOCK_SIZE    =    1024;        //!< Size of the blocks used to pull from the GNSS and send to the File. 
 
 #define   UBXSD_DIR             "/LOG"            //!< Directory on the SD card to store logfiles in 
@@ -34,13 +33,15 @@ const int UBXSD_MAXFILE         =      9999;      //!< the max number to try to 
 const int UBXSD_NODATA_DELAY    =       100;      //!< If no data is in the buffer wait so much time until we write new to the buffer, 
 const int UBXSD_DETECT_RETRY    =      2000;      //!< Delay between SD card detection trials 
 const int UBXSD_SDCARDFREQ      =   4000000;
-const int UBXSD_STACK_SIZE      =    2*1024;      //!< Stack size of UbxFile Logging task
+
 /* ATTENTION: 
  * in older arduino_esp32 SD.begin calls sdcard_mount which creates a work area of 4k on the stack for f_mkfs
  * either apply this patch https://github.com/espressif/arduino-esp32/pull/6745 or increase the stack to 6kB 
  */
+const int UBXSD_STACK_SIZE      =    3*1024;      //!< Stack size of UbxFile Logging task
 const int UBXSD_TASK_PRIO       =         1;
 const int UBXSD_TASK_CORE       =         1;
+const char* UBXSD_TASK_NAME     =   "UbxSd";
 
 class UBXFILE {
 public:
@@ -89,15 +90,16 @@ public:
           size_t len = buffer.read((char*)temp, sizeof(temp));
           xSemaphoreGive(mutex);
           if (0 < len) {
-#if 1
+#if 0
             int ret = file.write(temp, len);
 #else
             // Retry multiple times in case we run low on memory due to a temprorary large 
             // buffer in the queue and hope this gets freed quite soon. 
-            long timeout = millis() + 400;
-            while (1) {
-              int ret = file.write(temp, len);
-              if ((ret != 0) || (timeout - millis() < 0))
+            long start = millis();
+            int ret = 0;
+            for (;;) {
+              ret = file.write(temp, len);
+              if ((ret != 0) || (millis() - start > 400))
                 break;
               // just wait a bit
               vTaskDelay(10);
@@ -175,6 +177,7 @@ public:
     }
     return ch;
   }
+  
 #ifdef UBXSERIAL_OVERRIDE_FLOWCONTROL
   // The arduino_esp32 core has a bug that some pins are swapped in the setPins function. 
   // PR https://github.com/espressif/arduino-esp32/pull/6816#pullrequestreview-987757446 was issued
@@ -185,9 +188,11 @@ public:
   void setPins(int8_t rxPin, int8_t txPin, int8_t ctsPin, int8_t rtsPin) {
     uart_set_pin((uart_port_t)_uart_nr, txPin, rxPin, rtsPin, ctsPin);
   }
+  
   void setHwFlowCtrlMode(uint8_t mode, uint8_t threshold) {
     uart_set_hw_flow_ctrl((uart_port_t)_uart_nr, (uart_hw_flowcontrol_t) mode, threshold);
   }
+  
  #ifndef HW_FLOWCTRL_CTS_RTS
   #define HW_FLOWCTRL_CTS_RTS UART_HW_FLOWCTRL_CTS_RTS
  #endif
@@ -296,7 +301,7 @@ public:
   }
 
   void init() {
-    xTaskCreatePinnedToCore(task, "UbxSd", UBXSD_STACK_SIZE, this, UBXSD_TASK_PRIO, NULL, UBXSD_TASK_CORE);
+    xTaskCreatePinnedToCore(task, UBXSD_TASK_NAME, UBXSD_STACK_SIZE, this, UBXSD_TASK_PRIO, NULL, UBXSD_TASK_CORE);
   }
       
 protected: 

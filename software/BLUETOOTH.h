@@ -7,16 +7,15 @@
 #include <BLE2902.h>
 
 const int BLUETOOTH_BUFFER_SIZE = 2*1024;
-const int BLUETOOTH_STACK_SIZE  = 2*1024;      //!< Stack size of Bluetooth Logging task
+const int BLUETOOTH_STACK_SIZE  = 3*1024; //!< Stack size of Bluetooth Logging task
 const int BLUETOOTH_TASK_PRIO   =      1;
 const int BLUETOOTH_TASK_CORE   =      1;
+const char* BLUETOOTH_TASK_NAME = "Bluetooth";
 
 class BLUETOOTH : public BLECharacteristicCallbacks, public BLEServerCallbacks, public Stream {
 public:
   BLUETOOTH(size_t size) : buffer{size} {
     mutex = xSemaphoreCreateMutex();
-    maxLen = 0;
-    idle = true;
     rxChar = NULL;
     txChar = NULL;
   }
@@ -54,46 +53,9 @@ public:
         advertising->start();        
       }
 
-      log_i("BLUETOOTH \"%s\" %d", name.c_str());
-      xTaskCreatePinnedToCore(task, "Bluetooth", BLUETOOTH_STACK_SIZE, this, BLUETOOTH_TASK_PRIO, NULL, BLUETOOTH_TASK_CORE);
+      log_i("device \"%s\"", name.c_str());
+      xTaskCreatePinnedToCore(task, BLUETOOTH_TASK_NAME, BLUETOOTH_STACK_SIZE, this, BLUETOOTH_TASK_PRIO, NULL, BLUETOOTH_TASK_CORE);
     }
-  }
-
-  static void task(void * pvParameters) {
-    ((BLUETOOTH*) pvParameters)->task();
-  }
-
-  size_t task(void) {
-    while(true) {
-      size_t wrote = 0;
-      bool loop;
-      if (maxLen && (NULL != txChar)) {
-        do {
-          loop = false;
-          if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-            uint8_t temp[512];
-            size_t len = buffer.read((char*)temp, sizeof(temp));
-            xSemaphoreGive(mutex);
-            /*while (!idle)
-              vTaskDelay(0);
-            */
-            if (0 < len) {
-              idle = false;
-              txChar->setValue(temp, len);
-              txChar->notify(true);
-              wrote += len;
-            }
-            loop = (len == sizeof(temp));
-          }
-          vTaskDelay(10); // Yield
-        } while (loop);
-        if (0 < wrote) {
-          //Log.info("BLUETOOTH wrote %d bytes", wrote);
-        } 
-      }
-      vTaskDelay(100); // Yield
-    }
-    return 0;
   }
 
   // Stream
@@ -117,47 +79,71 @@ public:
     }
     return wrote;
   }
-  void flush() override { /* nothing */ }
-  int available() override { return 0; };
-  int read() override { return -1; } 
-  int peek() override  { return -1; }
+  void flush(void)    override { /* nothing */ }
+  int available(void) override { return 0; };
+  int read(void)      override { return -1; } 
+  int peek(void)      override { return -1; }
 
 protected:
-  
-  void onConnect(BLEServer *pServer)
-  {
-    int id = pServer->getConnId();
-    maxLen = pServer->getPeerMTU(id) - 5;
-    log_i("BLUETOOTH connected %d", maxLen);
+
+  static void task(void * pvParameters) {
+    ((BLUETOOTH*) pvParameters)->task();
   }
-  
-  void onDisconnect(BLEServer *pServer)
-  {
-    log_i("BLUETOOTH discconected");
-    pServer->startAdvertising();
-  }
-  
-  void onWrite(BLECharacteristic *pCharacteristic)
-  {
-    if (pCharacteristic->getUUID().toString() == RXCHAR_UUID)
-    {
-      std::string value = pCharacteristic->getValue();
-      extern size_t GNSSINJECT_BLUETOOTH(const void* ptr, size_t len);
-      GNSSINJECT_BLUETOOTH(value.c_str(), value.length());
+
+  void task(void) {
+    while(NULL != txChar) {
+      size_t wrote = 0;
+      bool loop;
+      do {
+        loop = false;
+        if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+          uint8_t temp[512]; // limit 
+          size_t len = buffer.read((char*)temp, sizeof(temp));
+          xSemaphoreGive(mutex);
+          if (0 < len) {
+            txChar->setValue(temp, len);
+            txChar->notify(true);
+            wrote += len;
+          }
+          loop = (len == sizeof(temp));
+        }
+        vTaskDelay(10); // Yield
+      } while (loop);
+      if (0 < wrote) {
+        log_d("wrote %d bytes", wrote);
+      } 
     }
   }
   
-protected:
+  void onConnect(BLEServer *pServer) {
+    int id = pServer->getConnId();
+    //maxLen = pServer->getPeerMTU(id) - 5;
+    log_i("connected id %d", id);
+  }
+  
+  void onDisconnect(BLEServer *pServer) {
+    int id = pServer->getConnId();
+    log_i("disconnected id %d", id);
+    pServer->startAdvertising();
+  }
+  
+  void onWrite(BLECharacteristic *pCharacteristic) {
+    if (pCharacteristic->getUUID().toString() == RXCHAR_UUID) {
+      std::string value = pCharacteristic->getValue();
+      extern size_t GNSSINJECT_BLUETOOTH(const void* ptr, size_t len);
+      int read = GNSSINJECT_BLUETOOTH(value.c_str(), value.length());
+      log_d("read %d bytes", read); (void)read;
+    }
+  }
+  
   SemaphoreHandle_t mutex;
   cbuf buffer;
   BLECharacteristic *txChar;
   BLECharacteristic *rxChar;
-  int maxLen;
-  volatile bool idle;
   
   const char *SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
   const char *RXCHAR_UUID  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-  const char *TXCHAR_UUID   = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+  const char *TXCHAR_UUID  = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 };
 
 BLUETOOTH Bluetooth(BLUETOOTH_BUFFER_SIZE);
