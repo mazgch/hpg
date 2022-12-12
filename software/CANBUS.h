@@ -44,31 +44,35 @@ extern class CANBUS Canbus;
 class CANBUS {
 public: 
   void init() {
-    xTaskCreatePinnedToCore(task, CAN_TASK_NAME, CAN_STACK_SIZE, this, CAN_TASK_PRIO, NULL, CAN_TASK_CORE);
+    queue = NULL;
+    if (CAN_ESF_MEAS_TXO != PIN_INVALID) {
+      Serial2.begin(CAN_ESF_BAUDRATE, SERIAL_8N1, -1/*no input*/, CAN_ESF_MEAS_TXO);
+    }
+    CAN.setPins(CAN_RX, CAN_TX);
+    if (!CAN.begin(CAN_FREQ)) {
+      log_w("freq %d, failed", CAN_FREQ);
+    } else {
+      log_i("freq %d", CAN_FREQ);
+      queue = xQueueCreate(2, sizeof(ESF_QUEUE_STRUCT));
+      CAN.observe(); // make sure we never write
+      CAN.onReceive(onPushESFMeasFromISR);
+      xTaskCreatePinnedToCore(task, CAN_TASK_NAME, CAN_STACK_SIZE, this, CAN_TASK_PRIO, NULL, CAN_TASK_CORE);
+    }
   }
 
 protected:
   typedef struct { uint32_t ttag; uint32_t data; } ESF_QUEUE_STRUCT;
   
   static void task(void * pvParameters) {
-    Canbus.queue  = xQueueCreate(2, sizeof(ESF_QUEUE_STRUCT));
-    if (CAN_ESF_MEAS_TXO != PIN_INVALID) {
-      Serial2.begin(CAN_ESF_BAUDRATE, SERIAL_8N1, -1/*no input*/, CAN_ESF_MEAS_TXO);
-    }
-    CAN.setPins(CAN_RX, CAN_TX);
-    if (!CAN.begin(CAN_FREQ)) {
-      //log_w("CAN init failed");
-    } else {
-      //log_i("CAN init %d successful", CAN_FREQ);
-    }
-    CAN.observe(); // make sure we never write
-    CAN.onReceive(Canbus.onPushESFMeasFromISR);
-    
+    ((CANBUS*) pvParameters)->task();
+  }
+  
+  void task(void) {
     while (true) {
       ESF_QUEUE_STRUCT meas;
-      if( xQueueReceive(Canbus.queue,&meas,portMAX_DELAY) == pdPASS ) {
-        Canbus.esfMeas(meas.ttag, &meas.data, 1);
-        //log_i("CAN rx %d %08X", meas.ttag, meas.data);
+      if( xQueueReceive(queue,&meas,portMAX_DELAY) == pdPASS ) {
+        esfMeas(meas.ttag, &meas.data, 1);
+        log_v("esfMeas %d %08X", meas.ttag, meas.data);
       }
     }
   }
@@ -129,7 +133,7 @@ protected:
     m[i++] = cka;
     m[i++] = ckb;
     if (CAN_ESF_MEAS_TXO != PIN_INVALID) {
-      i = Serial2.write(m, i)
+      i = Serial2.write(m, i);
     }
     return i;
   }

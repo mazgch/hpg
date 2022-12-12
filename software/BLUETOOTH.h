@@ -6,6 +6,7 @@
 const int BLUETOOTH_PACKET_DELAY  =    10;
 const int BLUETOOTH_NODATA_DELAY  =    30;
 
+const int BLUETOOTH_MAX_NOTIFY    =    252;
 const int BLUETOOTH_BUFFER_SIZE   = 2*1024;
 const int BLUETOOTH_STACK_SIZE    = 3*1024; //!< Stack size of Bluetooth Logging task
 const int BLUETOOTH_TASK_PRIO     =      1;
@@ -85,7 +86,7 @@ protected:
       bool loop = (NULL != txChar);
       while (loop) {
         if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-          uint8_t temp[BLE_ATT_ATTR_MAX_LEN]; // limit 
+          uint8_t temp[BLUETOOTH_MAX_NOTIFY]; // limit 
           size_t len = buffer.read((char*)temp, sizeof(temp));
           xSemaphoreGive(mutex);
           if (connected && (0 < len)) {
