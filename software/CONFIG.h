@@ -17,10 +17,12 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
-#include "LOG.h"
-#include "HW.h"
-
+#include <SPIFFS.h>
+#include <vector>
 #include <mbedtls/base64.h>
+#include <ArduinoJson.h>
+
+#include "HW.h"
 
 // HTTPS url for ZTP API request  
 #define    THINGSTREAM_SERVER             "api.thingstream.io"
@@ -120,13 +122,13 @@ public:
   bool init(void) {
     bool cfgOk = false;
     if (ffsInit()) {
-      Log.info("CONFIG::init FFS ok");
+      log_i("FFS ok");
       cfgOk = read();
       if (cfgOk) {
-        Log.info("CONFIG::init \"FFS%s\" read", CONFIG_FFS_FILE);
+        log_i("file \"FFS%s\" read", CONFIG_FFS_FILE);
       } 
     } else {
-      Log.error("CONFIG::init FFS failed");
+      log_e("FFS failed");
     }
     return cfgOk;
   }
@@ -158,11 +160,11 @@ public:
       xSemaphoreGive(mutex);
     }
     if (-1 == len) {
-      Log.error("CONFIG::save \"FFS%s\" open failed", CONFIG_FFS_FILE);
+      log_e("file \"FFS%s\" open failed", CONFIG_FFS_FILE);
     } else if (0 == len) {
-      Log.error("CONFIG::save \"FFS%s\" serialize and write failed", CONFIG_FFS_FILE);
+      log_e("file \"FFS%s\" serialize and write failed", CONFIG_FFS_FILE);
     } else {
-      Log.debug("CONFIG::save size %d", len);
+      log_d("file size %d", len);
     }
     return (len > 0);
   }
@@ -182,11 +184,11 @@ public:
       xSemaphoreGive(mutex);
     }
     if (!openOk) {
-      Log.debug("CONFIG::read \"FFS&s\" open failed", CONFIG_FFS_FILE);
+      log_d("file \"FFS&s\" open failed", CONFIG_FFS_FILE);
     } else if (DeserializationError::Ok != err) {
-      Log.error("CONFIG::read \"FFS%s\" deserialze failed with error %d", CONFIG_FFS_FILE, err);
+      log_e("file \"FFS%s\" deserialze failed with error %d", CONFIG_FFS_FILE, err);
     } else {
-      Log.debug("CONFIG::read \"FFS%s\"", CONFIG_FFS_FILE);
+      log_d("file \"FFS%s\"", CONFIG_FFS_FILE);
     }
     return DeserializationError::Ok == err;
   }
@@ -197,7 +199,7 @@ public:
       str = json.containsKey(param) ? json[param] : String();
       xSemaphoreGive(mutex);
     }
-    Log.debug("CONFIG::getValue %s = \"%s\"", param, str.c_str());
+    log_v("param %s = \"%s\"", param, str.c_str());
     return str;
   }
   
@@ -214,9 +216,9 @@ public:
       xSemaphoreGive(mutex); 
     }
     if (changed) {
-      Log.debug("CONFIG::setValue %s changed from \"%s\" to \"%s\"", param, old.c_str(), value.c_str()); 
+      log_v("param %s changed from \"%s\" to \"%s\"", param, old.c_str(), value.c_str()); 
     } else {
-      Log.debug("CONFIG::setValue %s keep \"%s\" as unchanged", param,  old.c_str()); 
+      log_v("param  %s keep \"%s\" as unchanged", param,  old.c_str()); 
     }
     return changed;
   } 
@@ -232,7 +234,7 @@ public:
       xSemaphoreGive(mutex); 
     }
     if (changed) {
-      Log.debug("CONFIG::delValue %s", param);
+      log_v("param  %s", param);
     }
     return changed;
   }
@@ -338,7 +340,7 @@ public:
       xSemaphoreGive(mutex); 
     }
     if (changed) {
-      Log.info("CONFIG::updateLocation \"%s\" freq %d", region ? region : "", freq);
+      log_i("region \"%s\" freq %d", region ? region : "", freq);
       save();
     }
   }
@@ -354,31 +356,9 @@ public:
       json.garbageCollect();
       xSemaphoreGive(mutex); 
     }
-    Log.info("CONFIG::delZtp");
+    log_i("ZTP deleted");
   }
 
-  void setLbandFreqs(const uint8_t *buf, size_t size) {
-    DynamicJsonDocument json(512);
-    DeserializationError error = deserializeJson(json, buf, size);
-    if (DeserializationError::Ok != error) {
-      Log.error("CONFIG::setLbandFreqs deserializeJson failed with error %d", error);
-    } else {
-      for (int i = 0; i < sizeof(POINTPERFECT_REGIONS)/sizeof(POINTPERFECT_REGIONS_t); i ++) {
-        const char* region = POINTPERFECT_REGIONS[i].region;
-        if (region && json["frequencies"].containsKey(region)) {
-          String str = json["frequencies"][region]["current"]["value"];
-          if (0 < str.length()) {
-            long freq = (long)(1e6 * str.toDouble());
-            if (POINTPERFECT_REGIONS[i].freq != freq) {
-              Log.warning("CONFIG::setLbandFreqs for region %s update to %li from %li", region, freq, POINTPERFECT_REGIONS[i].freq);
-              POINTPERFECT_REGIONS[i].freq = freq; 
-            }
-          }
-        }
-      }
-    }
-  }
-  
   String setZtp(String &ztp, String &rootCa) {
     String id;
     StaticJsonDocument<200> filter;
@@ -390,7 +370,7 @@ public:
     DynamicJsonDocument jsonZtp(4*1024);
     DeserializationError error = deserializeJson(jsonZtp, ztp.c_str(), DeserializationOption::Filter(filter));
     if (DeserializationError::Ok != error) {
-      Log.error("CONFIG::setZtp deserializeJson failed with error %d", error);
+      log_e("deserializeJson failed with error %d", error);
     } else {
       id = (const char*)jsonZtp["clientId"];
       String cert = jsonZtp["certificate"];
@@ -398,7 +378,7 @@ public:
       String broker = jsonZtp["brokerHost"];
       bool lband = jsonZtp["supportsLband"];
       if (cert.length() && key.length() && id.length() && broker.length() && rootCa.length()) {
-        Log.info("CONFIG::setZtp complete clientId is \"%s\"", id.c_str());
+        log_i("ZTP complete clientId is \"%s\"", id.c_str());
         if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
           json[CONFIG_VALUE_BROKERHOST] = broker;
           json[CONFIG_VALUE_STREAM]     = lband ? MQTT_STREAM_LBAND : MQTT_STREAM_IP;
@@ -411,7 +391,7 @@ public:
         }
         save();
       } else {
-        Log.error("CONFIG::setZtp some json fields missing");
+        log_e("some json fields missing");
       }
     }
     return id;
@@ -431,12 +411,34 @@ public:
       json["hardwareId"] = getDeviceName();
       json["givenName"] = getDeviceTitle();
       if (0 < serializeJson(json,str)) {
-        Log.debug("CONFIG::ztpRequest %s", str.c_str());
+        log_v("ZTP request %s", str.c_str());
       }
     }
     return str;
   }
-  
+
+  void setLbandFreqs(const uint8_t *buf, size_t size) {
+    DynamicJsonDocument json(512);
+    DeserializationError error = deserializeJson(json, buf, size);
+    if (DeserializationError::Ok != error) {
+      log_e("deserializeJson failed with error %d", error);
+    } else {
+      for (int i = 0; i < sizeof(POINTPERFECT_REGIONS)/sizeof(POINTPERFECT_REGIONS_t); i ++) {
+        const char* region = POINTPERFECT_REGIONS[i].region;
+        if (region && json["frequencies"].containsKey(region)) {
+          String str = json["frequencies"][region]["current"]["value"];
+          if (0 < str.length()) {
+            long freq = (long)(1e6 * str.toDouble());
+            if (POINTPERFECT_REGIONS[i].freq != freq) {
+              log_w("region %s update freq to %li from %li", region, freq, POINTPERFECT_REGIONS[i].freq);
+              POINTPERFECT_REGIONS[i].freq = freq; 
+            }
+          }
+        }
+      }
+    }
+  }
+
 protected:
   
   bool ffsInit(void) {
@@ -445,8 +447,9 @@ protected:
     }
     ffsOk = SPIFFS.begin();
     if (!ffsOk) {
+      log_i("formating");
       if (!SPIFFS.format()) {
-        Log.error("CONFIG::ffsInit format failed");
+        log_e("format failed");
       } else {
         ffsOk = SPIFFS.begin();
       }

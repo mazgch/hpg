@@ -17,9 +17,13 @@
 #ifndef __UBXFILE_H__
 #define __UBXFILE_H__
 
+#include <Wire.h>
+#include <SPI.h> 
+#include <SD.h>
+#include <cbuf.h> 
+
 const int UBXSERIAL_BUFFER_SIZE =  0*1024;        //!< Size of circular buffer, typically AT modem gets bursts upto 9kB of MQTT data 
 const int UBXWIRE_BUFFER_SIZE   = 12*1024;        //!< Size of circular buffer, typically we see about 2.5kBs coming from the GNSS
-
 const int UBXFILE_BLOCK_SIZE    =    1024;        //!< Size of the blocks used to pull from the GNSS and send to the File. 
 
 #define   UBXSD_DIR             "/LOG"            //!< Directory on the SD card to store logfiles in 
@@ -29,13 +33,15 @@ const int UBXSD_MAXFILE         =      9999;      //!< the max number to try to 
 const int UBXSD_NODATA_DELAY    =       100;      //!< If no data is in the buffer wait so much time until we write new to the buffer, 
 const int UBXSD_DETECT_RETRY    =      2000;      //!< Delay between SD card detection trials 
 const int UBXSD_SDCARDFREQ      =   4000000;
-const int UBXSD_STACK_SIZE      =    6*1024;      //!< Stack size of UbxFile Logging task
+
 /* ATTENTION: 
  * in older arduino_esp32 SD.begin calls sdcard_mount which creates a work area of 4k on the stack for f_mkfs
  * either apply this patch https://github.com/espressif/arduino-esp32/pull/6745 or increase the stack to 6kB 
  */
+const int UBXSD_STACK_SIZE      =    3*1024;      //!< Stack size of UbxFile Logging task
 const int UBXSD_TASK_PRIO       =         1;
 const int UBXSD_TASK_CORE       =         1;
+const char* UBXSD_TASK_NAME     =   "UbxSd";
 
 class UBXFILE {
 public:
@@ -52,7 +58,7 @@ public:
         sprintf(fn, format, i);
         if (!SD.exists(fn)) {
           if (file = SD.open(fn, FILE_WRITE)) {
-            Log.info("UBXFILE created file \"%s\"", fn);
+            log_i("UBXFILE created file \"%s\"", fn);
             opened = true;
             size = 0;
           }
@@ -67,7 +73,7 @@ public:
 
   void close(void) {
     if (opened) {
-      Log.error("UBXFILE \"%s\" closed after %d bytes", file.name(), size);
+      log_e("UBXFILE \"%s\" closed after %d bytes", file.name(), size);
       file.close();
       opened = false;
     }
@@ -84,27 +90,28 @@ public:
           size_t len = buffer.read((char*)temp, sizeof(temp));
           xSemaphoreGive(mutex);
           if (0 < len) {
-#if 1
+#if 0
             int ret = file.write(temp, len);
 #else
             // Retry multiple times in case we run low on memory due to a temprorary large 
             // buffer in the queue and hope this gets freed quite soon. 
-            long timeout = millis() + 400;
-            while (1) {
-              int ret = file.write(temp, len);
-              if ((ret != 0) || (timeout - millis() < 0))
+            long start = millis();
+            int ret = 0;
+            while(true) {
+              ret = file.write(temp, len);
+              if ((ret != 0) || (millis() - start > 400))
                 break;
               // just wait a bit
               vTaskDelay(10);
             }
 #endif
             if (len == ret) {
-              Log.debug("UBXFILE \"%s\" writing %d bytes", file.name(), len);
+              log_d("UBXFILE \"%s\" writing %d bytes", file.name(), len);
               size += len;
               wrote += len;
               loop = (len == sizeof(temp)); // likely more data
             } else { 
-              Log.error("UBXFILE \"%s\" writing %d bytes, failed and write returned %d", file.name(), len, ret);
+              log_e("UBXFILE \"%s\" writing %d bytes, failed and write returned %d", file.name(), len, ret);
             }
           }
         }
@@ -141,7 +148,7 @@ public:
   size_t write(uint8_t ch) override {
     if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
       if (buffer.size() > 1) { 
-        buffer.write(ch);
+        buffer.write((const char*)&ch, 1);
       }
       xSemaphoreGive(mutex);
     }
@@ -170,6 +177,7 @@ public:
     }
     return ch;
   }
+  
 #ifdef UBXSERIAL_OVERRIDE_FLOWCONTROL
   // The arduino_esp32 core has a bug that some pins are swapped in the setPins function. 
   // PR https://github.com/espressif/arduino-esp32/pull/6816#pullrequestreview-987757446 was issued
@@ -180,9 +188,11 @@ public:
   void setPins(int8_t rxPin, int8_t txPin, int8_t ctsPin, int8_t rtsPin) {
     uart_set_pin((uart_port_t)_uart_nr, txPin, rxPin, rtsPin, ctsPin);
   }
+  
   void setHwFlowCtrlMode(uint8_t mode, uint8_t threshold) {
     uart_set_hw_flow_ctrl((uart_port_t)_uart_nr, (uart_hw_flowcontrol_t) mode, threshold);
   }
+  
  #ifndef HW_FLOWCTRL_CTS_RTS
   #define HW_FLOWCTRL_CTS_RTS UART_HW_FLOWCTRL_CTS_RTS
  #endif
@@ -291,18 +301,14 @@ public:
   }
 
   void init() {
-    xTaskCreatePinnedToCore(task, "UbxSd", UBXSD_STACK_SIZE, this, UBXSD_TASK_PRIO, NULL, UBXSD_TASK_CORE);
+    xTaskCreatePinnedToCore(task, UBXSD_TASK_NAME, UBXSD_STACK_SIZE, this, UBXSD_TASK_PRIO, NULL, UBXSD_TASK_CORE);
   }
       
 protected: 
   
-  typedef enum { UNKNOWN, REMOVED, INSERTED, MOUNTED, NUM_STATE } STATE;
-  static const char* STATE_LUT[NUM_STATE]; 
-#if (HW_TARGET == MAZGCH_HPG_MODULAR_V01)
-  static const int MICROSD_DET_REMOVED = LOW;
-#else
-  static const int MICROSD_DET_REMOVED = HIGH;
-#endif    
+  typedef enum                            {  UNKNOWN,   REMOVED,   INSERTED,   MOUNTED, NUM } STATE;
+  const char* STATE_LUT[STATE::NUM]     = { "unknown", "removed", "inserted", "mounted",    }; 
+  static const int MICROSD_DET_REMOVED  = (HW_TARGET == MAZGCH_HPG_MODULAR_V01) ? LOW : HIGH;
   
   STATE getState(void) {
     STATE state = UNKNOWN;
@@ -317,12 +323,12 @@ protected:
   }
   
   void task(void) {
-    STATE oldState = NUM_STATE;
-    for (;;) {
+    STATE oldState = (MICROSD_DET != PIN_INVALID) ? REMOVED : UNKNOWN;
+    while(true) {
       STATE state = getState();
       if (state != oldState) {
         oldState = state; 
-        Log.info("UBXSD card state changed %d (%s)", state, STATE_LUT[state]);
+        log_i("UBXSD card state changed %d (%s)", state, STATE_LUT[state]);
         if (state == REMOVED) {
           SD.end();
           SPI.end();
@@ -330,11 +336,11 @@ protected:
       }
       if ((state == INSERTED) || (state == UNKNOWN)) {
         if ((MICROSD_SCK != SCK) || (MICROSD_SDI != MISO) || (MICROSD_SDO != MOSI) || (PIN_INVALID == MICROSD_CS)) {
-          Log.error("UBXSD sck %d sck %d sdi %d miso %d sdo %d mosi %d cs %d pins bad", 
+          log_e("UBXSD sck %d sck %d sdi %d miso %d sdo %d mosi %d cs %d pins bad", 
                     MICROSD_SCK, SCK, MICROSD_SDI, MISO, MICROSD_SDO, MOSI, MICROSD_CS);
         } else if (SD.begin(MICROSD_CS, SPI, UBXSD_SDCARDFREQ)) {
           state = MOUNTED;
-          Log.info("UBXSD card state changed %d (%s)", state, STATE_LUT[state]);
+          log_i("UBXSD card state changed %d (%s)", state, STATE_LUT[state]);
           uint8_t cardType = SD.cardType();
           const char* strType = (cardType == CARD_MMC) ? "MMC" :
                                 (cardType == CARD_SD)  ? "SDSC" : 
@@ -342,7 +348,7 @@ protected:
           int cardSize  = (int)(SD.cardSize() >> 20); // bytes -> MB
           int cardUsed  = (int)(SD.usedBytes() >> 20);
           int cardTotal = (int)(SD.totalBytes() >> 20);
-          Log.info("UBXSD card type %s size %d MB (used %d MB, total %d MB)", strType, cardSize, cardUsed, cardTotal);
+          log_i("UBXSD card type %s size %d MB (used %d MB, total %d MB)", strType, cardSize, cardUsed, cardTotal);
         }
       }
       if (state == MOUNTED) {
@@ -358,8 +364,8 @@ protected:
           UbxWire.close();
         }
         oldState = state = getState();
-        Log.debug("UBXSD stack free %d total %d", uxTaskGetStackHighWaterMark(0), UBXSD_STACK_SIZE);
-        Log.info("UBXSD card state changed %d (%s)", state, STATE_LUT[state]);
+        log_d("UBXSD stack free %d total %d", uxTaskGetStackHighWaterMark(0), UBXSD_STACK_SIZE);
+        log_i("UBXSD card state changed %d (%s)", state, STATE_LUT[state]);
         SD.end();
         SPI.end();
       }
@@ -367,13 +373,6 @@ protected:
     }
   }
 };
-
-const char* UBXSD::STATE_LUT[NUM_STATE] = {
-  "unknown", 
-  "removed", 
-  "inserted", 
-  "mounted", 
-}; 
 
 UBXSD UbxSd;
 

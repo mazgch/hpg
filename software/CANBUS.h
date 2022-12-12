@@ -17,9 +17,6 @@
 #ifndef __CANBUS_H__
 #define __CANBUS_H__
 
-// Arduino CAN by sandeepmistry, version 0.3.1
-// Library Manager:   http://librarymanager/All#arduino-CAN
-// Github Repository: https://github.com/sandeepmistry/arduino-CAN
 #include <CAN.h>
 
 /*  https://github.com/commaai/opendbc/ 
@@ -29,49 +26,58 @@
  *  
  *  e.g. BMW https://github.com/commaai/opendbc/blob/master/bmw_e9x_e8x.dbc
  */
-const long CAN_FREQ     = 500000;
-const int CAN_MESSAGE_ID = 416 /* BMW*/; 
-#define CAN_SPEED(p)      (1e6/3600 /* kmh => mm/s */ *  0.103/* unit => km/h */ * (((p[1] & 0xF) << 8) | p[0]))
-#define CAN_REVERSE(p)    (0x10 == (p[1] & 0x10))
+const long CAN_FREQ         = 500000;
+const int CAN_MESSAGE_ID    = 416 /* BMW*/; 
+#define CAN_SPEED(p)          (1e6/3600 /* kmh => mm/s */ *  0.103/* unit => km/h */ * (((p[1] & 0xF) << 8) | p[0]))
+#define CAN_REVERSE(p)        (0x10 == (p[1] & 0x10))
 
-#define CAN_ESF_MEAS_TXO LTE_DTR  // -> make a connection from this pin to ZED-RXI 
+#define CAN_ESF_MEAS_TXO      LTE_DTR  // -> make a connection from this pin to ZED-RXI 
+const int CAN_ESF_BAUDRATE  = 38400;
+
+const int CAN_STACK_SIZE    = 1*1024; //!< Stack size of Bluetooth Logging task
+const int CAN_TASK_PRIO     =      3;
+const int CAN_TASK_CORE     =      1;
+const char* CAN_TASK_NAME   =  "Can";
 
 extern class CANBUS Canbus;
 
 class CANBUS {
 public: 
   void init() {
-    xTaskCreatePinnedToCore(task, "Can",  1024,  this, 3,  NULL, 1);
+    queue = NULL;
+    if (CAN_ESF_MEAS_TXO != PIN_INVALID) {
+      Serial2.begin(CAN_ESF_BAUDRATE, SERIAL_8N1, -1/*no input*/, CAN_ESF_MEAS_TXO);
+    }
+    CAN.setPins(CAN_RX, CAN_TX);
+    if (!CAN.begin(CAN_FREQ)) {
+      log_w("freq %d, failed", CAN_FREQ);
+    } else {
+      log_i("freq %d", CAN_FREQ);
+      queue = xQueueCreate(2, sizeof(ESF_QUEUE_STRUCT));
+      CAN.observe(); // make sure we never write
+      CAN.onReceive(onPushESFMeasFromISR);
+      xTaskCreatePinnedToCore(task, CAN_TASK_NAME, CAN_STACK_SIZE, this, CAN_TASK_PRIO, NULL, CAN_TASK_CORE);
+    }
   }
 
 protected:
   typedef struct { uint32_t ttag; uint32_t data; } ESF_QUEUE_STRUCT;
   
   static void task(void * pvParameters) {
-    Canbus.queue  = xQueueCreate(2, sizeof(ESF_QUEUE_STRUCT));
-    if (CAN_ESF_MEAS_TXO != PIN_INVALID) {
-      Serial2.begin(38400, SERIAL_8N1, -1/*no input*/, CAN_ESF_MEAS_TXO);
-    }
-    CAN.setPins(CAN_RX, CAN_TX);
-    if (!CAN.begin(CAN_FREQ)) {
-      //Log.warning("CAN init failed");
-    } else {
-      //Log.info("CAN init %d successful", CAN_FREQ);
-    }
-    CAN.observe(); // make sure we never write
-    CAN.onReceive(Canbus.onPushESFMeasFromISR);
-    
-    while(1)
-    {
+    ((CANBUS*) pvParameters)->task();
+  }
+  
+  void task(void) {
+    while (true) {
       ESF_QUEUE_STRUCT meas;
-      if( xQueueReceive(Canbus.queue,&meas,portMAX_DELAY) == pdPASS ) {
-        Canbus.esfMeas(meas.ttag, &meas.data, 1);
-        //Log.info("CAN rx %d %08X", meas.ttag, meas.data);
+      if( xQueueReceive(queue,&meas,portMAX_DELAY) == pdPASS ) {
+        esfMeas(meas.ttag, &meas.data, 1);
+        log_v("esfMeas %d %08X", meas.ttag, meas.data);
       }
     }
   }
   
-  // ATTENTION the callback is executed from an ISR only do essential things
+  // ATTENTION the callback is executed from an ISR only do essential things, no log_x calls please
   static void onPushESFMeasFromISR(int packetSize) {
     if (!CAN.packetRtr() && (CAN.packetId() == CAN_MESSAGE_ID) && (packetSize <= 8)) {
       uint32_t ms = millis();
@@ -85,7 +91,7 @@ protected:
       ESF_QUEUE_STRUCT meas = { ms, (11/*SPEED*/ << 24)  | (speed & 0xFFFFFF) };
       BaseType_t xHigherPriorityTaskWoken;
       if (xQueueSendToBackFromISR(Canbus.queue,&meas,&xHigherPriorityTaskWoken) == pdPASS ) {
-        if(xHigherPriorityTaskWoken){
+        if(xHigherPriorityTaskWoken) {
           portYIELD_FROM_ISR();
         }
       }
@@ -127,7 +133,7 @@ protected:
     m[i++] = cka;
     m[i++] = ckb;
     if (CAN_ESF_MEAS_TXO != PIN_INVALID) {
-      i = Serial2.write(m, i)
+      i = Serial2.write(m, i);
     }
     return i;
   }

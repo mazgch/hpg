@@ -17,9 +17,11 @@
 #ifndef __WEBSOCKET__H__
 #define __WEBSOCKET__H__
 
-#define WEBSOCKET_STREAM            // for the more powerful u-center UI
+#include <ArduinoWebsockets.h>
 
-#define WEBSOCKET_WEBSOCKET_PORT    8080 // needs to match WEBSOCKET_HTML and hpg.mazg.ch value
+#define WEBSOCKET_STREAM            // enable this for the more powerful u-center UI
+
+const unsigned short WEBSOCKET_WEBSOCKET_PORT = 8080; // needs to match WEBSOCKET_HTML and hpg.mazg.ch value
 #ifdef WEBSOCKET_STREAM
   #define WEBSOCKET_HPGMAZGCHURL    "http://hpg.mazg.ch"
   #define WEBSOCKET_HPGMAZGCHNAME   "mazg.ch HPG Monitor"
@@ -28,10 +30,6 @@
 #define WEBSOCKET_JSURL             "/monitor.js"
 #define WEBSOCKET_CSSURL            "/monitor.css"
 #define WEBSOCKET_BUTTON            "Monitor"
-
-extern const char* WEBSOCKET_HTML;
-extern const char* WEBSOCKET_CSS;
-extern const char* WEBSOCKET_JS;
 
 using namespace websockets;
 
@@ -44,6 +42,7 @@ public:
   WEBSOCKET {
 #endif
     queue = xQueueCreate(5, sizeof(MSG));
+    connected = false;
   }
   
   void setup(WiFiManager& manager) {
@@ -55,41 +54,61 @@ public:
     );
     wsServer.listen(WEBSOCKET_WEBSOCKET_PORT);
     if (!wsServer.available()) {
-      Log.info("WEBSOCKET not available");
+      log_i("server unavailable");
     }
   }
 
   void poll(void) {
-    if (wsServer.poll()) {
-      WebsocketsClient client = wsServer.accept();
-      client.ping();
-      client.onMessage(wsMessage);
-      client.onEvent(wsEvent);
-      String string = Config.getDeviceName();
-      string = "Connected to " + string + "\r\n";
-      write(string.c_str());
-      Log.info("WEBSOCKET new client, total %d", wsClients.size() + 1);
-      wsClients.push_back(client);
-    }
-    // poll all clients 
+    // poll all clients
     for (auto it = wsClients.begin(); (it != wsClients.end()); it = std::next(it)) {
       if (it->available()) {
         it->poll();
       } else {
+        log_i("client unavailable");
         it->close();
         wsClients.erase(it);
         it = std::prev(it);
       }
     }
+    if (wsServer.poll()) {
+      WebsocketsClient client = wsServer.accept();
+      client.onMessage(onMessage);
+      client.onEvent(onEvent);
+      client.ping();
+      String string = Config.getDeviceName();
+      string = "Connected to " + string + "\r\n";
+      client.send(string.c_str());
+      log_i("new client, total %d", wsClients.size() + 1);
+      wsClients.push_back(client);
+    }
+    connected = wsClients.size() > 0;
+    send();
+  }
 
+  typedef enum                          {  WLAN = 0, LTE,   LBAND,   GNSS, NUM } SOURCE; 
+  const char* SOURCE_LUT[SOURCE::NUM] = { "WLAN",   "LTE", "LBAND", "GNSS" };
+  typedef struct { 
+    SOURCE source; 
+    char* data; 
+    size_t size;
+    bool binary;
+  } MSG;
+  
+  void send(void) {
+    int total = 0;
     MSG msg;
     while (xQueueReceive(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
       for (auto it = wsClients.begin(); (it != wsClients.end()); it = std::next(it)) {
         if (it->available()) {
-          it->send(msg.data, msg.size);
+          if (msg.binary) {
+            it->sendBinary(msg.data, msg.size);
+          } else {
+            it->send(msg.data, msg.size);
+          }
         }
       }
-      Log.debug("WEBSOCKET queue rd %d from %d", msg.size, msg.source);
+      total += msg.size;
+      log_d("queue %d bytes from %d(%s)", msg.size, msg.source, SOURCE_LUT[msg.source]);
       delete [] msg.data;
       msg.data = NULL;
     }
@@ -107,53 +126,72 @@ public:
               it->sendBinary((const char*)temp, len);
             }
           }
-          Log.debug("WEBSOCKET stream rd %d", len);
+          log_d("buffer %d bytes", len);
+          total += len;
+          loop = true;
         }
       }
       vTaskDelay(0); // Yield
     } while (loop);
+    if (0 < total) {
+      log_d("total %d bytes", total);
+    }
 #endif
   }
-      
-  void write(const void* buffer, size_t size) {
-    MSG msg;
-    msg.data = new char[size];
-    if (msg.data) {
-      memcpy(msg.data, buffer, size);
-      msg.size = size;
-      msg.source = MSG::CDC;
-      Log.debug("WEBSOCKET queue wr %d from %d", msg.size, msg.source);
-      xQueueSendToBack(queue, &msg, 0/*portMAX_DELAY*/);
-    } else {
-      Log.error("WEBSOCKET queue wr %d, failed alloc", size);
+    
+  size_t write(const void* buffer, size_t size, SOURCE source, bool binary = true) {
+    size_t wrote = 0;
+    if (connected) {
+      MSG msg;
+      msg.data = new char[size];
+      if (msg.data) {
+        memcpy(msg.data, buffer, size);
+        msg.size = size;
+        msg.source = source;
+        msg.binary = binary;
+        if (xQueueSendToBack(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
+          log_d("queue %d bytes from %d(%s)", size, source, SOURCE_LUT[source]);
+          wrote += msg.size;
+        } else {
+          log_e("queue %d bytes from %d(%s) failed, queue full", size, source, SOURCE_LUT[source]);
+          delete [] msg.data;
+        }
+      } else {
+        log_e("queue %d bytes from %d(%s), failed alloc", size, SOURCE_LUT[source]);
+      }
     }
+    return wrote;
   }
 
-  void write(const char* buffer) {
-    write(buffer, strlen(buffer));
+  size_t write(const char* buffer, SOURCE source) {
+    return write(buffer, strlen(buffer), source, false);
   }
 
 #ifdef WEBSOCKET_STREAM
   // Stream
   size_t write(uint8_t ch) override {
-    size_t size = sizeof(ch);
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      size = buffer.write(ch);
-      xSemaphoreGive(mutex);
+    size_t size = 0;
+    if (connected) {
+      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+        size = buffer.write(ch);
+        xSemaphoreGive(mutex);
+      }
     }
     return size;
   }
   size_t write(const uint8_t *ptr, size_t size) override {
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      size = buffer.write((const char*)ptr, size);
-      xSemaphoreGive(mutex);
+    if (connected) {
+      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+        size = buffer.write((const char*)ptr, size);
+        xSemaphoreGive(mutex);
+      }
     }
     return size;
   }
-  void flush() override { /* nothing */ }
-  int available() override { return 0; };
-  int read() override { return -1; } 
-  int peek() override  { return -1; }
+  void flush(void)    override { /* nothing */ }
+  int available(void) override { return 0; };
+  int read(void)      override { return -1; } 
+  int peek(void)      override { return -1; }
 #endif
   
   void bind(void) {
@@ -166,25 +204,25 @@ public:
    
 protected:
   void serve(const char* file, const char* format, const char* content) {
-    Log.info("WEBSOCKET serve \"%s\" as \"%s\"", file, format);  
+    log_i("send \"%s\" as \"%s\"", file, format);  
     if ((NULL != pManager) && (NULL != pManager->server)) {
       pManager->server->send(200, format, content);
     }
   }
 
-  void serveHtml(void)  { serve(WEBSOCKET_URL,    "text/html",        WEBSOCKET_HTML); }
-  void serveJs(void)    { serve(WEBSOCKET_JSURL,  "text/javascript",  WEBSOCKET_JS);   }
-  void serveCss(void)   { serve(WEBSOCKET_CSSURL, "text/css",         WEBSOCKET_CSS);  }
+  void serveHtml(void)  { serve(WEBSOCKET_URL,    "text/html",        HTML); }
+  void serveJs(void)    { serve(WEBSOCKET_JSURL,  "text/javascript",  JS);   }
+  void serveCss(void)   { serve(WEBSOCKET_CSSURL, "text/css",         CSS);  }
   
-  static void wsMessage(WebsocketsClient &client, WebsocketsMessage message) {
+  static void onMessage(WebsocketsClient &client, WebsocketsMessage message) {
     if (!message.isBinary()) {
       String data = message.data();
-      Log.info("WEBSOCKET message %s with %d bytes", data.c_str(), message.length()); 
+      log_i("string \"%s\" with %d bytes", data.c_str(), message.length()); 
       data = "Echo from HPG solution:\r\n" + data;
       client.send(data.c_str());
 #ifdef WEBSOCKET_STREAM
     } else {
-      Log.info("WEBSOCKET message %d bytes", message.length());
+      log_i("binary %d bytes", message.length());
       // function is declared here to avoid include dependency
       extern size_t GNSSINJECT_WEBSOCKET(const void* ptr, size_t len);
       GNSSINJECT_WEBSOCKET(message.c_str(), message.length());
@@ -192,16 +230,16 @@ protected:
     }
   }
 
-  static void wsEvent(WebsocketsClient &client, WebsocketsEvent event, String data) {
+  static void onEvent(WebsocketsClient &client, WebsocketsEvent event, String data) {
     if(event == WebsocketsEvent::ConnectionOpened) {
-      Log.info("WEBSOCKET opened");
+      log_i("opened");
     } else if(event == WebsocketsEvent::ConnectionClosed) {
-      Log.info("WEBSOCKET closed");
+      log_i("closed");
     } else if(event == WebsocketsEvent::GotPing) {
       client.pong(data);
-      Log.info("WEBSOCKET ping \"%s\"", data.c_str());
+      log_i("ping \"%s\"", data.c_str());
     } else if(event == WebsocketsEvent::GotPong) {
-      Log.info("WEBSOCKET pong \"%s\"", data.c_str());
+      log_i("pong \"%s\"", data.c_str());
     }
   }
   
@@ -209,18 +247,17 @@ protected:
   std::vector<WebsocketsClient> wsClients;
   WiFiManager* pManager;
   xQueueHandle queue;
-
-  typedef struct {
-    enum { LTE, GNSS, LBAND, CDC } source; 
-    char* data;
-    size_t size; 
-  } MSG;
+  bool connected;
 
 #ifdef WEBSOCKET_STREAM
   // Stream
   SemaphoreHandle_t mutex;
   cbuf buffer;
 #endif
+
+  static const char HTML[];
+  static const char CSS[];
+  static const char JS[];
 };
 
 WEBSOCKET Websocket;
@@ -229,7 +266,7 @@ WEBSOCKET Websocket;
 // Resources served
 // --------------------------------------------------------------------------------------
 
-const char* WEBSOCKET_HTML = R"html(
+const char WEBSOCKET::HTML[] = R"html(
 <!DOCTYPE html>
 <html>
   <head>
@@ -249,7 +286,7 @@ const char* WEBSOCKET_HTML = R"html(
 </html>
 )html";
 
-const char* WEBSOCKET_CSS = R"css(
+const char WEBSOCKET::CSS[] = R"css(
   body {
     display: grid;
     grid-gap: 1em;
@@ -286,7 +323,7 @@ const char* WEBSOCKET_CSS = R"css(
   }
 )css";
 
-const char* WEBSOCKET_JS = R"js(
+const char WEBSOCKET::JS[] = R"js(
   "use strict";
   let map = null; 
   let track = null;
