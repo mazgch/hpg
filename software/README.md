@@ -9,12 +9,14 @@ The software ensures full autonomous operation of a high precision solution usin
 - Reporting of status on the console using CDC on USB 
 - Storing of GNSS UBX and AT commands file to SD card
 - Provisioning of PointPerfect credentials using zero touch provisioning (ZTP) by providing device profile token
-- Reception of Pointperfect corerection data using the MQTT protocol over WIFI an LTE
+- Reception of Pointperfect correction data using the MQTT protocol over WIFI an LTE
 - Reception of NTRIP corrections using WIFI or LTE (when PointPerfect Correction source set to a `NTRIP:` option)
 - Management of different regional correction stream to only ensure one active connection per device. 
 - configuration of LBAND frequency and communication settings depending on location and PointPerfect subscription plan. 
 - Configuration of the GNSS correction source depending on incoming LBAND or IP data
 - Hot plug and runtime detection of gnss, lband and SD card
+- Visualisation of the data on a webpage [hpg.mazg.ch](http://hpg.mazg.ch) using websockets 
+- Bluetooth connection from a mobile phone using a suitable app (e.g SW Maps on [iOS](https://apps.apple.com/ch/app/sw-maps/id6444248083) or [Android](https://play.google.com/store/apps/details?id=np.com.softwel.swmaps) ). 
 
 ## Captive portal
 A captive portal is available for configurating the device. Select the Wi-Fi network `hpg-XXXXXX` with a notebook or mobile phone. You can then enter the Wi-Fi network to connect to, configure the Point Perfect device token, stream preferences as well as the LTE related settings. 
@@ -38,7 +40,7 @@ The solution might require installation of drivers these are either available fr
 - USB Hub works with the standard Windows drivers.
 
 ## CDC interface: 
-The solution provides a debug console on a CDC USB port. This interface can be used to update this application firmware after compiling it in the Arduino environment. After normal startup it will provide visibility of the activity of the solution. Messages are tagged depending on their severity and software block. 
+The solution provides a debug console on a CDC USB port. This interface can be used to update this application firmware after compiling it in the Arduino environment. After normal startup it will provide visibility of the activity of the solution. Messages are tagged depending on their severity and software block. (the debug output on the CDC port was recently restructed to use the ESP log APIs an now looks different)
 
 ```
 INFO:  -------------------------------------------------------------------
