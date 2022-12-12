@@ -17,6 +17,11 @@
 #ifndef __UBXFILE_H__
 #define __UBXFILE_H__
 
+#include <Wire.h>
+#include <SPI.h> 
+#include <SD.h>
+#include <cbuf.h> 
+
 const int UBXSERIAL_BUFFER_SIZE =  0*1024;        //!< Size of circular buffer, typically AT modem gets bursts upto 9kB of MQTT data 
 const int UBXWIRE_BUFFER_SIZE   = 12*1024;        //!< Size of circular buffer, typically we see about 2.5kBs coming from the GNSS
 
@@ -29,7 +34,7 @@ const int UBXSD_MAXFILE         =      9999;      //!< the max number to try to 
 const int UBXSD_NODATA_DELAY    =       100;      //!< If no data is in the buffer wait so much time until we write new to the buffer, 
 const int UBXSD_DETECT_RETRY    =      2000;      //!< Delay between SD card detection trials 
 const int UBXSD_SDCARDFREQ      =   4000000;
-const int UBXSD_STACK_SIZE      =    6*1024;      //!< Stack size of UbxFile Logging task
+const int UBXSD_STACK_SIZE      =    2*1024;      //!< Stack size of UbxFile Logging task
 /* ATTENTION: 
  * in older arduino_esp32 SD.begin calls sdcard_mount which creates a work area of 4k on the stack for f_mkfs
  * either apply this patch https://github.com/espressif/arduino-esp32/pull/6745 or increase the stack to 6kB 
@@ -52,7 +57,7 @@ public:
         sprintf(fn, format, i);
         if (!SD.exists(fn)) {
           if (file = SD.open(fn, FILE_WRITE)) {
-            Log.info("UBXFILE created file \"%s\"", fn);
+            log_i("UBXFILE created file \"%s\"", fn);
             opened = true;
             size = 0;
           }
@@ -67,7 +72,7 @@ public:
 
   void close(void) {
     if (opened) {
-      Log.error("UBXFILE \"%s\" closed after %d bytes", file.name(), size);
+      log_e("UBXFILE \"%s\" closed after %d bytes", file.name(), size);
       file.close();
       opened = false;
     }
@@ -99,12 +104,12 @@ public:
             }
 #endif
             if (len == ret) {
-              Log.debug("UBXFILE \"%s\" writing %d bytes", file.name(), len);
+              log_d("UBXFILE \"%s\" writing %d bytes", file.name(), len);
               size += len;
               wrote += len;
               loop = (len == sizeof(temp)); // likely more data
             } else { 
-              Log.error("UBXFILE \"%s\" writing %d bytes, failed and write returned %d", file.name(), len, ret);
+              log_e("UBXFILE \"%s\" writing %d bytes, failed and write returned %d", file.name(), len, ret);
             }
           }
         }
@@ -141,7 +146,7 @@ public:
   size_t write(uint8_t ch) override {
     if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
       if (buffer.size() > 1) { 
-        buffer.write(ch);
+        buffer.write((const char*)&ch, 1);
       }
       xSemaphoreGive(mutex);
     }
@@ -322,7 +327,7 @@ protected:
       STATE state = getState();
       if (state != oldState) {
         oldState = state; 
-        Log.info("UBXSD card state changed %d (%s)", state, STATE_LUT[state]);
+        log_i("UBXSD card state changed %d (%s)", state, STATE_LUT[state]);
         if (state == REMOVED) {
           SD.end();
           SPI.end();
@@ -330,11 +335,11 @@ protected:
       }
       if ((state == INSERTED) || (state == UNKNOWN)) {
         if ((MICROSD_SCK != SCK) || (MICROSD_SDI != MISO) || (MICROSD_SDO != MOSI) || (PIN_INVALID == MICROSD_CS)) {
-          Log.error("UBXSD sck %d sck %d sdi %d miso %d sdo %d mosi %d cs %d pins bad", 
+          log_e("UBXSD sck %d sck %d sdi %d miso %d sdo %d mosi %d cs %d pins bad", 
                     MICROSD_SCK, SCK, MICROSD_SDI, MISO, MICROSD_SDO, MOSI, MICROSD_CS);
         } else if (SD.begin(MICROSD_CS, SPI, UBXSD_SDCARDFREQ)) {
           state = MOUNTED;
-          Log.info("UBXSD card state changed %d (%s)", state, STATE_LUT[state]);
+          log_i("UBXSD card state changed %d (%s)", state, STATE_LUT[state]);
           uint8_t cardType = SD.cardType();
           const char* strType = (cardType == CARD_MMC) ? "MMC" :
                                 (cardType == CARD_SD)  ? "SDSC" : 
@@ -342,7 +347,7 @@ protected:
           int cardSize  = (int)(SD.cardSize() >> 20); // bytes -> MB
           int cardUsed  = (int)(SD.usedBytes() >> 20);
           int cardTotal = (int)(SD.totalBytes() >> 20);
-          Log.info("UBXSD card type %s size %d MB (used %d MB, total %d MB)", strType, cardSize, cardUsed, cardTotal);
+          log_i("UBXSD card type %s size %d MB (used %d MB, total %d MB)", strType, cardSize, cardUsed, cardTotal);
         }
       }
       if (state == MOUNTED) {
@@ -358,8 +363,8 @@ protected:
           UbxWire.close();
         }
         oldState = state = getState();
-        Log.debug("UBXSD stack free %d total %d", uxTaskGetStackHighWaterMark(0), UBXSD_STACK_SIZE);
-        Log.info("UBXSD card state changed %d (%s)", state, STATE_LUT[state]);
+        log_d("UBXSD stack free %d total %d", uxTaskGetStackHighWaterMark(0), UBXSD_STACK_SIZE);
+        log_i("UBXSD card state changed %d (%s)", state, STATE_LUT[state]);
         SD.end();
         SPI.end();
       }

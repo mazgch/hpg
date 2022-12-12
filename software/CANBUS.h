@@ -17,9 +17,6 @@
 #ifndef __CANBUS_H__
 #define __CANBUS_H__
 
-// Arduino CAN by sandeepmistry, version 0.3.1
-// Library Manager:   http://librarymanager/All#arduino-CAN
-// Github Repository: https://github.com/sandeepmistry/arduino-CAN
 #include <CAN.h>
 
 /*  https://github.com/commaai/opendbc/ 
@@ -29,10 +26,10 @@
  *  
  *  e.g. BMW https://github.com/commaai/opendbc/blob/master/bmw_e9x_e8x.dbc
  */
-const long CAN_FREQ     = 500000;
-const int CAN_MESSAGE_ID = 416 /* BMW*/; 
-#define CAN_SPEED(p)      (1e6/3600 /* kmh => mm/s */ *  0.103/* unit => km/h */ * (((p[1] & 0xF) << 8) | p[0]))
-#define CAN_REVERSE(p)    (0x10 == (p[1] & 0x10))
+const long CAN_FREQ       = 500000;
+const int CAN_MESSAGE_ID  = 416 /* BMW*/; 
+#define CAN_SPEED(p)        (1e6/3600 /* kmh => mm/s */ *  0.103/* unit => km/h */ * (((p[1] & 0xF) << 8) | p[0]))
+#define CAN_REVERSE(p)      (0x10 == (p[1] & 0x10))
 
 #define CAN_ESF_MEAS_TXO LTE_DTR  // -> make a connection from this pin to ZED-RXI 
 
@@ -54,9 +51,9 @@ protected:
     }
     CAN.setPins(CAN_RX, CAN_TX);
     if (!CAN.begin(CAN_FREQ)) {
-      //Log.warning("CAN init failed");
+      //log_w("CAN init failed");
     } else {
-      //Log.info("CAN init %d successful", CAN_FREQ);
+      //log_i("CAN init %d successful", CAN_FREQ);
     }
     CAN.observe(); // make sure we never write
     CAN.onReceive(Canbus.onPushESFMeasFromISR);
@@ -66,7 +63,7 @@ protected:
       ESF_QUEUE_STRUCT meas;
       if( xQueueReceive(Canbus.queue,&meas,portMAX_DELAY) == pdPASS ) {
         Canbus.esfMeas(meas.ttag, &meas.data, 1);
-        //Log.info("CAN rx %d %08X", meas.ttag, meas.data);
+        //log_i("CAN rx %d %08X", meas.ttag, meas.data);
       }
     }
   }

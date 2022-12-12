@@ -17,7 +17,7 @@
 #ifndef __GNSS_H__
 #define __GNSS_H__
 
-#include "LOG.h"
+#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
 
 const int GNSS_DETECT_RETRY       =  1000;    //!< Try to detect the received with this intervall
 const int GNSS_CORRECTION_TIMEOUT = 12000;    //!< If the current correction source has not received data for this period we will switch to the next source that receives data. 
@@ -30,29 +30,8 @@ const int GNSS_I2C_ADR            = 0x42;     //!< ZED-F9x I2C address
 // helper macros to handle the receiver configuration 
 #define GNSS_CHECK_INIT           int _step = 0; bool _ok = true
 #define GNSS_CHECK_OK             (_ok)
-#define GNSS_CHECK                if (_ok) _step ++, _ok 
-#define GNSS_CHECK_EVAL(txt)      if (!_ok) Log.error(txt ", sequence failed at step %d", _step)
-
-String ubxVersion(const char* tag, SFE_UBLOX_GNSS* pRx) {
-  String fwver; 
-  struct { char sw[30]; char hw[10]; char ext[10][30]; } info;
-  ubxPacket cfg = { UBX_CLASS_MON, UBX_MON_VER, 0, 0, 0, (uint8_t*)&info, 0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
-  pRx->setPacketCfgPayloadSize(sizeof(info)+8);
-  if (pRx->sendCommand(&cfg, 300) == SFE_UBLOX_STATUS_DATA_RECEIVED) {
-    char ext[10*34+6] = "";
-    char* p = ext;
-    for (int i = 0; cfg.len > (30 * i + 40); i ++) {
-      if (*info.ext[i]) {
-        p += sprintf(p, "%s \"%s\"", (p==ext) ? " ext" : ",", info.ext[i]);
-        if (0 == strncmp(info.ext[i], "FWVER=",6)) {
-          fwver = info.ext[i] + 6;
-        }
-      }
-    }
-    Log.info("%s version hw %s sw \"%s\"%s", tag, info.hw, info.sw, ext);
-  }
-  return fwver;
-} 
+#define GNSS_CHECK(x)             if (_ok) _step = x, _ok 
+#define GNSS_CHECK_EVAL(txt)      if (!_ok) log_e(txt ", sequence failed at step %d", _step)
 
 extern class GNSS Gnss;
     
@@ -64,47 +43,72 @@ public:
     online = false;
     ttagNextTry = millis();
     curSource = NONE;
-    for (int i = 0; i < NUM_SOURCE; i ++) {
+    for (int i = 0; i < SOURCE::NUM; i ++) {
       ttagSource[i] = ttagNextTry - GNSS_CORRECTION_TIMEOUT;
     }
   }
 
+  static String version(const char* tag, SFE_UBLOX_GNSS* pRx) {
+    String fwver; 
+    struct { char sw[30]; char hw[10]; char ext[10][30]; } info;
+    ubxPacket cfg = { UBX_CLASS_MON, UBX_MON_VER, 0, 0, 0, (uint8_t*)&info, 0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
+    pRx->setPacketCfgPayloadSize(sizeof(info)+8);
+    if (pRx->sendCommand(&cfg, 300) == SFE_UBLOX_STATUS_DATA_RECEIVED) {
+      char ext[10*34+6] = "";
+      char* p = ext;
+      for (int i = 0; cfg.len > (30 * i + 40); i ++) {
+        if (*info.ext[i]) {
+          p += sprintf(p, "%s \"%s\"", (p==ext) ? " ext" : ",", info.ext[i]);
+          if (0 == strncmp(info.ext[i], "FWVER=",6)) {
+            fwver = info.ext[i] + 6;
+          }
+        }
+      }
+      log_i("%s version hw %s sw \"%s\"%s", tag, info.hw, info.sw, ext);
+    }
+    return fwver;
+  } 
+  
   bool detect() {
     //rx.enableDebugging();
+#ifdef __BLUETOOTH_H__
+    rx.setNMEAOutputPort(Bluetooth); // forward NMEA messages
+#endif
 #ifdef WEBSOCKET_STREAM
     rx.setOutputPort(Websocket); // forward all messages
 #endif  
+
     bool ok = rx.begin(UbxWire, GNSS_I2C_ADR); //Connect to the Ublox module using Wire port
     if (ok) {
-      Log.info("GNSS detect receiver detected");
+      log_i("receiver detected");
 
-      String fwver = ubxVersion("GNSS", &rx);
+      String fwver = version("GNSS", &rx);
       if ((fwver.substring(4).toDouble() <= 1.30) && !fwver.substring(4).equals("1.30")) { 
         // ZED-F9R/P old release firmware, no Spartan 2.0 support
-        Log.error("GNSS firmware \"%s\" is old, please update firmware to release \"HPS 1.30\"", fwver.c_str());
+        log_e("firmware \"%s\" is old, please update firmware to release \"HPS 1.30\"", fwver.c_str());
       } 
-/* #*/GNSS_CHECK_INIT;
-/* 1*/GNSS_CHECK = rx.setAutoPVTcallbackPtr(onPVTdata);
-/* 2*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,        1, VAL_LAYER_RAM); // required for this app and the monitor web page
+      GNSS_CHECK_INIT;
+      GNSS_CHECK(1) = rx.setAutoPVTcallbackPtr(onPVT);
+      GNSS_CHECK(2) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,        1, VAL_LAYER_RAM); // required for this app and the monitor web page
       // add some usefull messages to store in the logfile
-/* 3*/GNSS_CHECK = rx.setVal(UBLOX_CFG_NMEA_HIGHPREC,                 1, VAL_LAYER_RAM); // make sure we enable extended accuracy in NMEA protocol
-/* 4*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,        1, VAL_LAYER_RAM); 
-/* 5*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C,   1, VAL_LAYER_RAM);
-/* 6*/GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,        1, VAL_LAYER_RAM);
+      GNSS_CHECK(3) = rx.setVal(UBLOX_CFG_NMEA_HIGHPREC,                 1, VAL_LAYER_RAM); // make sure we enable extended accuracy in NMEA protocol
+      GNSS_CHECK(4) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,        1, VAL_LAYER_RAM); 
+      GNSS_CHECK(5) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C,   1, VAL_LAYER_RAM);
+      GNSS_CHECK(6) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,        1, VAL_LAYER_RAM);
       if ((fwver.substring(4).toDouble() > 1.30) || fwver.substring(4).equals("1.30")) {
-/* 7*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,       1, VAL_LAYER_RAM);
+        GNSS_CHECK(7) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,       1, VAL_LAYER_RAM);
       }
       if (fwver.startsWith("HPS ")) {
-/* 8*/  GNSS_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C,   1, VAL_LAYER_RAM);
+        GNSS_CHECK(8) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C,   1, VAL_LAYER_RAM);
         uint8_t dynModel = DYN_MODEL_UNKNOWN;
         if (dynModel != DYN_MODEL_UNKNOWN) {
-          GNSS_CHECK = rx.setVal(UBLOX_CFG_NAVSPG_DYNMODEL,   dynModel, VAL_LAYER_RAM);
+          GNSS_CHECK(9) = rx.setVal(UBLOX_CFG_NAVSPG_DYNMODEL,   dynModel, VAL_LAYER_RAM);
           if (dynModel == DYN_MODEL_PORTABLE) {
-            Log.info("GNSS dynModel PORTABLE, disable DR/SF modes");
+            log_i("dynModel PORTABLE, disable DR/SF modes");
             // disable sensor fusion mode in case we use a portable dynamic model
-            GNSS_CHECK = rx.setVal(UBLOX_CFG_SFCORE_USE_SF,           0, VAL_LAYER_RAM);
+            GNSS_CHECK(10) = rx.setVal(UBLOX_CFG_SFCORE_USE_SF,           0, VAL_LAYER_RAM);
           } else if (dynModel == DYN_MODEL_MOWER) {
-            Log.info("GNSS dynModel MOWER");
+            log_i("dynModel MOWER");
             /*  using wtBox.ino as hall sensor to WT converter,  ESF-MEAS is injected over ZED-RX1
              *  
              * example for BOSCH Indigo S+ 500
@@ -116,34 +120,34 @@ public:
                                                  * 1e6 /* scale value to unit needed */ 
                                                 / 1540 /* ticks per revolution */
                                                    / 2 /* left and right wheel */);
-            GNSS_CHECK = rx.setVal32(UBLOX_CFG_SFODO_FACTOR,  odoFactor, VAL_LAYER_RAM);
-            GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_COMBINE_TICKS,     1, VAL_LAYER_RAM);
-            GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_DIS_AUTODIRPINPOL, 1, VAL_LAYER_RAM);
+            GNSS_CHECK(11) = rx.setVal32(UBLOX_CFG_SFODO_FACTOR,  odoFactor, VAL_LAYER_RAM);
+            GNSS_CHECK(12) = rx.setVal(UBLOX_CFG_SFODO_COMBINE_TICKS,     1, VAL_LAYER_RAM);
+            GNSS_CHECK(13) = rx.setVal(UBLOX_CFG_SFODO_DIS_AUTODIRPINPOL, 1, VAL_LAYER_RAM);
           } else if (dynModel == DYN_MODEL_ESCOOTER) {
-            Log.info("GNSS dynModel ESCOOTER");
+            log_i("dynModel ESCOOTER");
             // do whateever you need to do
           } else if (dynModel == DYN_MODEL_AUTOMOTIVE) {
-            Log.info("GNSS dynModel AUTOMOTIVE");
+            log_i("dynModel AUTOMOTIVE");
             /*  We assume we use CANBUS.h to inject speed extracted from the CAN bus as ESF-MEAS 
              *  to the GNSS. if this is not the case change the settings here, if ticks are used, 
              *  you should also set the UBLOX_CFG_SFODO_FACTOR factor. 
              *  
              *  You can use the canEmu.ino to create a test setup for can injecton. 
              */
-            GNSS_CHECK = rx.setVal(UBLOX_CFG_SFODO_DIS_AUTOSW,        0, VAL_LAYER_RAM); // enable it
+            GNSS_CHECK(14) = rx.setVal(UBLOX_CFG_SFODO_DIS_AUTOSW,        0, VAL_LAYER_RAM); // enable it
           } else {
-            Log.info("GNSS dynModel %d", dynModel);
+            log_i("dynModel %d", dynModel);
           }
         } 
       }
       online = ok = GNSS_CHECK_OK;
-      GNSS_CHECK_EVAL("GNSS detect configuration");
+      GNSS_CHECK_EVAL("configuration");
       if (ok) {
-        Log.info("GNSS detect configuration complete, receiver online");
+        log_i("configuration complete, receiver online");
         uint8_t key[64];
         int keySize = Config.getValue(CONFIG_VALUE_KEY, key, sizeof(key));
         if (keySize > 0) {
-          Log.info("GNSS inject saved keys");
+          log_i("inject saved keys");
           inject(key, keySize, KEYS);
         }
       }
@@ -151,9 +155,9 @@ public:
     return ok;
   }
 
-  typedef enum { WLAN = 0, LTE, LBAND, KEYS, WEBSOCKET, NONE, NUM_SOURCE, } SOURCE;
-  static const char* SOURCE_LUT[];
+  typedef enum   { WLAN = 0, LTE, LBAND, KEYS, WEBSOCKET, BLUETOOTH, NONE, NUM } SOURCE;
   typedef struct { SOURCE source; uint8_t* data; size_t size; } MSG;
+  static const char* SOURCE_LUT[]; 
   
   size_t inject(MSG& msg) {
     if (xQueueSendToBack(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
@@ -161,7 +165,7 @@ public:
     }
     delete [] msg.data;
     msg.data = NULL;
-    Log.error("GNSS inject %d bytes from %s source failed, queue full", msg.size, SOURCE_LUT[msg.source]);
+    log_e("%d bytes from %s source failed, queue full", msg.size, SOURCE_LUT[msg.source]);
     return 0;
   }
   
@@ -174,8 +178,35 @@ public:
       msg.source = src;
       return inject(msg);
     }
-    Log.error("GNSS inject %d bytes from %s source failed, no memory", msg.size, SOURCE_LUT[msg.source]);
+    log_e("%d bytes from %s source failed, no memory", msg.size, SOURCE_LUT[msg.source]);
     return 0;
+  }
+
+  void inject(void)
+  {
+    int len = 0;
+    MSG msg;
+    while (xQueueReceive(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
+      if (online) {
+        checkSpartanUseSourceCfg(msg.source);
+        online = rx.pushRawData(msg.data, msg.size);
+        if (online) {
+          len += msg.size;
+          log_d("%d bytes from %s source", msg.size, SOURCE_LUT[msg.source]);
+        } else {
+          log_e("%d bytes from %s source failed", msg.size, SOURCE_LUT[msg.source]);
+        }
+      }
+#ifdef __WEBSOCKET__H__
+        // Forward also messages from the IP services (LTE and WIFI) to the GUI though the WEBSOCKET
+        // LBAND and GNSS are already sent directly, and we dont want KEYS and WEBSOCKET injections to loop back to the GUI
+        if ((msg.source == WLAN) || (msg.source == LTE)) {
+          Websocket.write(msg.data, msg.size, (msg.source == LTE)  ? WEBSOCKET::SOURCE::LTE : WEBSOCKET::SOURCE::WLAN);
+        }
+#endif
+      delete [] msg.data;
+      msg.data = NULL;
+    }
   }
   
   void poll(void) {
@@ -191,36 +222,17 @@ public:
       rx.checkUblox();
       rx.checkCallbacks();
       if (online) {
-        int len = 0;
-        MSG msg;
-        while (xQueueReceive(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
-          if (online) {
-            checkSpartanUseSourceCfg(msg.source);
-#ifdef __WEBSOCKET__H__
-            // Forward also messages from the IP services (LTE and WIFI) to the GUI though the WEBSOCKET
-            // LBAND and GNSS are already sent directly, and we dont want KEYS and WEBSOCKET injections to loop back to the GUI
-            if ((msg.source == WLAN) || (msg.source == LTE)) {
-              Websocket.write(msg.data, msg.size);
-            }
-#endif
-            online = rx.pushRawData(msg.data, msg.size);
-            if (online) {
-              len += msg.size;
-              Log.debug("GNSS inject %d bytes from %s source", msg.size, SOURCE_LUT[msg.source]);
-            } else {
-              Log.error("GNSS inject %d bytes from %s source failed", msg.size, SOURCE_LUT[msg.source]);
-            }
-          }
-          delete [] msg.data;
-          msg.data = NULL;
-        }
+        inject();
       }
     }
     HW_DBG_LO(HW_DBG_GNSS);
   }
 
-  #define TIMEOUT_SRC(now, src) ((src < NUM_SOURCE) ? (signed long)((now) - ttagSource[src]) > GNSS_CORRECTION_TIMEOUT : true)
+protected:
 
+  SOURCE curSource;
+  long ttagSource[SOURCE::NUM];
+  
   void checkSpartanUseSourceCfg(SOURCE source) {
     if ((source == WLAN) || (source == LTE) || (source == LBAND)) {
       // manage correction stream selection 
@@ -229,21 +241,21 @@ public:
       if (source != curSource) { // source would change
         if (  (curSource == NONE) || // just use any source, if we never set it. 
              ((curSource == LBAND) && (source != LBAND)) || // prefer any IP source over LBAND
-             ((curSource != LBAND) && TIMEOUT_SRC(now, curSource)) ) { // let IP source timeout before switching to any other source 
+             ((curSource != LBAND) && ((signed long)((now) - ttagSource[curSource]) > GNSS_CORRECTION_TIMEOUT) ) ) { // let IP source timeout before switching to any other source 
           bool ok/*online*/ = rx.setVal8(UBLOX_CFG_SPARTN_USE_SOURCE, GNSS_SPARTAN_USESOURCE(source), VAL_LAYER_RAM);
           if (ok) {
-            Log.info("GNSS spartanUseSource %s from source %s", GNSS_SPARTAN_USESOURCE_TXT(source), SOURCE_LUT[source]);
+            log_i("useSource %s from source %s", GNSS_SPARTAN_USESOURCE_TXT(source), SOURCE_LUT[source]);
             curSource = source;
           } else {
             // WORKAROUND: for some reson the spartanUseSource command fails, reason is unknow, we dont realy worry here and will do it just again next time 
-            Log.warning("GNSS spartanUseSource %s from source %s failed", GNSS_SPARTAN_USESOURCE_TXT(source), SOURCE_LUT[source]);
+            log_w("useSource  %s from source %s failed", GNSS_SPARTAN_USESOURCE_TXT(source), SOURCE_LUT[source]);
           }
         }
       }
     }
   }
   
-  static void onPVTdata(UBX_NAV_PVT_data_t *ubxDataStruct)
+  static void onPVT(UBX_NAV_PVT_data_t *ubxDataStruct)
   {
     if (ubxDataStruct) {
       const char* fixLut[] = { "No","DR", "2D", "3D", "3D+DR", "TM", "", "" }; 
@@ -252,10 +264,10 @@ public:
       uint8_t carrSoln = ubxDataStruct->flags.bits.carrSoln; // Print the carrier solution
       double fLat = 1e-7 * ubxDataStruct->lat;
       double fLon = 1e-7 * ubxDataStruct->lon;
-      Log.info("GNSS %d:%d:%d %02d:%02d:%02d lat %.7f lon %.7f msl %.3f fix %d(%s) carr %d(%s) hacc %.3f source %s heap %d", 
+      log_i("%d:%d:%d %02d:%02d:%02d lat %.7f lon %.7f msl %.3f fix %d(%s) carr %d(%s) hacc %.3f source %s heap %d", 
             ubxDataStruct->day, ubxDataStruct->month, ubxDataStruct->year, ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, 
             fLat, fLon, 1e-3 * ubxDataStruct->hMSL, fixType, fixLut[fixType & 7], carrSoln, carrLut[carrSoln & 3], 
-            1e-3*ubxDataStruct->hAcc, SOURCE_LUT[Gnss.curSource], ESP.getFreeHeap());
+            1e-3*ubxDataStruct->hAcc, Gnss.SOURCE_LUT[Gnss.curSource], ESP.getFreeHeap());
             
       // update the pointperfect topic and lband frequency depending on region we are in
       if ((fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) {
@@ -265,10 +277,11 @@ public:
 #ifdef __WEBSOCKET__H__
       char string[128];
       int len = snprintf(string, sizeof(string), "%02d:%02d:%02d %s %s %s %.3f %.7f %.7f %.3f\r\n",
-            ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, SOURCE_LUT[Gnss.curSource], 
+            ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, Gnss.SOURCE_LUT[Gnss.curSource], 
             fixLut[fixType & 7], carrLut[carrSoln & 3], 1e-3*ubxDataStruct->hAcc, fLat, fLon, 1e-3 * ubxDataStruct->hMSL);
-      Websocket.write(string, len);
+      Websocket.write(string, len, WEBSOCKET::SOURCE::GNSS);
 #endif
+
       // construct a GGA string form the PVT and safe it, so that we do not have to rely on any additional messages
       if ((fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) {
         int iLat = ubxDataStruct->lat;
@@ -294,15 +307,12 @@ public:
         }
         len += sprintf(&string[len], "*%02X", crc);
         Config.setValue(CONFIG_VALUE_NTRIP_GGA, string);
-      }
+     }
     }
   }
   
-protected:
   bool online;
   long ttagNextTry;
-  long ttagSource[NUM_SOURCE];
-  SOURCE curSource;
   xQueueHandle queue;
   SFE_UBLOX_GNSS rx;
 };
@@ -314,13 +324,10 @@ size_t GNSSINJECT_WEBSOCKET(const void* ptr, size_t len) {
   return Gnss.inject((const uint8_t*)ptr, len, GNSS::SOURCE::WEBSOCKET); 
 }
 
-const char* GNSS::SOURCE_LUT[NUM_SOURCE] = {
-  "WLAN", 
-  "LTE", 
-  "LBAND",
-  "KEYS", 
-  "WEBSOCKET", 
-  "-"
-}; 
+size_t GNSSINJECT_BLUETOOTH(const void* ptr, size_t len) { 
+  return Gnss.inject((const uint8_t*)ptr, len, GNSS::SOURCE::BLUETOOTH); 
+}
 
+const char* GNSS::SOURCE_LUT[GNSS::SOURCE::NUM] = { "WLAN", "LTE", "LBAND", "KEYS", "WEBSOCKET", "BLUETOOTH", "-" }; 
+  
 #endif // __GNSS_H__

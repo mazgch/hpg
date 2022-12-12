@@ -17,7 +17,8 @@
 #ifndef __LBAND_H__
 #define __LBAND_H__
 
-#include "LOG.h"
+#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
+
 #include "GNSS.h"
 
 const int LBAND_DETECT_RETRY    = 1000;  //!< Try to detect the received with this intervall
@@ -26,8 +27,8 @@ const int LBAND_I2C_ADR         = 0x43;  //!< NEO-D9S I2C address
 // helper macros to handle the receiver configuration 
 #define LBAND_CHECK_INIT        int _step = 0; bool _ok = true
 #define LBAND_CHECK_OK          (_ok)
-#define LBAND_CHECK             if (_ok) _step ++, _ok 
-#define LBAND_CHECK_EVAL(txt)   if (!_ok) Log.error(txt ", sequence failed at step %d", _step)
+#define LBAND_CHECK(x)          if (_ok) _step = x, _ok 
+#define LBAND_CHECK_EVAL(txt)   if (!_ok) log_e(txt ", sequence failed at step %d", _step)
 
 #define LBAND_FREQ_NONE          0
 #define LBAND_FREQ_NOUPDATE     -1
@@ -49,22 +50,22 @@ public:
     bool ok = rx.begin(UbxWire, LBAND_I2C_ADR);
     if (ok)
     {
-      Log.info("LBAND detect receiver detected");
+      log_i("LBAND detect receiver detected");
       freq = Config.getFreq();
 
-      String fwver = ubxVersion("LBAND", &rx);
+      String fwver = GNSS::version("LBAND", &rx);
 /* #*/LBAND_CHECK_INIT;
       bool qzss = fwver.startsWith("QZS");
       if (qzss){ // NEO-D9C
         freq = LBAND_FREQ_NOUPDATE; // prevents freq update
 #ifdef UBX_RXM_QZSSL6_NUM_CHANNELS
         rx.setRXMQZSSL6messageCallbackPtr(onRXMQZSSL6data);
-/* 1*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1, VAL_LAYER_RAM);    
+        LBAND_CHECK(1) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1, VAL_LAYER_RAM);    
         // prepare the UART 2
-/* 2*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1, VAL_LAYER_RAM);
-/* 3*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
+        LBAND_CHECK(2) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1, VAL_LAYER_RAM);
+        LBAND_CHECK(3) = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
 #else
-        Log.info("LBAND NEO-D9C receiver not supported by this Sparkfun library, please update library");
+        log_i("LBAND NEO-D9C receiver not supported by this Sparkfun library, please update library");
 #endif
       } else
       { // NEO-D9S
@@ -72,19 +73,19 @@ public:
         rx.setRXMPMPmessageCallbackPtr(onRXMPMPdata);
         // contact support@thingstream.io to get NEO-D9S configuration parameters for PointPerfect LBAND satellite augmentation service in EU / US
         // https://developer.thingstream.io/guides/location-services/pointperfect-getting-started/pointperfect-l-band-configuration
-/* 1*/  LBAND_CHECK = rx.setVal8(0x10b10016,                            0, VAL_LAYER_RAM);
-/* 2*/  LBAND_CHECK = rx.setVal16(0x30b10015,                      0x6959, VAL_LAYER_RAM);
-/* 3*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY,    freq, VAL_LAYER_RAM);
-/* 4*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,       1, VAL_LAYER_RAM);
-/* 5*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_MON_PMP_I2C,       1, VAL_LAYER_RAM);
+        LBAND_CHECK(1) = rx.setVal8(0x10b10016,                            0, VAL_LAYER_RAM);
+        LBAND_CHECK(2) = rx.setVal16(0x30b10015,                      0x6959, VAL_LAYER_RAM);
+        LBAND_CHECK(3) = rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY,    freq, VAL_LAYER_RAM);
+        LBAND_CHECK(4) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,       1, VAL_LAYER_RAM);
+        LBAND_CHECK(5) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_MON_PMP_I2C,       1, VAL_LAYER_RAM);
         // prepare the UART 2
-/* 6*/  LBAND_CHECK = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2,     1, VAL_LAYER_RAM);
-/* 7*/  LBAND_CHECK = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
+        LBAND_CHECK(6) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2,     1, VAL_LAYER_RAM);
+        LBAND_CHECK(7) = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
       }
       online = ok = LBAND_CHECK_OK;
       LBAND_CHECK_EVAL("LBAND detect configuration");
       if (ok) {
-        Log.info("LBAND detect configuration complete, %sreceiver online, freq %d", qzss ? "CLAS " : "", freq);
+        log_i("LBAND detect configuration complete, %sreceiver online, freq %d", qzss ? "CLAS " : "", freq);
       }
     }
     return ok;
@@ -115,9 +116,9 @@ public:
           }
         }
         if (!ok) { 
-          Log.error("LBAND updateFreq to %d failed", newFreq);
+          log_e("LBAND updateFreq to %d failed", newFreq);
         } else if (changed) {
-          Log.info("LBAND updateFreq to %d", newFreq);
+          log_i("LBAND updateFreq to %d", newFreq);
         }
       }
     }
@@ -142,10 +143,10 @@ protected:
         msg.source = GNSS::SOURCE::LBAND;
         memcpy(msg.data, &pmpData->sync1, size + 6);
         memcpy(&msg.data[size + 6], &pmpData->checksumA, 2);
-        Log.info("LBAND received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X", msg.size, ebn0, serviceId);
+        log_i("LBAND received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X", msg.size, ebn0, serviceId);
         Gnss.inject(msg); // Push the sync chars, class, ID, length and payload
       } else {
-        Log.error("LBAND received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X, no memory", msg.size, ebn0, serviceId);
+        log_e("LBAND received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X, no memory", msg.size, ebn0, serviceId);
       }
     }
   }
@@ -163,10 +164,10 @@ protected:
         msg.source = GNSS::SOURCE::LBAND;
         memcpy(msg.data, &qzssData->sync1, size + 6);
         memcpy(&msg.data[size + 6], &qzssData->checksumA, 2);
-        Log.info("LBAND received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB", msg.size, svid, cno);
+        log_i("LBAND received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB", msg.size, svid, cno);
         Gnss.inject(msg); // Push the sync chars, class, ID, length and payload
       } else {
-        Log.error("LBAND received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB, no memory", msg.size, svid, cno);
+        log_e("LBAND received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB, no memory", msg.size, svid, cno);
       }
     }
   }

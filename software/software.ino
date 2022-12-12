@@ -23,13 +23,6 @@
 // Board Manager URL:    https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 // Github Repository:    https://github.com/espressif/arduino-esp32 
 
-#include <WiFi.h>
-#include <WiFiClientSecure.h>
-#include <HTTPClient.h>
-#include <SPIFFS.h>
-#include <SPI.h> 
-#include <SD.h>
-#include <Wire.h>
 #ifndef ESP_ARDUINO_VERSION
   #include <core_version.h>
 #endif
@@ -40,25 +33,22 @@
 // ArduinoMqttClient by Arduino, version 0.1.5
 // Library Manager:    http://librarymanager/All#ArduinoMqttClient   
 // Github Repository:  https://github.com/arduino-libraries/ArduinoMqttClient 
-#include <ArduinoMqttClient.h>
 
 // ArduinoWebsockets by Gil Maimon, version 0.5.3
 // Library Manager:    http://librarymanager/All#ArduinoWebsockets   
 // Github Repository:  https://github.com/gilmaimon/ArduinoWebsockets
-#include <ArduinoWebsockets.h>
 
 // ArduinoJson by Benoit Blanchon, version 6.19.4
 // Library Manager:    http://librarymanager/All#ArduinoJson      
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
-#include <ArduinoJson.h>
 
 // WiFiManager by Tapzu, version 2.0.13-beta
 // Library Manager:    http://librarymanager/All#tzapu,WiFiManager  
 // Github Repository:  https://github.com/tzapu/WiFiManager
-#include <WiFiManager.h>
-#if defined(ARDUINO_UBLOX_NORA_W10) && defined(ESP_ARDUINO_VERSION) && (ESP_ARDUINO_VERSION < ESP_ARDUINO_VERSION_VAL(2,0,5))
-  #error The WiFiManager triggers a race condition with ESP core > 2.3.0 -> please use Arduino_esp32 2.0.5 and 
-#endif
+
+// Arduino CAN by sandeepmistry, version 0.3.1
+// Library Manager:   http://librarymanager/All#arduino-CAN
+// Github Repository: https://github.com/sandeepmistry/arduino-CAN
 
 // Sparkfun libraries
 //-----------------------------------
@@ -66,19 +56,17 @@
 // SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.20
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
-#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
 
 // SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.5
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_SARA-R5_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_SARA-R5_Arduino_Library
-#include <SparkFun_u-blox_SARA-R5_Arduino_Library.h>
 
 // Header files of this project
 //-----------------------------------
 #include "HW.h"
-#include "LOG.h"
 #include "CONFIG.h"
 #include "UBXFILE.h"
+//#include "BLUETOOTH.h"
 #include "WLAN.h"
 #include "GNSS.h"
 #include "LBAND.h"
@@ -96,19 +84,23 @@ void setup()
   Serial.begin(115200);
   while (!Serial);
     /*nothing*/;
-  //Log.init(LOG::LOG_LEVEL_DEBUG, &Serial);
-  Log.info("-------------------------------------------------------------------");
+  log_i("-------------------------------------------------------------------");
   Config.init();
-  Log.info("mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), Config.getDeviceName().c_str());  
+  String hwName = Config.getDeviceName();
+  log_i("mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());  
 #ifndef ESP_ARDUINO_VERSION
-  Log.info("Version IDF %s Arduino_esp32 %s", esp_get_idf_version(), ARDUINO_ESP32_RELEASE);
+  log_i("Version IDF %s Arduino_esp32 %s", esp_get_idf_version(), ARDUINO_ESP32_RELEASE);
 #else
-  Log.info("Version IDF %s Arduino_esp32 %d.%d.%d", esp_get_idf_version(),
+  log_i("Version IDF %s Arduino_esp32 %d.%d.%d", esp_get_idf_version(),
         ESP_ARDUINO_VERSION_MAJOR,ESP_ARDUINO_VERSION_MINOR,ESP_ARDUINO_VERSION_PATCH);
 #endif
   // SD card 
   UbxSd.init(); // handling SD card and files runs in a task
+#ifdef __BLUETOOTH_H__
+  Bluetooth.init(hwName);
+#else
   Wlan.init(); // WLAN runs in a tasks, creates an additional LED task 
+#endif
   //Lte.enableDebugging(Serial);
   //Lte.enableAtDebugging(Serial); // we use UbxSerial for data logging instead
 #ifdef WEBSOCKET_STREAM
@@ -119,10 +111,10 @@ void setup()
   UbxWire.begin(I2C_SDA, I2C_SCL); // Start I2C
   UbxWire.setClock(400000); //Increase I2C clock speed to 400kHz
   if (!Gnss.detect()) { 
-    Log.warning("GNSS ZED-F9 not detected, check wiring");
+    log_w("GNSS ZED-F9 not detected, check wiring");
   }
   if (!LBand.detect()) {
-    Log.warning("LBAND NEO-D9 not detected, check wiring");
+    log_w("LBAND NEO-D9 not detected, check wiring");
   }
   
 #ifdef __CANBUS_H__
@@ -130,9 +122,33 @@ void setup()
 #endif
 }
 
+#define DUMP_STACK_INTERVAL 10000
+
+void dumpStacks(void) {
+  // this code allows to print all the stacks of the different tasks
+  static long lastMs = 0; 
+  if (millis() - lastMs > DUMP_STACK_INTERVAL) {
+    lastMs = millis();
+    char buf[128];
+    int len = 0;
+    const char* tasks[] = { pcTaskGetName(NULL), "Lte", "Wlan", "Bluetooth", "Led", "Can", "UbxSd" };
+    for (int i = 0; i < sizeof(tasks)/sizeof(*tasks); i ++) {
+      const char *name = tasks[i];
+      TaskHandle_t h = xTaskGetHandle(name);
+      if (h) {
+        uint32_t stack = uxTaskGetStackHighWaterMark(h);
+        len += sprintf(&buf[len], " %s=%u", tasks[i], stack);
+      }
+    }
+    log_i("stacks%s", buf);
+  }
+}
+
 void loop()
 {
   LBand.poll();
   Gnss.poll();
   delay(50);
+
+  dumpStacks();
 }
