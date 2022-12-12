@@ -578,9 +578,33 @@ protected:
     return false;
   } 
 
-  static const char *REG_STATUS_LUT[11];
-  static const char *REG_ACT_LUT[10]; 
+  const char *REG_STATUS_LUT[11] = { 
+    "not registered", 
+    "home", 
+    "searching", 
+    "denied", 
+    "unknown", 
+    "roaming", 
+    "home sms only", 
+    "roaming sms only", 
+    "emergency service only",
+    "home cfsb not preferred", 
+    "roaming cfsb not preferred" 
+  };
   
+  const char *REG_ACT_LUT[10] = { 
+    "GSM", 
+    "GSM COMPACT", 
+    "UTRAN", 
+    "GSM/GPRS + EDGE", 
+    "UTRAN + HSDPA", 
+    "UTRAN + HSUPA", 
+    "UTRAN + HSDPA + HSUPA", 
+    "E-UTRAN", 
+    "EC-GSM-IoT (A/Gb mode)", 
+    "E-UTRAN (NB-S1 mode)" 
+  }; 
+
   bool lteRegistered(void) {
     SARA_R5_registration_status_t status = registration(true); // EPS
     if ((status == SARA_R5_REGISTRATION_HOME) || (status == SARA_R5_REGISTRATION_ROAMING)) {
@@ -954,32 +978,5 @@ protected:
 };
     
 LTE Lte;
-
-const char *LTE::REG_STATUS_LUT[] = { 
-  "not registered", 
-  "home", 
-  "searching", 
-  "denied", 
-  "unknown", 
-  "roaming", 
-  "home sms only", 
-  "roaming sms only", 
-  "emergency service only",
-  "home cfsb not preferred", 
-  "roaming cfsb not preferred" 
-};
-
-const char *LTE::REG_ACT_LUT[] = { 
-  "GSM", 
-  "GSM COMPACT", 
-  "UTRAN", 
-  "GSM/GPRS + EDGE", 
-  "UTRAN + HSDPA", 
-  "UTRAN + HSUPA", 
-  "UTRAN + HSDPA + HSUPA", 
-  "E-UTRAN", 
-  "EC-GSM-IoT (A/Gb mode)", 
-  "E-UTRAN (NB-S1 mode)" 
-}; 
 
 #endif // __LTE_H__

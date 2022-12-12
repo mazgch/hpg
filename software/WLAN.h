@@ -85,8 +85,7 @@ protected:
     const char* nameStr = name.c_str();
     //manager.resetSettings();
     manager.setDebugOutput(false, "WLAN MGR");
-    manager.setAPCallback(apCallback);
-    manager.setWebServerCallback(std::bind(&WLAN::bindCallback, this)); 
+    manager.setAPCallback(std::bind(&WLAN::apCallback, this, std::placeholders::_1));
     manager.setSaveConfigCallback(std::bind(&WLAN::saveConfigCallback, this));
     manager.setSaveParamsCallback(std::bind(&WLAN::saveParamCallback, this));
     manager.setConfigPortalBlocking(false);  // default = true
@@ -133,6 +132,7 @@ protected:
     }
 #ifdef __WEBSOCKET__H__
     Websocket.setup(manager);
+    manager.setWebServerCallback(std::bind(&WEBSOCKET::bind, &Websocket)); 
 #endif    
       
     log_i("autoconnect using wifi/hostname \"%s\"", nameStr);
@@ -155,13 +155,7 @@ protected:
     mqttStop();
   }
    
-  void bindCallback(void) {
-#ifdef __WEBSOCKET__H__
-    Websocket.bind();
-#endif
-  }
-  
-  static void apCallback(WiFiManager *pManager) {
+  void apCallback(WiFiManager *pManager) {
     String ip = WiFi.softAPIP().toString();    
     log_i("config portal started with IP %s", ip.c_str());
   }
@@ -607,9 +601,9 @@ protected:
     ONLINE, 
     MQTT, 
     NTRIP, 
-    NUM_STATE 
+    NUM 
   } STATE;
-  const struct { const char* name; LED_PATTERN pattern; } STATE_LUT[NUM_STATE] = { 
+  const struct { const char* name; LED_PATTERN pattern; } STATE_LUT[STATE::NUM] = { 
     { "init",           LED_PATTERN_OFF },
     { "searching",      LED_PATTERN_4Hz }, 
     { "connected",      LED_PATTERN_2Hz }, 
@@ -667,9 +661,9 @@ protected:
       }
       wasOnline = online;
   
-  #ifdef __WEBSOCKET__H__
+#ifdef __WEBSOCKET__H__
       Websocket.poll();
-  #endif
+#endif
    
       if (ttagNextTry <= now) {
         ttagNextTry = now + WIFI_1S_RETRY;

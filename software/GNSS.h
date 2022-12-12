@@ -155,9 +155,13 @@ public:
     return ok;
   }
 
-  typedef enum   { WLAN = 0, LTE, LBAND, KEYS, WEBSOCKET, BLUETOOTH, NONE, NUM } SOURCE;
-  typedef struct { SOURCE source; uint8_t* data; size_t size; } MSG;
-  static const char* SOURCE_LUT[]; 
+  typedef enum                          {  WLAN = 0, LTE,   LBAND,   KEYS,   WEBSOCKET,   BLUETOOTH,   NONE, NUM } SOURCE;
+  const char* SOURCE_LUT[SOURCE::NUM] = { "WLAN",   "LTE", "LBAND", "KEYS", "WEBSOCKET", "BLUETOOTH", "-"        }; 
+  typedef struct { 
+    SOURCE source; 
+    uint8_t* data; 
+    size_t size; 
+  } MSG;
   
   size_t inject(MSG& msg) {
     if (xQueueSendToBack(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
@@ -327,7 +331,5 @@ size_t GNSSINJECT_WEBSOCKET(const void* ptr, size_t len) {
 size_t GNSSINJECT_BLUETOOTH(const void* ptr, size_t len) { 
   return Gnss.inject((const uint8_t*)ptr, len, GNSS::SOURCE::BLUETOOTH); 
 }
-
-const char* GNSS::SOURCE_LUT[GNSS::SOURCE::NUM] = { "WLAN", "LTE", "LBAND", "KEYS", "WEBSOCKET", "BLUETOOTH", "-" }; 
   
 #endif // __GNSS_H__

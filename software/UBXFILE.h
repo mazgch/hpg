@@ -301,13 +301,9 @@ public:
       
 protected: 
   
-  typedef enum { UNKNOWN, REMOVED, INSERTED, MOUNTED, NUM_STATE } STATE;
-  static const char* STATE_LUT[NUM_STATE]; 
-#if (HW_TARGET == MAZGCH_HPG_MODULAR_V01)
-  static const int MICROSD_DET_REMOVED = LOW;
-#else
-  static const int MICROSD_DET_REMOVED = HIGH;
-#endif    
+  typedef enum                            {  UNKNOWN,   REMOVED,   INSERTED,   MOUNTED, NUM } STATE;
+  const char* STATE_LUT[STATE::NUM]     = { "unknown", "removed", "inserted", "mounted",    }; 
+  static const int MICROSD_DET_REMOVED  = (HW_TARGET == MAZGCH_HPG_MODULAR_V01) ? LOW : HIGH;
   
   STATE getState(void) {
     STATE state = UNKNOWN;
@@ -322,7 +318,7 @@ protected:
   }
   
   void task(void) {
-    STATE oldState = NUM_STATE;
+    STATE oldState = STATE::NUM;
     for (;;) {
       STATE state = getState();
       if (state != oldState) {
@@ -372,13 +368,6 @@ protected:
     }
   }
 };
-
-const char* UBXSD::STATE_LUT[NUM_STATE] = {
-  "unknown", 
-  "removed", 
-  "inserted", 
-  "mounted", 
-}; 
 
 UBXSD UbxSd;
 

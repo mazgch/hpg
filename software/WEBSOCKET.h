@@ -85,9 +85,13 @@ public:
     send();
   }
 
-  typedef enum   {  WLAN = 0, LTE, LBAND, GNSS, NUM } SOURCE; 
-  typedef struct { SOURCE source; char* data; size_t size; } MSG;
-  static const char* SOURCE_LUT[]; 
+  typedef enum                          {  WLAN = 0, LTE,   LBAND,   GNSS, NUM } SOURCE; 
+  const char* SOURCE_LUT[SOURCE::NUM] = { "WLAN",   "LTE", "LBAND", "GNSS" };
+  typedef struct { 
+    SOURCE source; 
+    char* data; 
+    size_t size; 
+  } MSG;
   
   void send(void) {
     int total = 0;
@@ -405,7 +409,5 @@ const char WEBSOCKET::JS[] = R"js(
     log(`Connecting to ${url} ...`, 'blue')
   }
 )js";
-
-const char* WEBSOCKET::SOURCE_LUT[WEBSOCKET::SOURCE::NUM] = { "WLAN", "LTE", "LBAND", "GNSS" };
 
 #endif

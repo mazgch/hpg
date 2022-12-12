@@ -50,7 +50,7 @@ public:
     bool ok = rx.begin(UbxWire, LBAND_I2C_ADR);
     if (ok)
     {
-      log_i("LBAND detect receiver detected");
+      log_i("receiver detected");
       freq = Config.getFreq();
 
       String fwver = GNSS::version("LBAND", &rx);
@@ -59,18 +59,18 @@ public:
       if (qzss){ // NEO-D9C
         freq = LBAND_FREQ_NOUPDATE; // prevents freq update
 #ifdef UBX_RXM_QZSSL6_NUM_CHANNELS
-        rx.setRXMQZSSL6messageCallbackPtr(onRXMQZSSL6data);
+        rx.setRXMQZSSL6messageCallbackPtr(onRXMQZSSL6);
         LBAND_CHECK(1) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1, VAL_LAYER_RAM);    
         // prepare the UART 2
         LBAND_CHECK(2) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1, VAL_LAYER_RAM);
         LBAND_CHECK(3) = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
 #else
-        log_i("LBAND NEO-D9C receiver not supported by this Sparkfun library, please update library");
+        log_i("NEO-D9C receiver not supported by this Sparkfun library, please update library");
 #endif
       } else
       { // NEO-D9S
         freq = (freq == LBAND_FREQ_NOUPDATE) ? LBAND_FREQ_NONE : freq;
-        rx.setRXMPMPmessageCallbackPtr(onRXMPMPdata);
+        rx.setRXMPMPmessageCallbackPtr(onRXMPMP);
         // contact support@thingstream.io to get NEO-D9S configuration parameters for PointPerfect LBAND satellite augmentation service in EU / US
         // https://developer.thingstream.io/guides/location-services/pointperfect-getting-started/pointperfect-l-band-configuration
         LBAND_CHECK(1) = rx.setVal8(0x10b10016,                            0, VAL_LAYER_RAM);
@@ -83,9 +83,9 @@ public:
         LBAND_CHECK(7) = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
       }
       online = ok = LBAND_CHECK_OK;
-      LBAND_CHECK_EVAL("LBAND detect configuration");
+      LBAND_CHECK_EVAL("configuration");
       if (ok) {
-        log_i("LBAND detect configuration complete, %sreceiver online, freq %d", qzss ? "CLAS " : "", freq);
+        log_i("configuration complete, %sreceiver online, freq %d", qzss ? "CLAS " : "", freq);
       }
     }
     return ok;
@@ -98,29 +98,7 @@ public:
       if (!online) {
         detect();
       }
-      
-      // do update the ferquency from time to time
-      int newFreq = Config.getFreq();
-      if ((newFreq != LBAND_FREQ_NONE) && (freq != LBAND_FREQ_NOUPDATE) && (freq != newFreq)) {
-        bool ok = true;
-        bool changed = false;
-        if (online) {
-          ok = rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY, newFreq, VAL_LAYER_RAM);
-          if (ok) {
-            freq = newFreq;
-            changed = true;
-            rx.softwareResetGNSSOnly(); // do a restart
-          }
-          else {
-            online = false;
-          }
-        }
-        if (!ok) { 
-          log_e("LBAND updateFreq to %d failed", newFreq);
-        } else if (changed) {
-          log_i("LBAND updateFreq to %d", newFreq);
-        }
-      }
+      updateFreq();
     }
     if (online) {
       rx.checkUblox(); 
@@ -130,7 +108,8 @@ public:
   }
   
 protected:
-  static void onRXMPMPdata(UBX_RXM_PMP_message_data_t *pmpData)
+
+  static void onRXMPMP(UBX_RXM_PMP_message_data_t *pmpData)
   {
     if (NULL != pmpData) {
       GNSS::MSG msg;
@@ -146,12 +125,13 @@ protected:
         log_i("LBAND received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X", msg.size, ebn0, serviceId);
         Gnss.inject(msg); // Push the sync chars, class, ID, length and payload
       } else {
-        log_e("LBAND received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X, no memory", msg.size, ebn0, serviceId);
+        log_e("received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X, no memory", msg.size, ebn0, serviceId);
       }
     }
   }
+  
 #ifdef UBX_RXM_QZSSL6_NUM_CHANNELS
-  static void onRXMQZSSL6data(UBX_RXM_QZSSL6_message_data_t *qzssData)
+  static void onRXMQZSSL6(UBX_RXM_QZSSL6_message_data_t *qzssData)
   {
     if (NULL != qzssData) {
       GNSS::MSG msg;
@@ -164,14 +144,39 @@ protected:
         msg.source = GNSS::SOURCE::LBAND;
         memcpy(msg.data, &qzssData->sync1, size + 6);
         memcpy(&msg.data[size + 6], &qzssData->checksumA, 2);
-        log_i("LBAND received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB", msg.size, svid, cno);
+        log_i("received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB", msg.size, svid, cno);
         Gnss.inject(msg); // Push the sync chars, class, ID, length and payload
       } else {
-        log_e("LBAND received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB, no memory", msg.size, svid, cno);
+        log_e("received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB, no memory", msg.size, svid, cno);
       }
     }
   }
 #endif
+
+  void updateFreq(void) {
+    // do update the ferquency from time to time
+    int newFreq = Config.getFreq();
+    if ((newFreq != LBAND_FREQ_NONE) && (freq != LBAND_FREQ_NOUPDATE) && (freq != newFreq)) {
+      bool ok = true;
+      bool changed = false;
+      if (online) {
+        ok = rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY, newFreq, VAL_LAYER_RAM);
+        if (ok) {
+          freq = newFreq;
+          changed = true;
+          rx.softwareResetGNSSOnly(); // do a restart
+        }
+        else {
+          online = false;
+        }
+      }
+      if (!ok) { 
+        log_e("config freq %d, failed", newFreq);
+      } else if (changed) {
+        log_i("config freq %d", newFreq);
+      }
+    }
+  }
   long freq;
   bool online;
   long ttagNextTry;
