@@ -251,6 +251,7 @@ WEBSOCKET Websocket;
 // Resources served
 // --------------------------------------------------------------------------------------
 
+//! the content of served file monitor.html
 const char WEBSOCKET::HTML[] = R"html(
 <!DOCTYPE html>
 <html>
@@ -271,6 +272,7 @@ const char WEBSOCKET::HTML[] = R"html(
 </html>
 )html";
 
+//! the content of served file monitor.css
 const char WEBSOCKET::CSS[] = R"css(
   body {
     display: grid;
@@ -308,6 +310,7 @@ const char WEBSOCKET::CSS[] = R"css(
   }
 )css";
 
+//! the content of served file monitor.js
 const char WEBSOCKET::JS[] = R"js(
   "use strict";
   let map = null; 

@@ -153,7 +153,7 @@ void logMemUsage(void) {
   int32_t now = millis();      
   static int32_t lastMs = 0;    
   // this code allows to print all the stacks of the different tasks
-  if (DUMP_STACK_INTERVAL && ((lastMs - now))) {
+  if (DUMP_STACK_INTERVAL && (0 >= (lastMs - now))) {
     lastMs = millis() + DUMP_STACK_INTERVAL;
     char buf[128];
     int len = 0;

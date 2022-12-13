@@ -591,6 +591,7 @@ protected:
   // STATEMACHINE
   // -----------------------------------------------------------------------
   
+  //! states of the statemachine 
   typedef enum { 
     INIT = 0, 
     SEARCHING, 
@@ -600,6 +601,7 @@ protected:
     NTRIP, 
     NUM 
   } STATE;
+  //! string conversion helper table, must be aligned and match with STATE
   const struct { const char* name; LED_PATTERN pattern; } STATE_LUT[STATE::NUM] = { 
     { "init",           LED_PATTERN_OFF },
     { "searching",      LED_PATTERN_4Hz }, 
@@ -608,10 +610,14 @@ protected:
     { "mqtt",           LED_PATTERN_2s  },
     { "ntrip",          LED_PATTERN_2s  }
   }; 
-  STATE state;
-  bool wasOnline;
-  long ttagNextTry;
+  STATE state;            //!< the current state
+  int32_t ttagNextTry;    //!< time tag when to call the state machine again
+  bool wasOnline;         //!< a flag indicating if we were online 
   
+  /** advance the state and report transitions
+   *  \param newState  the new state
+   *  \param delay     schedule delay
+   */
   void setState(STATE value, long delay = 0) {
     if (state != value) {
       log_i("state change %d(%s)", value, STATE_LUT[value].name);
@@ -621,10 +627,16 @@ protected:
     ttagNextTry = millis() + delay; 
   }
 
+  /* FreeRTOS static task function, will just call the objects task function  
+   * \param pvParameters the Lte object (this)
+   */
   static void task(void * pvParameters) {
     ((WLAN*) pvParameters)->task();
   }
   
+  /** This task handling the whole WIFI state machine, here is where different activities are scheduled 
+   *  and where the code decides what actions to perform.  
+   */
   void task(void) {
     portalInit();  
     setState(SEARCHING);
@@ -728,12 +740,13 @@ protected:
   }
 };
 
-WLAN Wlan;
+WLAN Wlan; //!< The global WLAN peripherial object
 
 // --------------------------------------------------------------------------------------
 // Resources served
 // --------------------------------------------------------------------------------------
 
+//! the additional HTML added to the header
 const char WLAN::PORTAL_HTML[] = R"html(
 <style>
   .wrap{max-width:800px;}

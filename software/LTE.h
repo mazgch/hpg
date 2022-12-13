@@ -808,7 +808,7 @@ protected:
     NTRIP, 
     NUM 
   } STATE;
-  //! ^string conversion helper table, must be aligned and match with STATE
+  //! string conversion helper table, must be aligned and match with STATE
   const char* STATE_LUT[STATE::NUM] = {
     "init", 
     "check sim", 
@@ -819,7 +819,7 @@ protected:
     "mqtt", 
     "ntrip"
   }; 
-  STATE state;            //! the current state
+  STATE state;            //!< the current state
   int32_t ttagNextTry;    //!< time tag when to call the state machine again
 
   /** advance the state and report transitions
