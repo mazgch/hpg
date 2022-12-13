@@ -19,13 +19,9 @@
 
 #include <ArduinoWebsockets.h>
 
-#define WEBSOCKET_STREAM            // enable this for the more powerful u-center UI
-
 const unsigned short WEBSOCKET_WEBSOCKET_PORT = 8080; // needs to match WEBSOCKET_HTML and hpg.mazg.ch value
-#ifdef WEBSOCKET_STREAM
-  #define WEBSOCKET_HPGMAZGCHURL    "http://hpg.mazg.ch"
-  #define WEBSOCKET_HPGMAZGCHNAME   "mazg.ch HPG Monitor"
-#endif
+#define WEBSOCKET_HPGMAZGCHURL    "http://hpg.mazg.ch"
+#define WEBSOCKET_HPGMAZGCHNAME   "mazg.ch HPG Monitor"
 #define WEBSOCKET_URL               "/monitor.html"
 #define WEBSOCKET_JSURL             "/monitor.js"
 #define WEBSOCKET_CSSURL            "/monitor.css"
@@ -35,12 +31,8 @@ using namespace websockets;
 
 class WEBSOCKET : public Stream {
 public: 
-#ifdef WEBSOCKET_STREAM
   WEBSOCKET(size_t size = 5*1024) : buffer{size} {
     mutex = xSemaphoreCreateMutex();
-#else
-  WEBSOCKET {
-#endif
     queue = xQueueCreate(5, sizeof(MSG));
     connected = false;
   }
@@ -48,9 +40,7 @@ public:
   void setup(WiFiManager& manager) {
     pManager = &manager;
     pManager->setCustomMenuHTML("<form action=\"" WEBSOCKET_URL "\" method=\"get\"><button>" WEBSOCKET_BUTTON "</button></form><br>"
-#ifdef WEBSOCKET_STREAM
             "<button onclick=\"window.location.href='" WEBSOCKET_HPGMAZGCHURL "?ip='+window.location.hostname\">" WEBSOCKET_HPGMAZGCHNAME "</button><br><br>"
-#endif
     );
     wsServer.listen(WEBSOCKET_WEBSOCKET_PORT);
     if (!wsServer.available()) {
@@ -112,7 +102,6 @@ public:
       delete [] msg.data;
       msg.data = NULL;
     }
-#ifdef WEBSOCKET_STREAM
     bool loop;
     do {
       loop = false;
@@ -136,7 +125,6 @@ public:
     if (0 < total) {
       log_d("total %d bytes", total);
     }
-#endif
   }
     
   size_t write(const void* buffer, size_t size, SOURCE source, bool binary = true) {
@@ -167,8 +155,18 @@ public:
     return write(buffer, strlen(buffer), source, false);
   }
 
-#ifdef WEBSOCKET_STREAM
-  // Stream
+  void bind(void) {
+    if ((NULL != pManager) && (NULL != pManager->server)) {
+      pManager->server->on(WEBSOCKET_URL,    std::bind(&WEBSOCKET::serveHtml, this));
+      pManager->server->on(WEBSOCKET_JSURL,  std::bind(&WEBSOCKET::serveJs,   this));           
+      pManager->server->on(WEBSOCKET_CSSURL, std::bind(&WEBSOCKET::serveCss,  this));           
+    }
+  }
+
+  // --------------------------------------------------------------------------------------
+  // STREAM interface defined by Arduino
+  // https://github.com/arduino/ArduinoCore-API/blob/master/api/Stream.h
+  // --------------------------------------------------------------------------------------
   size_t write(uint8_t ch) override {
     size_t size = 0;
     if (connected) {
@@ -188,19 +186,10 @@ public:
     }
     return size;
   }
-  void flush(void)    override { /* nothing */ }
-  int available(void) override { return 0; };
-  int read(void)      override { return -1; } 
-  int peek(void)      override { return -1; }
-#endif
-  
-  void bind(void) {
-    if ((NULL != pManager) && (NULL != pManager->server)) {
-      pManager->server->on(WEBSOCKET_URL,    std::bind(&WEBSOCKET::serveHtml, this));
-      pManager->server->on(WEBSOCKET_JSURL,  std::bind(&WEBSOCKET::serveJs,   this));           
-      pManager->server->on(WEBSOCKET_CSSURL, std::bind(&WEBSOCKET::serveCss,  this));           
-    }
-  }
+  void flush(void)    override { /*nothing*/ }
+  int available(void) override { return   0; }
+  int read(void)      override { return  -1; }
+  int peek(void)      override { return  -1; }
    
 protected:
   void serve(const char* file, const char* format, const char* content) {
@@ -220,13 +209,11 @@ protected:
       log_i("string \"%s\" with %d bytes", data.c_str(), message.length()); 
       data = "Echo from HPG solution:\r\n" + data;
       client.send(data.c_str());
-#ifdef WEBSOCKET_STREAM
     } else {
       log_i("binary %d bytes", message.length());
       // function is declared here to avoid include dependency
-      extern size_t GNSSINJECT_WEBSOCKET(const void* ptr, size_t len);
-      GNSSINJECT_WEBSOCKET(message.c_str(), message.length());
-#endif
+      extern size_t GNSS_INJECT_WEBSOCKET(const void* ptr, size_t len);
+      GNSS_INJECT_WEBSOCKET(message.c_str(), message.length());
     }
   }
 
@@ -249,11 +236,9 @@ protected:
   xQueueHandle queue;
   bool connected;
 
-#ifdef WEBSOCKET_STREAM
   // Stream
   SemaphoreHandle_t mutex;
   cbuf buffer;
-#endif
 
   static const char HTML[];
   static const char CSS[];

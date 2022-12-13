@@ -101,6 +101,7 @@ const int NTRIP_GGA_RATE                = 20000;
 const int NTRIP_CONNECT_TIMEOUT         = 20000;
                      
 class CONFIG {
+  
 public:
 
   CONFIG() : json(1024*7) {

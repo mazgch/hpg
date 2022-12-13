@@ -101,9 +101,7 @@ protected:
     manager.setShowInfoErase(true);
     manager.setParamsPage(true);
     std::vector<const char *> menu = { 
-#ifdef __WEBSOCKET__H__
       "custom", 
-#endif
       "param", 
       "wifi", 
       "info", 
@@ -131,10 +129,8 @@ protected:
     for (int i = 0; i < p; i ++) {
       manager.addParameter(&parameters[i]);
     }
-#ifdef __WEBSOCKET__H__
     Websocket.setup(manager);
     manager.setWebServerCallback(std::bind(&WEBSOCKET::bind, &Websocket)); 
-#endif    
       
     log_i("autoconnect using wifi/hostname \"%s\"", nameStr);
     manager.autoConnect(nameStr);
@@ -401,7 +397,7 @@ protected:
 
   
   // -----------------------------------------------------------------------
-  // NTRIP 
+  // NTRIP / RTCM
   // -----------------------------------------------------------------------
   
   WiFiClient ntripWifiClient;
@@ -634,22 +630,15 @@ protected:
     setState(SEARCHING);
     
     while(true) {
-      HW_DBG_HI(HW_DBG_WLAN);
-      
       // press a pin for a selected time to extern back into captive portal
       if (pinCheck() && (state > SEARCHING)) {
         portalReset();
         setState(SEARCHING);
       }
-      
-      HW_DBG_HI(HW_DBG_WLAN_MGR);
       manager.process();
-      HW_DBG_LO(HW_DBG_WLAN_MGR);
-      
       if (mqttClient.connected()) {
         mqttClient.poll();
       }
-      
       long now = millis();
       bool online  = WiFi.status() == WL_CONNECTED;
       if (!online && wasOnline) {
@@ -661,11 +650,7 @@ protected:
         ttagNextTry = now;
       }
       wasOnline = online;
-  
-#ifdef __WEBSOCKET__H__
       Websocket.poll();
-#endif
-   
       if (ttagNextTry <= now) {
         ttagNextTry = now + WIFI_1S_RETRY;
         String id     = Config.getValue(CONFIG_VALUE_CLIENTID);
@@ -738,7 +723,6 @@ protected:
             break;
         }
       }
-      HW_DBG_LO(HW_DBG_WLAN);
       vTaskDelay(50);
     }
   }
