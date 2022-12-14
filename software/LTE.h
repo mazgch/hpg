@@ -63,7 +63,8 @@ const int LTE_TASK_CORE           =           1;  //!< Lte task MCU code
 #define LTE_CHECK(x)              if (SARA_R5_SUCCESS == _err) _step = x, _err            //!< interim evaluate
 #define LTE_CHECK_EVAL(txt)       if (SARA_R5_SUCCESS != _err) log_e(txt ", AT sequence failed at step %d with error %d", _step, _err) //!< final verdict and log_e report
 //! this helper deals with some AT commands that are not yet implemted in LENA-R8 and throw a warning
-#define LTE_IGNORE_LENA( command ) module.startsWith("LENA-R8") ? (log_w("ignore command %s", #command) ? SARA_R5_SUCCESS : SARA_R5_SUCCESS) : command
+#define LTE_IGNORE_LENA( command ) (_err = 
+module.startsWith("LENA-R8") ? (log_w("ignore command %s due to LENA-R8 IP status", #command) ? SARA_R5_SUCCESS : SARA_R5_SUCCESS) : command
 
 extern class LTE Lte; //!< Forward declaration of class
 
@@ -392,9 +393,9 @@ protected:
       int cls, code;
       SARA_R5_error_t err = getHTTPprotocolError(profile, &cls, &code);
       if (SARA_R5_SUCCESS == err) {
-        log_e("protocol error class %d code %d", cls, code);
+        log_e("profile %d command %d protocol error class %d code %d", profile, command, cls, code);
       } else {
-        log_e("protocol error failed with error %d", err);
+        log_e("profile %d command %d protocol error failed with error %d", profile, command, err);
       }
     } else if ((profile == LTE_HTTP_PROFILE) && ((command == SARA_R5_HTTP_COMMAND_GET) || 
                                                  (command == SARA_R5_HTTP_COMMAND_POST_FILE))) {
@@ -476,7 +477,7 @@ protected:
         vTaskDelay(10);
         LTE_CHECK(3) = socketReadAvailable(ntripSocket, &avail);
         now = millis();
-      } while (LTE_CHECK_OK && (0 > (start + NTRIP_CONNECT_TIMEOUT - now)) && (avail < len));
+      } while (LTE_CHECK_OK && (0 < (start + NTRIP_CONNECT_TIMEOUT - now)) && (avail < len));
       if (avail >= len) {
         avail = len;
       }
@@ -829,7 +830,7 @@ protected:
    *  \param newState  the new state
    *  \param delay     schedule delay
    */
-  void setState(STATE newState, long delay = 0) {
+  void setState(STATE newState, int32_t delay = 0) {
     if (state != newState) {
       log_i("state change %d(%s)", newState, STATE_LUT[newState]);
       state = newState;
@@ -866,8 +867,8 @@ protected:
         SARA_R5::poll();
       }
       
-      long now = millis();
-      if (ttagNextTry <= now) {
+      int32_t now = millis();
+      if (0 >= (ttagNextTry - now)) {
         ttagNextTry = now + LTE_1S_RETRY;
         String id = Config.getValue(CONFIG_VALUE_CLIENTID);
         String ntrip = Config.getValue(CONFIG_VALUE_NTRIP_SERVER);
@@ -919,7 +920,7 @@ protected:
               }
             }
             break;
-          case MQTT: 
+          case MQTT:
             if (!useMqtt || (0 == id.length())) {
               if (mqttStop()) {
                 setState(ONLINE);

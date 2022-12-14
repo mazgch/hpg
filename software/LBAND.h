@@ -96,8 +96,9 @@ public:
    *  and callbacks are processed. 
    */
   void poll(void) {
-    if (ttagNextTry <= millis()) {
-      ttagNextTry = millis() + GNSS_DETECT_RETRY;
+    int32_t now = millis();
+    if (0 >= (ttagNextTry - now)) {
+      ttagNextTry = now + GNSS_DETECT_RETRY;
       if (!online) {
         detect();
       }

@@ -695,7 +695,7 @@ protected:
    *  \param newState  the new state
    *  \param delay     schedule delay
    */
-  void setState(STATE value, long delay = 0) {
+  void setState(STATE value, int32_t delay = 0) {
     if (state != value) {
       log_i("state change %d(%s)", value, STATE_LUT[value].name);
       ledSet(STATE_LUT[value].pattern);
@@ -728,7 +728,7 @@ protected:
       if (mqttClient.connected()) {
         mqttClient.poll();
       }
-      long now = millis();
+      int32_t now = millis();
       bool online  = WiFi.status() == WL_CONNECTED;
       if (!online && wasOnline) {
         log_w("lost connection");
@@ -740,7 +740,7 @@ protected:
       }
       wasOnline = online;
       Websocket.poll();
-      if (ttagNextTry <= now) {
+      if (0 >= (ttagNextTry - now)) {
         ttagNextTry = now + WLAN_1S_RETRY;
         String id     = Config.getValue(CONFIG_VALUE_CLIENTID);
         String ntrip  = Config.getValue(CONFIG_VALUE_NTRIP_SERVER);
