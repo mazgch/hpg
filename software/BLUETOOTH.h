@@ -19,6 +19,9 @@
 
 #include <NimBLEDevice.h>
 
+//!< Flag to select the u-blox SPS service (SPS_SERVICE_UUID) or Nordic BLE Uart (NUS_SERVICE_UUID)
+#define BLUETOOTH_SERVICE         (true ? SPS_SERVICE_UUID : NUS_SERVICE_UUID)
+
 const int BLUETOOTH_PACKET_DELAY  =          10;  //!< Delay notifys by this not to overload the BLE stack  
 const int BLUETOOTH_NODATA_DELAY  =          30;  //!< Yield time to allow new data to become available 
 
@@ -26,8 +29,6 @@ const int BLUETOOTH_TX_SIZE       =         512;  //!< Preferred (max) size of t
 const int BLUETOOTH_BUFFER_SIZE   =      2*1024;  //!< Local circular buffer to keep the data until we can send it. 
 const int BLUETOOTH_MTU_OVERHEAD  =           3;  //!< MTU overhead = 1 attribute opcode + 2 client receive MTU size 
 
-//#define   BLUETOOTH_UBLOX_UART                  //!< Enable the u-blox SPS service instead of Nordic
-    
 const char* BLUETOOTH_TASK_NAME   = "Bluetooth";  //!< Bluetooth task name
 const int BLUETOOTH_STACK_SIZE    =      3*1024;  //!< Bluetooth task stack size
 const int BLUETOOTH_TASK_PRIO     =           1;  //!< Bluetooth task priority
@@ -44,15 +45,11 @@ public:
    */
   BLUETOOTH(size_t size) : buffer{size} {
     mutex = xSemaphoreCreateMutex();
-#ifdef BLUETOOTH_UBLOX_UART
-    fifoChar = NULL;
-    creditChar = NULL;
-    txCredits = 0;
-#else
     txChar = NULL;
     rxChar = NULL;
-#endif
+    creditsChar = NULL;
     txSize = BLUETOOTH_TX_SIZE;
+    txCredits = SPS_CREDITS_DISCONNECT;
     connected = false;
   }
     
@@ -66,42 +63,31 @@ public:
     BLEServer *server = BLEDevice::createServer();    
     if (server) {
       server->setCallbacks(this); 
-#ifdef BLUETOOTH_UBLOX_UART
-      BLEService *serUblox = server->createService(UBLOX_UART_SERVICE_UUID);
-      uint32_t properties = NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR | NIMBLE_PROPERTY::NOTIFY;
-      if (serUblox) {
-        fifoChar = serUblox->createCharacteristic(UBLOX_FIFO_CHARACTERISTIC_UUID, properties);
-        if (fifoChar) {
-          fifoChar->setCallbacks(this);
-        }
-        creditChar = serUblox->createCharacteristic(UBLOX_CREDITS_CHARACTERISTIC_UUID, properties);
-        if (creditChar) {
-          creditChar->setCallbacks(this);
-        }
-        serUblox->start();
-      }
-#else
-      BLEService *serNordic = server->createService(NORDIC_UART_SERVICE_UUID);
-      if (serNordic) {
-        txChar = serNordic->createCharacteristic(NORDIC_TX_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::NOTIFY);
-        rxChar = serNordic->createCharacteristic(NORDIC_RX_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::WRITE);
+      BLEService *service = server->createService(BLUETOOTH_SERVICE);
+      if (service) {
+        if (BLUETOOTH_SERVICE == SPS_SERVICE_UUID) {
+          const uint32_t properties = NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR | NIMBLE_PROPERTY::NOTIFY;
+          rxChar = txChar = service->createCharacteristic(SPS_FIFO_CHARACTERISTIC_UUID, properties);
+          creditsChar = service->createCharacteristic(SPS_CREDITS_CHARACTERISTIC_UUID, properties);
+          if (creditsChar) {
+            creditsChar->setCallbacks(this);
+          }
+        } else {
+          txChar = service->createCharacteristic(NUS_TX_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::NOTIFY);
+          rxChar = service->createCharacteristic(NUS_RX_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::WRITE);
+        }        
         if (rxChar) {
           rxChar->setCallbacks(this);
         }
-        serNordic->start();
+        service->start();
       }
-#endif
     }
     BLEAdvertising *advertising = server->getAdvertising(); 
     if (advertising) {
-#ifdef BLUETOOTH_UBLOX_UART
-      advertising->addServiceUUID(UBLOX_UART_SERVICE_UUID);
-#else
-      advertising->addServiceUUID(NORDIC_UART_SERVICE_UUID);
-#endif
+      advertising->addServiceUUID(BLUETOOTH_SERVICE);
       advertising->start();        
     }
-    log_i("device \"%s\"", name.c_str());
+    log_i("device \"%s\" mode \"%s\"", name.c_str(), (BLUETOOTH_SERVICE == SPS_SERVICE_UUID) ? "SPS" : "NUS");
     xTaskCreatePinnedToCore(task, BLUETOOTH_TASK_NAME, BLUETOOTH_STACK_SIZE, this, BLUETOOTH_TASK_PRIO, NULL, BLUETOOTH_TASK_CORE);
   }
 
@@ -152,28 +138,24 @@ protected:
       bool loop = true;
       while (loop) {
         if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-#ifdef BLUETOOTH_UBLOX_UART
-          uint8_t temp[txCredits < txSize ? txSize : txCredits]; 
-#else
-          uint8_t temp[txSize];
-#endif
-          size_t len = sizeof(temp) ? buffer.read((char*)temp, sizeof(temp)) : 0;
-          xSemaphoreGive(mutex);
-          if (connected && (0 < len)) {
-#ifdef BLUETOOTH_UBLOX_UART
-            if (NULL != fifoChar) {
-              fifoChar->setValue(temp, len);
-              fifoChar->notify(true);
-            }
-#else
-            if (NULL != txChar) {
-              txChar->setValue(temp, len);
-              txChar->notify(true);
-            }
-#endif
-            wrote += len;
+          size_t len = txSize; 
+          // we use the credits system
+          if (NULL != creditsChar) {
+            len = (txCredits == SPS_CREDITS_DISCONNECT) ? 0 : (txCredits < len) ? txCredits : len; 
+          } 
+          uint8_t temp[len]; 
+          if (0 < len) {
+            len = buffer.read((char*)temp, len);
           }
-          loop = (len == sizeof(temp));
+          xSemaphoreGive(mutex);
+          if (connected && (0 < len) && (NULL != txChar)) {
+            txChar->setValue(temp, len);
+            txChar->notify(true);
+            wrote += len;
+            loop = (len == sizeof(temp));
+          } else {
+            loop = false;
+          } 
           vTaskDelay(BLUETOOTH_PACKET_DELAY); // Yield
         }
       }
@@ -185,27 +167,12 @@ protected:
     }
   }
 
-#ifdef BLUETOOTH_UBLOX_UART
-  /** inform about our space
-   */
-  void sendRxCredits(void) {
-    if (NULL != creditChar) {
-      creditChar->setValue(rxCredits);
-      creditChar->notify(true);
-      log_v("rxCredits %d", rxCredits);
-    }
-  }
-#endif
-
   /* Callback to inform about connections  
    * \param pServer pointer to the server 
    */
   void onConnect(NimBLEServer *pServer) {
     log_i("connected");
     connected = true;
-#ifdef BLUETOOTH_UBLOX_UART
-    sendRxCredits();
-#endif
   }
   
   /* Callback to inform about disconnections  
@@ -222,22 +189,18 @@ protected:
    */
   void onWrite(BLECharacteristic *pCharacteristic) {
     if (NULL != pCharacteristic) {
-#ifdef BLUETOOTH_UBLOX_UART
-      if (pCharacteristic == creditChar) {
+      if (pCharacteristic == creditsChar) {
         txCredits = pCharacteristic->getValue<uint8_t>();
-        log_v("txCredits %d", txCredits);
-      } else if (pCharacteristic == fifoChar) {
-#else
-      if (pCharacteristic == rxChar) {
-#endif
+        uint8_t rxCredits = (txCredits == SPS_CREDITS_DISCONNECT) ? SPS_CREDITS_DISCONNECT : SPS_CREDITS_MAX;
+        creditsChar->setValue(rxCredits);
+        creditsChar->notify(true);
+        log_v("credits got %d send %d", txCredits, rxCredits);
+      } else if (pCharacteristic == rxChar) {
         std::string value = pCharacteristic->getValue();
         extern size_t GNSS_INJECT_BLUETOOTH(const void* ptr, size_t len);
         int read = GNSS_INJECT_BLUETOOTH(value.c_str(), value.length());
-        log_d("read %d bytes", read); (void)read;
+        log_v("read %d bytes", read); /*unused*/(void)read;
       }
-#ifdef BLUETOOTH_UBLOX_UART
-      sendRxCredits();
-#endif
     }
   }
 
@@ -250,25 +213,25 @@ protected:
     log_i("mtu %d for id %d", MTU, desc->conn_handle);
   }
   
-  SemaphoreHandle_t mutex;        //!< Protect the cbuf from cross task access
-  cbuf buffer;                    //!< Local circular buffer to keep the data until we can send it. 
-  int txSize;                     //!< Requested max size of tx characteristics (depends on MTU from client)
-  volatile bool connected;        //!< True if a client is connected. 
-#ifdef BLUETOOTH_UBLOX_UART
-  BLECharacteristic *fifoChar;    //!< the FIFO characteristics of the u-blox BLE Uart
-  BLECharacteristic *creditChar;  //!< the Credits characteristics of the u-blox BLE Uart
-  uint8_t txCredits;              //!< the number of bytes we can send 
-  const uint8_t rxCredits = 0xFE; //!< the we can receive a lot of data, just set the max value, 0xFF means reject. 
-  const char *UBLOX_UART_SERVICE_UUID           = "2456e1b9-26e2-8f83-e744-f34f01e9d701"; //!< u-blox BLE Uart UUID
-  const char *UBLOX_FIFO_CHARACTERISTIC_UUID    = "2456e1b9-26e2-8f83-e744-f34f01e9d703"; //!< u-blox BLE Uart FIFO UUID
-  const char *UBLOX_CREDITS_CHARACTERISTIC_UUID = "2456e1b9-26e2-8f83-e744-f34f01e9d704"; //!< u-blox BLE Uart Credits UUID
-#else
-  BLECharacteristic *txChar;      //!< the TX characteristics of the Nordic BLE Uart
-  BLECharacteristic *rxChar;      //!< the RX characteristics of the Nordic BLE Uart
-  const char *NORDIC_UART_SERVICE_UUID          = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"; //!< Nordic BLE Uart UUID
-  const char *NORDIC_RX_CHARACTERISTIC_UUID     = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"; //!< Nordic BLE Uart RX UUID
-  const char *NORDIC_TX_CHARACTERISTIC_UUID     = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"; //!< Nordic BLE Uart TX UUID
-#endif
+  SemaphoreHandle_t mutex;         //!< Protect the cbuf from cross task access
+  cbuf buffer;                     //!< Local circular buffer to keep the data until we can send it. 
+  int txSize;                      //!< Requested max size of tx characteristics (depends on MTU from client)
+  uint8_t txCredits;               //!< the number of bytes we can send 
+  volatile bool connected;         //!< True if a client is connected. 
+  BLECharacteristic *txChar;       //!< the TX characteristics of the Nordic BLE Uart / fifo characteristics of the u-blox BLE SPS service
+  BLECharacteristic *rxChar;       //!< the RX characteristics of the Nordic BLE Uart / fifo characteristics of the u-blox BLE SPS service
+  BLECharacteristic *creditsChar;  //!< the Credits characteristics of the u-blox BLE Uart
+ 
+  // SPS - u-blox Bluetooth Low Energy Serial Port Service
+  const uint8_t SPS_CREDITS_MAX               = 100; //!< the we can receive a lot of data, just set the max value, 0xFF means reject. 
+  const uint8_t SPS_CREDITS_DISCONNECT        = 0xFF; //!< credit value that indicates a disconnect
+  const char *SPS_SERVICE_UUID                = "2456e1b9-26e2-8f83-e744-f34f01e9d701"; //!< SPS UUID
+  const char *SPS_FIFO_CHARACTERISTIC_UUID    = "2456e1b9-26e2-8f83-e744-f34f01e9d703"; //!< SPS FIFO UUID
+  const char *SPS_CREDITS_CHARACTERISTIC_UUID = "2456e1b9-26e2-8f83-e744-f34f01e9d704"; //!< SPS Credits UUID
+  // NUS - Nordic Bluetooth LE GATT Nordic UART Service
+  const char *NUS_SERVICE_UUID                = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"; //!< NUS UUID
+  const char *NUS_RX_CHARACTERISTIC_UUID      = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"; //!< NUS RX UUID
+  const char *NUS_TX_CHARACTERISTIC_UUID      = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"; //!< NUS TX UUID
 };
 
 BLUETOOTH Bluetooth(BLUETOOTH_BUFFER_SIZE); //!< The global Bluetooth / BLE peripherial object

@@ -123,16 +123,17 @@ protected:
     memset(parameters, 0, sizeof(parameters));
     new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">PointPerfect configuration</p>"
             "<p>Don't have a device profile or u-center-config.json? Visit the <a href=\"https://portal.thingstream.io/app/location-services\">Thingstream Portal</a> to create one.</p>");
-    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_ZTPTOKEN, "<a href=\"#\" onclick=\"document.getElementById('file').click();\">Load JSON</a> file or enter a Device Profile Token.<input hidden accept=\".json,.csv\" type=\"file\" id=\"file\" onchange=\"_l(this);\"/>", 
-            Config.getValue(CONFIG_VALUE_ZTPTOKEN).c_str(), 36, " type=\"password\" pattern=\"[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}\"");
+    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_ZTPTOKEN, 
+            "<a href=\"#\" onclick=\"document.getElementById('file').click();\">Load JSON</a> file or enter a Device Profile Token.<input hidden accept=\".json,.csv\" type=\"file\" id=\"file\" onchange=\"_l(this);\"/>", 
+            Config.getValue(CONFIG_VALUE_ZTPTOKEN).c_str(), 36, " type=\"password\" placeholder=\"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxxx\" pattern=\"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\"");
     updateManagerParameters();
     new (&parameters[p++]) WiFiManagerParameter(bufParam);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_LTEAPN, "APN", Config.getValue(CONFIG_VALUE_LTEAPN).c_str(), 64);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_SIMPIN, "SIM pin", Config.getValue(CONFIG_VALUE_SIMPIN).c_str(), 8, " type=\"password\"");
     new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">NTRIP configuration</p>"
              "<p>To use NTRIP you need to set Correction source to one of the NTRIP options.</p>");
-    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_SERVER, "Server:Port", Config.getValue(CONFIG_VALUE_NTRIP_SERVER).c_str(), 64);
-    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_MOUNTPT, "Mount point", Config.getValue(CONFIG_VALUE_NTRIP_MOUNTPT).c_str(), 64);  
+    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_SERVER, "NTRIP correction service", Config.getValue(CONFIG_VALUE_NTRIP_SERVER).c_str(), 64, 
+             " placeholder=\"server.com:2101/MountPoint\" pattern=\"^([0-9a-zA-Z_\\-]+\\.)+([0-9a-zA-Z_\\-]{2,})(:[0-9]+)?\\/[0-9a-zA-Z_\\-]+$\"");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_USERNAME, "Username", Config.getValue(CONFIG_VALUE_NTRIP_USERNAME).c_str(), 64);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_PASSWORD, "Password", Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD).c_str(), 64, " type=\"password\"");
     for (int i = 0; i < p; i ++) {
@@ -446,19 +447,21 @@ protected:
   WiFiClient ntripWifiClient;   //!< the wifi client used for ntrip
   
   /** Connect to a NTRIP server
-   *  \param ntrip  the server to connect to
+   *  \param ntrip  the server:port/mountpoint to connect
    *  \return       connection success
    */
   bool ntripConnect(String ntrip) {
-    int pos = ntrip.indexOf(':');
-    String server = (-1 == pos) ? ntrip : ntrip.substring(0,pos);
-    uint16_t port = (-1 == pos) ? NTRIP_SERVER_PORT : ntrip.substring(pos+1).toInt();
+    int pos1 = ntrip.indexOf(':');
+    int pos2 = ntrip.indexOf('/');
+    pos1 = (-1 == pos1) ? pos2 : pos1;
+    String server = (-1   == pos1) ? ""                : ntrip.substring(0,pos1);
+    uint16_t port = (pos1 == pos2) ? NTRIP_SERVER_PORT : ntrip.substring(pos1+1,pos2).toInt();
+    String mntpnt = (-1   == pos2) ? ""                : ntrip.substring(pos2+1);
+    if ((0 == server.length()) || (0 == mntpnt.length())) return false;
     int ok = ntripWifiClient.connect(server.c_str(), port);
     if (!ok) {
       log_e("server \"%s:%d\" failed", server.c_str(), port);
     } else {
-      log_i("server \"%s:%d\"", server.c_str(), port);
-      String mntpnt = Config.getValue(CONFIG_VALUE_NTRIP_MOUNTPT);
       String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
       String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
       String authEnc;
@@ -468,7 +471,7 @@ protected:
         authHead = "Authorization: Basic ";
         authHead += authEnc + "\r\n";
       }                    
-      log_i("get \"/%s\" auth \"%s\"", mntpnt.c_str(), authEnc.c_str());
+      log_i("server \"%s:%d\" GET \"/%s\" auth \"%s\"", server.c_str(), port, mntpnt.c_str(), authEnc.c_str());
       ntripWifiClient.printf("GET /%s HTTP/1.0\r\n"
                 "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
                 "%s\r\n", mntpnt.c_str(), authHead.c_str());
@@ -485,23 +488,15 @@ protected:
           vTaskDelay(1);
         }
       } while ( (NTRIP_RESPONSE_SOURCETABLE[ixSrc] != '\0') && (NTRIP_RESPONSE_ICY[ixIcy] != '\0') && 
-                ntripWifiClient.connected() && (0 >= (start + NTRIP_CONNECT_TIMEOUT - millis())) );
+                ntripWifiClient.connected() && (0 < (start + NTRIP_CONNECT_TIMEOUT - millis())) );
       // evaluate the response
       if (NTRIP_RESPONSE_ICY[ixIcy] == '\0') { 
         log_i("connected");
         ntripGgaMs = millis();
         return true;
       } else if (NTRIP_RESPONSE_SOURCETABLE[ixSrc] == '\0') {
-        vTaskDelay(100); // wait a bit to get the source table data
-        int size = ntripWifiClient.available();
-        uint8_t* buf = new uint8_t[size];
-        if (buf) {
-          size = ntripWifiClient.read(buf, size);
-          log_i("got source table%.*s", size, buf);
-          delete [] buf;
-        } else {
-          log_e("read source table failed, memory alloc failed");
-        }
+        log_i("got source table, please provide a mountpoint");
+        String str = ntripWifiClient.readStringUntil('\n');
       } else {
         log_e("protocol failure after %d ms ix %d %d", millis() - start, ixSrc, ixIcy);
       }
@@ -862,7 +857,7 @@ const char WLAN::PORTAL_HTML[] = R"html(
         var _c = _j.MQTT.Connectivity;
         var _o = { };
         _s('clientId', _c.ClientID);
-        _s('brokerHost', _c.ServerURI.match(/\\s*:\\/\\/(.*):\\d+/)[1]);
+        _s('brokerHost', _c.ServerURI.match(/\s*:\/\/(.*):\d+/)[1]);
         _c = _c.ClientCredentials;
         _s('clientKey', _c.Key, true);
         _s('clientCert', _c.Cert, true);
@@ -872,7 +867,7 @@ const char WLAN::PORTAL_HTML[] = R"html(
         _i.value = '';
       } catch(e) { alert('bad json content'); }
     };
-    if (_i.files[0]) _r.readAsText(_i.files[0]);\
+    if (_i.files[0]) _r.readAsText(_i.files[0]);
   };
 </script>
 )html";

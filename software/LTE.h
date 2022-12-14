@@ -435,20 +435,23 @@ protected:
   int ntripSocket;     //!< the socket handle 
 
   /** Connect to a NTRIP server
-   *  \param ntrip  the server to connect to
+   *  \param ntrip  the server:port/mountpoint to connect to
    *  \return       connection success
    */
   bool ntripConnect(String ntrip) {
-    int pos = ntrip.indexOf(':');
-    String server = (-1 == pos) ? ntrip : ntrip.substring(0,pos);
-    uint16_t port = (-1 == pos) ? NTRIP_SERVER_PORT : ntrip.substring(pos+1).toInt();
-    String mntpnt = Config.getValue(CONFIG_VALUE_NTRIP_MOUNTPT);
+    int pos1 = ntrip.indexOf(':');
+    int pos2 = ntrip.indexOf('/');
+    pos1 = (-1 == pos1) ? pos2 : pos1;
+    String server = (-1   == pos1) ? ""                : ntrip.substring(0,pos1);
+    uint16_t port = (pos1 == pos2) ? NTRIP_SERVER_PORT : ntrip.substring(pos1+1,pos2).toInt();
+    String mntpnt = (-1   == pos2) ? ""                : ntrip.substring(pos2+1);
+    if ((0 == server.length()) || (0 == mntpnt.length())) return false;
     String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
     String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
     //setSocketReadCallbackPlus(&onSocketData);
     //setSocketCloseCallback(&onSocketClose); 
     ntripSocket = socketOpen(SARA_R5_TCP);
-    if (ntripSocket >= 0) {
+    if (0 <= ntripSocket) {
       String authEnc;
       String authHead;
       if (0 < user.length() && 0 < pwd.length()) {
@@ -456,7 +459,7 @@ protected:
         authHead = "Authorization: Basic ";
         authHead += authEnc + "\r\n";
       }                    
-      log_i("connect to \"%s:%d\" and GET \"/%s\" auth \"%s\"", server.c_str(), port, mntpnt.c_str(), authEnc.c_str());
+      log_i("server \"%s:%d\" GET \"/%s\" auth \"%s\"", server.c_str(), port, mntpnt.c_str(), authEnc.c_str());
       char buf[256];
       int len = sprintf(buf, "GET /%s HTTP/1.0\r\n"
                 "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
@@ -495,7 +498,7 @@ protected:
         ntripStop();
       }
     }
-    return ntripSocket >= 0;
+    return 0 <= ntripSocket;
   }
 
   /** Disconnect and cleanup the NTRIP connection close the socket
