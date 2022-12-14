@@ -62,10 +62,7 @@ const int LTE_TASK_CORE           =           1;  //!< Lte task MCU code
 #define LTE_CHECK_OK              (SARA_R5_SUCCESS == _err)                               //!< record the return result
 #define LTE_CHECK(x)              if (SARA_R5_SUCCESS == _err) _step = x, _err            //!< interim evaluate
 #define LTE_CHECK_EVAL(txt)       if (SARA_R5_SUCCESS != _err) log_e(txt ", AT sequence failed at step %d with error %d", _step, _err) //!< final verdict and log_e report
-//! this helper deals with some AT commands that are not yet implemted in LENA-R8 and throw a warning
-#define LTE_IGNORE_LENA( command ) (_err = 
-module.startsWith("LENA-R8") ? (log_w("ignore command %s due to LENA-R8 IP status", #command) ? SARA_R5_SUCCESS : SARA_R5_SUCCESS) : command
-
+  
 extern class LTE Lte; //!< Forward declaration of class
 
 /** This class encapsulates all LTE functions. 
@@ -100,6 +97,15 @@ protected:
   String unsubTopic;          //!< requested topic to be un-subscribed (needed by the callback)
   int mqttMsgs;               //!< remember the number of messages pending indicated by the URC
 
+  //! this helper deals with some AT commands that are not yet implemted in LENA-R8 and throw a warning
+  SARA_R5_error_t LTE_IGNORE_LENA(SARA_R5_error_t err) { 
+      if ((err != SARA_R5_SUCCESS) && module.startsWith("LENA-R8")) {
+        log_w("AT command error ignored due to LENA-R8 IP Status");
+        err = SARA_R5_SUCCESS;
+      }
+      return err; 
+  }
+  
   /** Try to provision the PointPerfect to that we can start the MQTT server. This involves: 
    *  1) HTTPS request is made to AWS to GET theri ROOT CA
    *  2) HTTPS request to Thingstream POSTing the device tocken to get the credentials and client cert, key and ID
@@ -110,7 +116,7 @@ protected:
       log_i("HTTP AWS connect to \"%s:%d\" and GET \"%s\"", AWSTRUST_SERVER, HTTPS_PORT, AWSTRUST_ROOTCAPATH);
       setHTTPCommandCallback(httpCallbackStatic); // callback will advance state
       LTE_CHECK_INIT;
-      LTE_CHECK(1)  = LTE_IGNORE_LENA(resetSecurityProfile)(LTE_SEC_PROFILE_HTTP);
+      LTE_CHECK(1)  = LTE_IGNORE_LENA( resetSecurityProfile(LTE_SEC_PROFILE_HTTP) );
       LTE_CHECK(2)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL, SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_NO); // no certificate and url/sni check
       LTE_CHECK(3)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,        SARA_R5_SEC_PROFILE_TLS_OPCODE_VER1_2);
       LTE_CHECK(4)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,   SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
@@ -129,7 +135,7 @@ protected:
         setHTTPCommandCallback(httpCallbackStatic); // callback will advance state
         LTE_CHECK_INIT;
         LTE_CHECK(1)  = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_ROOTCA,     SEC_ROOT_CA, rootCa);
-        LTE_CHECK(2)  = LTE_IGNORE_LENA(resetSecurityProfile)(LTE_SEC_PROFILE_HTTP);
+        LTE_CHECK(2)  = LTE_IGNORE_LENA(resetSecurityProfile(LTE_SEC_PROFILE_HTTP));
         LTE_CHECK(3)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL, SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_YESNOURL);
         LTE_CHECK(4)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,        SARA_R5_SEC_PROFILE_TLS_OPCODE_VER1_2);
         LTE_CHECK(5)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,   SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
@@ -167,7 +173,7 @@ protected:
       LTE_CHECK(1)  = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_ROOTCA,         SEC_ROOT_CA,     rootCa);
       LTE_CHECK(2)  = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_CLIENT_CERT,    SEC_CLIENT_CERT, cert);
       LTE_CHECK(3)  = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_CLIENT_KEY,     SEC_CLIENT_KEY,  key);
-      LTE_CHECK(4)  = LTE_IGNORE_LENA(resetSecurityProfile)(LTE_SEC_PROFILE_MQTT);
+      LTE_CHECK(4)  = LTE_IGNORE_LENA(resetSecurityProfile(LTE_SEC_PROFILE_MQTT));
       LTE_CHECK(5)  = configSecurityProfile(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL,     SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_YESNOURL);
       LTE_CHECK(6)  = configSecurityProfile(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,            SARA_R5_SEC_PROFILE_TLS_OPCODE_VER1_2);
       LTE_CHECK(7)  = configSecurityProfile(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,       SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);

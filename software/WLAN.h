@@ -35,12 +35,12 @@
 const int WLAN_1S_RETRY           =        1000;  //!< standard 1s retry
 const int WLAN_RESETPORTAL_TIME   =       10000;  //!< Hold Boot pin down for this time to restart AP and captive portal 
 const int WLAN_INIT_RETRY         =       60000;  //!< delay between detect/autoconnect attempts
-const int WLAN_RECONNECT_RETRY    =       60000;  //!< delay between re.connection attempts for wifi
+const int WLAN_RECONNECT_RETRY    =       60000;  //!< delay between re-connection attempts for wifi
 const int WLAN_PROVISION_RETRY    =       10000;  //!< delay between provisioning attempts, provisioning may consume data
 const int WLAN_CONNECT_RETRY      =       10000;  //!< delay between server connection attempts to correction severs
 
 const char* WLAN_TASK_NAME        =      "Wlan";  //!< Wlan task name
-const int WLAN_STACK_SIZE         =      3*1024;  //!< Wlan task stack size
+const int WLAN_STACK_SIZE         =      6*1024;  //!< Wlan task stack size
 const int WLAN_TASK_PRIO          =           1;  //!< Wlan task priority
 const int WLAN_TASK_CORE          =           1;  //!< Wlan task MCU code
 

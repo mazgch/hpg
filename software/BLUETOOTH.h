@@ -19,8 +19,11 @@
 
 #include <NimBLEDevice.h>
 
-//!< Flag to select the u-blox SPS service (SPS_SERVICE_UUID) or Nordic BLE Uart (NUS_SERVICE_UUID)
-#define BLUETOOTH_SERVICE         (true ? SPS_SERVICE_UUID : NUS_SERVICE_UUID)
+/** Flag to select the BLE serial service
+ *  true:  u-blox SPS service (SPS_SERVICE_UUID) 
+ *  false: Nordic BLE Uart (NUS_SERVICE_UUID)
+ */
+#define BLUETOOTH_SERVICE         (false ? SPS_SERVICE_UUID : NUS_SERVICE_UUID)
 
 const int BLUETOOTH_PACKET_DELAY  =          10;  //!< Delay notifys by this not to overload the BLE stack  
 const int BLUETOOTH_NODATA_DELAY  =          30;  //!< Yield time to allow new data to become available 
