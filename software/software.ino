@@ -72,7 +72,7 @@
 #include "GNSS.h"
 #include "LBAND.h"
 #include "LTE.h"
-#include "CANBUS.h"     // Comment this if not needed 
+//#include "CANBUS.h"     // Comment this if not needed 
 
 // ====================================================================================
 // MAIN setup / loop

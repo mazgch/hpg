@@ -20,8 +20,8 @@
 /** The target is used to enable conditional code thoughout this application 
  */
 #if defined(ARDUINO_UBLOX_NINA_W10)
- //#define HW_TARGET     MAZGCH_HPG_SOLUTION_C214_revA
- #define HW_TARGET     MAZGCH_HPG_SOLUTION_V09
+ #define HW_TARGET     MAZGCH_HPG_SOLUTION_C214_revA
+ //#define HW_TARGET     MAZGCH_HPG_SOLUTION_V09
 #elif defined(ARDUINO_UBLOX_NORA_W10)
  #define HW_TARGET     MAZGCH_HPG_MODULAR_V01
 #elif defined(ARDUINO_ESP32_MICROMOD)
