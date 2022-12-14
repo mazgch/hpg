@@ -90,7 +90,7 @@ void setup(void) {
   Config.init();
   String hwName = Config.getDeviceName();
   log_i("mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());  
-  logVersion();
+  espVersion();
   // SD card 
   UbxSd.init(); // handling SD card and files runs in a task
 #ifdef __BLUETOOTH_H__
@@ -123,7 +123,7 @@ void loop(void) {
   Gnss.poll();
   delay(50);
 
-  logMemUsage();
+  memUsage();
 }
 
 // ====================================================================================
@@ -136,7 +136,7 @@ void loop(void) {
 
 /** Print the version number of the Arduino and ESP core. 
  */
-void logVersion(void) {
+void espVersion(void) {
 #ifndef ESP_ARDUINO_VERSION
   log_i("Version IDF %s Arduino_esp32 %s", esp_get_idf_version(), ARDUINO_ESP32_RELEASE);
 #else
@@ -149,7 +149,7 @@ const int DUMP_STACK_INTERVAL = 10000; //!< Dump interval in ms, set to 0 to dis
   
 /** Helper function to diagnose the health of this application dumping the free stacks and heap.
 */
-void logMemUsage(void) {
+void memUsage(void) {
   int32_t now = millis();      
   static int32_t lastMs = 0;    
   // this code allows to print all the stacks of the different tasks

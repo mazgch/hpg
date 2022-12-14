@@ -456,7 +456,6 @@ protected:
         authHead = "Authorization: Basic ";
         authHead += authEnc + "\r\n";
       }                    
-      const char* expectedReply = 0 == mntpnt.length() ? "SOURCETABLE 200 OK\r\n" : "ICY 200 OK\r\n";
       log_i("connect to \"%s:%d\" and GET \"/%s\" auth \"%s\"", server.c_str(), port, mntpnt.c_str(), authEnc.c_str());
       char buf[256];
       int len = sprintf(buf, "GET /%s HTTP/1.0\r\n"
@@ -466,6 +465,7 @@ protected:
       LTE_CHECK(1) = socketConnect(ntripSocket, server.c_str(), port);
       LTE_CHECK(2) = socketWrite(ntripSocket, buf, len);
       int avail = 0;
+      const char* expectedReply = 0 == mntpnt.length() ? NTRIP_RESPONSE_SOURCETABLE : NTRIP_RESPONSE_ICY;
       len = strlen(expectedReply);
       int32_t start = millis();
       int32_t now;

@@ -19,17 +19,19 @@
 
 #include <NimBLEDevice.h>
 
-const int BLUETOOTH_PACKET_DELAY  =          10; //!< Delay notifys by this not to overload the BLE stack  
-const int BLUETOOTH_NODATA_DELAY  =          30; //!< Yield time to allow new data to become available 
+const int BLUETOOTH_PACKET_DELAY  =          10;  //!< Delay notifys by this not to overload the BLE stack  
+const int BLUETOOTH_NODATA_DELAY  =          30;  //!< Yield time to allow new data to become available 
 
-const int BLUETOOTH_TX_SIZE       =         512; //!< Preferred (max) size of tx characteristics  
-const int BLUETOOTH_BUFFER_SIZE   =      2*1024; //!< Local circular buffer to keep the data until we can send it. 
-const int BLUETOOTH_MTU_OVERHEAD  =           3; //!< MTU overhead = 1 attribute opcode + 2 client receive MTU size 
+const int BLUETOOTH_TX_SIZE       =         512;  //!< Preferred (max) size of tx characteristics  
+const int BLUETOOTH_BUFFER_SIZE   =      2*1024;  //!< Local circular buffer to keep the data until we can send it. 
+const int BLUETOOTH_MTU_OVERHEAD  =           3;  //!< MTU overhead = 1 attribute opcode + 2 client receive MTU size 
 
-const char* BLUETOOTH_TASK_NAME   = "Bluetooth"; //!< Bluetooth task name
-const int BLUETOOTH_STACK_SIZE    =      3*1024; //!< Bluetooth task stack size
-const int BLUETOOTH_TASK_PRIO     =           1; //!< Bluetooth task priority
-const int BLUETOOTH_TASK_CORE     =           1; //!< Bluetooth task MCU code
+//#define   BLUETOOTH_UBLOX_UART                  //!< Enable the u-blox SPS service instead of Nordic
+    
+const char* BLUETOOTH_TASK_NAME   = "Bluetooth";  //!< Bluetooth task name
+const int BLUETOOTH_STACK_SIZE    =      3*1024;  //!< Bluetooth task stack size
+const int BLUETOOTH_TASK_PRIO     =           1;  //!< Bluetooth task priority
+const int BLUETOOTH_TASK_CORE     =           1;  //!< Bluetooth task MCU code
 
 /** This class encapsulates all BLUETOOTH functions. 
 */
@@ -42,11 +44,13 @@ public:
    */
   BLUETOOTH(size_t size) : buffer{size} {
     mutex = xSemaphoreCreateMutex();
-    txChar = NULL;
-    rxChar = NULL;
-#ifdef UBLOX_UART
+#ifdef BLUETOOTH_UBLOX_UART
     fifoChar = NULL;
     creditChar = NULL;
+    txCredits = 0;
+#else
+    txChar = NULL;
+    rxChar = NULL;
 #endif
     txSize = BLUETOOTH_TX_SIZE;
     connected = false;
@@ -61,7 +65,22 @@ public:
     NimBLEDevice::setMTU(BLUETOOTH_TX_SIZE + BLUETOOTH_MTU_OVERHEAD);
     BLEServer *server = BLEDevice::createServer();    
     if (server) {
-      server->setCallbacks(this);
+      server->setCallbacks(this); 
+#ifdef BLUETOOTH_UBLOX_UART
+      BLEService *serUblox = server->createService(UBLOX_UART_SERVICE_UUID);
+      uint32_t properties = NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR | NIMBLE_PROPERTY::NOTIFY;
+      if (serUblox) {
+        fifoChar = serUblox->createCharacteristic(UBLOX_FIFO_CHARACTERISTIC_UUID, properties);
+        if (fifoChar) {
+          fifoChar->setCallbacks(this);
+        }
+        creditChar = serUblox->createCharacteristic(UBLOX_CREDITS_CHARACTERISTIC_UUID, properties);
+        if (creditChar) {
+          creditChar->setCallbacks(this);
+        }
+        serUblox->start();
+      }
+#else
       BLEService *serNordic = server->createService(NORDIC_UART_SERVICE_UUID);
       if (serNordic) {
         txChar = serNordic->createCharacteristic(NORDIC_TX_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::NOTIFY);
@@ -71,31 +90,19 @@ public:
         }
         serNordic->start();
       }
-#ifdef UBLOX_UART
-      BLEService *serUblox = server->createService(UBLOX_UART_SERVICE_UUID);
-      if (serUblox) {
-        fifoChar = serUblox->createCharacteristic(UBLOX_FIFO_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
-        if (fifoChar) {
-          fifoChar->setCallbacks(this);
-        }
-        creditChar = serUblox->createCharacteristic(UBLOX_CREDITS_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
-        if (creditChar) {
-          creditChar->setCallbacks(this);
-        }
-        serUblox->start();
-      }
 #endif
-      BLEAdvertising *advertising = server->getAdvertising(); 
-      if (advertising) {
-        advertising->addServiceUUID(NORDIC_UART_SERVICE_UUID);
-#ifdef UBLOX_UART
-        advertising->addServiceUUID(UBLOX_UART_SERVICE_UUID);
-#endif
-        advertising->start();        
-      }
-      log_i("device \"%s\"", name.c_str());
-      xTaskCreatePinnedToCore(task, BLUETOOTH_TASK_NAME, BLUETOOTH_STACK_SIZE, this, BLUETOOTH_TASK_PRIO, NULL, BLUETOOTH_TASK_CORE);
     }
+    BLEAdvertising *advertising = server->getAdvertising(); 
+    if (advertising) {
+#ifdef BLUETOOTH_UBLOX_UART
+      advertising->addServiceUUID(UBLOX_UART_SERVICE_UUID);
+#else
+      advertising->addServiceUUID(NORDIC_UART_SERVICE_UUID);
+#endif
+      advertising->start();        
+    }
+    log_i("device \"%s\"", name.c_str());
+    xTaskCreatePinnedToCore(task, BLUETOOTH_TASK_NAME, BLUETOOTH_STACK_SIZE, this, BLUETOOTH_TASK_PRIO, NULL, BLUETOOTH_TASK_CORE);
   }
 
   // --------------------------------------------------------------------------------------
@@ -142,26 +149,26 @@ protected:
   void task(void) {
     while(true) {
       size_t wrote = 0;
-      bool loop = (NULL != txChar);
+      bool loop = true;
       while (loop) {
         if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-          uint8_t temp[txSize]; 
-          size_t len = buffer.read((char*)temp, sizeof(temp));
+#ifdef BLUETOOTH_UBLOX_UART
+          uint8_t temp[txCredits < txSize ? txSize : txCredits]; 
+#else
+          uint8_t temp[txSize];
+#endif
+          size_t len = sizeof(temp) ? buffer.read((char*)temp, sizeof(temp)) : 0;
           xSemaphoreGive(mutex);
           if (connected && (0 < len)) {
-            if (NULL != txChar) {
-              txChar->setValue(temp, len);
-              txChar->notify(true);
-            }
-#ifdef UBLOX_UART
-            if (NULL != creditChar) {
-              uint8_t credits = 0xFE;
-              creditChar->setValue(credits);
-              creditChar->notify(true);
-            }
+#ifdef BLUETOOTH_UBLOX_UART
             if (NULL != fifoChar) {
               fifoChar->setValue(temp, len);
               fifoChar->notify(true);
+            }
+#else
+            if (NULL != txChar) {
+              txChar->setValue(temp, len);
+              txChar->notify(true);
             }
 #endif
             wrote += len;
@@ -178,12 +185,27 @@ protected:
     }
   }
 
+#ifdef BLUETOOTH_UBLOX_UART
+  /** inform about our space
+   */
+  void sendRxCredits(void) {
+    if (NULL != creditChar) {
+      creditChar->setValue(rxCredits);
+      creditChar->notify(true);
+      log_v("rxCredits %d", rxCredits);
+    }
+  }
+#endif
+
   /* Callback to inform about connections  
    * \param pServer pointer to the server 
    */
   void onConnect(NimBLEServer *pServer) {
     log_i("connected");
     connected = true;
+#ifdef BLUETOOTH_UBLOX_UART
+    sendRxCredits();
+#endif
   }
   
   /* Callback to inform about disconnections  
@@ -200,11 +222,11 @@ protected:
    */
   void onWrite(BLECharacteristic *pCharacteristic) {
     if (NULL != pCharacteristic) {
-#ifdef UBLOX_UART
+#ifdef BLUETOOTH_UBLOX_UART
       if (pCharacteristic == creditChar) {
-        uint8_t value = pCharacteristic->getValue<uint8_t>();
-        log_i("credits %d", value); (void)value;
-      } else if ((pCharacteristic == rxChar) || (pCharacteristic == fifoChar)) {
+        txCredits = pCharacteristic->getValue<uint8_t>();
+        log_v("txCredits %d", txCredits);
+      } else if (pCharacteristic == fifoChar) {
 #else
       if (pCharacteristic == rxChar) {
 #endif
@@ -213,6 +235,9 @@ protected:
         int read = GNSS_INJECT_BLUETOOTH(value.c_str(), value.length());
         log_d("read %d bytes", read); (void)read;
       }
+#ifdef BLUETOOTH_UBLOX_UART
+      sendRxCredits();
+#endif
     }
   }
 
@@ -229,20 +254,20 @@ protected:
   cbuf buffer;                    //!< Local circular buffer to keep the data until we can send it. 
   int txSize;                     //!< Requested max size of tx characteristics (depends on MTU from client)
   volatile bool connected;        //!< True if a client is connected. 
-  BLECharacteristic *txChar;      //!< the TX characteristics of the Nordic BLE Uart
-  BLECharacteristic *rxChar;      //!< the RX characteristics of the Nordic BLE Uart
-#ifdef UBLOX_UART
+#ifdef BLUETOOTH_UBLOX_UART
   BLECharacteristic *fifoChar;    //!< the FIFO characteristics of the u-blox BLE Uart
   BLECharacteristic *creditChar;  //!< the Credits characteristics of the u-blox BLE Uart
-#endif
-  
-  const char *NORDIC_UART_SERVICE_UUID          = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"; //!< Nordic BLE Uart UUID
-  const char *NORDIC_RX_CHARACTERISTIC_UUID     = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"; //!< Nordic BLE Uart RX UUID
-  const char *NORDIC_TX_CHARACTERISTIC_UUID     = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"; //!< Nordic BLE Uart TX UUID
-#ifdef UBLOX_UART
+  uint8_t txCredits;              //!< the number of bytes we can send 
+  const uint8_t rxCredits = 0xFE; //!< the we can receive a lot of data, just set the max value, 0xFF means reject. 
   const char *UBLOX_UART_SERVICE_UUID           = "2456e1b9-26e2-8f83-e744-f34f01e9d701"; //!< u-blox BLE Uart UUID
   const char *UBLOX_FIFO_CHARACTERISTIC_UUID    = "2456e1b9-26e2-8f83-e744-f34f01e9d703"; //!< u-blox BLE Uart FIFO UUID
   const char *UBLOX_CREDITS_CHARACTERISTIC_UUID = "2456e1b9-26e2-8f83-e744-f34f01e9d704"; //!< u-blox BLE Uart Credits UUID
+#else
+  BLECharacteristic *txChar;      //!< the TX characteristics of the Nordic BLE Uart
+  BLECharacteristic *rxChar;      //!< the RX characteristics of the Nordic BLE Uart
+  const char *NORDIC_UART_SERVICE_UUID          = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"; //!< Nordic BLE Uart UUID
+  const char *NORDIC_RX_CHARACTERISTIC_UUID     = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"; //!< Nordic BLE Uart RX UUID
+  const char *NORDIC_TX_CHARACTERISTIC_UUID     = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"; //!< Nordic BLE Uart TX UUID
 #endif
 };
 

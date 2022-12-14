@@ -18,36 +18,57 @@
 #define __WEBSOCKET__H__
 
 #include <ArduinoWebsockets.h>
-
-const unsigned short WEBSOCKET_WEBSOCKET_PORT = 8080; // needs to match WEBSOCKET_HTML and hpg.mazg.ch value
-#define WEBSOCKET_HPGMAZGCHURL    "http://hpg.mazg.ch"
-#define WEBSOCKET_HPGMAZGCHNAME   "mazg.ch HPG Monitor"
-#define WEBSOCKET_URL               "/monitor.html"
-#define WEBSOCKET_JSURL             "/monitor.js"
-#define WEBSOCKET_CSSURL            "/monitor.css"
-#define WEBSOCKET_BUTTON            "Monitor"
-
 using namespace websockets;
 
+const uint16_t WEBSOCKET_PORT     =        8080; //!< needs to match WEBSOCKET_HTML and hpg.mazg.ch value
+
+#define WEBSOCKET_HPGMAZGCHURL    "http://hpg.mazg.ch"
+#define WEBSOCKET_HPGMAZGCHNAME   "mazg.ch HPG Monitor"
+#define WEBSOCKET_URL             "/monitor.html"
+#define WEBSOCKET_JSURL           "/monitor.js"
+#define WEBSOCKET_CSSURL          "/monitor.css"
+#define WEBSOCKET_BUTTON          "Monitor"
+
+/** This class encapsulates all WLAN functions. 
+*/
 class WEBSOCKET : public Stream {
+
 public: 
+
+  /** constructor
+   *  \param size  the size of the cicular buffer
+   */
   WEBSOCKET(size_t size = 5*1024) : buffer{size} {
     mutex = xSemaphoreCreateMutex();
     queue = xQueueCreate(5, sizeof(MSG));
     connected = false;
   }
-  
+
+  /** attach the the websocket to the manager and start listening
+   */
   void setup(WiFiManager& manager) {
     pManager = &manager;
     pManager->setCustomMenuHTML("<form action=\"" WEBSOCKET_URL "\" method=\"get\"><button>" WEBSOCKET_BUTTON "</button></form><br>"
             "<button onclick=\"window.location.href='" WEBSOCKET_HPGMAZGCHURL "?ip='+window.location.hostname\">" WEBSOCKET_HPGMAZGCHNAME "</button><br><br>"
     );
-    wsServer.listen(WEBSOCKET_WEBSOCKET_PORT);
+    wsServer.listen(WEBSOCKET_PORT);
     if (!wsServer.available()) {
       log_i("server unavailable");
     }
   }
 
+  /** register the pages to be served
+   */
+  void bind(void) {
+    if ((NULL != pManager) && (NULL != pManager->server)) {
+      pManager->server->on(WEBSOCKET_URL,    std::bind(&WEBSOCKET::serveHtml, this));
+      pManager->server->on(WEBSOCKET_JSURL,  std::bind(&WEBSOCKET::serveJs,   this));           
+      pManager->server->on(WEBSOCKET_CSSURL, std::bind(&WEBSOCKET::serveCss,  this));           
+    }
+  }
+
+  /** check the available and potential new clients
+   */
   void poll(void) {
     // poll all clients
     for (auto it = wsClients.begin(); (it != wsClients.end()); it = std::next(it)) {
@@ -61,6 +82,7 @@ public:
       }
     }
     if (wsServer.poll()) {
+      // check for a new client
       WebsocketsClient client = wsServer.accept();
       client.onMessage(onMessage);
       client.onEvent(onEvent);
@@ -75,15 +97,65 @@ public:
     send();
   }
 
-  typedef enum                          {  WLAN = 0, LTE,   LBAND,   GNSS, NUM } SOURCE; 
-  const char* SOURCE_LUT[SOURCE::NUM] = { "WLAN",   "LTE", "LBAND", "GNSS" };
+  // --------------------------------------------------------------------------------------
+  // STREAM interface: https://github.com/arduino/ArduinoCore-API/blob/master/api/Stream.h
+  // --------------------------------------------------------------------------------------
+ 
+  typedef enum                          {  WLAN = 0, LTE,   LBAND,   GNSS, NUM } SOURCE; //!< source enum for MSG
+  const char* SOURCE_LUT[SOURCE::NUM] = { "WLAN",   "LTE", "LBAND", "GNSS"     };  //!< source to text conversion
   typedef struct { 
-    SOURCE source; 
-    char* data; 
-    size_t size;
-    bool binary;
-  } MSG;
+    SOURCE source;            //!< source of data 
+    char* data;               //!< data buffer, allocated by calling task and released  by consumers  
+    size_t size;              //!< data size
+    bool binary;              //!< type of the data 
+  } MSG;                      //!< queue element
+  xQueueHandle queue;         //!< queue to hold the different data to be sent to the websocket
+  SemaphoreHandle_t mutex;    //!< protects cbuf from concurnet access by tasks. 
+  cbuf buffer;                //!< the circular local buffer
   
+  /** write data into the queue to be sent 
+   *  \param buffer  data to write
+   *  \param size    of data to write 
+   *  \param source  the origin of this data
+   *  \param binary  how to send the data over the websocket
+   *  \return        the bytes put in the queue
+   */
+  size_t write(const void* buffer, size_t size, SOURCE source, bool binary = true) {
+    size_t wrote = 0;
+    if (connected) {
+      MSG msg;
+      msg.data = new char[size];
+      if (msg.data) {
+        memcpy(msg.data, buffer, size);
+        msg.size = size;
+        msg.source = source;
+        msg.binary = binary;
+        if (xQueueSendToBack(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
+          log_d("queue %d bytes from %d(%s)", size, source, SOURCE_LUT[source]);
+          wrote += msg.size;
+        } else {
+          log_e("queue %d bytes from %d(%s) failed, queue full", size, source, SOURCE_LUT[source]);
+          delete [] msg.data;
+        }
+      } else {
+        log_e("queue %d bytes from %d(%s), failed alloc", size, SOURCE_LUT[source]);
+      }
+    }
+    return wrote;
+  }
+
+  /** write data into the queue to be sent 
+   *  \param buffer  a string to write
+   *  \param source  the origin of this data
+   *  \return        the bytes put in the queue
+   */
+  size_t write(const char* buffer, SOURCE source) {
+    return write(buffer, strlen(buffer), source, false);
+  }
+
+  /** send both the message queue data as well as the cicular buffer to the websocket. 
+   *  This will also free any buffer allocated in the queue elements.
+   */
   void send(void) {
     int total = 0;
     MSG msg;
@@ -127,46 +199,14 @@ public:
     }
   }
     
-  size_t write(const void* buffer, size_t size, SOURCE source, bool binary = true) {
-    size_t wrote = 0;
-    if (connected) {
-      MSG msg;
-      msg.data = new char[size];
-      if (msg.data) {
-        memcpy(msg.data, buffer, size);
-        msg.size = size;
-        msg.source = source;
-        msg.binary = binary;
-        if (xQueueSendToBack(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
-          log_d("queue %d bytes from %d(%s)", size, source, SOURCE_LUT[source]);
-          wrote += msg.size;
-        } else {
-          log_e("queue %d bytes from %d(%s) failed, queue full", size, source, SOURCE_LUT[source]);
-          delete [] msg.data;
-        }
-      } else {
-        log_e("queue %d bytes from %d(%s), failed alloc", size, SOURCE_LUT[source]);
-      }
-    }
-    return wrote;
-  }
-
-  size_t write(const char* buffer, SOURCE source) {
-    return write(buffer, strlen(buffer), source, false);
-  }
-
-  void bind(void) {
-    if ((NULL != pManager) && (NULL != pManager->server)) {
-      pManager->server->on(WEBSOCKET_URL,    std::bind(&WEBSOCKET::serveHtml, this));
-      pManager->server->on(WEBSOCKET_JSURL,  std::bind(&WEBSOCKET::serveJs,   this));           
-      pManager->server->on(WEBSOCKET_CSSURL, std::bind(&WEBSOCKET::serveCss,  this));           
-    }
-  }
-
   // --------------------------------------------------------------------------------------
-  // STREAM interface defined by Arduino
-  // https://github.com/arduino/ArduinoCore-API/blob/master/api/Stream.h
+  // STREAM interface: https://github.com/arduino/ArduinoCore-API/blob/master/api/Stream.h
   // --------------------------------------------------------------------------------------
+ 
+  /** The character written is passed into a circular buffer
+   *  \param ch  character to write
+   *  \return    the bytes written
+   */ 
   size_t write(uint8_t ch) override {
     size_t size = 0;
     if (connected) {
@@ -177,6 +217,12 @@ public:
     }
     return size;
   }
+  
+  /** All data written is passed into the circular buffer
+   *  \param ptr   pointer to buffer to write
+   *  \param size  number of bytes in ptr to write
+   *  \return      the bytes written
+   */ 
   size_t write(const uint8_t *ptr, size_t size) override {
     if (connected) {
       if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
@@ -186,9 +232,24 @@ public:
     }
     return size;
   }
+  
+  /** override flush functions of the stream interface 
+   */
   void flush(void)    override { /*nothing*/ }
+  
+  /** override available functions of the stream interface 
+   *  \return  nothing available
+   */
   int available(void) override { return   0; }
+  
+  /** override read functions of the stream interface 
+   *  \return  a bad character
+   */
   int read(void)      override { return  -1; }
+  
+  /** override peek functions of the stream interface 
+   *  \return  a bad character
+   */
   int peek(void)      override { return  -1; }
    
 protected:
@@ -230,22 +291,17 @@ protected:
     }
   }
   
-  WebsocketsServer wsServer;
-  std::vector<WebsocketsClient> wsClients;
-  WiFiManager* pManager;
-  xQueueHandle queue;
-  bool connected;
+  std::vector<WebsocketsClient> wsClients;  //!< list websocket clients connected
+  WebsocketsServer wsServer;                //!< websocket server listens for incoming connections 
+  WiFiManager* pManager;                    //!< the wifi manager with its captive portal
+  bool connected;                           //!< wifi connected flag
 
-  // Stream
-  SemaphoreHandle_t mutex;
-  cbuf buffer;
-
-  static const char HTML[];
-  static const char CSS[];
-  static const char JS[];
+  static const char HTML[];   //!< the content of served file monitor.html
+  static const char CSS[];    //!< the content of served file monitor.css
+  static const char JS[];     //!< the content of served file monitor.js
 };
 
-WEBSOCKET Websocket;
+WEBSOCKET Websocket;  //!< The global WEBSOCKET peripherial object
 
 // --------------------------------------------------------------------------------------
 // Resources served

@@ -173,10 +173,11 @@ public:
   typedef enum                          {  WLAN = 0, LTE,   LBAND,   KEYS,   WEBSOCKET,   BLUETOOTH,   NONE, NUM } SOURCE; //!< source enum for MSG 
   const char* SOURCE_LUT[SOURCE::NUM] = { "WLAN",   "LTE", "LBAND", "KEYS", "WEBSOCKET", "BLUETOOTH", "-"        };  //!< source to text conversion
   typedef struct { 
-    SOURCE source;  //!< source of data 
-    uint8_t* data;  //!< data buffer, allocated by calling task and released  by consumers  
-    size_t size;    //!< data size
-  } MSG;            //!< queue element
+    SOURCE source;      //!< source of data 
+    uint8_t* data;      //!< data buffer, allocated by calling task and released  by consumers  
+    size_t size;        //!< data size
+  } MSG;                //!< queue element
+  xQueueHandle queue;   //!< queue to hold the different data to be sent to the receiver
 
   /** inject a message into the queue to be sent to the receiver, 
    *  \param msg  message to be added, this msg.data is freed by  
@@ -294,7 +295,7 @@ protected:
       uint8_t carrSoln = ubxDataStruct->flags.bits.carrSoln; // Print the carrier solution
       double fLat = 1e-7 * ubxDataStruct->lat;
       double fLon = 1e-7 * ubxDataStruct->lon;
-      log_i("%d:%d:%d %02d:%02d:%02d lat %.7f lon %.7f msl %.3f fix %d(%s) carr %d(%s) hacc %.3f source %s", 
+      log_i("%d.%d.%d %02d:%02d:%02d lat %.7f lon %.7f msl %.3f fix %d(%s) carr %d(%s) hacc %.3f source %s", 
             ubxDataStruct->day, ubxDataStruct->month, ubxDataStruct->year, ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, 
             fLat, fLon, 1e-3 * ubxDataStruct->hMSL, fixType, fixLut[fixType & 7], carrSoln, carrLut[carrSoln & 3], 
             1e-3*ubxDataStruct->hAcc, Gnss.SOURCE_LUT[Gnss.curSource]);
@@ -353,7 +354,6 @@ protected:
   bool online;            //!< flag that indicates if the receiver is connected
   int32_t ttagNextTry;    //!< time tag when to call the state machine again
   SFE_UBLOX_GNSS rx;      //!< the receiver object
-  xQueueHandle queue;     //!< queue to hold the different data to be sent to the receiver
 };
 
 GNSS Gnss; //!< The global GNSS peripherial object

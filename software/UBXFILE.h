@@ -178,7 +178,9 @@ public:
     setRxBufferSize(256);
   }
 
-  // override the STREAM interface 
+  // --------------------------------------------------------------------------------------
+  // STREAM interface: https://github.com/arduino/ArduinoCore-API/blob/master/api/Stream.h
+  // --------------------------------------------------------------------------------------
  
   /** The character written is also passed into the circular buffer
    *  \param ch  character to write

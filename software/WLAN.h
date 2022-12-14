@@ -25,7 +25,6 @@
 #if defined(ARDUINO_UBLOX_NORA_W10) && defined(ESP_ARDUINO_VERSION) && (ESP_ARDUINO_VERSION < ESP_ARDUINO_VERSION_VAL(2,0,5))
   #error The WiFiManager triggers a race condition with ESP core > 2.3.0 -> please use Arduino_esp32 2.0.5 and 
 #endif
-
 #include <SparkFun_u-blox_SARA-R5_Arduino_Library.h>
 
 #include "HW.h"
@@ -33,27 +32,33 @@
 #include "WEBSOCKET.h"
 #include "GNSS.h"
 
-extern class WLAN Wlan;
+const int WLAN_1S_RETRY           =        1000;  //!< standard 1s retry
+const int WLAN_RESETPORTAL_TIME   =       10000;  //!< Hold Boot pin down for this time to restart AP and captive portal 
+const int WLAN_INIT_RETRY         =       60000;  //!< delay between detect/autoconnect attempts
+const int WLAN_RECONNECT_RETRY    =       60000;  //!< delay between re.connection attempts for wifi
+const int WLAN_PROVISION_RETRY    =       10000;  //!< delay between provisioning attempts, provisioning may consume data
+const int WLAN_CONNECT_RETRY      =       10000;  //!< delay between server connection attempts to correction severs
 
-const int WLAN_RESETPORTAL_TIME = 10000;      // Hold Boot pin down for this time to restart AP and captive portal 
-const int WIFI_INIT_RETRY       = 60000;
-const int WIFI_RECONNECT_RETRY  = 60000;
-const int WIFI_PROVISION_RETRY  = 10000;
-const int WIFI_CONNECT_RETRY    = 10000;
-const int WIFI_1S_RETRY         =  1000;
+const char* WLAN_TASK_NAME        =      "Wlan";  //!< Wlan task name
+const int WLAN_STACK_SIZE         =      3*1024;  //!< Wlan task stack size
+const int WLAN_TASK_PRIO          =           1;  //!< Wlan task priority
+const int WLAN_TASK_CORE          =           1;  //!< Wlan task MCU code
 
-const int WLAN_STACK_SIZE       = 4*1024;      //!< Stack size of WLAN task
-const int WLAN_TASK_PRIO        = 1;
-const int WLAN_TASK_CORE        = 0;
-const char* WLAN_TASK_NAME      = "Wlan";
+const char* LED_TASK_NAME         =       "Led";  //!< Led task name
+const int LED_STACK_SIZE          =      1*1024;  //!< led task stack size
+const int LED_TASK_PRIO           =           2;  //!< led task priority
+const int LED_TASK_CORE           =           1;  //!< led task MCU code
 
-const int LED_STACK_SIZE        = 1*1024;      //!< Stack size of LED task
-const int LED_TASK_PRIO         = 2;
-const int LED_TASK_CORE         = 1;
-const char* LED_TASK_NAME       = "Led";
+extern class WLAN Wlan;  //!< Forward declaration of class
 
+/** This class encapsulates all WLAN functions. 
+*/
 class WLAN {
+  
 public:
+
+  /** constructor
+   */
   WLAN() : mqttClient(mqttWifiClient) {
     state = INIT;
     wasOnline = false;
@@ -62,6 +67,8 @@ public:
     ledInit();
   }
 
+  /** initialize the object, this spins of a worker task for the WIFI and LED
+   */
   void init(void) {
     xTaskCreatePinnedToCore(task,    WLAN_TASK_NAME, WLAN_STACK_SIZE, this, WLAN_TASK_PRIO, NULL, WLAN_TASK_CORE);
     xTaskCreatePinnedToCore(ledTask, LED_TASK_NAME,  LED_STACK_SIZE,  this, LED_TASK_PRIO,  NULL, LED_TASK_CORE);
@@ -73,11 +80,13 @@ protected:
   // PORTAL
   // -----------------------------------------------------------------------
 
-  WiFiManager manager;
-  WiFiManagerParameter parameters[10];
-  char bufParam[512*4]; 
-  static const char PORTAL_HTML[];
+  WiFiManager manager;                  //!< the wifi manager provides the captive portal
+  static const char PORTAL_HTML[];      //!< the additional HTML added to the header
+  WiFiManagerParameter parameters[10];  //!< list of configuration settings 
+  char bufParam[512*4];                 //!< buffer with the parameters. 
   
+  /** initialize the portal and websocket 
+   */
   void portalInit(void) {
     WiFi.mode(WIFI_STA);
     // consfigure and start wifi manager
@@ -136,6 +145,8 @@ protected:
     manager.autoConnect(nameStr);
   } 
   
+  /** start the portal and report the IP
+   */
   void portalStart() {
     String hostname = WiFi.getHostname();
     String ip = WiFi.localIP().toString();
@@ -145,28 +156,37 @@ protected:
     manager.startWebPortal();
   }         
 
-  void portalReset() {
+  /** reset the portal, this disconnects the correction clients
+   */
+  void portalReset(void) {
     log_i("disconnect and reset settings");
     manager.disconnect();
     manager.resetSettings();
     mqttStop();
+    ntripStop();
   }
    
+  /** just report that AP was started
+   */
   void apCallback(WiFiManager *pManager) {
     String ip = WiFi.softAPIP().toString();    
     log_i("config portal started with IP %s", ip.c_str());
   }
 
+  /** just report that config was saved
+   */
   void saveConfigCallback() {
     log_i("settings changed and connection sucessful");
   }
 
-  void saveParamCallback() {
-    int args = Wlan.manager.server->args();
+  /** parse the parameters from the server and apply them or take actions
+   */
+  void saveParamCallback(void) {
+    int args = manager.server->args();
     bool save = false;
     for (uint8_t i = 0; i < args; i++) {
-      String param = Wlan.manager.server->argName(i);
-      String value = Wlan.manager.server->arg(param);
+      String param = manager.server->argName(i);
+      String value = manager.server->arg(param);
       log_d("\"%s\" \"%s\"", param.c_str(), value.c_str());
       if (param.equals(CONFIG_VALUE_ROOTCA) || param.equals(CONFIG_VALUE_CLIENTCERT) || param.equals(CONFIG_VALUE_CLIENTKEY)) {
         String tag = param.equals(CONFIG_VALUE_CLIENTKEY) ? "RSA PRIVATE KEY" : "CERTIFICATE";
@@ -188,16 +208,18 @@ protected:
     }
     if (save) {
       Config.save();
-      Wlan.updateManagerParameters();
+      updateManagerParameters();
       // something has changed - we should issue a restart for the WIFI (and LTE) state machines  
-      if ((Wlan.state == NTRIP) || (Wlan.state== MQTT)) {
-        Wlan.ntripStop();
-        Wlan.mqttStop();
-        Wlan.setState(ONLINE);
+      if ((state == NTRIP) || (state== MQTT)) {
+        ntripStop();
+        mqttStop();
+        setState(ONLINE);
       }
     }
   }
 
+  /** Update the html buffer used for parameters of the configuration manager 
+   */
   void updateManagerParameters(void) {
     String name = Config.getDeviceName();
     int len = sprintf(bufParam, "<label>Hardware Id</label><br><input maxlength=\"20\" value=\"%s\" readonly>", name.c_str());
@@ -260,10 +282,15 @@ protected:
   // MQTT / PointPerfect
   // -----------------------------------------------------------------------
 
-  WiFiClientSecure mqttWifiClient;
-  MqttClient mqttClient;
-  std::vector<String> topics;
- 
+  std::vector<String> topics;       //!< vector with current subscribed topics
+  WiFiClientSecure mqttWifiClient;  //!< the secure wifi client used for MQTT 
+  MqttClient mqttClient;            //!< the secure MQTT client 
+  
+  /** Try to provision the PointPerfect to that we can start the MQTT server. This involves: 
+   *  1) HTTPS request is made to AWS to GET theri ROOT CA
+   *  2) HTTPS request to Thingstream POSTing the device tocken to get the credentials and client cert, key and ID
+   *  \return the client id assigned to this board
+   */
   String mqttProvision(void) {
     String id; 
     String ztpReq = Config.ztpRequest();
@@ -301,6 +328,9 @@ protected:
     return id;
   }
   
+  /** Connect to the Thingstream PointPerfect server using the credentials from ZTP process
+   *  \param id  the client ID for this device
+   */
   bool mqttConnect(String id) {
     String broker = Config.getValue(CONFIG_VALUE_BROKERHOST);
     String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
@@ -312,7 +342,7 @@ protected:
     const char* idStr = id.c_str();
     const char* brokerStr = broker.c_str();
     mqttClient.setId(idStr);
-    mqttClient.onMessage(onMQTT);
+    mqttClient.onMessage(onMQTTStatic);
     mqttClient.setKeepAliveInterval(60 * 1000);
     mqttClient.setConnectionTimeout( 5 * 1000);
     if (mqttClient.connect(brokerStr, MQTT_BROKER_PORT)) {
@@ -326,6 +356,8 @@ protected:
     return mqttClient.connected();
   }
   
+  /** Disconnect and cleanup the MQTT connection
+   */
   void mqttStop(void) {
     for (auto it = topics.begin(); it != topics.end(); it = std::next(it)) {
       String topic = *it;
@@ -339,6 +371,10 @@ protected:
     }
   }
 
+  /** The MQTT task is responsible for:
+   *  1) subscribing to topics
+   *  2) unsubscribing from topics 
+   */
   void mqttTask(void) {
     std::vector<String> newTopics = Config.getTopics();
     // filter out the common ones that need no change 
@@ -363,13 +399,16 @@ protected:
     } 
   }
   
-  static void onMQTT(int messageSize) {
+  /** The MQTT callback processes is responsible for reading the data
+   *  \param messageSize the bytes pending top be read
+   */
+  void onMQTT(int messageSize) {
     if (messageSize) {
-      String topic = Wlan.mqttClient.messageTopic();
+      String topic = mqttClient.messageTopic();
       GNSS::MSG msg;
       msg.data = new uint8_t[messageSize];
       if (NULL != msg.data) {
-        msg.size = Wlan.mqttClient.read(msg.data, messageSize);
+        msg.size = mqttClient.read(msg.data, messageSize);
         if (msg.size == messageSize) {
           msg.source = GNSS::SOURCE::WLAN;
           log_i("topic \"%s\" with %d bytes", topic.c_str(), msg.size); 
@@ -394,15 +433,22 @@ protected:
       }
     }
   }
-
+  //! static callback helper, onMQTT will do the real work
+  static void onMQTTStatic(int messageSize) {
+    Wlan.onMQTT(messageSize);
+  }
   
   // -----------------------------------------------------------------------
   // NTRIP / RTCM
   // -----------------------------------------------------------------------
   
-  WiFiClient ntripWifiClient;
-  long ntripGgaMs;
- 
+  int32_t ntripGgaMs;           //!< time tag (millis()) of next GGA to be sent
+  WiFiClient ntripWifiClient;   //!< the wifi client used for ntrip
+  
+  /** Connect to a NTRIP server
+   *  \param ntrip  the server to connect to
+   *  \return       connection success
+   */
   bool ntripConnect(String ntrip) {
     int pos = ntrip.indexOf(':');
     String server = (-1 == pos) ? ntrip : ntrip.substring(0,pos);
@@ -422,37 +468,50 @@ protected:
         authHead = "Authorization: Basic ";
         authHead += authEnc + "\r\n";
       }                    
-      const char* expectedReply = 0 == mntpnt.length() ? "SOURCETABLE 200 OK\r\n" : "ICY 200 OK\r\n";
       log_i("get \"/%s\" auth \"%s\"", mntpnt.c_str(), authEnc.c_str());
       ntripWifiClient.printf("GET /%s HTTP/1.0\r\n"
                 "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
                 "%s\r\n", mntpnt.c_str(), authHead.c_str());
-      int len = 0;
-      unsigned long start = millis();
-      while (ntripWifiClient.connected() && ((millis() - start) < NTRIP_CONNECT_TIMEOUT) && (expectedReply[len] != 0) && ok) {
+      // now get the response
+      int ixSrc = 0;
+      int ixIcy = 0;
+      int32_t start = millis();
+      do {
         if (ntripWifiClient.available()) {
           char ch = ntripWifiClient.read();
-          ok = (expectedReply[len] == ch) && ok;
-          if (!ok) log_w("WLAN NTRIP %d got '%c' %02X != '%c'", len, ch, ch, expectedReply[len]);
-          len ++;
+          ixSrc = (NTRIP_RESPONSE_SOURCETABLE[ixSrc] == ch) ? ixSrc + 1 : 0;
+          ixIcy = (NTRIP_RESPONSE_ICY[ixIcy]         == ch) ? ixIcy + 1 : 0;
         } else { 
-          delay(0);
+          vTaskDelay(1);
         }
-      }
-      ok = (expectedReply[len] == 0) && ok;
-      if (ok) { 
+      } while ( (NTRIP_RESPONSE_SOURCETABLE[ixSrc] != '\0') && (NTRIP_RESPONSE_ICY[ixIcy] != '\0') && 
+                ntripWifiClient.connected() && (0 >= (start + NTRIP_CONNECT_TIMEOUT - millis())) );
+      // evaluate the response
+      if (NTRIP_RESPONSE_ICY[ixIcy] == '\0') { 
         log_i("connected");
         ntripGgaMs = millis();
+        return true;
+      } else if (NTRIP_RESPONSE_SOURCETABLE[ixSrc] == '\0') {
+        vTaskDelay(100); // wait a bit to get the source table data
+        int size = ntripWifiClient.available();
+        uint8_t* buf = new uint8_t[size];
+        if (buf) {
+          size = ntripWifiClient.read(buf, size);
+          log_i("got source table%.*s", size, buf);
+          delete [] buf;
+        } else {
+          log_e("read source table failed, memory alloc failed");
+        }
+      } else {
+        log_e("protocol failure after %d ms ix %d %d", millis() - start, ixSrc, ixIcy);
       }
-      else {
-        int lenReply = strlen(expectedReply);
-        log_e("expected reply \"%.*s\\r\\n\" failed after %d bytes and %d ms", lenReply-2, expectedReply, len, millis() - start);
-        ntripWifiClient.stop();
-      }
+      ntripWifiClient.stop();
     }
-    return ntripWifiClient.connected();
+    return false;
   }
   
+  /** Stop and cleanup the NTRIP connection 
+   */
   void ntripStop(void)
   {
     if (ntripWifiClient.connected()) {
@@ -461,6 +520,10 @@ protected:
     }
   } 
   
+  /** The NTRIP task is responsible for:
+   *  1) reading NTRIP data from the wifi and inject it into the GNSS receiver.
+   *  2) sending a GGA from time to time to allow VRS services to adjust their correction stream 
+   */
   void ntripTask(void)
   {
     int messageSize = ntripWifiClient.available();
@@ -499,35 +562,40 @@ protected:
   // -----------------------------------------------------------------------
   // LED
   // -----------------------------------------------------------------------
-  
+
+  //! some usefull LED pattern that allow you to incicate different states of the application. 
   typedef enum {
     // on / off
-    LED_PATTERN_OFF = 0x00000000,
-    LED_PATTERN_ON  = 0xFFFFFFFF,
+    LED_PATTERN_OFF     = 0x00000000,
+    LED_PATTERN_ON      = 0xFFFFFFFF,
     // variable frequency
-    LED_PATTERN_4s  = 0x0000FFFF,
-    LED_PATTERN_2s  = 0x00FF00FF,
-    LED_PATTERN_1s  = 0x0F0F0F0F,
-    LED_PATTERN_1Hz = LED_PATTERN_1s,
-    LED_PATTERN_2Hz = 0x33333333,
-    LED_PATTERN_4Hz = 0x55555555,
+    LED_PATTERN_4s      = 0x0000FFFF,
+    LED_PATTERN_2s      = 0x00FF00FF,
+    LED_PATTERN_1s      = 0x0F0F0F0F,
+    LED_PATTERN_1Hz     = LED_PATTERN_1s,
+    LED_PATTERN_2Hz     = 0x33333333,
+    LED_PATTERN_4Hz     = 0x55555555,
     // variable number pulses
-    LED_PATTERN_1pulse = 0x00000003,
-    LED_PATTERN_2pulse = 0x00000033,
-    LED_PATTERN_3pulse = 0x00000333,
-    LED_PATTERN_4pulse = 0x00003333,
-    LED_PATTERN_5pulse = 0x00033333,
-    LED_PATTERN_6pulse = 0x00333333,
-    LED_PATTERN_7pulse = 0x03333333,
+    LED_PATTERN_1pulse  = 0x00000003,
+    LED_PATTERN_2pulse  = 0x00000033,
+    LED_PATTERN_3pulse  = 0x00000333,
+    LED_PATTERN_4pulse  = 0x00003333,
+    LED_PATTERN_5pulse  = 0x00033333,
+    LED_PATTERN_6pulse  = 0x00333333,
+    LED_PATTERN_7pulse  = 0x03333333,
     // special pattern
-    LED_PATTERN_SOS = 0x01599995,
+    LED_PATTERN_SOS     = 0x01599995,
   } LED_PATTERN; 
-
-  int ledBit;
-  LED_PATTERN ledPattern;
-  int ledDelay;
-  int msNextLed;
-
+  
+  static const int32_t LED_CYCLE_PERIOD = 4000;  //!< the default cycle time where the pattern repeats 
+  
+  LED_PATTERN ledPattern;   //!< the current selected LED pattern
+  int32_t ledDelay;         //!< the current cycle time
+  int32_t msNextLed;        //!< the time of last LED gpio change
+  int ledBit;               //!< the current bit to process
+  
+  /* initialize the LED pins
+   */
   void ledInit(void) {
     if (PIN_INVALID != LED) {
       pinMode(LED, OUTPUT);
@@ -535,14 +603,19 @@ protected:
     }
   }
   
+  /* FreeRTOS static task function, will just call the objects task function  
+   * \param pvParameters the Wlan object (this)
+   */
   static void ledTask(void * pvParameters) {
     ((WLAN*) pvParameters)->ledTask();
   }
   
+  /** this task is flashing the led based on the selected pattern
+   */
   void ledTask(void) {
     while (true) {
-      long now = millis();
-      if ((msNextLed - (now << 5)) <= 0) {
+      int32_t now = millis();
+      if (0 >= (msNextLed - (now << 5))) {
         msNextLed += ledDelay;
         ledBit = (ledBit + 1) % 32;
         digitalWrite(LED, ((ledPattern >> ledBit) & 1) ? HIGH : LOW);
@@ -551,7 +624,11 @@ protected:
     }
   }
 
-  void ledSet(LED_PATTERN newPattern = LED_PATTERN_OFF, int newDelay = 4000) {
+  /** set a new pattern for the led
+   *  \param newPattern  the selected pattern sequence
+   *  \param newDelay    the period until the pattern repeats
+   */
+  void ledSet(LED_PATTERN newPattern = LED_PATTERN_OFF, int32_t newDelay = LED_CYCLE_PERIOD) {
     msNextLed = (millis() << 5) + newDelay;
     if (PIN_INVALID != LED) {
       digitalWrite(LED, (newPattern & 1) ? HIGH : LOW);  
@@ -565,22 +642,27 @@ protected:
   // PIN
   // -----------------------------------------------------------------------
   
-  int lastPinLvl;
-  long ttagPinChange;
-
+  int32_t ttagPinChange;  //!< time tag (millis()) of last pin change
+  int lastPinLvl;         //!< last pin level
+  
+  /** init the pin function 
+   */
   void pinInit(void) {
     ttagPinChange = ttagNextTry = millis();
     lastPinLvl = HIGH;
   }
-  
+
+  /** check if the pin was pressed for a long time
+   *  \return true if it was pressed for WLAN_RESETPORTAL_TIME seconds 
+   */
   bool pinCheck(void) {
     if (PIN_INVALID != BOOT) {
       int level = digitalRead(BOOT);
-      long now = millis();
+      int32_t now = millis();
       if (lastPinLvl != level) {
         ttagPinChange = now;
         lastPinLvl  = level;
-      } else if ((level == LOW) && ((now - ttagPinChange) > WLAN_RESETPORTAL_TIME)) {
+      } else if ((level == LOW) && (0 >= (ttagPinChange + WLAN_RESETPORTAL_TIME - now))) {
         return true;
       }
     }
@@ -664,7 +746,7 @@ protected:
       wasOnline = online;
       Websocket.poll();
       if (ttagNextTry <= now) {
-        ttagNextTry = now + WIFI_1S_RETRY;
+        ttagNextTry = now + WLAN_1S_RETRY;
         String id     = Config.getValue(CONFIG_VALUE_CLIENTID);
         String ntrip  = Config.getValue(CONFIG_VALUE_NTRIP_SERVER);
         String useSrc = Config.getValue(CONFIG_VALUE_USESOURCE);
@@ -673,12 +755,12 @@ protected:
         bool useMqtt  = useWlan && !useNtrip;
         switch (state) {
           case INIT:
-            ttagNextTry = now + WIFI_INIT_RETRY;
+            ttagNextTry = now + WLAN_INIT_RETRY;
             portalInit();  
             setState(SEARCHING);
             break;
           case SEARCHING:
-            ttagNextTry = now + WIFI_RECONNECT_RETRY;
+            ttagNextTry = now + WLAN_RECONNECT_RETRY;
             if (online) {
               portalStart();
               setState(CONNECTED); // allow some time for dns to resolve. 
@@ -696,19 +778,19 @@ protected:
           case ONLINE:
             if (useMqtt) {
               if (0 == id.length()) {
-                ttagNextTry = now + WIFI_PROVISION_RETRY;
+                ttagNextTry = now + WLAN_PROVISION_RETRY;
                 id = mqttProvision();
               }
               // we may now have a id if ZTP was sucessful
               if (0 < id.length()){
-                ttagNextTry = now + WIFI_CONNECT_RETRY;
+                ttagNextTry = now + WLAN_CONNECT_RETRY;
                 if (mqttConnect(id)) {
                   setState(MQTT);
                 }
               } 
             } else if (useNtrip) {
               if (0 < ntrip.length()) {
-                ttagNextTry = now + WIFI_CONNECT_RETRY;
+                ttagNextTry = now + WLAN_CONNECT_RETRY;
                 if (ntripConnect(ntrip)) {
                   setState(NTRIP);
                 }
