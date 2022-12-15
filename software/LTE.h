@@ -168,7 +168,7 @@ protected:
     if (SARA_R5_SUCCESS == disconnectMQTT()) {
       log_i("forced disconnect"); // if this sucessful it means were were still connected. 
     } else {
-      log_i("connect to \"%s\:%d" as client \"%s\"", broker.c_str(), MQTT_BROKER_PORT, id.c_str());
+      log_i("connect to \"%s:%d\" as client \"%s\"", broker.c_str(), MQTT_BROKER_PORT, id.c_str());
       LTE_CHECK_INIT;
       LTE_CHECK(1)  = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_ROOTCA,         SEC_ROOT_CA,     rootCa);
       LTE_CHECK(2)  = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_CLIENT_CERT,    SEC_CLIENT_CERT, cert);
