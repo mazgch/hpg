@@ -38,7 +38,7 @@
 // Library Manager:    http://librarymanager/All#ArduinoJson      
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
 
-// WiFiManager by Tapzu, version 2.0.13-beta
+// WiFiManager by Tapzu, version 2.0.14-beta
 // Library Manager:    http://librarymanager/All#tzapu,WiFiManager  
 // Github Repository:  https://github.com/tzapu/WiFiManager
 
