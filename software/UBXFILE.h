@@ -22,35 +22,47 @@
 #include <SD.h>
 #include <cbuf.h> 
 
-const int UBXSERIAL_BUFFER_SIZE =  0*1024;        //!< Size of circular buffer, typically AT modem gets bursts upto 9kB of MQTT data 
-const int UBXWIRE_BUFFER_SIZE   = 12*1024;        //!< Size of circular buffer, typically we see about 2.5kBs coming from the GNSS
-const int UBXFILE_BLOCK_SIZE    =    1024;        //!< Size of the blocks used to pull from the GNSS and send to the File. 
+const int UBXSERIAL_BUFFER_SIZE   =      0*1024;  //!< Size of circular buffer, typically AT modem gets bursts upto 9kB of MQTT data, but 2kB is also fine
+const int UBXWIRE_BUFFER_SIZE     =     12*1024;  //!< Size of circular buffer, typically we see about 2.5kBs coming from the GNSS
+const int UBXFILE_BLOCK_SIZE      =        1024;  //!< Size of the blocks used to pull from the GNSS and send to the File. 
 
-#define   UBXSD_DIR             "/LOG"            //!< Directory on the SD card to store logfiles in 
-#define   UBXSD_UBXFORMAT       "/HPG-%04d.UBX"   //!< The logfiles names
-#define   UBXSD_ATFORMAT        "/HPG-%04d.TXT"   //!< The logfiles names
-const int UBXSD_MAXFILE         =      9999;      //!< the max number to try to open (should be smaller or fit the format above) 
-const int UBXSD_NODATA_DELAY    =       100;      //!< If no data is in the buffer wait so much time until we write new to the buffer, 
-const int UBXSD_DETECT_RETRY    =      2000;      //!< Delay between SD card detection trials 
-const int UBXSD_SDCARDFREQ      =   4000000;
+#define   UBXSD_DIR                       "/LOG"  //!< Directory on the SD card to store logfiles in 
+#define   UBXSD_UBXFORMAT        "/HPG-%04d.UBX"  //!< The UBX logfiles name format
+#define   UBXSD_ATFORMAT         "/HPG-%04d.TXT"  //!< The AT command logfiles name format
+const int UBXSD_MAXFILE           =        9999;  //!< the max number to try to open (should be smaller or fit the format above) 
+const int UBXSD_NODATA_DELAY      =         100;  //!< If no data is in the buffer wait so much time until we write new to the buffer, 
+const int UBXSD_DETECT_RETRY      =        2000;  //!< Delay between SD card detection trials 
+const int UBXSD_SDCARDFREQ        =     4000000;  //!< Frequency of the SD card
 
 /* ATTENTION: 
  * in older arduino_esp32 SD.begin calls sdcard_mount which creates a work area of 4k on the stack for f_mkfs
  * either apply this patch https://github.com/espressif/arduino-esp32/pull/6745 or increase the stack to 6kB 
  */
-const int UBXSD_STACK_SIZE      =    3*1024;      //!< Stack size of UbxFile Logging task
-const int UBXSD_TASK_PRIO       =         1;
-const int UBXSD_TASK_CORE       =         1;
-const char* UBXSD_TASK_NAME     =   "UbxSd";
+const char* UBXSD_TASK_NAME       =     "UbxSd";  //!< UBXSD task name
+const int UBXSD_STACK_SIZE        =      3*1024;  //!< UBXSD task stack size
+const int UBXSD_TASK_PRIO         =           1;  //!< UBXSD task priority
+const int UBXSD_TASK_CORE         =           1;  //!< UBXSD task MCU code
 
+/** This class encapsulates all UBXFILEE functions. 
+*/
 class UBXFILE {
+
 public:
+
+  /** constructor
+   *  \param size  the circular buffer size
+   */
   UBXFILE(size_t size) : buffer{size} {
     mutex = xSemaphoreCreateMutex();
     opened = false;
     size = 0;
   }
 
+  /** Open a new file, will seach the current files and use the next best by 
+   *  incrementing the file name index.
+   *  \param format  the name format test and open. 
+   *  \param max     the maximum file name index
+   */
   void open(const char* format, int max) {
     if (buffer.size() > 1) {
       char fn[20];
@@ -67,10 +79,15 @@ public:
     }
   }
 
+  /** check if file is open
+   *  \return  true if it is open. 
+   */
   bool isOpen(void) {
     return opened;
   }
 
+  /** close the file 
+   */
   void close(void) {
     if (opened) {
       log_e("UBXFILE \"%s\" closed after %d bytes", file.name(), size);
@@ -79,6 +96,9 @@ public:
     }
   }
   
+  /** store that data from the circular buffer in the file
+   *  \return  the bytes stored in this call. 
+   */
   size_t store(void) {
     size_t wrote = 0;
     if (opened) {
@@ -123,28 +143,49 @@ public:
     }
     return size;
   }
+  
 protected:
-  SemaphoreHandle_t mutex;
-  bool opened;
-  File file;
-  cbuf buffer;
-  size_t size;
+  
+  SemaphoreHandle_t mutex;  //!< protects cbuf from concurnet access by tasks. 
+  cbuf buffer;              //!< the circular local buffer
+  bool opened;              //!< flag open status
+  File file;                //!< the file
+  size_t size;              //!< the files size
 };
 
+/** older versions of ESP32_Arduino do not yet support flow control, but we need this for the modem. 
+ *  The following flag will make sure code is added for this,
+ */
 #include "driver/uart.h" // for flow control
 #if !defined(HW_FLOWCTRL_CTS_RTS) || !defined(ESP_ARDUINO_VERSION) || !defined(ESP_ARDUINO_VERSION_VAL)
- #define UBXSERIAL_OVERRIDE_FLOWCONTROL
+ #define UBXSERIAL_OVERRIDE_FLOWCONTROL  
 #elif (ESP_ARDUINO_VERSION <= ESP_ARDUINO_VERSION_VAL(2, 0, 3))
  #define UBXSERIAL_OVERRIDE_FLOWCONTROL
 #endif
 
+/** This class encapsulates all UBXSERIAL functions. the class can be used as alternative to a 
+ *  normal Serial port, but add full RX and TX logging capability. 
+*/
 class UBXSERIAL : public HardwareSerial, public UBXFILE {
 public:
+
+  /** constructor
+   *  \param size      the circular buffer size
+   *  \param uart_num  the hardware uart number
+   */
   UBXSERIAL(size_t size, uint8_t uart_num) 
         : HardwareSerial{uart_num}, UBXFILE{size} {
     setRxBufferSize(256);
   }
 
+  // --------------------------------------------------------------------------------------
+  // STREAM interface: https://github.com/arduino/ArduinoCore-API/blob/master/api/Stream.h
+  // --------------------------------------------------------------------------------------
+ 
+  /** The character written is also passed into the circular buffer
+   *  \param ch  character to write
+   *  \return    the bytes written
+   */ 
   size_t write(uint8_t ch) override {
     if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
       if (buffer.size() > 1) { 
@@ -155,6 +196,11 @@ public:
     return HardwareSerial::write(ch);
   }
   
+  /** All data written is also passed into the circular buffer
+   *  \param ptr   pointer to buffer to write
+   *  \param size  number of bytes in ptr to write
+   *  \return      the bytes written
+   */ 
   size_t write(const uint8_t *ptr, size_t size) override {
     if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
       if (buffer.size() > 1) { 
@@ -165,6 +211,9 @@ public:
     return HardwareSerial::write(ptr, size);  
   }
 
+  /** The character read is also passed in also passed into the circular buffer.
+   *  \return  the character read
+   */ 
   int read(void) override {
     int ch = HardwareSerial::read();
     if (-1 != ch) {
@@ -184,7 +233,7 @@ public:
   // We will override as we cannot rely on that bugfix being applied in the users environment. 
 
   // extend the flow control API while on older arduino_ESP32 revisions
-  // keed the API forward compatible so that when the new platform is released it just works
+  // we keep the API forward compatible so that when the new platform is released it just works
   void setPins(int8_t rxPin, int8_t txPin, int8_t ctsPin, int8_t rtsPin) {
     uart_set_pin((uart_port_t)_uart_nr, txPin, rxPin, rtsPin, ctsPin);
   }
@@ -199,16 +248,30 @@ public:
 #endif
 };
 
-UBXSERIAL UbxSerial(UBXSERIAL_BUFFER_SIZE, UART_NUM_1);
+UBXSERIAL UbxSerial(UBXSERIAL_BUFFER_SIZE, UART_NUM_1); //!< The global UBXSERIAL peripherial object (replaces Serial1)
 
+/** This class encapsulates all UBXWIRESERIAL functions. the class can be used as alternative 
+ *  to a normal Wire port, but add full RX and TX logging capability of the data stream filtering 
+ *  out I2C register set and stream length reads at address 0xFD and 0xFE.  
+ */
 class UBXWIRE : public TwoWire, public UBXFILE {
+
 public:
+
+  /** constructor
+   *  \param size     the circular buffer size
+   *  \param bus_num  the hardware I2C/Wire bus number
+   */
   UBXWIRE(size_t size, uint8_t bus_num) 
         : TwoWire{bus_num}, UBXFILE{size} {
     state = READ;
     lenLo = 0;
   }
   
+  /** The character written is also passed into the circular buffer
+   *  \param ch  character to write
+   *  \return    the bytes written
+   */ 
   size_t write(uint8_t ch) override {
     if (state == READFD) {
       if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
@@ -243,6 +306,11 @@ public:
     return TwoWire::write(ch);
   }
   
+  /** All data written is also passed into the circular buffer
+   *  \param ptr   pointer to buffer to write
+   *  \param size  number of bytes in ptr to write
+   *  \return      the bytes written
+   */ 
   size_t write(const uint8_t *ptr, size_t size) override {
     if ((1 == size) && (0xFD == *ptr)) {
       state = READFD;
@@ -261,6 +329,9 @@ public:
     return TwoWire::write(ptr, size);  
   }
 
+  /** The character read is also passed in also passed into the circular buffer.
+   *  \return  the character read
+   */ 
   int read(void) override {
     int ch = TwoWire::read();
     if (state == READFD) {
@@ -281,14 +352,21 @@ public:
   }
   
 protected:
-  enum { READFD, READFE, READ, WRITE } state;
-  uint8_t lenLo;
+  enum { READFD, READFE, READ, WRITE } state; //!< state of the I2C traffic filter 
+  uint8_t lenLo;                              //!> backup of lenLo 
 };
 
-UBXWIRE UbxWire(UBXWIRE_BUFFER_SIZE, 0);
+UBXWIRE UbxWire(UBXWIRE_BUFFER_SIZE, 0); //!< The global UBXWIRE peripherial object (replaces Wire)
 
+/** This class encapsulates all UBXSD functions that are responsible for managing the 
+ *  SD card and its log files. 
+ */
 class UBXSD {
+
 public:
+
+  /** constructor
+   */
   UBXSD() {
     if (MICROSD_PWR_EN != PIN_INVALID) {
       digitalWrite(MICROSD_PWR_EN, LOW);
@@ -300,16 +378,20 @@ public:
     }
   }
 
+  /** immediately spin out into a task
+   */
   void init() {
     xTaskCreatePinnedToCore(task, UBXSD_TASK_NAME, UBXSD_STACK_SIZE, this, UBXSD_TASK_PRIO, NULL, UBXSD_TASK_CORE);
   }
       
 protected: 
-  
-  typedef enum                            {  UNKNOWN,   REMOVED,   INSERTED,   MOUNTED, NUM } STATE;
-  const char* STATE_LUT[STATE::NUM]     = { "unknown", "removed", "inserted", "mounted",    }; 
-  static const int MICROSD_DET_REMOVED  = (HW_TARGET == MAZGCH_HPG_MODULAR_V01) ? LOW : HIGH;
-  
+
+  typedef enum                        {  UNKNOWN,   REMOVED,   INSERTED,   MOUNTED, NUM } STATE;  //!< Card state
+  const char* STATE_LUT[STATE::NUM] = { "unknown", "removed", "inserted", "mounted",    };        //!< Card state text conversion helper 
+  const int MICROSD_DET_REMOVED     = (HW_TARGET == MAZGCH_HPG_MODULAR_V01) ? LOW : HIGH;         //!< true if card is removed  
+
+  /** get the state of the SD card using the holder detect pin
+   */
   STATE getState(void) {
     STATE state = UNKNOWN;
     if (MICROSD_DET != PIN_INVALID) {
@@ -318,10 +400,15 @@ protected:
     return state;
   }
 
+  /* FreeRTOS static task function, will just call the objects task function  
+   * \param pvParameters the Lte object (this)
+   */
   static void task(void * pvParameters) {
     ((UBXSD*) pvParameters)->task();
   }
-  
+
+  /** This task handling the whole SDCARD state machine  
+   */
   void task(void) {
     STATE oldState = (MICROSD_DET != PIN_INVALID) ? REMOVED : UNKNOWN;
     while(true) {
@@ -374,6 +461,6 @@ protected:
   }
 };
 
-UBXSD UbxSd;
+UBXSD UbxSd; //!< The global UBXSD peripherial object
 
 #endif // __UBXFILE_H__

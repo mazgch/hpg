@@ -19,82 +19,84 @@
 
 #include <SparkFun_u-blox_GNSS_Arduino_Library.h>
 
-#include "GNSS.h"
+#include "GNSS.h" // required vor version, defines or macros
 
-const int LBAND_DETECT_RETRY    = 1000;  //!< Try to detect the received with this intervall
-const int LBAND_I2C_ADR         = 0x43;  //!< NEO-D9S I2C address
+const int LBAND_I2C_ADR           =        0x43;  //!< NEO-D9S I2C address
 
-// helper macros to handle the receiver configuration 
-#define LBAND_CHECK_INIT        int _step = 0; bool _ok = true
-#define LBAND_CHECK_OK          (_ok)
-#define LBAND_CHECK(x)          if (_ok) _step = x, _ok 
-#define LBAND_CHECK_EVAL(txt)   if (!_ok) log_e(txt ", sequence failed at step %d", _step)
+#define LBAND_FREQ_NONE                       0   
+#define LBAND_FREQ_NOUPDATE                  -1
 
-#define LBAND_FREQ_NONE          0
-#define LBAND_FREQ_NOUPDATE     -1
-
+/** This class encapsulates all LBAND functions. 
+*/
 class LBAND {
+  
 public:
 
+  /** constructor
+   */
   LBAND () {
     online = false;
-    freq = LBAND_FREQ_NONE;
+    curFreq = LBAND_FREQ_NONE;
     ttagNextTry = millis();
   }
 
-  bool detect() {
+  /** detect and configure the receiver, inject saved keys
+   *  \return  true if receiver is sucessfully detected, false if not
+   */
+  bool detect(void) {
     //rx.enableDebugging()
-#ifdef WEBSOCKET_STREAM
     rx.setOutputPort(Websocket); // forward all messages
-#endif  
     bool ok = rx.begin(UbxWire, LBAND_I2C_ADR);
     if (ok)
     {
       log_i("receiver detected");
-      freq = Config.getFreq();
+      curFreq = Config.getFreq();
 
       String fwver = GNSS::version("LBAND", &rx);
-/* #*/LBAND_CHECK_INIT;
+      GNSS_CHECK_INIT;
       bool qzss = fwver.startsWith("QZS");
       if (qzss){ // NEO-D9C
-        freq = LBAND_FREQ_NOUPDATE; // prevents freq update
+        curFreq = LBAND_FREQ_NOUPDATE; // prevents freq update
 #ifdef UBX_RXM_QZSSL6_NUM_CHANNELS
         rx.setRXMQZSSL6messageCallbackPtr(onRXMQZSSL6);
-        LBAND_CHECK(1) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1, VAL_LAYER_RAM);    
+        GNSS_CHECK(1) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1, VAL_LAYER_RAM);    
         // prepare the UART 2
-        LBAND_CHECK(2) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1, VAL_LAYER_RAM);
-        LBAND_CHECK(3) = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
+        GNSS_CHECK(2) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1, VAL_LAYER_RAM);
+        GNSS_CHECK(3) = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
 #else
         log_i("NEO-D9C receiver not supported by this Sparkfun library, please update library");
 #endif
       } else
       { // NEO-D9S
-        freq = (freq == LBAND_FREQ_NOUPDATE) ? LBAND_FREQ_NONE : freq;
+        curFreq = (curFreq == LBAND_FREQ_NOUPDATE) ? LBAND_FREQ_NONE : curFreq;
         rx.setRXMPMPmessageCallbackPtr(onRXMPMP);
         // contact support@thingstream.io to get NEO-D9S configuration parameters for PointPerfect LBAND satellite augmentation service in EU / US
         // https://developer.thingstream.io/guides/location-services/pointperfect-getting-started/pointperfect-l-band-configuration
-        LBAND_CHECK(1) = rx.setVal8(0x10b10016,                            0, VAL_LAYER_RAM);
-        LBAND_CHECK(2) = rx.setVal16(0x30b10015,                      0x6959, VAL_LAYER_RAM);
-        LBAND_CHECK(3) = rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY,    freq, VAL_LAYER_RAM);
-        LBAND_CHECK(4) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,       1, VAL_LAYER_RAM);
-        LBAND_CHECK(5) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_MON_PMP_I2C,       1, VAL_LAYER_RAM);
+        GNSS_CHECK(1) = rx.setVal8(0x10b10016,                            0, VAL_LAYER_RAM);
+        GNSS_CHECK(2) = rx.setVal16(0x30b10015,                      0x6959, VAL_LAYER_RAM);
+        GNSS_CHECK(3) = rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY, curFreq, VAL_LAYER_RAM);
+        GNSS_CHECK(4) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,       1, VAL_LAYER_RAM);
+        GNSS_CHECK(5) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_MON_PMP_I2C,       1, VAL_LAYER_RAM);
         // prepare the UART 2
-        LBAND_CHECK(6) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2,     1, VAL_LAYER_RAM);
-        LBAND_CHECK(7) = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
+        GNSS_CHECK(6) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2,     1, VAL_LAYER_RAM);
+        GNSS_CHECK(7) = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
       }
-      online = ok = LBAND_CHECK_OK;
-      LBAND_CHECK_EVAL("configuration");
+      online = ok = GNSS_CHECK_OK;
+      GNSS_CHECK_EVAL("configuration");
       if (ok) {
-        log_i("configuration complete, %sreceiver online, freq %d", qzss ? "CLAS " : "", freq);
+        log_i("configuration complete, %sreceiver online, freq %d", qzss ? "CLAS " : "", curFreq);
       }
     }
     return ok;
   }
 
+  /** This needs to be called from a task periodically, it makes sure the receiver is detected 
+   *  and callbacks are processed. 
+   */
   void poll(void) {
-    HW_DBG_HI(HW_DBG_LBAND);
-    if (ttagNextTry <= millis()) {
-      ttagNextTry = millis() + LBAND_DETECT_RETRY;
+    int32_t now = millis();
+    if (0 >= (ttagNextTry - now)) {
+      ttagNextTry = now + GNSS_DETECT_RETRY;
       if (!online) {
         detect();
       }
@@ -104,11 +106,13 @@ public:
       rx.checkUblox(); 
       rx.checkCallbacks();
     }
-    HW_DBG_LO(HW_DBG_LBAND);
   }
   
 protected:
 
+  /** process the UBX-RXM-PMP message, extract information for the console and inject to the GNSS
+   *  \param pmpData  the UBX-RXM-PMP payload
+   */
   static void onRXMPMP(UBX_RXM_PMP_message_data_t *pmpData)
   {
     if (NULL != pmpData) {
@@ -131,6 +135,9 @@ protected:
   }
   
 #ifdef UBX_RXM_QZSSL6_NUM_CHANNELS
+  /** process the UBX-RXM-QZSSL6 message, extract information for the console and inject to the GNSS
+   *  \param qzssData  the UBX-RXM-QZSSL6 payload
+   */
   static void onRXMQZSSL6(UBX_RXM_QZSSL6_message_data_t *qzssData)
   {
     if (NULL != qzssData) {
@@ -153,16 +160,18 @@ protected:
   }
 #endif
 
+  /** Make sure that the receiver has the right frequency configured, this depends on the region/location
+   */
   void updateFreq(void) {
     // do update the ferquency from time to time
     int newFreq = Config.getFreq();
-    if ((newFreq != LBAND_FREQ_NONE) && (freq != LBAND_FREQ_NOUPDATE) && (freq != newFreq)) {
+    if ((newFreq != LBAND_FREQ_NONE) && (curFreq != LBAND_FREQ_NOUPDATE) && (curFreq != newFreq)) {
       bool ok = true;
       bool changed = false;
       if (online) {
         ok = rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY, newFreq, VAL_LAYER_RAM);
         if (ok) {
-          freq = newFreq;
+          curFreq = newFreq;
           changed = true;
           rx.softwareResetGNSSOnly(); // do a restart
         }
@@ -177,12 +186,13 @@ protected:
       }
     }
   }
-  long freq;
-  bool online;
-  long ttagNextTry;
-  SFE_UBLOX_GNSS rx;
+  
+  bool online;            //!< flag that indicates if the receiver is connected
+  int32_t ttagNextTry;    //!< time tag when to call the state machine again
+  SFE_UBLOX_GNSS rx;      //!< the receiver object
+  uint32_t curFreq;       //!< the current configured requency
 };
 
-LBAND LBand;
+LBAND LBand; //!< The global GNSS peripherial object
 
 #endif // __LBAND_H__

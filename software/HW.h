@@ -17,7 +17,10 @@
 #ifndef __HW_H__
 #define __HW_H__
 
+/** The target is used to enable conditional code thoughout this application 
+ */
 #if defined(ARDUINO_UBLOX_NINA_W10)
+ //#define HW_TARGET     MAZGCH_HPG_SOLUTION_C214_revA
  #define HW_TARGET     MAZGCH_HPG_SOLUTION_V09
 #elif defined(ARDUINO_UBLOX_NORA_W10)
  #define HW_TARGET     MAZGCH_HPG_MODULAR_V01
@@ -27,19 +30,21 @@
  #error unknown board target 
 #endif
 
-#define MAZGCH_HPG_SOLUTION_V08              0 // Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
-#define MAZGCH_HPG_SOLUTION_V09              1 // Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
-#define MAZGCH_HPG_SOLUTION_C214_revA        2 // Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
+#define MAZGCH_HPG_SOLUTION_V08              0 //!< Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
+#define MAZGCH_HPG_SOLUTION_V09              1 //!< Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
+#define MAZGCH_HPG_SOLUTION_C214_revA        2 //!< Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
 
-#define MAZGCH_HPG_MODULAR_V01               5 // Select ESP32 Arduino / u-blox NORA-W10 series (ESP32-S3), LTE in slot 1
+#define MAZGCH_HPG_MODULAR_V01              10 //!< Select ESP32 Arduino / u-blox NORA-W10 series (ESP32-S3), LTE in slot 1
 
-#define SPARKFUN_MICROMOD_MAINBOARD_PT      11 // Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod / prototype LTE function
-#define SPARKFUN_MICROMOD_MAINBOARD         12
+#define SPARKFUN_MICROMOD_MAINBOARD_PT      20 //!< Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod - with prototype LTE function
+#define SPARKFUN_MICROMOD_MAINBOARD         21 //!< Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod
 
-#define SPARKFUN_MICROMOD_MAINBOARD_DOUBLE  21 // Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod 
+#define SPARKFUN_MICROMOD_MAINBOARD_DOUBLE  30 //!< Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod 
 
-#define SPARKFUN_MICROMOD_ASSET_TRACKER     10 // Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod
+#define SPARKFUN_MICROMOD_ASSET_TRACKER     40 //!< Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod
 
+/** the pins are defined here for each hardware target 
+ */
 enum HW_PINS {  
     // Standard pins
     BOOT        =  0, 
@@ -53,6 +58,7 @@ enum HW_PINS {
     CAN_RX      =  4,  CAN_TX         =  5,
     I2C_SDA     = 21,  I2C_SCL        = 22,
 #endif    
+
 #if (HW_TARGET == MAZGCH_HPG_SOLUTION_V08)
  #warning using MAZGCH_HPG_SOLUTION_V08
     // LTE (DCE) - BUG 34/39 are input only.on V0.8 -> will swap in V0.9
@@ -161,15 +167,11 @@ enum HW_PINS {
     PIN_INVALID = -1
 };
 
+/** Helper macro for GPIO debugging with a logic analyzer (e.g. Seleae Logic Pro 8 or 16)
+ *  Will do nothing if pin is set invalid. Carefully check the schemtic before using a GPIO. 
+ */
 #define HW_DBG_PIN(pin,level) if (PIN_INVALID != pin) pinMode(pin, OUTPUT), digitalWrite(pin,level)
-#define HW_DBG_HI(pin)        HW_DBG_PIN(pin,HIGH)
-#define HW_DBG_LO(pin)        HW_DBG_PIN(pin,LOW)
-
-#define HW_DBG_WLAN           PIN_INVALID//D1
-#define HW_DBG_LTE            PIN_INVALID//D0
-#define HW_DBG_GNSS           PIN_INVALID//PWM1
-#define HW_DBG_LBAND          PIN_INVALID//PWM1
-#define HW_DBG_WLAN_MGR       PIN_INVALID//PWM0
-#define HW_DBG_LOG_ERR        PIN_INVALID
+#define HW_DBG_HI(pin)        HW_DBG_PIN(pin,HIGH)  //!< put the at the start of the code to profile
+#define HW_DBG_LO(pin)        HW_DBG_PIN(pin,LOW)   //!< put the at the end of the code to profile
 
 #endif // __HW_H__

@@ -19,13 +19,9 @@
 //-----------------------------------
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
 // Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
-// After that select Board u-blox NINA-W10 series and configure the target CPU: 240MHz, Flash: 80MHz, 4MB, Minimal or Minimal SPIFFS
+// After that select Board u-blox NINA-W10 series and configure the target CPU: 240MHz, Flash: 80MHz, 4MB, Minimal SPIFFS
 // Board Manager URL:    https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 // Github Repository:    https://github.com/espressif/arduino-esp32 
-
-#ifndef ESP_ARDUINO_VERSION
-  #include <core_version.h>
-#endif
 
 // Third parties libraries
 //-----------------------------------
@@ -42,7 +38,7 @@
 // Library Manager:    http://librarymanager/All#ArduinoJson      
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
 
-// WiFiManager by Tapzu, version 2.0.13-beta
+// WiFiManager by Tapzu, version 2.0.14-beta
 // Library Manager:    http://librarymanager/All#tzapu,WiFiManager  
 // Github Repository:  https://github.com/tzapu/WiFiManager
 
@@ -67,22 +63,24 @@
 
 // Header files of this project
 //-----------------------------------
+#include "LOG.h"        // Comment this if you do not want a separate log level for this application 
 #include "HW.h"
 #include "CONFIG.h"
 #include "UBXFILE.h"
-#include "BLUETOOTH.h"
+//#include "BLUETOOTH.h"  // Comment this to save memory if not needed, choose the flash size 4MB and suitable partition
 #include "WLAN.h"
 #include "GNSS.h"
 #include "LBAND.h"
 #include "LTE.h"
-//#include "CANBUS.h"
+//#include "CANBUS.h"     // Comment this if not on vehicle using the CAN interface
 
 // ====================================================================================
 // MAIN setup / loop
 // ====================================================================================
 
-void setup()
-{
+/** Main Arduino setup function, initilizes all functions which spins off various tasks
+*/
+void setup(void) {
   // initialisation --------------------------------
   // serial port
   Serial.begin(115200);
@@ -92,12 +90,7 @@ void setup()
   Config.init();
   String hwName = Config.getDeviceName();
   log_i("mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());  
-#ifndef ESP_ARDUINO_VERSION
-  log_i("Version IDF %s Arduino_esp32 %s", esp_get_idf_version(), ARDUINO_ESP32_RELEASE);
-#else
-  log_i("Version IDF %s Arduino_esp32 %d.%d.%d", esp_get_idf_version(),
-        ESP_ARDUINO_VERSION_MAJOR,ESP_ARDUINO_VERSION_MINOR,ESP_ARDUINO_VERSION_PATCH);
-#endif
+  espVersion();
   // SD card 
   UbxSd.init(); // handling SD card and files runs in a task
 #ifdef __BLUETOOTH_H__
@@ -106,9 +99,7 @@ void setup()
   Wlan.init(); // WLAN runs in a tasks, creates an additional LED task 
   //Lte.enableDebugging(Serial);
   //Lte.enableAtDebugging(Serial); // we use UbxSerial for data logging instead
-#ifdef WEBSOCKET_STREAM
   //Lte.enableAtDebugging(Websocket); // forward all messages
-#endif  
   Lte.init();  // LTE runs in a task
   // i2c wire
   UbxWire.begin(I2C_SDA, I2C_SCL); // Start I2C
@@ -125,18 +116,48 @@ void setup()
 #endif
 }
 
-#define DUMP_STACK_INTERVAL 10000 // Dump interval in ms, set to 0 to disable
-
-/* helper function to diagnose the health of this application dumping the free stacks and heap 
+/** Main Arduino loop function is used to manage the GPS and LBAND communication 
 */
-void diagnoseHealth(void) {
+void loop(void) {
+  LBand.poll();
+  Gnss.poll();
+  delay(50);
+
+  memUsage();
+}
+
+// ====================================================================================
+// Helpers
+// ====================================================================================
+
+#ifndef ESP_ARDUINO_VERSION
+  #include <core_version.h>
+#endif
+
+/** Print the version number of the Arduino and ESP core. 
+ */
+void espVersion(void) {
+#ifndef ESP_ARDUINO_VERSION
+  log_i("Version IDF %s Arduino_esp32 %s", esp_get_idf_version(), ARDUINO_ESP32_RELEASE);
+#else
+  log_i("Version IDF %s Arduino_esp32 %d.%d.%d", esp_get_idf_version(),
+        ESP_ARDUINO_VERSION_MAJOR,ESP_ARDUINO_VERSION_MINOR,ESP_ARDUINO_VERSION_PATCH);
+#endif
+}
+
+const int MEM_USAGE_INTERVAL = 10000; //!< Dump interval in ms, set to 0 to disable
+  
+/** Helper function to diagnose the health of this application dumping the free stacks and heap.
+*/
+void memUsage(void) {
+  int32_t now = millis();      
+  static int32_t lastMs = now;    
   // this code allows to print all the stacks of the different tasks
-  static long lastMs = 0; 
-  if (DUMP_STACK_INTERVAL && (millis() - lastMs > DUMP_STACK_INTERVAL)) {
-    lastMs = millis();
+  if (MEM_USAGE_INTERVAL && (0 >= (lastMs - now))) {
+    lastMs = now + MEM_USAGE_INTERVAL;
     char buf[128];
     int len = 0;
-    const char* tasks[] = { pcTaskGetName(NULL), "Lte", "Wlan", "Bluetooth", "Led", "Can", "UbxSd" };
+    const char* tasks[] = { pcTaskGetName(NULL), "Lte", "Wlan", "Bluetooth", "UbxSd", "Led", "Can" };
     for (int i = 0; i < sizeof(tasks)/sizeof(*tasks); i ++) {
       const char *name = tasks[i];
       TaskHandle_t h = xTaskGetHandle(name);
@@ -145,15 +166,7 @@ void diagnoseHealth(void) {
         len += sprintf(&buf[len], " %s %u", tasks[i], stack);
       }
     }
-    log_i("stacks:%s heap: min %d cur %d size %d", buf, ESP.getMinFreeHeap(), ESP.getFreeHeap(), ESP.getHeapSize());
+    log_i("stacks:%s heap: min %d cur %d size %d tasks: %d", buf, 
+          ESP.getMinFreeHeap(), ESP.getFreeHeap(), ESP.getHeapSize(), uxTaskGetNumberOfTasks());
   }
-}
-
-void loop()
-{
-  LBand.poll();
-  Gnss.poll();
-  delay(50);
-
-  diagnoseHealth();
 }

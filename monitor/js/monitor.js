@@ -1226,17 +1226,22 @@ double X = m_pStorageX->GetValue();
                 infTextExtract(fields.infTxt);
             } if (message.name === 'MON-PMP') {
                 for (let i = 0; i <fields.entries; i ++) {
+                    let freq = fields.entry[i].centerFreq;
                     const cn0 = fields.entry[i].cn0 + fields.entry[0].cn0Frac;
                     if (cn0 > 0) {
                         db.lBcn0.set(cn0);
-                        const sys = 'PointPerfect';
-                        const sig = 'LBAND';
-                        const keys = Object.keys(gnssLut[sys].freq);
-                        let id = gnssLut[sys].ch;
-                        keys.forEach( function Check(key) {
-                            if (Math.abs(fields.entry[i].centerFreq - gnssLut[sys].freq[key]) < 100000)
-                                id = gnssLut[sys].ch + key;
-                        } );
+                    }
+                    const sys = 'PointPerfect';
+                    let sig = 'LBAND';
+                    if (0 < freq) sig += ' ' + (freq*1e-6).toFixed(2);
+                    let id = gnssLut[sys].ch;
+                    const keys = Object.keys(gnssLut[sys].freq);
+                    keys.forEach( function Check(key) {
+                        if (Math.abs(freq - gnssLut[sys].freq[key]) < 100000) {
+                            id = gnssLut[sys].ch + key;
+                        }
+                    } );
+                    if (undefined !== id) {
                         nmeaSvsSet(sys, id, sig, cn0)
                         nmeaSvDb.dirty = true;
                     }

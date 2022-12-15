@@ -25,55 +25,63 @@
 #include "GNSS.h"
 #include "UBXFILE.h"
   
-extern class LTE Lte;
+const int LTE_1S_RETRY            =        1000;  //!< standard 1s retry
+const int LTE_DETECT_RETRY        =        5000;  //!< delay between detect attempts
+const int LTE_CHECKSIM_RETRY      =       60000;  //!< delay between SIM Card check attempts, SIM detection may be disables and you need to restart
+const int LTE_ACTIVATION_RETRY    =       10000;  //!< delay between activation attempts
+const int LTE_PROVISION_RETRY     =       60000;  //!< delay between provisioning attempts, provisioning may consume data
+const int LTE_CONNECT_RETRY       =       10000;  //!< delay between server connection attempts to correction severs 
+const int LTE_MQTTCMD_DELAY       =         100;  //!< the client is not happy if multiple commands are sent too fast
 
-const int LTE_DETECT_RETRY        =  5000;
-const int LTE_WAITREGISTER_RETRY  =  1000;
-const int LTE_CHECKSIM_RETRY      = 60000;
-const int LTE_ACTIVATION_RETRY    = 10000;
-const int LTE_PROVISION_RETRY     = 60000;
-const int LTE_CONNECT_RETRY       = 10000;
-const int LTE_1S_RETRY            =  1000;
+const int LTE_POWER_ON_PULSE        =      2000;  //!< Power on pulse width (2s works for for SARA, LARA and LENA)
+const int LTE_POWER_ON_WAITTIME     =      4000;  //!< Dont't do anything duing this time after the power on pulse
+const int LTE_POWER_ON_WAITTIME_MAX =     10000;  //!< If the device does not respond until this time, it has failed
+const int LTE_POWER_ON_WAITSIMREADY =      4000;  //!< It usually takes a few seconds to detect the SIM card. 
 
-const int LTE_MQTTCMD_DELAY       =   100; // the client is not happy if multiple commands are sent too fast
-const int LTE_BAUDRATE            = 115200; // baudrates 230400, 460800 or 921600 cause issues even when CTS/RTS is enabled
+const int LTE_PSD_PROFILE         =           0;  //!< The packet switched data profile used
+const int LTE_HTTP_PROFILE        =           0;  //!< The HTTP profile used duing provisioning
+const int LTE_SEC_PROFILE_HTTP    =           1;  //!< The security profile used for the HTTP connections druing provisioning
+const int LTE_SEC_PROFILE_MQTT    =           0;  //!< The security profile used for the MQTT connections
+const char* FILE_REQUEST          =  "req.json";  //!< Temporarly file name used for the request during HTTP GET transations (ZTP)  
+const char* FILE_RESP             = "resp.json";  //!< Temporarly file name used for the response during HTTP POST and GET transations (AWS/ZTP)
+const char* SEC_ROOT_CA           ="aws-rootCA";  //!< Temporarly file name used when injecting the ROOT CA
+const char* SEC_CLIENT_CERT       =   "pp-cert";  //!< Temporarly file name used when injecting the client certificate
+const char* SEC_CLIENT_KEY        =    "pp-key";  //!< Temporarly file name used when injecting the client keys
 
-const int LTE_POWER_ON_PULSE        =  2000;
-const int LTE_POWER_ON_WAITTIME     =  4000;
-const int LTE_POWER_ON_WAITTIME_MAX = 10000;
-const int LTE_POWER_ON_WAITSIMREADY =  4000;
+const uint16_t HTTPS_PORT         =         443;  //!< The HTTPS default port
 
-const int LTE_PSD_PROFILE         = 0;
-const int LTE_HTTP_PROFILE        = 0;
-const int LTE_SEC_PROFILE_HTTP    = 1;
-const int LTE_SEC_PROFILE_MQTT    = 0;
-const char* FILE_REQUEST          = "req.json";
-const char* FILE_RESP             = "resp.json";
-const char* SEC_ROOT_CA           = "aws-rootCA";
-const char* SEC_CLIENT_CERT       = "pp-cert";
-const char* SEC_CLIENT_KEY        = "pp-key";
-const uint16_t HTTPS_PORT         = 443;
+const int LTE_BAUDRATE            =      115200;  //!< baudrates 230400, 460800 or 921600 cause issues even when CTS/RTS is enabled
 
-const int LTE_STACK_SIZE          = 3*1024;      //!< Stack size of LTE task
-const int LTE_TASK_PRIO           = 1;
-const int LTE_TASK_CORE           = 1;
-const char* LTE_TASK_NAME         = "Lte";
+const char* LTE_TASK_NAME         =       "Lte";  //!< Lte task name
+const int LTE_STACK_SIZE          =      4*1024;  //!< Lte task stack size
+const int LTE_TASK_PRIO           =           1;  //!< Lte task priority
+const int LTE_TASK_CORE           =           1;  //!< Lte task MCU code
 
-#define LTE_CHECK_INIT            int _step = 0; SARA_R5_error_t _err = SARA_R5_SUCCESS
-#define LTE_CHECK_OK              (SARA_R5_SUCCESS == _err)
-#define LTE_CHECK(x)              if (SARA_R5_SUCCESS == _err) _step = x, _err 
-#define LTE_CHECK_EVAL(txt)       if (SARA_R5_SUCCESS != _err) log_e(txt ", AT sequence failed at step %d with error %d", _step, _err)
+// helper macros to handle the AT interface errors  
+#define LTE_CHECK_INIT            int _step = 0; SARA_R5_error_t _err = SARA_R5_SUCCESS   //!< init variable
+#define LTE_CHECK_OK              (SARA_R5_SUCCESS == _err)                               //!< record the return result
+#define LTE_CHECK(x)              if (SARA_R5_SUCCESS == _err) _step = x, _err            //!< interim evaluate
+#define LTE_CHECK_EVAL(txt)       if (SARA_R5_SUCCESS != _err) log_e(txt ", AT sequence failed at step %d with error %d", _step, _err) //!< final verdict and log_e report
+  
+extern class LTE Lte; //!< Forward declaration of class
 
-#define LUT(l, x)                 ((((unsigned int)x) <= (sizeof(l)/sizeof(*l))) ? l[x] : "unknown")
-
+/** This class encapsulates all LTE functions. 
+*/
 class LTE : public SARA_R5 {
+
 public:
-  LTE() : SARA_R5{ -1/*LTE_PWR_ON*/, -1/*LTE_RESET*/, 3/*retries*/ } { 
+
+  /** constructor
+   *  \note we do not pass the pins to the class as we prefer to be in control of them 
+   */
+  LTE() : SARA_R5{ PIN_INVALID/*LTE_PWR_ON*/, PIN_INVALID/*LTE_RESET*/, 3/*retries*/ } { 
     state = INIT;
     ntripSocket = -1;
     hwInit();
- }
+  }
 
+  /** initialize the object, this spins of a worker task. 
+   */
   void init(void) {
     xTaskCreatePinnedToCore(task, LTE_TASK_NAME, LTE_STACK_SIZE, this, LTE_TASK_PRIO, NULL, LTE_TASK_CORE);
   }
@@ -81,21 +89,34 @@ public:
 protected:
  
   // -----------------------------------------------------------------------
-  // NTRIP 
+  // MQTT / PointPerfect
   // -----------------------------------------------------------------------
 
-  std::vector<String> topics;
-  String subTopic;
-  String unsubTopic;
-  int mqttMsgs;
+  std::vector<String> topics; //!< vector with current subscribed topics
+  String subTopic;            //!< requested topic to be subscribed (needed by the callback) 
+  String unsubTopic;          //!< requested topic to be un-subscribed (needed by the callback)
+  int mqttMsgs;               //!< remember the number of messages pending indicated by the URC
 
+  //! this helper deals with some AT commands that are not yet implemted in LENA-R8 and throw a warning
+  SARA_R5_error_t LTE_IGNORE_LENA(SARA_R5_error_t err) { 
+      if ((err != SARA_R5_SUCCESS) && module.startsWith("LENA-R8")) {
+        log_w("AT command error ignored due to LENA-R8 IP Status");
+        err = SARA_R5_SUCCESS;
+      }
+      return err; 
+  }
+  
+  /** Try to provision the PointPerfect to that we can start the MQTT server. This involves: 
+   *  1) HTTPS request is made to AWS to GET theri ROOT CA
+   *  2) HTTPS request to Thingstream POSTing the device tocken to get the credentials and client cert, key and ID
+   */
   void mqttProvision(void) {
     String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
     if (0 == rootCa.length()) {
       log_i("HTTP AWS connect to \"%s:%d\" and GET \"%s\"", AWSTRUST_SERVER, HTTPS_PORT, AWSTRUST_ROOTCAPATH);
-      setHTTPCommandCallback(httpCallback); // callback will advance state
+      setHTTPCommandCallback(httpCallbackStatic); // callback will advance state
       LTE_CHECK_INIT;
-      LTE_CHECK(1)  = LTE_IGNORE_LENA(resetSecurityProfile(LTE_SEC_PROFILE_HTTP));
+      LTE_CHECK(1)  = LTE_IGNORE_LENA( resetSecurityProfile(LTE_SEC_PROFILE_HTTP) );
       LTE_CHECK(2)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL, SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_NO); // no certificate and url/sni check
       LTE_CHECK(3)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,        SARA_R5_SEC_PROFILE_TLS_OPCODE_VER1_2);
       LTE_CHECK(4)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,   SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
@@ -110,18 +131,18 @@ protected:
     } else {
       String ztpReq = Config.ztpRequest(); 
       if (0 < ztpReq.length()) {
-        log_i("HTTP ZTP connect to \"%s\" and POST \"%s\"", THINGSTREAM_ZTPURL, ztpReq.c_str());
-        setHTTPCommandCallback(httpCallback); // callback will advance state
+        log_i("HTTP ZTP connect to \"%s:%d\" and POST \"%s\"", THINGSTREAM_ZTPURL, HTTPS_PORT, ztpReq.c_str());
+        setHTTPCommandCallback(httpCallbackStatic); // callback will advance state
         LTE_CHECK_INIT;
         LTE_CHECK(1)  = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_ROOTCA,     SEC_ROOT_CA, rootCa);
-        LTE_CHECK(2)  = LTE_IGNORE_LENA(resetSecurityProfile(LTE_SEC_PROFILE_HTTP));
+        LTE_CHECK(2)  = LTE_IGNORE_LENA( resetSecurityProfile(LTE_SEC_PROFILE_HTTP) );
         LTE_CHECK(3)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL, SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_YESNOURL);
         LTE_CHECK(4)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,        SARA_R5_SEC_PROFILE_TLS_OPCODE_VER1_2);
         LTE_CHECK(5)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,   SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
         LTE_CHECK(6)  = configSecurityProfileString(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_ROOT_CA,  SEC_ROOT_CA);
         LTE_CHECK(7)  = configSecurityProfileString(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_SNI,      THINGSTREAM_SERVER);
-        deleteFile(FILE_REQUEST); // okay if this fails
-        LTE_CHECK(8)  = appendFileContents(FILE_REQUEST, ztpReq);
+        deleteFile(FILE_REQUEST); // okay if this fails when file not present
+        LTE_CHECK(8)  = appendFileContents(FILE_REQUEST, ztpReq); // now save the request, append to just deleted file
         LTE_CHECK(9)  = resetHTTPprofile(LTE_HTTP_PROFILE);
         LTE_CHECK(10) = setHTTPserverName(LTE_HTTP_PROFILE, THINGSTREAM_SERVER);
         LTE_CHECK(11) = setHTTPserverPort(LTE_HTTP_PROFILE, HTTPS_PORT); // make sure port is set
@@ -133,23 +154,26 @@ protected:
     }
   }
 
+  /** Connect to the Thingstream PointPerfect server using the credentials from ZTP process
+   *  \param id  the client ID for this device
+   */
   void mqttConnect(String id) {
     String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
     String broker = Config.getValue(CONFIG_VALUE_BROKERHOST);
     String cert = Config.getValue(CONFIG_VALUE_CLIENTCERT);
     String key = Config.getValue(CONFIG_VALUE_CLIENTKEY);
     // disconncect must fail here, so that we can connect 
-    setMQTTCommandCallback(mqttCallback); // callback will advance state
+    setMQTTCommandCallback(mqttCallbackStatic); // callback will advance state
     // make sure the client is disconnected here
     if (SARA_R5_SUCCESS == disconnectMQTT()) {
-      log_i("forced disconnect");
+      log_i("forced disconnect"); // if this sucessful it means were were still connected. 
     } else {
-      log_i("connect to \"%s\":%d as client \"%s\"", broker.c_str(), MQTT_BROKER_PORT, id.c_str());
+      log_i("connect to \"%s:%d\" as client \"%s\"", broker.c_str(), MQTT_BROKER_PORT, id.c_str());
       LTE_CHECK_INIT;
       LTE_CHECK(1)  = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_ROOTCA,         SEC_ROOT_CA,     rootCa);
       LTE_CHECK(2)  = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_CLIENT_CERT,    SEC_CLIENT_CERT, cert);
       LTE_CHECK(3)  = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_CLIENT_KEY,     SEC_CLIENT_KEY,  key);
-      LTE_CHECK(4)  = LTE_IGNORE_LENA(resetSecurityProfile(LTE_SEC_PROFILE_MQTT));
+      LTE_CHECK(4)  = LTE_IGNORE_LENA( resetSecurityProfile(LTE_SEC_PROFILE_MQTT) );
       LTE_CHECK(5)  = configSecurityProfile(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL,     SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_YESNOURL);
       LTE_CHECK(6)  = configSecurityProfile(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,            SARA_R5_SEC_PROFILE_TLS_OPCODE_VER1_2);
       LTE_CHECK(7)  = configSecurityProfile(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,       SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
@@ -170,6 +194,9 @@ protected:
     }
   }
 
+  /** Disconnect and cleanup the MQTT connection
+   *  \return true if already disconnected (no need to wait for the callback) 
+   */
   bool mqttStop(void) {
     SARA_R5_error_t err = disconnectMQTT();
     if (SARA_R5_SUCCESS == err) {
@@ -180,8 +207,16 @@ protected:
     return SARA_R5_SUCCESS != err;
   }
   
+  /** The MQTT task is responsible for:
+   *  1) subscribing to topics
+   *  2) unsubscribing from topics 
+   *  3) read MQTT data from the modem and inject it into the GNSS receiver
+   */
   void mqttTask(void) {
-    // the LTE modem has difficulties subscribing/unsubscribing more than one topic at the same time
+    /* The LTE modem has difficulties subscribing/unsubscribing more than one topic at the same time
+     * We can only start one operation at a time wait for the URC and add a extra delay before we can 
+     * do the next operation.
+     */
     bool busy = (0 < subTopic.length()) || (0 < unsubTopic.length());
     if (!busy) {
       std::vector<String> newTopics = Config.getTopics();
@@ -216,7 +251,10 @@ protected:
         }
       }
       if (!busy && (0 < mqttMsgs)) {
+        // at this point we are properly subscribed to the needed topics and can now read data
         log_d("read request %d msg", mqttMsgs);
+        // The MQTT API does not allow getting the size before actually reading the data. So we 
+        // have to allocate a big enough buffer. PointPerfect may send upto 9kB on the MGA topic.
         uint8_t *buf = new uint8_t[MQTT_MAX_MSG_SIZE];
         if (buf) {
           String topic;
@@ -234,6 +272,7 @@ protected:
                 Config.save();
               }
             }
+            // if we detect data from a topic, then why not unsubscribe from it. 
             std::vector<String>::iterator pos = std::find(topics.begin(), topics.end(), topic);
             if (pos == Lte.topics.end()) {
               log_e("getting data from an unexpected topic \"%s\"", strTopic);
@@ -248,24 +287,31 @@ protected:
                 busy = true;
               }
             } else if (topic.equals(MQTT_TOPIC_FREQ)) {
-              Config.setLbandFreqs(buf, (size_t)len);
+              // Do not inject this json data to GNSS but extract the LBAND frequencies
+              Config.setLbandFreqs(buf, (size_t)len); 
             } else {
+              // anything else can be sent to the GNSS as is
               len = Gnss.inject(buf, (size_t)len, source);
             }
           } else {
             log_e("read failed with error %d", err);
           }
+          // we need to free the buffer, as the inject function took a copy with only the required size
           delete [] buf;
         }
       }
     }
   }
     
-  static void mqttCallback(int command, int result) {
+  /** The MQTT callback processes the URC and is responsible for advancing the state. 
+   *  \param command  the MQTT command
+   *  \param request  the response code 1 = sucess, 0 = error
+   */
+  void mqttCallback(int command, int result) {
     log_d("%d command %d result %d", command, result);
     if (result == 0) {
       int code, code2;
-      SARA_R5_error_t err = Lte.getMQTTprotocolError(&code, &code2);
+      SARA_R5_error_t err = getMQTTprotocolError(&code, &code2);
       if (SARA_R5_SUCCESS == err) {
         log_e("command %d protocol error code %d code2 %d", command, code, code2);  
       } else {
@@ -274,61 +320,61 @@ protected:
     } else { 
       switch (command) {
         case SARA_R5_MQTT_COMMAND_LOGIN:
-          if (Lte.state != ONLINE) {
+          if (state != ONLINE) {
             log_e("login wrong state");
           } else {
             log_i("login");
-            Lte.setState(MQTT, LTE_MQTTCMD_DELAY);
+            setState(MQTT, LTE_MQTTCMD_DELAY);
           }
           break;
         case SARA_R5_MQTT_COMMAND_LOGOUT:
-          if ((Lte.state != MQTT) && (Lte.state != ONLINE)) {
+          if ((state != MQTT) && (state != ONLINE)) {
             log_e("logout wrong state");
           } else {
             log_i("logout");
-            Lte.mqttMsgs = 0;
-            Lte.topics.clear();
-            Lte.subTopic = "";
-            Lte.unsubTopic = "";
-            Lte.setState(ONLINE, LTE_MQTTCMD_DELAY);
+            mqttMsgs = 0;
+            topics.clear();
+            subTopic = "";
+            unsubTopic = "";
+            setState(ONLINE, LTE_MQTTCMD_DELAY);
           }
           break;
         case SARA_R5_MQTT_COMMAND_SUBSCRIBE:
-          if (Lte.state != MQTT) {
+          if (state != MQTT) {
             log_e("subscribe wrong state");
-          } else if (!Lte.subTopic.length()) {
+          } else if (!subTopic.length()) {
             log_e("subscribe result %d but no topic", result);
           } else {
-            log_i("subscribe result %d topic \"%s\"", result, Lte.subTopic.c_str());
-            Lte.topics.push_back(Lte.subTopic);
-            Lte.subTopic = "";
-            Lte.setState(MQTT, LTE_MQTTCMD_DELAY);
+            log_i("subscribe result %d topic \"%s\"", result, subTopic.c_str());
+            topics.push_back(subTopic);
+            subTopic = "";
+            setState(MQTT, LTE_MQTTCMD_DELAY);
           }  
           break;
         case SARA_R5_MQTT_COMMAND_UNSUBSCRIBE:
-          if (Lte.state != MQTT) {
+          if (state != MQTT) {
             log_e("unsubscribe wrong state");
-          } else if (!Lte.unsubTopic.length()) {
+          } else if (!unsubTopic.length()) {
             log_e("unsubscribe result %d but no topic", result);
           } else {
-            std::vector<String>::iterator pos = std::find(Lte.topics.begin(), Lte.topics.end(), Lte.unsubTopic);
-            if (pos == Lte.topics.end()) {
-              Lte.topics.erase(pos);
-              log_i("unsubscribe result %d topic \"%s\"", result, Lte.unsubTopic.c_str());
-              Lte.unsubTopic = "";
-              Lte.setState(MQTT, LTE_MQTTCMD_DELAY);
+            std::vector<String>::iterator pos = std::find(topics.begin(), topics.end(), unsubTopic);
+            if (pos == topics.end()) {
+              topics.erase(pos);
+              log_i("unsubscribe result %d topic \"%s\"", result, unsubTopic.c_str());
+              unsubTopic = "";
+              setState(MQTT, LTE_MQTTCMD_DELAY);
             } else {
-              log_e("unsubscribe result %d topic \"%s\" but topic not in list", result, Lte.unsubTopic.c_str());
+              log_e("unsubscribe result %d topic \"%s\" but topic not in list", result, unsubTopic.c_str());
             }
           } 
           break;
         case SARA_R5_MQTT_COMMAND_READ: 
-          if (Lte.state != MQTT) {
+          if (state != MQTT) {
             log_e("read wrong state");
           } else {
             log_d("read result %d", result);
-            Lte.mqttMsgs = result;
-            Lte.setState(MQTT, LTE_MQTTCMD_DELAY);
+            mqttMsgs = result;
+            setState(MQTT, LTE_MQTTCMD_DELAY);
           }
           break;
         default:
@@ -336,23 +382,33 @@ protected:
       }
     }
   }
+  //! static callback helper, regCallback will do the real work
+  static void mqttCallbackStatic(int command, int result) {
+    Lte.mqttCallback(command, result);
+  }
+  
 
-  static void httpCallback(int profile, int command, int result) {
+  /** The HTTP callback processes the URC and is responsible for advancing the state. 
+   *  \param profile  the HTTP profile
+   *  \param command  the HTTP command
+   *  \param request  the response code 1 = sucess, 0 = error
+   */
+  void httpCallback(int profile, int command, int result) {
     log_d("profile %d command %d result %d", profile, command, result);
     if (result == 0) {
       int cls, code;
-      SARA_R5_error_t err = Lte.getHTTPprotocolError(profile, &cls, &code);
+      SARA_R5_error_t err = getHTTPprotocolError(profile, &cls, &code);
       if (SARA_R5_SUCCESS == err) {
-        log_e("protocol error class %d code %d", cls, code);
+        log_e("profile %d command %d protocol error class %d code %d", profile, command, cls, code);
       } else {
-        log_e("protocol error failed with error %d", err);
+        log_e("profile %d command %d protocol error failed with error %d", profile, command, err);
       }
     } else if ((profile == LTE_HTTP_PROFILE) && ((command == SARA_R5_HTTP_COMMAND_GET) || 
                                                  (command == SARA_R5_HTTP_COMMAND_POST_FILE))) {
       String str;
       LTE_CHECK_INIT;
-      LTE_CHECK(1) = Lte.getFileContents(FILE_RESP, &str);
-      LTE_CHECK(2) = Lte.deleteFile(FILE_RESP);
+      LTE_CHECK(1) = getFileContents(FILE_RESP, &str);
+      LTE_CHECK(2) = deleteFile(FILE_RESP);
       LTE_CHECK_EVAL("HTTP read");
       if (LTE_CHECK_OK) {
         const char START_TAG[] = "\r\n\r\n";
@@ -362,36 +418,47 @@ protected:
           if (command == SARA_R5_HTTP_COMMAND_GET) {
             // save the AWS root CA
             Config.setValue(CONFIG_VALUE_ROOTCA, str);
-            Lte.setState(ONLINE);
+            setState(ONLINE);
           } else if (command == SARA_R5_HTTP_COMMAND_POST_FILE) {
             // save the ZTP
             String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
             String id = Config.setZtp(str, rootCa);
-            Lte.setState(ONLINE);
+            setState(ONLINE);
           }
         }
       }
     }
   }
-
+  //! static callback helper, regCallback will do the real work
+  static void httpCallbackStatic(int profile, int command, int result) {
+    Lte.httpCallback(profile, command, result);
+  }
+  
   // -----------------------------------------------------------------------
-  // NTRIP 
+  // NTRIP / RTCM
   // -----------------------------------------------------------------------
 
-  long ntripGgaMs;
-  int ntripSocket; 
+  int32_t ntripGgaMs;  //!< time tag (millis()) of next GGA to be sent
+  int ntripSocket;     //!< the socket handle 
 
+  /** Connect to a NTRIP server
+   *  \param ntrip  the server:port/mountpoint to connect to
+   *  \return       connection success
+   */
   bool ntripConnect(String ntrip) {
-    int pos = ntrip.indexOf(':');
-    String server = (-1 == pos) ? ntrip : ntrip.substring(0,pos);
-    uint16_t port = (-1 == pos) ? NTRIP_SERVER_PORT : ntrip.substring(pos+1).toInt();
-    String mntpnt = Config.getValue(CONFIG_VALUE_NTRIP_MOUNTPT);
+    int pos1 = ntrip.indexOf(':');
+    int pos2 = ntrip.indexOf('/');
+    pos1 = (-1 == pos1) ? pos2 : pos1;
+    String server = (-1   == pos1) ? ""                : ntrip.substring(0,pos1);
+    uint16_t port = (pos1 == pos2) ? NTRIP_SERVER_PORT : ntrip.substring(pos1+1,pos2).toInt();
+    String mntpnt = (-1   == pos2) ? ""                : ntrip.substring(pos2+1);
+    if ((0 == server.length()) || (0 == mntpnt.length())) return false;
     String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
     String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
     //setSocketReadCallbackPlus(&onSocketData);
     //setSocketCloseCallback(&onSocketClose); 
     ntripSocket = socketOpen(SARA_R5_TCP);
-    if (ntripSocket >= 0) {
+    if (0 <= ntripSocket) {
       String authEnc;
       String authHead;
       if (0 < user.length() && 0 < pwd.length()) {
@@ -399,24 +466,24 @@ protected:
         authHead = "Authorization: Basic ";
         authHead += authEnc + "\r\n";
       }                    
-      const char* expectedReply = 0 == mntpnt.length() ? "SOURCETABLE 200 OK\r\n" : "ICY 200 OK\r\n";
-      log_i("connect to \"%s:%d\" and GET \"/%s\" auth \"%s\"", server.c_str(), port, mntpnt.c_str(), authEnc.c_str());
+      log_i("server \"%s:%d\" GET \"/%s\" auth \"%s\"", server.c_str(), port, mntpnt.c_str(), authEnc.c_str());
       char buf[256];
       int len = sprintf(buf, "GET /%s HTTP/1.0\r\n"
                 "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
                 "%s\r\n", mntpnt.c_str(), authHead.c_str());
       LTE_CHECK_INIT;
       LTE_CHECK(1) = socketConnect(ntripSocket, server.c_str(), port);
-    LTE_CHECK(2) = socketWrite(ntripSocket, buf, len);
+      LTE_CHECK(2) = socketWrite(ntripSocket, buf, len);
       int avail = 0;
+      const char* expectedReply = 0 == mntpnt.length() ? NTRIP_RESPONSE_SOURCETABLE : NTRIP_RESPONSE_ICY;
       len = strlen(expectedReply);
-      unsigned long start = millis();
-      unsigned long now;
+      int32_t start = millis();
+      int32_t now;
       do {
         vTaskDelay(10);
         LTE_CHECK(3) = socketReadAvailable(ntripSocket, &avail);
         now = millis();
-      } while (LTE_CHECK_OK && ((now - start) < NTRIP_CONNECT_TIMEOUT) && (avail < len));
+      } while (LTE_CHECK_OK && (0 < (start + NTRIP_CONNECT_TIMEOUT - now)) && (avail < len));
       if (avail >= len) {
         avail = len;
       }
@@ -438,17 +505,27 @@ protected:
         ntripStop();
       }
     }
-    return ntripSocket >= 0;
+    return 0 <= ntripSocket;
   }
 
+  /** Disconnect and cleanup the NTRIP connection close the socket
+   */
   void ntripStop(void) {
     if (ntripSocket >= 0) {
-      log_e("disconnect");
-      socketClose(ntripSocket);
+      SARA_R5_error_t err = socketClose(ntripSocket);
+      if (err == SARA_R5_SUCCESS) {
+        log_i("disconnected");
+      } else {
+        log_e("disconnect, failed with error %d", err);
+      }
       ntripSocket = -1;
     }
   }
 
+  /** The NTRIP task is responsible for:
+   *  1) reading NTRIP data from the modem and inject it into the GNSS receiver.
+   *  2) sending a GGA from time to time to allow VRS services to adjust their correction stream 
+   */
   void ntripTask(void) {
     if (ntripSocket >= 0) {
       int messageSize = 0;
@@ -496,8 +573,11 @@ protected:
   // LTE 
   // -----------------------------------------------------------------------
   
-  String module;
+  String module; //!< a string holding the module name (SARA-R5, LARA-R6 or LENA-R8)
 
+  /** detect the LTE modem
+   *  \return  the detection status
+   */
   bool lteDetect(void) {
     bool ok = hwReady();
     if (ok) {
@@ -514,7 +594,6 @@ protected:
 #if ((HW_TARGET == MAZGCH_HPG_SOLUTION_C214_revA) || (HW_TARGET == MAZGCH_HPG_SOLUTION_V09))
       // enableSIMDetectAndHotswap();
 #endif
-
       // wait for the SIM to get ready ... this can take a while (<4s)
       SARA_R5_error_t err = SARA_R5_ERROR_ERROR;
       for (int i = 0; i < LTE_POWER_ON_WAITSIMREADY/100; i ++) {
@@ -530,6 +609,9 @@ protected:
     return ok;
   }
   
+  /** initialize the LTE modem and report useful information
+   *  \return  initialisation process sucess
+   */
   bool lteInit(void) {
     String code;
     LTE_CHECK_INIT;
@@ -562,8 +644,8 @@ protected:
         }       
         // register the callbacks 
         LTE_CHECK_INIT;
-        LTE_CHECK(1) = setEpsRegistrationCallback(epsRegCallback);
-        LTE_CHECK(2) = setRegistrationCallback(regCallback);
+        LTE_CHECK(1) = setEpsRegistrationCallback(epsRegCallbackStatic);
+        LTE_CHECK(2) = setRegistrationCallback(regCallbackStatic);
         // set the APn
         String apn = Config.getValue(CONFIG_VALUE_LTEAPN);
         if (apn.length()) {
@@ -579,6 +661,7 @@ protected:
     return false;
   } 
 
+  //! helper look up table for string conversion of registration status
   const char *REG_STATUS_LUT[11] = { 
     "not registered", 
     "home", 
@@ -593,6 +676,7 @@ protected:
     "roaming cfsb not preferred" 
   };
   
+  //! helper look up table for string conversion of network activation
   const char *REG_ACT_LUT[10] = { 
     "GSM", 
     "GSM COMPACT", 
@@ -606,41 +690,60 @@ protected:
     "E-UTRAN (NB-S1 mode)" 
   }; 
 
+  //! helper to safely convert the string with above tables
+  #define REG_LUT(l, x) ((((unsigned int)x) <= (sizeof(l)/sizeof(*l))) ? l[x] : "unknown")
+
+  /** check if we are registered
+   *  \return registration success 
+   */
   bool lteRegistered(void) {
     SARA_R5_registration_status_t status = registration(true); // EPS
+    const char* statusText = REG_LUT(REG_STATUS_LUT, status);
     if ((status == SARA_R5_REGISTRATION_HOME) || (status == SARA_R5_REGISTRATION_ROAMING)) {
       String op = "";
       getOperator(&op);
       log_i("registered %d(%s) operator \"%s\" rssi %d clock \"%s\"", 
-              status, LUT(REG_STATUS_LUT, status), op.c_str(), rssi(), clock().c_str());
+              status, statusText, op.c_str(), rssi(), clock().c_str());
       // AT+UPSV?
       // AT+CLCK="SC",2
       return true;
     }
     else {
-      log_d("EPS registration status %d(%s), waiting ...", status, LUT(REG_STATUS_LUT, status));
+      log_d("EPS registration status %d(%s), waiting ...", status, statusText);
     }
     return false;
   }
 
+  /** evaluate registration status and report it
+   *  \param status     the registration status
+   *  \param tacLac     the tac or lac 
+   *  \param ci         the ci 
+   *  \param Act        the network activation
+   *  \param strTacLac  a string indicating if tacLac is either tac or lac. 
+   */
   void regCallback(SARA_R5_registration_status_t status, unsigned int tacLac, unsigned int ci, int Act, const char* strTacLac)
   {
-    log_d("status %d(%s) %s \"%04X\" ci \"%08X\" Act %d(%s)", status, LUT(REG_STATUS_LUT, status), strTacLac, tacLac, ci, Act, LUT(REG_ACT_LUT, Act));
+    const char* actText = REG_LUT(REG_ACT_LUT, Act);
+    const char* statusText = REG_LUT(REG_STATUS_LUT, status);
+    log_d("status %d(%s) %s \"%04X\" ci \"%08X\" Act %d(%s)", status, statusText, strTacLac, tacLac, ci, Act, actText); /*unused*/ (void)actText; (void)statusText;
     if (((status == SARA_R5_REGISTRATION_HOME) || (status == SARA_R5_REGISTRATION_ROAMING)) && (state < REGISTERED)) {
       setState(REGISTERED);
     } else if ((status == SARA_R5_REGISTRATION_SEARCHING) && (state >= REGISTERED)) {
       setState(WAITREGISTER);
     }
   }
-  
-  static void epsRegCallback(SARA_R5_registration_status_t status, unsigned int tac, unsigned int ci, int Act) {
+  //! static callback helper, regCallback will do the real work
+  static void epsRegCallbackStatic(SARA_R5_registration_status_t status, unsigned int tac, unsigned int ci, int Act) {
     Lte.regCallback(status, tac, ci, Act, "tac");
   }
-  
-  static void regCallback(SARA_R5_registration_status_t status, unsigned int lac, unsigned int ci, int Act) {
+  //! static callback helper, regCallback will do the real work
+  static void regCallbackStatic(SARA_R5_registration_status_t status, unsigned int lac, unsigned int ci, int Act) {
     Lte.regCallback(status, lac, ci, Act, "lac");
   }
-
+  
+  /** make sure the modem is activated properly. Some modem do this automatically other need some help. 
+   *  \return  activaion sucess 
+   */
   bool lteActivate(void) {
     if (module.startsWith("LARA-R6")) {
       return true;
@@ -673,7 +776,7 @@ protected:
         {
           // Activate the profile
           log_i("activate profile for apn \"%s\" with IP %s pdp %d", apn.c_str(), ip.toString().c_str(), pdpType);                
-          setPSDActionCallback(psdCallback);
+          setPSDActionCallback(psdCallbackStatic);
           LTE_CHECK(2) = setPDPconfiguration(LTE_PSD_PROFILE, SARA_R5_PSD_CONFIG_PARAM_PROTOCOL, pdpType);
           LTE_CHECK(3) = setPDPconfiguration(LTE_PSD_PROFILE, SARA_R5_PSD_CONFIG_PARAM_MAP_TO_CID, cid);
           LTE_CHECK(4) = performPDPaction(LTE_PSD_PROFILE, SARA_R5_PSD_ACTION_ACTIVATE);
@@ -686,8 +789,12 @@ protected:
     }
     return false;
   }
-  
-  static void psdCallback(int profile, IPAddress ip) {
+
+  /** the packet switched data activation callback
+   *  \param profile  the psd profile
+   *  \param ip       the ip address for this profile
+   */
+  static void psdCallbackStatic(int profile, IPAddress ip) {
     log_d("psdCallback profile %d  IP %s", profile, ip.toString().c_str());
     if (profile == LTE_PSD_PROFILE) {
       String id = Config.getValue(CONFIG_VALUE_CLIENTID);
@@ -695,14 +802,11 @@ protected:
     }
   }
   
-  SARA_R5_error_t LTE_IGNORE_LENA(SARA_R5_error_t error) { 
-    return ((error != SARA_R5_SUCCESS) && module.startsWith("LENA-R8")) ? SARA_R5_SUCCESS : error; 
-  }
-
   // -----------------------------------------------------------------------
   // STATEMACHINE
   // -----------------------------------------------------------------------
-  
+
+  //! states of the statemachine 
   typedef enum { 
     INIT = 0, 
     CHECKSIM, 
@@ -714,6 +818,7 @@ protected:
     NTRIP, 
     NUM 
   } STATE;
+  //! string conversion helper table, must be aligned and match with STATE
   const char* STATE_LUT[STATE::NUM] = {
     "init", 
     "check sim", 
@@ -724,21 +829,31 @@ protected:
     "mqtt", 
     "ntrip"
   }; 
-  STATE state;
-  long ttagNextTry;
-  
-  void setState(STATE value, long delay = 0) {
-    if (state != value) {
-      log_i("state change %d(%s)", value, STATE_LUT[value]);
-      state = value;
+  STATE state;            //!< the current state
+  int32_t ttagNextTry;    //!< time tag when to call the state machine again
+
+  /** advance the state and report transitions
+   *  \param newState  the new state
+   *  \param delay     schedule delay
+   */
+  void setState(STATE newState, int32_t delay = 0) {
+    if (state != newState) {
+      log_i("state change %d(%s)", newState, STATE_LUT[newState]);
+      state = newState;
     }
     ttagNextTry = millis() + delay; 
   }
   
+  /* FreeRTOS static task function, will just call the objects task function  
+   * \param pvParameters the Lte object (this)
+   */
   static void task(void * pvParameters) {
     ((LTE*) pvParameters)->task();
   }
 
+  /** This task handling the whole LTE state machine, here is where different activities are scheduled 
+   *  and where the code decides what actions to perform.  
+   */
   void task(void) {
     if (!lteDetect()) {
       log_w("LARA-R6/SARA-R5/LENA-R8 not detected, check wiring");
@@ -746,8 +861,6 @@ protected:
       setState(CHECKSIM);  
     }
     while(true) {
-      HW_DBG_HI(HW_DBG_LTE);
-      
       if ((PIN_INVALID != LTE_ON) && (state != INIT)) {
         // detect if LTE was turned off
         if (HIGH == digitalRead(LTE_ON)) {
@@ -760,8 +873,8 @@ protected:
         SARA_R5::poll();
       }
       
-      long now = millis();
-      if (ttagNextTry <= now) {
+      int32_t now = millis();
+      if (0 >= (ttagNextTry - now)) {
         ttagNextTry = now + LTE_1S_RETRY;
         String id = Config.getValue(CONFIG_VALUE_CLIENTID);
         String ntrip = Config.getValue(CONFIG_VALUE_NTRIP_SERVER);
@@ -785,7 +898,6 @@ protected:
             }
             break;
           case WAITREGISTER:
-            ttagNextTry = millis() + LTE_WAITREGISTER_RETRY;
             if (lteRegistered()) {
               setState(REGISTERED);
             }
@@ -814,7 +926,7 @@ protected:
               }
             }
             break;
-          case MQTT: 
+          case MQTT:
             if (!useMqtt || (0 == id.length())) {
               if (mqttStop()) {
                 setState(ONLINE);
@@ -836,7 +948,6 @@ protected:
             break;
         }
       }
-      HW_DBG_LO(HW_DBG_LTE);
       vTaskDelay(30);
     }
   }
@@ -845,8 +956,12 @@ protected:
   // HARDWARE 
   // -----------------------------------------------------------------------
   
+  /** The modem is connected using different GPIOs and full 8 wire Serial port.    
+   *  this function makes sure that at boot all the pins are properly configured.
+   *  The pins are defined in the HW.h file and depend on the board compiled for. 
+   */
   void hwInit(void) {
-     // The current SARA-R5 library is setting the LTE_RESET and LTE_PWR_ON pins to input after using them, 
+    // The current SARA-R5 library is setting the LTE_RESET and LTE_PWR_ON pins to input after using them, 
     // This is not ideal for the v0.8/v0.9 hardware. Therefore it is prefered to control the LTE_RESET 
     // and LTE_PWR_ON externally in our code here. We also like to have better control of the pins to 
     // support different variants of LTE modems.
@@ -895,6 +1010,10 @@ protected:
     if (PIN_INVALID != LTE_INT) pinMode(LTE_INT, INPUT);
   }
 
+  /** The modem is started using a PWR_ON pin. This process takes quite some time and is a 
+   *  critical phase. Duing the process it is a bad idea to try to talk to the modem too early.
+   *  \return  true if hardware is ready. 
+   */
   bool hwReady(void) {
     // turn on the module 
     #define DETECT_DELAY 100
@@ -906,7 +1025,6 @@ protected:
         pwrOnTime = LTE_POWER_ON_PULSE / DETECT_DELAY;
       }
     }
-    
     bool ready = true;
     char lastCts = -1;
     char lastOn = -1;
@@ -963,6 +1081,10 @@ protected:
     return ready;
   }
   
+  /** We need to sub class the Sparkfun class, and override this function as we are 
+   *  using a four wire serial port with flow control that needs to be preserved.
+   *  \param baud  the desired baud rate
+   */
   void beginSerial(unsigned long baud) override
   {
     delay(100);
@@ -978,6 +1100,6 @@ protected:
   }
 };
     
-LTE Lte;
+LTE Lte; //!< The global LTE peripherial object
 
 #endif // __LTE_H__
