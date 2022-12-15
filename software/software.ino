@@ -145,19 +145,19 @@ void espVersion(void) {
 #endif
 }
 
-const int DUMP_STACK_INTERVAL = 10000; //!< Dump interval in ms, set to 0 to disable
+const int MEM_USAGE_INTERVAL = 10000; //!< Dump interval in ms, set to 0 to disable
   
 /** Helper function to diagnose the health of this application dumping the free stacks and heap.
 */
 void memUsage(void) {
   int32_t now = millis();      
-  static int32_t lastMs = 0;    
+  static int32_t lastMs = now;    
   // this code allows to print all the stacks of the different tasks
-  if (DUMP_STACK_INTERVAL && (0 >= (lastMs - now))) {
-    lastMs = millis() + DUMP_STACK_INTERVAL;
+  if (MEM_USAGE_INTERVAL && (0 >= (lastMs - now))) {
+    lastMs = now + MEM_USAGE_INTERVAL;
     char buf[128];
     int len = 0;
-    const char* tasks[] = { pcTaskGetName(NULL), "Lte", "Wlan", "Bluetooth", "Led", "Can", "UbxSd" };
+    const char* tasks[] = { pcTaskGetName(NULL), "Lte", "Wlan", "Bluetooth", "UbxSd", "Led", "Can" };
     for (int i = 0; i < sizeof(tasks)/sizeof(*tasks); i ++) {
       const char *name = tasks[i];
       TaskHandle_t h = xTaskGetHandle(name);
@@ -166,6 +166,7 @@ void memUsage(void) {
         len += sprintf(&buf[len], " %s %u", tasks[i], stack);
       }
     }
-    log_i("tasks: %d stacks:%s heap: min %d cur %d size %d", uxTaskGetNumberOfTasks(), buf, ESP.getMinFreeHeap(), ESP.getFreeHeap(), ESP.getHeapSize());
+    log_i("stacks:%s heap: min %d cur %d size %d tasks: %d", buf, 
+          ESP.getMinFreeHeap(), ESP.getFreeHeap(), ESP.getHeapSize(), uxTaskGetNumberOfTasks());
   }
 }
