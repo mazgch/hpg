@@ -354,7 +354,7 @@ protected:
       log_e("server \"%s\":%d as client \"%s\" failed with error %d(%s)",
                 brokerStr, MQTT_BROKER_PORT, idStr, err, LUT[err + 2]);
       if (err == MQTT_CONNECTION_REFUSED) {
-        log_i("%d bytes free, heap memory may have too low for SSL client, try remove features like BLUETOOTH", ESP.getFreeHeap());
+        log_i("%d bytes free, heap memory may be too low for SSL client, try remove features like BLUETOOTH", ESP.getFreeHeap());
       }
     }
     return mqttClient.connected();
