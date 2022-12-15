@@ -124,7 +124,7 @@ protected:
     new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">PointPerfect configuration</p>"
             "<p>Don't have a device profile or u-center-config.json? Visit the <a href=\"https://portal.thingstream.io/app/location-services\">Thingstream Portal</a> to create one.</p>");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_ZTPTOKEN, 
-            "<a href=\"#\" onclick=\"document.getElementById('file').click();\">Load JSON</a> file or enter a Device Profile Token.<input hidden accept=\".json,.csv\" type=\"file\" id=\"file\" onchange=\"_l(this);\"/>", 
+            "Device Profile Token or load a <a href=\"#\" onclick=\"document.getElementById('file').click();\">JSON</a> file<input hidden accept=\".json,.csv\" type=\"file\" id=\"file\" onchange=\"_l(this);\"/>", 
             Config.getValue(CONFIG_VALUE_ZTPTOKEN).c_str(), 36, " type=\"password\" placeholder=\"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxxx\" pattern=\"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\"");
     updateManagerParameters();
     new (&parameters[p++]) WiFiManagerParameter(bufParam);
@@ -353,6 +353,9 @@ protected:
       const char* LUT[] = { "REFUSED", "TIMEOUT", "OK", "PROT VER", "ID BAD", "SRV NA", "BAD USER/PWD", "NOT AUTH" };
       log_e("server \"%s\":%d as client \"%s\" failed with error %d(%s)",
                 brokerStr, MQTT_BROKER_PORT, idStr, err, LUT[err + 2]);
+      if (err == MQTT_CONNECTION_REFUSED) {
+        log_i("%d bytes free, heap memory may have too low for SSL client, try remove features like BLUETOOTH", ESP.getFreeHeap());
+      }
     }
     return mqttClient.connected();
   }

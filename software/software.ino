@@ -67,12 +67,12 @@
 #include "HW.h"
 #include "CONFIG.h"
 #include "UBXFILE.h"
-#include "BLUETOOTH.h"  // Comment this to save memory if not needed 
+//#include "BLUETOOTH.h"  // Comment this to save memory if not needed, choose the flash size 4MB and suitable partition
 #include "WLAN.h"
 #include "GNSS.h"
 #include "LBAND.h"
 #include "LTE.h"
-//#include "CANBUS.h"     // Comment this if not needed 
+//#include "CANBUS.h"     // Comment this if not on vehicle using the CAN interface
 
 // ====================================================================================
 // MAIN setup / loop

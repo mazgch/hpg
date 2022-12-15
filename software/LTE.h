@@ -53,7 +53,7 @@ const uint16_t HTTPS_PORT         =         443;  //!< The HTTPS default port
 const int LTE_BAUDRATE            =      115200;  //!< baudrates 230400, 460800 or 921600 cause issues even when CTS/RTS is enabled
 
 const char* LTE_TASK_NAME         =       "Lte";  //!< Lte task name
-const int LTE_STACK_SIZE          =      3*1024;  //!< Lte task stack size
+const int LTE_STACK_SIZE          =      4*1024;  //!< Lte task stack size
 const int LTE_TASK_PRIO           =           1;  //!< Lte task priority
 const int LTE_TASK_CORE           =           1;  //!< Lte task MCU code
 
@@ -135,7 +135,7 @@ protected:
         setHTTPCommandCallback(httpCallbackStatic); // callback will advance state
         LTE_CHECK_INIT;
         LTE_CHECK(1)  = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_ROOTCA,     SEC_ROOT_CA, rootCa);
-        LTE_CHECK(2)  = LTE_IGNORE_LENA(resetSecurityProfile(LTE_SEC_PROFILE_HTTP));
+        LTE_CHECK(2)  = LTE_IGNORE_LENA( resetSecurityProfile(LTE_SEC_PROFILE_HTTP) );
         LTE_CHECK(3)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL, SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_YESNOURL);
         LTE_CHECK(4)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,        SARA_R5_SEC_PROFILE_TLS_OPCODE_VER1_2);
         LTE_CHECK(5)  = configSecurityProfile(LTE_SEC_PROFILE_HTTP, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,   SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
@@ -173,7 +173,7 @@ protected:
       LTE_CHECK(1)  = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_ROOTCA,         SEC_ROOT_CA,     rootCa);
       LTE_CHECK(2)  = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_CLIENT_CERT,    SEC_CLIENT_CERT, cert);
       LTE_CHECK(3)  = setSecurityManager(SARA_R5_SEC_MANAGER_OPCODE_IMPORT, SARA_R5_SEC_MANAGER_CLIENT_KEY,     SEC_CLIENT_KEY,  key);
-      LTE_CHECK(4)  = LTE_IGNORE_LENA(resetSecurityProfile(LTE_SEC_PROFILE_MQTT));
+      LTE_CHECK(4)  = LTE_IGNORE_LENA( resetSecurityProfile(LTE_SEC_PROFILE_MQTT) );
       LTE_CHECK(5)  = configSecurityProfile(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL,     SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_YESNOURL);
       LTE_CHECK(6)  = configSecurityProfile(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,            SARA_R5_SEC_PROFILE_TLS_OPCODE_VER1_2);
       LTE_CHECK(7)  = configSecurityProfile(LTE_SEC_PROFILE_MQTT, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,       SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
