@@ -883,7 +883,7 @@ protected:
         bool useWlan   = (-1 != useSrc.indexOf("WLAN")) && onlineWlan;
         bool useLte    = (-1 != useSrc.indexOf("LTE"))  && !useWlan;
         bool useNtrip = useLte && useSrc.startsWith("NTRIP:");
-        bool useMqtt  = useLte && !useNtrip;
+        bool useMqtt  = useLte && useSrc.startsWith("PointPerfect:");
         switch (state) {
           case INIT:
             ttagNextTry = now + LTE_DETECT_RETRY;

@@ -231,18 +231,44 @@ protected:
     len += sprintf(&bufParam[len], "<p style=\"font-weight:Bold;\">Correction Source</p>"
                                    "<label for=\"%s\">Service type and interface</label><br>"
                                    "<select id=\"%s\" name=\"%s\">", CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE);
+    const char* NTRIP = "NTRIP";
+    const char* POINTPERFECT = "PointPerfect";
+    const struct { const char* group; const char* str; } optSource[] = { 
+      { NULL,         "none"                },
+      //              ---- PointPerfect ---- 
+      { POINTPERFECT, "WLAN + LTE + LBAND", },
+      { POINTPERFECT, "WLAN + LBAND",       }, 
+      { POINTPERFECT, "WLAN + LTE",         },
+      { POINTPERFECT, "WLAN",               },
+      { POINTPERFECT, "LTE + LBAND",        }, 
+      { POINTPERFECT, "LTE",                },
+      { POINTPERFECT, "LBAND",              },
+      //              ---- NTRIP -----
+      { NTRIP,        "WLAN + LTE",         }, 
+      { NTRIP,        "WLAN",               },
+      { NTRIP,        "LTE",                }
+    };
     String selected = Config.getValue(CONFIG_VALUE_USESOURCE); 
-    const char *optSource[] = { "WLAN + LTE + LBAND", "WLAN + LBAND", "LTE + LBAND", "WLAN", "LTE", "LBAND", 
-                                "NTRIP: WLAN + LTE", "NTRIP: WLAN", "NTRIP: LTE", "none" };
     if (!selected.length()) {
-      selected = optSource[0]; 
-      Config.setValue(CONFIG_VALUE_USESOURCE, optSource[0]);
+      selected = optSource[0].str; 
+      Config.setValue(CONFIG_VALUE_USESOURCE, selected);
     }
+    const char* group = NULL;
     for (int i = 0; i < sizeof(optSource)/sizeof(*optSource); i ++) {
-      len += sprintf(&bufParam[len], "<option%s value=\"%s\">%s</option>", selected.equals(optSource[i]) ? " selected" : "", optSource[i], optSource[i]);
+      String value = optSource[i].str;
+      if (optSource[i].group) {
+        value = String(optSource[i].group) + ": " + value;
+        if (group != optSource[i].group) {
+          len += sprintf(&bufParam[len], "<option disabled>---- %s ----</option>", optSource[i].group); 
+        }
+      }
+      group = optSource[i].group;
+      len += sprintf(&bufParam[len], "<option%s value=\"%s\">%s</option>", 
+              selected.equals(value) ? " selected" : "", value.c_str(), optSource[i].str);
     }
+    
     len += sprintf(&bufParam[len],  "</select>"
-                            "<p style=\"font-weight:Bold;\">LTE configuration</p>"
+                            "<p style=\"font-weight:bold;\">LTE configuration</p>"
                             "<label for=\"%s\">MNO Profile</label><br>"
                             "<select id=\"%s\" name=\"%s\">", CONFIG_VALUE_MNOPROF, CONFIG_VALUE_MNOPROF, CONFIG_VALUE_MNOPROF);
     const struct { uint8_t val; const char* str; } optMno[] = {   
@@ -750,7 +776,7 @@ protected:
         String useSrc = Config.getValue(CONFIG_VALUE_USESOURCE);
         bool useWlan  = (-1 != useSrc.indexOf("WLAN"));
         bool useNtrip = useWlan && useSrc.startsWith("NTRIP:");
-        bool useMqtt  = useWlan && !useNtrip;
+        bool useMqtt  = useWlan && useSrc.startsWith("PointPerfect:");
         switch (state) {
           case INIT:
             ttagNextTry = now + WLAN_INIT_RETRY;
