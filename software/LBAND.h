@@ -23,6 +23,10 @@
 
 const int LBAND_I2C_ADR           =        0x43;  //!< NEO-D9S I2C address
 
+//! because rx.softwareEnableGNSS(en) is not yet available in the sparkfun library 
+#define softwareEnableGNSS(en) setVal(qzss ? UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C \
+                                           : UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C, en, VAL_LAYER_RAM)
+
 /** This class encapsulates all LBAND functions. 
 */
 class LBAND {
