@@ -27,6 +27,11 @@ let OPT = {};
 /* START OF MODULE */ var USTART = (function () {
 // ------------------------------------------------------------------------------------
 
+window.clickLink = function _clickLink(link) {
+    let el = window.open(link,'_blank');
+    if (el) el.focus();
+} 
+
 // Init
 // ------------------------------------------------------------------------------------
 window.onload = function _onload() {
