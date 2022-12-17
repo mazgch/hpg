@@ -23,9 +23,6 @@
 
 const int LBAND_I2C_ADR           =        0x43;  //!< NEO-D9S I2C address
 
-#define LBAND_FREQ_NONE                       0   
-#define LBAND_FREQ_NOUPDATE                  -1
-
 /** This class encapsulates all LBAND functions. 
 */
 class LBAND {
@@ -36,7 +33,9 @@ public:
    */
   LBAND () {
     online = false;
-    curFreq = LBAND_FREQ_NONE;
+    qzss = false;
+    curFreq = 0;
+    curPower = false;
     ttagNextTry = millis();
   }
 
@@ -47,44 +46,46 @@ public:
     //rx.enableDebugging()
     rx.setOutputPort(Websocket); // forward all messages
     bool ok = rx.begin(UbxWire, LBAND_I2C_ADR);
-    if (ok)
-    {
+    if (ok) {
       log_i("receiver detected");
-      curFreq = Config.getFreq();
-
       String fwver = GNSS::version("LBAND", &rx);
+      qzss = fwver.startsWith("QZS");
+      String useSrc = Config.getValue(CONFIG_VALUE_USESOURCE);
+      bool useLband = (-1 != useSrc.indexOf("LBAND"));
       GNSS_CHECK_INIT;
-      bool qzss = fwver.startsWith("QZS");
-      if (qzss){ // NEO-D9C
-        curFreq = LBAND_FREQ_NOUPDATE; // prevents freq update
-#ifdef UBX_RXM_QZSSL6_NUM_CHANNELS
+      GNSS_CHECK(1) = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
+      if (qzss) { // NEO-D9C
+        curFreq = 0;
+        curPower = useLband && Config.getValue(CONFIG_VALUE_REGION).equals("jp");
         rx.setRXMQZSSL6messageCallbackPtr(onRXMQZSSL6);
-        GNSS_CHECK(1) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1, VAL_LAYER_RAM);    
         // prepare the UART 2
         GNSS_CHECK(2) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1, VAL_LAYER_RAM);
-        GNSS_CHECK(3) = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
-#else
-        log_i("NEO-D9C receiver not supported by this Sparkfun library, please update library");
-#endif
-      } else
-      { // NEO-D9S
-        curFreq = (curFreq == LBAND_FREQ_NOUPDATE) ? LBAND_FREQ_NONE : curFreq;
+        // prepare I2C
+        GNSS_CHECK(3) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1, VAL_LAYER_RAM);  
+      } else { // NEO-D9S
+        curFreq = Config.getFreq();
+        curPower = useLband && (0 < curFreq);
         rx.setRXMPMPmessageCallbackPtr(onRXMPMP);
+        // prepare the UART 2
+        GNSS_CHECK(4) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2,     1, VAL_LAYER_RAM);
+        // prepare I2C
+        GNSS_CHECK(5) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,       1, VAL_LAYER_RAM);
+        GNSS_CHECK(6) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_MON_PMP_I2C,       1, VAL_LAYER_RAM);
         // contact support@thingstream.io to get NEO-D9S configuration parameters for PointPerfect LBAND satellite augmentation service in EU / US
         // https://developer.thingstream.io/guides/location-services/pointperfect-getting-started/pointperfect-l-band-configuration
-        GNSS_CHECK(1) = rx.setVal8(0x10b10016,                            0, VAL_LAYER_RAM);
-        GNSS_CHECK(2) = rx.setVal16(0x30b10015,                      0x6959, VAL_LAYER_RAM);
-        GNSS_CHECK(3) = rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY, curFreq, VAL_LAYER_RAM);
-        GNSS_CHECK(4) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,       1, VAL_LAYER_RAM);
-        GNSS_CHECK(5) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_MON_PMP_I2C,       1, VAL_LAYER_RAM);
-        // prepare the UART 2
-        GNSS_CHECK(6) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2,     1, VAL_LAYER_RAM);
-        GNSS_CHECK(7) = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
+        GNSS_CHECK(7) = rx.setVal8(0x10b10016,                            0, VAL_LAYER_RAM);
+        GNSS_CHECK(8) = rx.setVal16(0x30b10015,                      0x6959, VAL_LAYER_RAM);
+        GNSS_CHECK(9)= rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY, curFreq, VAL_LAYER_RAM);
       }
       online = ok = GNSS_CHECK_OK;
       GNSS_CHECK_EVAL("configuration");
       if (ok) {
-        log_i("configuration complete, %sreceiver online, freq %d", qzss ? "CLAS " : "", curFreq);
+        rx.softwareEnableGNSS(curPower);
+        if (qzss) {
+          log_i("configuration complete, receiver online, %s", curPower ? "started" : "stopped");
+        } else { 
+          log_i("configuration complete, receiver online, freq %d %s", curFreq, curPower ? "started" : "stopped");
+        }
       }
     }
     return ok;
@@ -99,8 +100,9 @@ public:
       ttagNextTry = now + GNSS_DETECT_RETRY;
       if (!online) {
         detect();
+      } else {
+        config();
       }
-      updateFreq();
     }
     if (online) {
       rx.checkUblox(); 
@@ -126,7 +128,7 @@ protected:
         msg.source = GNSS::SOURCE::LBAND;
         memcpy(msg.data, &pmpData->sync1, size + 6);
         memcpy(&msg.data[size + 6], &pmpData->checksumA, 2);
-        log_i("LBAND received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X", msg.size, ebn0, serviceId);
+        log_i("received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X", msg.size, ebn0, serviceId);
         Gnss.inject(msg); // Push the sync chars, class, ID, length and payload
       } else {
         log_e("received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X, no memory", msg.size, ebn0, serviceId);
@@ -134,7 +136,6 @@ protected:
     }
   }
   
-#ifdef UBX_RXM_QZSSL6_NUM_CHANNELS
   /** process the UBX-RXM-QZSSL6 message, extract information for the console and inject to the GNSS
    *  \param qzssData  the UBX-RXM-QZSSL6 payload
    */
@@ -158,39 +159,50 @@ protected:
       }
     }
   }
-#endif
 
-  /** Make sure that the receiver has the right frequency configured, this depends on the region/location
+  /** Make sure that the receiver has the right frequency configured, this depends on the region/location and 
+   *  switch power off if the region does not support the signal or have a LBAND frequency to recive
    */
-  void updateFreq(void) {
+  void config(void) {
     // do update the ferquency from time to time
-    int newFreq = Config.getFreq();
-    if ((newFreq != LBAND_FREQ_NONE) && (curFreq != LBAND_FREQ_NOUPDATE) && (curFreq != newFreq)) {
-      bool ok = true;
-      bool changed = false;
-      if (online) {
-        ok = rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY, newFreq, VAL_LAYER_RAM);
-        if (ok) {
+    String useSrc = Config.getValue(CONFIG_VALUE_USESOURCE);
+    bool useLband = (-1 != useSrc.indexOf("LBAND"));
+    bool newPower;
+    if (qzss) {
+      newPower = useLband && Config.getValue(CONFIG_VALUE_REGION).equals("jp");
+    } else {
+      int newFreq = Config.getFreq();
+      newPower = useLband && (0 < newFreq);
+      if (newPower && (curFreq != newFreq)) {
+        if (rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY, newFreq, VAL_LAYER_RAM)) {
           curFreq = newFreq;
-          changed = true;
-          rx.softwareResetGNSSOnly(); // do a restart
-        }
-        else {
-          online = false;
+          if (curPower) {
+            rx.softwareResetGNSSOnly();
+            log_i("config freq %d, reset", newFreq);
+          } else {
+            rx.softwareEnableGNSS(true);
+            curPower = true;
+            log_i("config freq %d, started", newFreq);
+          }
+        } else {
+          log_w("config freq %d, failed, retry later", newFreq);
+          newPower = curPower; // don't change the power in that case
         }
       }
-      if (!ok) { 
-        log_e("config freq %d, failed", newFreq);
-      } else if (changed) {
-        log_i("config freq %d", newFreq);
-      }
+    }
+    if (curPower != newPower) {
+      rx.softwareEnableGNSS(newPower);
+      curPower = newPower;
+      log_i("%s", newPower ? "started" : "stopped");
     }
   }
   
   bool online;            //!< flag that indicates if the receiver is connected
   int32_t ttagNextTry;    //!< time tag when to call the state machine again
   SFE_UBLOX_GNSS rx;      //!< the receiver object
-  uint32_t curFreq;       //!< the current configured requency
+  uint32_t curFreq;       //!< the current configured frequency
+  bool curPower;          //!< the current power mode
+  bool qzss;              //!<true if the receiver is a NEO-D9C 
 };
 
 LBAND LBand; //!< The global GNSS peripherial object

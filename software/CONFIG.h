@@ -405,7 +405,7 @@ public:
     }
   }
 
-  /** set current location  
+  /** set current location, this will set the region and LBAND frequency
    *  \param lat  the current latitude
    *  \param lon  the current longitude
    */
