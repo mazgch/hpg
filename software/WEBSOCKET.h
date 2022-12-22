@@ -40,7 +40,7 @@ public:
    */
   WEBSOCKET(size_t size = 5*1024) : buffer{size} {
     mutex = xSemaphoreCreateMutex();
-    queue = xQueueCreate(5, sizeof(MSG));
+    queue = xQueueCreate(10, sizeof(MSG));
     connected = false;
   }
 
@@ -143,6 +143,30 @@ public:
     }
     return wrote;
   }
+
+#if 0
+  size_t write(GNSS::MSG &gnssMsg) {
+    size_t wrote = 0;
+    if (connected) {
+      MSG msg;
+      msg.data = gnssMsg.data;
+      msg.size = gnssMsg.size;
+      msg.source = (gnssMsg.source == GNSS::SOURCE::LTE) ? LTE : WLAN;
+      msg.binary = true;
+      if (xQueueSendToBack(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
+        log_d("queue %d bytes from %d(%s)", size, source, SOURCE_LUT[source]);
+        wrote += msg.size;
+      } else {
+        log_e("queue %d bytes from %d(%s) failed, queue full", size, source, SOURCE_LUT[source]);
+        delete [] msg.data;
+      }
+    } else {
+      delete [] gnssMsg.data;
+    }
+    gnssMsg.data = NULL;
+    return wrote;
+  }
+#endif
 
   /** write data into the queue to be sent 
    *  \param buffer  a string to write

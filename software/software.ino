@@ -64,6 +64,7 @@
 // Header files of this project
 //-----------------------------------
 #include "LOG.h"        // Comment this if you do not want a separate log level for this application 
+#include "IPC.h"
 #include "HW.h"
 #include "CONFIG.h"
 #include "UBXFILE.h"
@@ -87,10 +88,11 @@ void setup(void) {
   while (!Serial);
     /*nothing*/;
   log_i("-------------------------------------------------------------------");
-  Config.init();
   String hwName = Config.getDeviceName();
   log_i("mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());  
   espVersion();
+  testQueuePipe();
+  Config.init();
   // SD card 
   UbxSd.init(); // handling SD card and files runs in a task
 #ifdef __BLUETOOTH_H__

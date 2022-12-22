@@ -24,7 +24,7 @@
 
 const int UBXSERIAL_BUFFER_SIZE   =      0*1024;  //!< Size of circular buffer, typically AT modem gets bursts upto 9kB of MQTT data, but 2kB is also fine
 const int UBXWIRE_BUFFER_SIZE     =     12*1024;  //!< Size of circular buffer, typically we see about 2.5kBs coming from the GNSS
-const int UBXFILE_BLOCK_SIZE      =        1024;  //!< Size of the blocks used to pull from the GNSS and send to the File. 
+const int UBXFILE_BLOCK_SIZE      =         512;  //!< Size of the blocks used to pull from the buffer and send to the File. 
 
 #define   UBXSD_DIR                       "/LOG"  //!< Directory on the SD card to store logfiles in 
 #define   UBXSD_UBXFORMAT        "/HPG-%04d.UBX"  //!< The UBX logfiles name format

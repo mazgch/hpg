@@ -21,57 +21,55 @@
 #include <vector>
 #include <mbedtls/base64.h>
 #include <ArduinoJson.h>
+#include <Preferences.h>
 
 #include "HW.h"
+
+/** this table defines the recional coverage (by a bounding box and its region tag and frequency
+ *  the lower the higher the priority and more targeted the lat/lon region should be
+ */
+const struct { const char* region; short lon1; short lon2; short lat1; short lat2; } POINTPERFECT_REGIONS[] = {
+  // Continental
+  { "us", -170, -50,   20, 75 }, // Continental US + Canada
+  { "eu",  -30,  40,   35, 75 }, // Europe
+  // Regional / Test 
+  { "cn",   75,  135,  15, 60 }, // China
+  { "au",  111,  160, -43, -9 }, // Australia
+  { "jp",  128,  147,  30, 47 }, // Japan
+  { "kr",  126,  130,  34, 39 }, // Korea
+  { "sa",   34,   56,  15, 33 }  // Saudi Arabia
+};
 
 // -----------------------------------------------------------------------
 // MQTT / PointPerfect settings 
 // -----------------------------------------------------------------------
 
-/** settings for ZTP request that use HTTPS protocol  
- */
+// settings for ZTP request that use HTTPS protocol  
 #define    THINGSTREAM_SERVER     "api.thingstream.io"            //!< the thingstream Rest API server domain        
 #define    THINGSTREAM_ZTPPATH    "/ztp/pointperfect/credentials" //!< ZTP rest api
 const char THINGSTREAM_ZTPURL[]   = "https://" THINGSTREAM_SERVER THINGSTREAM_ZTPPATH; // full ZTP url
 
-/** settings for Amazon root CA request (not really needed, as long as we dont verify the certificates)  
- */
+// settings for Amazon root CA request (not really needed, as long as we dont verify the certificates)  
 #define    AWSTRUST_SERVER        "www.amazontrust.com"             //!< the AWS trust server domain    
 #define    AWSTRUST_ROOTCAPATH    "/repository/AmazonRootCA1.pem"   //!< the AWS root CA path
 const char AWSTRUST_ROOTCAURL[]   = "https://" AWSTRUST_SERVER AWSTRUST_ROOTCAPATH; // full AWS root CA url
 
-/** this table defines the recional coverage (by a bounding box and its region tag and frequency
- *  the lower the higher the priority and more targeted the lat/lon region should be
- *  PointPerfect LBAND satellite augmentation service EU / US LBAND frequencies taken from: 
- *  https://developer.thingstream.io/guides/location-services/pointperfect-service-description
- */
-struct { const char* region; short lon1; short lon2; short lat1; short lat2; long freq; } POINTPERFECT_REGIONS[] = {
-  // Continental
-  { "us", -170, -50,   20, 75, 1556290000 }, // Continental US
-  { "eu",  -30,  40,   35, 75, 1545260000 }, // Europe
-  // Regional / Test 
-  { "cn",   75,  135,  15, 60,          0 }, // China
-  { "au",  111,  160, -43, -9,          0 }, // Australia
-  { "jp",  128,  147,  30, 47,          0 }, // Japan
-  { "kr",  126,  130,  34, 39,          0 }, // Korea
-  { "sa",   34,   56,  15, 33,          0 }  // Saudi Arabia
-};
-
 const unsigned short MQTT_BROKER_PORT     =              8883;  //!< MQTTS port
 const int MQTT_MAX_MSG_SIZE               =            9*1024;  //!< the max size of a MQTT pointperfect topic
 
-const char MQTT_TOPIC_FREQ[]           = "/pp/frequencies/Lb";  //!< LBAND frequency topic 
 const char MQTT_TOPIC_MGA[]               =     "/pp/ubx/mga";  //!< GNSS assistance topic 
 const char MQTT_TOPIC_KEY_FORMAT[]        =   "/pp/ubx/0236/";  //!< LBAND decryption keys topic
+const char MQTT_TOPIC_FREQ[]           = "/pp/frequencies/Lb";  //!< LBAND frequency topic 
+
 const char MQTT_TOPIC_IP_FORMAT[]         =            "/pp/";  //!< correction stream topic prefix, format: /pp/<stream>/<region>/<msg>
+
+const char MQTT_STREAM_LBAND[]            =              "Lb";  //!< LBAND stream identifier 
+const char MQTT_STREAM_IP[]               =              "ip";  //!< IP stream identifier
 
 const char MQTT_TOPIC_IP_GAD[]            =            "/gad";  //!< geographic area defintion
 const char MQTT_TOPIC_IP_HPAC[]           =           "/hpac";  //!< high precision atmospheric corrections
 const char MQTT_TOPIC_IP_OCB[]            =            "/ocb";  //!< orbit, clock and bias
 const char MQTT_TOPIC_IP_CLK[]            =            "/clk";  //!< clock correction
-
-const char MQTT_STREAM_LBAND[]            =              "Lb";  //!< LBAND stream identifier 
-const char MQTT_STREAM_IP[]               =              "ip";  //!< IP stream identifier
 
 // -----------------------------------------------------------------------
 // NTRIP settings 
@@ -90,9 +88,6 @@ const char* NTRIP_RESPONSE_SOURCETABLE    = "SOURCETABLE 200 OK\r\n";  //!< sour
 #define    CONFIG_DEVICE_TITLE                 "HPG solution"   //!< a used friendly name
 #define    CONFIG_DEVICE_NAMEPREFIX                     "hpg"   //!< a hostname compatible prefix, only a-z, 0-9 and -
 
-const char CONFIG_FFS_FILE[]              =     "/config.ffs";  //!< the file in the FFS where we store the config json
-const int  CONFIG_JSON_MAXSIZE            =            7*1024;  //!< maximun size of config JSON file
-
 // PointPerfect configuration 
 const char CONFIG_VALUE_ZTPTOKEN[]        =        "ztpToken";  //!< config key for ZTP tocken
 const char CONFIG_VALUE_BROKERHOST[]      =      "brokerHost";  //!< config key for brocker host
@@ -100,26 +95,25 @@ const char CONFIG_VALUE_STREAM[]          =          "stream";  //!< config key 
 const char CONFIG_VALUE_ROOTCA[]          =          "rootCa";  //!< config key for root certificate
 const char CONFIG_VALUE_CLIENTCERT[]      =      "clientCert";  //!< config key for client certificate
 const char CONFIG_VALUE_CLIENTKEY[]       =       "clientKey";  //!< config key for client keys
-const char CONFIG_VALUE_CLIENTID[]        =        "clientId";  //!< config key for client id
+#define CONFIG_VALUE_CLIENTID                      "clientId"   //!< config key for client id
+const char CONFIG_FORMAT_FREQ[]            =    "%sLbandFreq";  //!< config key for current LBAND frequencys 
+const char CONFIG_VALUE_KEY[]             =           "ppKey";  //!< config key for current LBAND keys (temprorary)
 
 // NTRIP setting
 const char CONFIG_VALUE_NTRIP_SERVER[]    =     "ntripServer";  //!< config key for NTRIP server
 const char CONFIG_VALUE_NTRIP_MOUNTPT[]   = "ntripMountpoint";  //!< config key for NTRIP mount point
 const char CONFIG_VALUE_NTRIP_USERNAME[]  =   "ntripUsername";  //!< config key for NTRIP user name
 const char CONFIG_VALUE_NTRIP_PASSWORD[]  =   "ntripPassword";  //!< config key for NTRIP password
-const char CONFIG_VALUE_NTRIP_GGA[]       =        "ntripGga";  //!< config key for current GGA sentence (temprorary)
-
-// temporary settings
-const char CONFIG_VALUE_REGION[]          =          "region";  //!< config key for current PointPerfect region (temprorary)        
-const char CONFIG_VALUE_FREQ[]            =            "freq";  //!< config key for current LBAND frequency (temprorary)
-const char CONFIG_VALUE_KEY[]             =           "ppKey";  //!< config key for current LBAND keys (temprorary)
-const char CONFIG_VALUE_USESOURCE[]       =       "useSource";  //!< config key for current correction source in use (temprorary)
 
 // Modem setting
 const char CONFIG_VALUE_LTEAPN[]          =          "LteApn";  //!< config key for modem APN
 const char CONFIG_VALUE_SIMPIN[]          =          "simPin";  //!< config key for SIM PIN
 const char CONFIG_VALUE_MNOPROF[]         =      "mnoProfile";  //!< config key for modem MNO profile
-                          
+
+// temporary settings
+const char CONFIG_VALUE_REGION[]          =          "region";  //!< config key for current service region
+const char CONFIG_VALUE_USESOURCE[]       =       "useSource";  //!< config key for current correction source / communication technology to use
+
 /** This class encapsulates all WLAN functions. 
 */
 class CONFIG {
@@ -128,10 +122,8 @@ public:
 
   /** constructor
    */
-  CONFIG() : json(CONFIG_JSON_MAXSIZE) {
+  CONFIG(void) {
     mutex = xSemaphoreCreateMutex();
-    ffsOk = false;
-    // create a unique name from the mac 
     uint64_t mac = ESP.getEfuseMac();
     const char* p = (const char*)&mac;
     char str[64];
@@ -139,119 +131,108 @@ public:
     title = str;
     sprintf(str, CONFIG_DEVICE_NAMEPREFIX "-%02x%02x%02x", p[3], p[4], p[5]);
     name = str;
+    useSource = USE_NONE;
+    lbandFreq = 0;
+  }
+  
+  /** constructor
+   */
+  bool init(void) {
+    // create a unique name from the mac 
+    if (nvs.begin(CONFIG_DEVICE_NAMEPREFIX)) {
+      if (nvs.isKey(CONFIG_VALUE_USESOURCE)) {
+        useSource = (USE_SOURCE)nvs.getULong(CONFIG_VALUE_USESOURCE);
+        log_d("key %s get 0x%04X", CONFIG_VALUE_USESOURCE, useSource);
+      } else {
+        useSource = USE_NONE;
+        log_d("key %s empty", CONFIG_VALUE_USESOURCE);
+      }
+      servceRegion  = getValue(CONFIG_VALUE_REGION, ""); 
+      mqttStream    = getValue(CONFIG_VALUE_STREAM, "");  
+      mqttTopics    = updateTopics(mqttStream, servceRegion);
+      lbandFreq     = getLbandFreq(servceRegion.c_str()); 
+      ntripGga      = ""; // wipe the gga string
+      return true;
+    }
+    return false;
   }
 
   /** get a name of the device
    *  \return the device name 
    */
   String getDeviceName(void)  { 
-    return name;
+    String value;
+    copy(name, value);
+    return value;
   }    
   
   /** get a friendly name of the device
    *  \return the friendly device title 
    */
   String getDeviceTitle(void) { 
-    return title; 
+    String value;
+    copy(title, value);
+    return value;
   } 
-  
-  /** init the file system
-   *  \return  true if file system and config file is ready 
+
+  /** get the topics to subscribe  
+   *  \return  a vector with all the topics
    */
-  bool init(void) {
-    bool cfgOk = false;
-    if (ffsInit()) {
-      log_i("FFS ok");
-      cfgOk = read();
-      if (cfgOk) {
-        log_i("file \"FFS%s\" read", CONFIG_FFS_FILE);
-      } 
-    } else {
-      log_e("FFS failed");
-    }
-    return cfgOk;
+  std::vector<String> getMqttTopics(void) {
+   std::vector<String> topics; 
+   if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      topics = mqttTopics;
+      xSemaphoreGive(mutex); 
+   }
+   return topics;
   }
 
-  /** delete the configuration file from the file system  
+  /** get the LBAND frequency  
+   *  \return 
    */
-  void reset(void) {
+  bool getLbandCfg(String& region, uint32_t &freq) {
     if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      if (ffsOk) {
-        if (SPIFFS.exists(CONFIG_FFS_FILE)) {
-          SPIFFS.remove(CONFIG_FFS_FILE);
-        }
-      }
-      xSemaphoreGive(mutex);
+      region = servceRegion;
+      freq = lbandFreq;
+      xSemaphoreGive(mutex); 
+      return true;
     }
+    return false;
   }
   
-  /** save the local copy to the file system  
-   *  \return  the succcess of the operation
+  /** get the value of a config key  
+   *  \param key      the parameter key    
+   *  \param default  the value to return when reading failes
+   *  \return         the parameter value
    */
-  bool save(void) {
-    int len = -1;
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      if (ffsOk) {
-        if (SPIFFS.exists(CONFIG_FFS_FILE)) {
-          SPIFFS.remove(CONFIG_FFS_FILE);
-        }
-        File file = SPIFFS.open(CONFIG_FFS_FILE, FILE_WRITE);
-        if (file) {
-          len = serializeJson(json, file);
-          file.close();
-        }
-      }
-      xSemaphoreGive(mutex);
+  String getValue(const char *key, const char *defaultValue = "") {
+    String value;
+    if (nvs.isKey(key)) {
+      value = nvs.getString(key, defaultValue);
+      log_d("key %s get \"%s\"", key, value.c_str());
+    } else { 
+      value = defaultValue;
+      log_d("key %s default \"%s\"", key, defaultValue);
     }
-    if (-1 == len) {
-      log_e("file \"FFS%s\" open failed", CONFIG_FFS_FILE);
-    } else if (0 == len) {
-      log_e("file \"FFS%s\" serialize and write failed", CONFIG_FFS_FILE);
-    } else {
-      log_d("file size %d", len);
-    }
-    return (len > 0);
-  }
-
-  /** read the config file system into the local buffer
-   *  \return  the succcess of the operation
-   */
-  bool read(void) {
-    bool openOk = false;
-    DeserializationError err = DeserializationError::EmptyInput;
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      if (ffsOk && SPIFFS.exists(CONFIG_FFS_FILE)) {
-        File file = SPIFFS.open(CONFIG_FFS_FILE, FILE_READ);
-        if (file) {
-          openOk = true;
-          err = deserializeJson(json, file);
-          file.close();
-        }
-      }
-      xSemaphoreGive(mutex);
-    }
-    if (!openOk) {
-      log_d("file \"FFS&s\" open failed", CONFIG_FFS_FILE);
-    } else if (DeserializationError::Ok != err) {
-      log_e("file \"FFS%s\" deserialze failed with error %d", CONFIG_FFS_FILE, err);
-    } else {
-      log_d("file \"FFS%s\"", CONFIG_FFS_FILE);
-    }
-    return DeserializationError::Ok == err;
+    return value;
   }
 
   /** get the value of a config key  
-   *  \param key  the parameter key    
-   *  \return     the parameter value
+   *  \param key    the parameter key    
+   *  \param value  the returned value    
+   *  \return       successful read status
    */
-  String getValue(const char *key) {
-    String str;
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      str = json.containsKey(key) ? json[key] : String();
-      xSemaphoreGive(mutex);
-    }
-    log_v("key %s is \"%s\"", key, str.c_str());
-    return str;
+  bool getValue(const char *key, String& value) {
+    bool ok;
+    if (nvs.isKey(key)) {
+      value = nvs.getString(key);
+      log_d("key %s get \"%s\"", key, value.c_str());
+      ok = true;
+    } else { 
+      log_d("key %s empty", key);
+      ok = false;
+    } 
+    return ok;
   }
   
   /** set the value of a config key 
@@ -259,42 +240,28 @@ public:
    *  \param value  the parameter value
    *  \return       true if value was changed
    */
-  bool setValue(const char *key, String value) {
-    String old;
+  bool setValue(const char *key, String &value) {
     bool changed = false;
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) { 
-      old = json.containsKey(key) ? json[key] : String();
-      changed = !old.equals(value);
-      if (changed) {
-        json[String(key)] = value;
-        json.garbageCollect();
+    if (nvs.isKey(key)) {
+      String oldValue = nvs.getString(key);
+      if (!oldValue.equals(value)) {
+        if (0 < value.length()) {
+          changed = nvs.putString(key, value);
+          if (changed) {
+            log_d("key %s changed from \"%s\" to \"%s\"", key, oldValue.c_str(), value.c_str());
+          }
+        } else {
+          changed = nvs.remove(key);
+          if (changed) {
+            log_d("key %s removed \"%s\"", key, oldValue.c_str());
+          }
+        }
       }
-      xSemaphoreGive(mutex); 
-    }
-    if (changed) {
-      log_v("key %s changed from \"%s\" to \"%s\"", key, old.c_str(), value.c_str()); 
-    } else {
-      log_v("key %s keep \"%s\" as unchanged", key, old.c_str()); 
-    }
-    return changed;
-  } 
-
-  /** delete the value of a config key 
-   *  \param key    the parameter key    
-   *  \return       true if changed, key was removed
-   */
-  bool delValue(const char *key) {
-    bool changed = false;
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      changed = json.containsKey(key);
+    } else if (0 < value.length()) {
+      changed = nvs.putString(key, value);
       if (changed) {
-        json.remove(key);
-        json.garbageCollect();
+        log_d("key %s set to \"%s\"", key, value.c_str()); 
       }
-      xSemaphoreGive(mutex); 
-    }
-    if (changed) {
-      log_v("key %s", key);
     }
     return changed;
   }
@@ -311,7 +278,8 @@ public:
     mbedtls_base64_encode(NULL, 0, &encLen, buffer, len);
     uint8_t encBuf[encLen];
     if (0 == mbedtls_base64_encode(encBuf, sizeof(encBuf), &encLen, buffer, len)) {
-      changed = setValue(key, String((const char*)encBuf)); 
+      String value = (const char*)encBuf;
+      changed = setValue(key, value); 
     } 
     return changed;
   }
@@ -334,20 +302,240 @@ public:
     return decLen;
   }
   
-  /** get the topics to subscribe  
-   *  \return  a vector with all the topics
+  /** extract the lband freuqencies for all supported regions from the json buffer 
+   *  \param buf  the buffer with the json message
+   *  \param size the size of the json buffer
    */
-  std::vector<String> getTopics(void)
-  { 
-    String stream;
-    String region;
-    String source;
+  void updateLbandFreqs(const uint8_t *buf, size_t size) {
+    DynamicJsonDocument json(512);
+    DeserializationError error = deserializeJson(json, buf, size);
+    if (DeserializationError::Ok != error) {
+      log_e("deserializeJson failed with error %d", error);
+    } else if (json.containsKey("frequencies")) {
+      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+        bool changed = false;
+        for (int i = 0; i < sizeof(POINTPERFECT_REGIONS)/sizeof(*POINTPERFECT_REGIONS); i ++) {
+          const char *curRegion = POINTPERFECT_REGIONS[i].region;
+          if (json["frequencies"].containsKey(curRegion)) {
+            double freq = json["frequencies"][curRegion]["current"]["value"].as<double>();
+            uint32_t newFreq = (uint32_t)(1e6 * freq);
+            // adjust the current freq if region is the same
+            if ((newFreq != lbandFreq) && servceRegion.equals(curRegion)) {
+              lbandFreq = newFreq;
+              log_i("current lbandFreq from %li to %li", lbandFreq, newFreq);
+              changed = true;
+            }
+            // keep track in the nvs
+            char key[16];
+            sprintf(key, CONFIG_FORMAT_FREQ, curRegion);
+            if (nvs.isKey(key)) {
+              uint32_t oldFreq =  nvs.getULong(key);
+              if (newFreq != oldFreq) {
+                if (nvs.putULong(key, newFreq)) {
+                  changed = true;
+                  log_i("region %s changed lbandFreq from %li to %li", curRegion, oldFreq, newFreq);
+                }
+              }
+            } else if (nvs.putULong(key, newFreq)) {
+              changed = true;
+              log_i("region %s set to %li", curRegion, newFreq);
+            }
+          }
+        }
+        xSemaphoreGive(mutex);
+        if (changed) {
+          log_i("changed freq %lu", lbandFreq); 
+        }
+      }
+    }
+  }
+
+  /** set current location, this will set the region and LBAND frequency
+   *  \param lat  the current latitude
+   *  \param lon  the current longitude
+   */
+  void updateLocation(int lat, int lon) {
+    // the highest entries have highest priority
+   const char* region = "";
+    for (int i = 0; i < sizeof(POINTPERFECT_REGIONS)/sizeof(*POINTPERFECT_REGIONS); i ++) {
+      if ((lat >= POINTPERFECT_REGIONS[i].lat1 && lat <= POINTPERFECT_REGIONS[i].lat2) &&
+          (lon >= POINTPERFECT_REGIONS[i].lon1 && lon <= POINTPERFECT_REGIONS[i].lon2)) {
+        if (POINTPERFECT_REGIONS[i].region) {
+          region = POINTPERFECT_REGIONS[i].region;
+        }
+      }
+    } 
+    bool changed = false;
     if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      stream = json.containsKey(CONFIG_VALUE_STREAM) ? json[CONFIG_VALUE_STREAM] : String();
-      region = json.containsKey(CONFIG_VALUE_REGION) ? json[CONFIG_VALUE_REGION] : POINTPERFECT_REGIONS[0].region;
-      source = json.containsKey(CONFIG_VALUE_USESOURCE) ? json[CONFIG_VALUE_USESOURCE] : String();
+      if (!servceRegion.equals(region)) {
+        changed = nvs.putString(CONFIG_VALUE_REGION, region);
+        servceRegion = region;
+        lbandFreq = getLbandFreq(region);
+      }
       xSemaphoreGive(mutex); 
     }
+    if (changed) {
+      log_i("region \"%s\" lbandFreq %lu", region, lbandFreq);
+    }
+  }
+ 
+  /** delete the zero touch provisioning credentials
+   */
+  void delZtp(void) {
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      if (nvs.isKey(CONFIG_VALUE_BROKERHOST)) nvs.remove(CONFIG_VALUE_BROKERHOST);
+      if (nvs.isKey(CONFIG_VALUE_STREAM))     nvs.remove(CONFIG_VALUE_STREAM);
+      if (nvs.isKey(CONFIG_VALUE_ROOTCA))     nvs.remove(CONFIG_VALUE_ROOTCA);
+      if (nvs.isKey(CONFIG_VALUE_CLIENTCERT)) nvs.remove(CONFIG_VALUE_CLIENTCERT);
+      if (nvs.isKey(CONFIG_VALUE_CLIENTKEY))  nvs.remove(CONFIG_VALUE_CLIENTKEY);
+      if (nvs.isKey(CONFIG_VALUE_CLIENTID))   nvs.remove(CONFIG_VALUE_CLIENTID);
+      mqttStream = "";
+      USE_SOURCE newUseSource = (USE_SOURCE)(useSource & ~USE_CLIENTID); // remove the ready bit
+      if (newUseSource != useSource) {
+        nvs.putULong(CONFIG_VALUE_USESOURCE, newUseSource);
+        log_i("key %s changed from 0x%04X to 0x%04X", CONFIG_VALUE_USESOURCE, useSource, newUseSource);
+        useSource = newUseSource;
+      }
+      mqttTopics = updateTopics(mqttStream, servceRegion);
+      xSemaphoreGive(mutex); 
+    }
+    log_i("ZTP deleted");
+  }
+
+  /** set the pointperfect credentials and certificates from the ZTP process
+   *  \param ztp     the ZTP JSON response 
+   *  \param rootCa  the AWS root certificate
+   *  \return        the decoding success
+   */
+  bool setZtp(String &ztp, String &rootCa) {
+    const int   JSON_ZTP_MAXSIZE        = 4*1024;
+    const char* JSON_ZTP_CLIENTID       = "clientId";
+    const char* JSON_ZTP_CERTIFICATE    = "certificate";
+    const char* JSON_ZTP_PRIVATEKEY     = "privateKey";
+    const char* JSON_ZTP_BROKERHOST     = "brokerHost";
+    const char* JSON_ZTP_SUPPORTSLBAND  = "supportsLband";
+    StaticJsonDocument<200> filter;
+    filter[JSON_ZTP_CLIENTID]       = true;
+    filter[JSON_ZTP_CERTIFICATE]    = true;
+    filter[JSON_ZTP_PRIVATEKEY]     = true;
+    filter[JSON_ZTP_BROKERHOST]     = true;
+    filter[JSON_ZTP_SUPPORTSLBAND]  = true;
+    DynamicJsonDocument jsonZtp(JSON_ZTP_MAXSIZE);
+    DeserializationError error = deserializeJson(jsonZtp, ztp.c_str(), DeserializationOption::Filter(filter));
+    if (DeserializationError::Ok != error) {
+      log_e("deserializeJson failed with error %d", error);
+    } else {
+      const char* clientId = jsonZtp[JSON_ZTP_CLIENTID].as<const char*>();
+      if (*clientId) {
+        log_i("ZTP complete clientId is \"%s\"", clientId);
+        if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+          mqttStream = jsonZtp[JSON_ZTP_SUPPORTSLBAND].as<bool>() ? MQTT_STREAM_LBAND : MQTT_STREAM_IP;
+          nvs.putString(CONFIG_VALUE_CLIENTID,    clientId);
+          nvs.putString(CONFIG_VALUE_ROOTCA,      rootCa);
+          nvs.putString(CONFIG_VALUE_CLIENTCERT,  jsonZtp[JSON_ZTP_CERTIFICATE].as<const char*>());
+          nvs.putString(CONFIG_VALUE_CLIENTKEY,   jsonZtp[JSON_ZTP_PRIVATEKEY].as<const char*>());
+          nvs.putString(CONFIG_VALUE_BROKERHOST,  jsonZtp[JSON_ZTP_BROKERHOST].as<const char*>());
+          nvs.putString(CONFIG_VALUE_STREAM,      mqttStream);
+          USE_SOURCE newUseSource = (USE_SOURCE)(useSource | USE_CLIENTID);
+          if (useSource != newUseSource) {
+            nvs.putULong(CONFIG_VALUE_USESOURCE, newUseSource);
+            log_i("key %s changed from 0x%04X to 0x%04X", CONFIG_VALUE_USESOURCE, useSource, newUseSource);
+            useSource = newUseSource;
+          }
+          mqttTopics = updateTopics(mqttStream, servceRegion);
+          xSemaphoreGive(mutex); 
+        }
+        return true;
+      } else {
+        log_e("ZTP content");
+      }
+    }
+    return false;
+  }
+
+  /** create a ZTP request to be sent to thingstream JSON API
+   *  \return  the ZTP request string to POST
+   */
+  String ztpRequest(void) {
+    String token;
+    String jsonString;
+    if (getValue(CONFIG_VALUE_ZTPTOKEN, token)) {
+      DynamicJsonDocument json(256);
+      json["tags"][0] = "ztp";
+      json["token"]   = token.c_str();
+      json["hardwareId"] = getDeviceName();
+      json["givenName"] = getDeviceTitle();
+      if (0 < serializeJson(json,jsonString)) {
+        log_d("ZTP request %s", jsonString.c_str());
+      }
+    }
+    return jsonString;
+  }
+
+  typedef enum { 
+    WLAN  = 0,
+    LTE   = 1,
+    LBAND = 2
+  } SOURCE;
+  
+  typedef enum {
+    USE_NONE            = 0x0000,
+    // Communication Channel
+    USE_WLAN            = 1 << WLAN,
+    USE_LTE             = 1 << LTE,
+    USE_LBAND           = 1 << LBAND,
+    // Services 
+    USE_POINTPERFECT    = 0x0100,
+    USE_NTRIP           = 0x0200,
+    // mask off comms channel and services
+    CONFIG_MASK         = 0x0FFF,
+    // Status indicating valid configuration  
+    USE_ZTPTOKEN        = 0x1000,
+    USE_CLIENTID        = 0x2000,
+    USE_NTRIP_SERVER    = 0x4000,
+  } USE_SOURCE;
+
+  USE_SOURCE getUseSource(void) {
+    return useSource;
+  }
+
+  bool setUseSource(USE_SOURCE newUseSource) {
+    bool changed = false;
+    newUseSource = (USE_SOURCE)((newUseSource & CONFIG_MASK) | 
+                                (nvs.isKey(CONFIG_VALUE_ZTPTOKEN)     ? USE_ZTPTOKEN      : 0) | 
+                                (nvs.isKey(CONFIG_VALUE_CLIENTID)     ? USE_CLIENTID      : 0) | 
+                                (nvs.isKey(CONFIG_VALUE_NTRIP_SERVER) ? USE_NTRIP_SERVER  : 0));
+    if (newUseSource != useSource) {
+      log_i("key %s changed from 0x%04X to 0x%04X", CONFIG_VALUE_USESOURCE, useSource, newUseSource);
+      changed = nvs.putULong(CONFIG_VALUE_USESOURCE, newUseSource);
+      useSource = newUseSource;
+    }
+    return changed;
+  }
+  
+  void setGga(String& value) {
+    copy(value, ntripGga);
+  }
+  
+  bool getGga(String& value) {
+    return copy(ntripGga, value);;
+  }
+
+  bool getRegion(String& value) {
+    return copy(servceRegion, value);;
+  }
+
+protected:
+
+  bool copy(String& fromStr, String& toStr) {
+    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      toStr = fromStr;
+      xSemaphoreGive(mutex); 
+    }
+    return toStr.length() > 0;
+  }
+
+  std::vector<String> updateTopics(String &stream, String &region) {
     std::vector<String> topics;
     topics.push_back(MQTT_TOPIC_MGA);
     if (0 < stream.length()) {
@@ -365,202 +553,32 @@ public:
       }
     }
     return topics;
-  }
-  
-  /** get the LBAND frequency  
-   *  \return  the frequency or 0 if no suitable frequency
-   */
-  int getFreq(void) {
-    int freq = 0;
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      freq = json.containsKey(CONFIG_VALUE_FREQ) ? json[CONFIG_VALUE_FREQ] : POINTPERFECT_REGIONS[0].freq;
-      xSemaphoreGive(mutex); 
-    }
-    return freq;
-  }
-  
-  /** extract the lband freuqencies for all supported regions from the json buffer 
-   *  \param buf  the buffer with the json message
-   *  \param size the size of the json buffer
-   */
-  void setLbandFreqs(const uint8_t *buf, size_t size) {
-    DynamicJsonDocument json(512);
-    DeserializationError error = deserializeJson(json, buf, size);
-    if (DeserializationError::Ok != error) {
-      log_e("deserializeJson failed with error %d", error);
-    } else {
-      for (int i = 0; i < sizeof(POINTPERFECT_REGIONS)/sizeof(*POINTPERFECT_REGIONS); i ++) {
-        const char* region = POINTPERFECT_REGIONS[i].region;
-        if (region && json["frequencies"].containsKey(region)) {
-          String str = json["frequencies"][region]["current"]["value"];
-          if (0 < str.length()) {
-            long freq = (long)(1e6 * str.toDouble());
-            if (POINTPERFECT_REGIONS[i].freq != freq) {
-              log_w("region %s update freq to %li from %li", region, freq, POINTPERFECT_REGIONS[i].freq);
-              POINTPERFECT_REGIONS[i].freq = freq; 
-            }
-          }
-        }
-      }
-    }
-  }
-
-  /** set current location, this will set the region and LBAND frequency
-   *  \param lat  the current latitude
-   *  \param lon  the current longitude
-   */
-  void updateLocation(int lat, int lon) {
-    // the highest entries have highest priority
-    long freq = 0;
-    const char* region = NULL;
-    for (int i = 0; i < sizeof(POINTPERFECT_REGIONS)/sizeof(*POINTPERFECT_REGIONS); i ++) {
-      if ((lat >= POINTPERFECT_REGIONS[i].lat1 && lat <= POINTPERFECT_REGIONS[i].lat2) &&
-          (lon >= POINTPERFECT_REGIONS[i].lon1 && lon <= POINTPERFECT_REGIONS[i].lon2)) {
-        if (POINTPERFECT_REGIONS[i].freq) {
-          freq = POINTPERFECT_REGIONS[i].freq;
-        }
-        if (POINTPERFECT_REGIONS[i].region) {
-          region = POINTPERFECT_REGIONS[i].region;
-        }
-      }
-    } 
-    bool changed = false;
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      if (region) {
-        String oldRegion = json.containsKey(CONFIG_VALUE_REGION) ? json[CONFIG_VALUE_REGION] : String();
-        if (!oldRegion.equals(region)) {
-          json[CONFIG_VALUE_REGION] = region;
-          changed = true;
-        }
-      } else if (json.containsKey(CONFIG_VALUE_REGION)) { // we leave coverage area
-        json.remove(CONFIG_VALUE_REGION);
-        changed = true;
-      }
-      if (freq) {
-        int oldFreq = json.containsKey(CONFIG_VALUE_FREQ) ? json[CONFIG_VALUE_FREQ] : 0;
-        if (freq != oldFreq) {
-            json[CONFIG_VALUE_FREQ] = freq;
-            changed = true;
-        }
-      }
-      if (changed) 
-        json.garbageCollect();
-      xSemaphoreGive(mutex); 
-    }
-    if (changed) {
-      log_i("region \"%s\" freq %d", region ? region : "", freq);
-      save();
-    }
-  }
- 
-  /** delete the zero touch provisioning credentials
-   */
-  void delZtp(void) {
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      json.remove(CONFIG_VALUE_BROKERHOST);
-      json.remove(CONFIG_VALUE_STREAM);
-      json.remove(CONFIG_VALUE_ROOTCA);
-      json.remove(CONFIG_VALUE_CLIENTCERT);
-      json.remove(CONFIG_VALUE_CLIENTKEY);
-      json.remove(CONFIG_VALUE_CLIENTID);
-      json.garbageCollect();
-      xSemaphoreGive(mutex); 
-    }
-    log_i("ZTP deleted");
-  }
-
-  /** set the pointperfect credentials and certificates from the ZTP process
-   *  \param ztp     the ZTP JSON response 
-   *  \param rootCa  the AWS root certificate
-   *  \return        the clinet id of the board
-   */
-  String setZtp(String &ztp, String &rootCa) {
-    String id;
-    StaticJsonDocument<200> filter;
-    filter["clientId"] = true;
-    filter["certificate"] = true;
-    filter["privateKey"] = true;
-    filter["brokerHost"] = true;
-    filter["supportsLband"] = true;
-    DynamicJsonDocument jsonZtp(4*1024);
-    DeserializationError error = deserializeJson(jsonZtp, ztp.c_str(), DeserializationOption::Filter(filter));
-    if (DeserializationError::Ok != error) {
-      log_e("deserializeJson failed with error %d", error);
-    } else {
-      id = (const char*)jsonZtp["clientId"];
-      String cert = jsonZtp["certificate"];
-      String key = jsonZtp["privateKey"];
-      String broker = jsonZtp["brokerHost"];
-      bool lband = jsonZtp["supportsLband"];
-      if (cert.length() && key.length() && id.length() && broker.length() && rootCa.length()) {
-        log_i("ZTP complete clientId is \"%s\"", id.c_str());
-        if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-          json[CONFIG_VALUE_BROKERHOST] = broker;
-          json[CONFIG_VALUE_STREAM]     = lband ? MQTT_STREAM_LBAND : MQTT_STREAM_IP;
-          json[CONFIG_VALUE_ROOTCA]     = rootCa;
-          json[CONFIG_VALUE_CLIENTCERT] = cert;
-          json[CONFIG_VALUE_CLIENTKEY]  = key;
-          json[CONFIG_VALUE_CLIENTID]   = id;
-          json.garbageCollect();
-          xSemaphoreGive(mutex); 
-        }
-        save();
-      } else {
-        log_e("some json fields missing");
-      }
-    }
-    return id;
-  }
-
-  /** create a ZTP request to be sent to thingstream JSON API
-   *  \return  the ZTP request string to POST
-   */
-  String ztpRequest(void) {
-    String token;
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      token = json.containsKey(CONFIG_VALUE_ZTPTOKEN) ? json[CONFIG_VALUE_ZTPTOKEN] : String();
-      xSemaphoreGive(mutex); 
-    }
-    String str;
-    if (token.length()) {
-      DynamicJsonDocument json(256);
-      json["tags"][0] = "ztp";
-      json["token"]   = token.c_str();
-      json["hardwareId"] = getDeviceName();
-      json["givenName"] = getDeviceTitle();
-      if (0 < serializeJson(json,str)) {
-        log_v("ZTP request %s", str.c_str());
-      }
-    }
-    return str;
-  }
-
-protected:
-  
-  /** initialize the file system 
-   *  \return  sucess of operation
-   */
-  bool ffsInit(void) {
-    if (ffsOk) {
-      SPIFFS.end();
-    }
-    ffsOk = SPIFFS.begin();
-    if (!ffsOk) {
-      log_i("formating");
-      if (!SPIFFS.format()) {
-        log_e("format failed");
-      } else {
-        ffsOk = SPIFFS.begin();
-      }
-    }
-    return ffsOk;
   }    
 
-  DynamicJsonDocument json;   //!< a local copy of the json buffer
-  SemaphoreHandle_t mutex;    //!< protects json and FFS
-  bool ffsOk;                 //!< flag if the FFS is ok
-  String title;               //!< the title of the device
-  String name;                //!< the name of the device
+  uint32_t getLbandFreq(const char* region) {
+    uint32_t freq = 0;
+    if (*region) {
+      char key[16];
+      sprintf(key, CONFIG_FORMAT_FREQ, region);
+      if (nvs.isKey(key)) {
+        freq = nvs.getULong(key);
+      }
+    }
+    return freq; 
+  }
+  
+  String title;                     //!< the title of the device
+  String name;                      //!< the name of the device
+  
+  Preferences nvs;                  
+  USE_SOURCE useSource;
+  uint32_t lbandFreq;
+  
+  SemaphoreHandle_t mutex;          //!< protects nvs and variables below
+  String servceRegion;              //!< service Region 
+  String mqttStream;
+  String ntripGga;                  //!< gga String
+  std::vector<String> mqttTopics;
 };
    
 CONFIG Config; //!< The global CONFIG object

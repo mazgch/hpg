@@ -45,7 +45,7 @@ const int WLAN_TASK_PRIO          =           1;  //!< Wlan task priority
 const int WLAN_TASK_CORE          =           1;  //!< Wlan task MCU code
 
 const char* LED_TASK_NAME         =       "Led";  //!< Led task name
-const int LED_STACK_SIZE          =      1*1024;  //!< led task stack size
+const int LED_STACK_SIZE          =         600;  //!< led task stack size
 const int LED_TASK_PRIO           =           2;  //!< led task priority
 const int LED_TASK_CORE           =           1;  //!< led task MCU code
 
@@ -125,7 +125,7 @@ protected:
             "<p>Don't have a device profile or u-center-config.json? Visit the <a href=\"https://portal.thingstream.io/app/location-services\">Thingstream Portal</a> to create one.</p>");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_ZTPTOKEN, 
             "Device Profile Token or load a <a href=\"#\" onclick=\"document.getElementById('file').click();\">JSON</a> file<input hidden accept=\".json,.csv\" type=\"file\" id=\"file\" onchange=\"_l(this);\"/>", 
-            Config.getValue(CONFIG_VALUE_ZTPTOKEN).c_str(), 36, " type=\"password\" placeholder=\"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxxx\" pattern=\"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\"");
+            Config.getValue(CONFIG_VALUE_ZTPTOKEN).c_str(), 36, " onkeyup=\"_s('" CONFIG_VALUE_CLIENTID "','');\" type=\"password\" placeholder=\"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxxx\" pattern=\"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\"");
     updateManagerParameters();
     new (&parameters[p++]) WiFiManagerParameter(bufParam);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_LTEAPN, "APN", Config.getValue(CONFIG_VALUE_LTEAPN).c_str(), 64);
@@ -184,12 +184,14 @@ protected:
    */
   void saveParamCallback(void) {
     int args = manager.server->args();
-    bool save = false;
+    bool changed = false;
+    CONFIG::USE_SOURCE useSrc = Config.getUseSource();
     for (uint8_t i = 0; i < args; i++) {
       String param = manager.server->argName(i);
       String value = manager.server->arg(param);
       log_d("\"%s\" \"%s\"", param.c_str(), value.c_str());
       if (param.equals(CONFIG_VALUE_ROOTCA) || param.equals(CONFIG_VALUE_CLIENTCERT) || param.equals(CONFIG_VALUE_CLIENTKEY)) {
+        // convert the certificates and keys into the appropriate format 
         String tag = param.equals(CONFIG_VALUE_CLIENTKEY) ? "RSA PRIVATE KEY" : "CERTIFICATE";
         String out = "-----BEGIN " + tag + "-----\n";
         while (value.length()) {
@@ -199,23 +201,23 @@ protected:
         out += "-----END " + tag + "-----\n";
         value = out;
       }
-      bool changed = Config.setValue(param.c_str(), value);
-      if (changed) {
-        save = true;
-        if (param.equals(CONFIG_VALUE_ZTPTOKEN) && (value.length()>0)) {
+      if (param.equals(CONFIG_VALUE_USESOURCE)) {
+        useSrc = (CONFIG::USE_SOURCE)value.toInt();
+        changed = true;
+      } else if (Config.setValue(param.c_str(), value)) {
+        changed = true;
+        if (param.equals(CONFIG_VALUE_ZTPTOKEN)) {
           Config.delZtp();      
         }
       }
     }
-    if (save) {
-      Config.save();
-      updateManagerParameters();
-      // something has changed - we should issue a restart for the WIFI (and LTE) state machines  
-      if ((state == NTRIP) || (state== MQTT)) {
-        ntripStop();
-        mqttStop();
-        setState(ONLINE);
+    if (changed) {
+      if (Config.setUseSource(useSrc)) {
+        changed = true;
       }
+    }
+    if (changed) {
+      updateManagerParameters();
     }
   }
 
@@ -233,7 +235,7 @@ protected:
                                    "<select id=\"%s\" name=\"%s\">", CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE);
     const char* NTRIP = "NTRIP";
     const char* POINTPERFECT = "PointPerfect";
-    const struct { const char* group; const char* str; } optSource[] = { 
+    const struct { const char* service; const char* value; } optSource[] = { 
       { NULL,         "none"                },
       //              ---- PointPerfect ---- 
       { POINTPERFECT, "WLAN + LTE + LBAND", },
@@ -244,34 +246,32 @@ protected:
       { POINTPERFECT, "LTE",                },
       { POINTPERFECT, "LBAND",              },
       //              ---- NTRIP -----
-      { NTRIP,        "WLAN + LTE",         }, 
+      { NTRIP,        "WLAN + LTE",         },
       { NTRIP,        "WLAN",               },
-      { NTRIP,        "LTE",                }
+      { NTRIP,        "LTE",                },
     };
-    String selected = Config.getValue(CONFIG_VALUE_USESOURCE); 
-    if (!selected.length()) {
-      selected = optSource[0].str; 
-      Config.setValue(CONFIG_VALUE_USESOURCE, selected);
-    }
-    const char* group = NULL;
+    CONFIG::USE_SOURCE curUseSrc = (CONFIG::USE_SOURCE)(Config.getUseSource() & CONFIG::USE_SOURCE::CONFIG_MASK); 
+    const char* service = NULL;
     for (int i = 0; i < sizeof(optSource)/sizeof(*optSource); i ++) {
-      String value = optSource[i].str;
-      if (optSource[i].group) {
-        value = String(optSource[i].group) + ": " + value;
-        if (group != optSource[i].group) {
-          len += sprintf(&bufParam[len], "<option disabled>---- %s ----</option>", optSource[i].group); 
-        }
+      if (optSource[i].service && (service != optSource[i].service)) {
+        len += sprintf(&bufParam[len], "<option disabled>---- %s ----</option>", optSource[i].service); 
       }
-      group = optSource[i].group;
-      len += sprintf(&bufParam[len], "<option%s value=\"%s\">%s</option>", 
-              selected.equals(value) ? " selected" : "", value.c_str(), optSource[i].str);
+      CONFIG::USE_SOURCE useSrc = (CONFIG::USE_SOURCE)( 
+              ((optSource[i].service == POINTPERFECT) ? CONFIG::USE_SOURCE::USE_POINTPERFECT : 0) |  
+              ((optSource[i].service == NTRIP)        ? CONFIG::USE_SOURCE::USE_NTRIP        : 0) |
+              (strstr(optSource[i].value, "WLAN")     ? CONFIG::USE_SOURCE::USE_WLAN         : 0) |
+              (strstr(optSource[i].value, "LTE")      ? CONFIG::USE_SOURCE::USE_LTE          : 0) |
+              (strstr(optSource[i].value, "LBAND")    ? CONFIG::USE_SOURCE::USE_LBAND        : 0) );
+      len += sprintf(&bufParam[len], "<option%s value=\"%d\">%s</option>", 
+              (curUseSrc == useSrc) ? " selected" : "", useSrc, optSource[i].value);
+      service = optSource[i].service;
     }
     
     len += sprintf(&bufParam[len],  "</select>"
                             "<p style=\"font-weight:bold;\">LTE configuration</p>"
                             "<label for=\"%s\">MNO Profile</label><br>"
                             "<select id=\"%s\" name=\"%s\">", CONFIG_VALUE_MNOPROF, CONFIG_VALUE_MNOPROF, CONFIG_VALUE_MNOPROF);
-    const struct { uint8_t val; const char* str; } optMno[] = {   
+    const struct { mobile_network_operator_t mno; const char* str; } optMno[] = {   
       { MNO_SIM_ICCID,      "SIM ICCID"               },
       { MNO_GLOBAL,         "Global"                  },
       { MNO_STD_EUROPE,     "Standard Europe"         },
@@ -291,16 +291,10 @@ protected:
       { MNO_CT,             "China Telecom"           },
       { MNO_SW_DEFAULT,     "Undefined / regulatory"  }
     };
-    uint8_t mno = MNO_GLOBAL;
-    selected = Config.getValue(CONFIG_VALUE_MNOPROF);
-    if (selected.length()) {
-      mno = (mobile_network_operator_t)selected.toInt();
-    } else {
-      mno = MNO_GLOBAL;
-      Config.setValue(CONFIG_VALUE_MNOPROF, String(mno));
-    }
+    String strMno = Config.getValue(CONFIG_VALUE_MNOPROF);
+    mobile_network_operator_t curMno = strMno.length() ? (mobile_network_operator_t)strMno.toInt() : MNO_GLOBAL;
     for (int i = 0; i < sizeof(optMno)/sizeof(*optMno); i ++) {
-      len += sprintf(&bufParam[len], "<option%s value=\"%d\">%s</option>", (mno == optMno[i].val) ? " selected" : "", optMno[i].val, optMno[i].str);
+      len += sprintf(&bufParam[len], "<option%s value=\"%d\">%s</option>", (curMno == optMno[i].mno) ? " selected" : "", optMno[i].mno, optMno[i].str);
     } 
     len += sprintf(&bufParam[len], "</select>");
   }
@@ -312,16 +306,19 @@ protected:
   std::vector<String> topics;       //!< vector with current subscribed topics
   WiFiClientSecure mqttWifiClient;  //!< the secure wifi client used for MQTT 
   MqttClient mqttClient;            //!< the secure MQTT client 
-  
+   
   /** Try to provision the PointPerfect to that we can start the MQTT server. This involves: 
    *  1) HTTPS request is made to AWS to GET theri ROOT CA
    *  2) HTTPS request to Thingstream POSTing the device tocken to get the credentials and client cert, key and ID
-   *  \return the client id assigned to this board
+   *  \return provision sucess status;
    */
-  String mqttProvision(void) {
-    String id; 
+  bool mqttProvision(void) {
+    String id = Config.getValue(CONFIG_VALUE_CLIENTID);
+    if (0 < id.length()) {
+      return true;
+    }
     String ztpReq = Config.ztpRequest();
-    if (ztpReq.length()) {
+    if (0 < ztpReq.length()) {
       // Fetch the AWS Root CA
       HTTPClient http;
       http.begin(AWSTRUST_ROOTCAURL);
@@ -348,42 +345,49 @@ protected:
           log_e("HTTP ZTP response error %d %s", httpResponseCode, ztp.c_str());
         } else {
           log_d("HTTP ZTP response %s", ztp.c_str());
-          id = Config.setZtp(ztp, rootCa);
+          if (Config.setZtp(ztp, rootCa)) {
+            updateManagerParameters();
+            return true;
+          }
         }
       }
     }
-    return id;
+    return false;
   }
   
   /** Connect to the Thingstream PointPerfect server using the credentials from ZTP process
-   *  \param id  the client ID for this device
+   *  \return  success status
    */
-  bool mqttConnect(String id) {
-    String broker = Config.getValue(CONFIG_VALUE_BROKERHOST);
-    String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
-    String cert = Config.getValue(CONFIG_VALUE_CLIENTCERT);
-    String key = Config.getValue(CONFIG_VALUE_CLIENTKEY);
-    mqttWifiClient.setCACert(rootCa.c_str());
-    mqttWifiClient.setCertificate(cert.c_str());
-    mqttWifiClient.setPrivateKey(key.c_str());
-    const char* idStr = id.c_str();
-    const char* brokerStr = broker.c_str();
-    mqttClient.setId(idStr);
-    mqttClient.onMessage(onMQTTStatic);
-    mqttClient.setKeepAliveInterval(60 * 1000);
-    mqttClient.setConnectionTimeout( 5 * 1000);
-    if (mqttClient.connect(brokerStr, MQTT_BROKER_PORT)) {
-      log_i("server \"%s:%d\" as client \"%s\"", brokerStr, MQTT_BROKER_PORT, idStr);
-    } else {
-      int err = mqttClient.connectError(); 
-      const char* LUT[] = { "REFUSED", "TIMEOUT", "OK", "PROT VER", "ID BAD", "SRV NA", "BAD USER/PWD", "NOT AUTH" };
-      log_e("server \"%s\":%d as client \"%s\" failed with error %d(%s)",
-                brokerStr, MQTT_BROKER_PORT, idStr, err, LUT[err + 2]);
-      if (err == MQTT_CONNECTION_REFUSED) {
-        log_i("%d bytes free, heap memory may be too low for SSL client, try remove features like BLUETOOTH", ESP.getFreeHeap());
+  bool mqttConnect(void) {
+    String id = Config.getValue(CONFIG_VALUE_CLIENTID);
+    if (0 < id.length()) {
+      String broker = Config.getValue(CONFIG_VALUE_BROKERHOST);
+      String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
+      String cert = Config.getValue(CONFIG_VALUE_CLIENTCERT);
+      String key = Config.getValue(CONFIG_VALUE_CLIENTKEY);
+      mqttWifiClient.setCACert(rootCa.c_str());
+      mqttWifiClient.setCertificate(cert.c_str());
+      mqttWifiClient.setPrivateKey(key.c_str());
+      const char* idStr = id.c_str();
+      const char* brokerStr = broker.c_str();
+      mqttClient.setId(idStr);
+      mqttClient.onMessage(onMQTTStatic);
+      mqttClient.setKeepAliveInterval(60 * 1000);
+      mqttClient.setConnectionTimeout( 5 * 1000);
+      if (mqttClient.connect(brokerStr, MQTT_BROKER_PORT)) {
+        log_i("server \"%s:%d\" as client \"%s\"", brokerStr, MQTT_BROKER_PORT, idStr);
+      } else {
+        int err = mqttClient.connectError(); 
+        const char* LUT[] = { "REFUSED", "TIMEOUT", "OK", "PROT VER", "ID BAD", "SRV NA", "BAD USER/PWD", "NOT AUTH" };
+        log_e("server \"%s\":%d as client \"%s\" failed with error %d(%s)",
+                  brokerStr, MQTT_BROKER_PORT, idStr, err, LUT[err + 2]);
+        if (err == MQTT_CONNECTION_REFUSED) {
+          log_i("%d bytes free, heap memory may be too low for SSL client, try remove features like BLUETOOTH", ESP.getFreeHeap());
+        }
       }
+      return mqttClient.connected();
     }
-    return mqttClient.connected();
+    return false;
   }
   
   /** Disconnect and cleanup the MQTT connection
@@ -406,7 +410,7 @@ protected:
    *  2) unsubscribing from topics 
    */
   void mqttTask(void) {
-    std::vector<String> newTopics = Config.getTopics();
+    std::vector<String> newTopics = Config.getMqttTopics();
     // filter out the common ones that need no change 
     for (auto rit = topics.rbegin(); rit != topics.rend(); rit = std::next(rit)) {
       String topic = *rit;
@@ -444,12 +448,10 @@ protected:
           log_i("topic \"%s\" with %d bytes", topic.c_str(), msg.size); 
           if (topic.startsWith(MQTT_TOPIC_KEY_FORMAT)) {
             msg.source = GNSS::SOURCE::KEYS;
-            if (Config.setValue(CONFIG_VALUE_KEY, msg.data, msg.size)) {
-              Config.save();
-            }
+            Config.setValue(CONFIG_VALUE_KEY, msg.data, msg.size);
           }
           if (topic.equals(MQTT_TOPIC_FREQ)) {
-            Config.setLbandFreqs(msg.data, msg.size);
+            Config.updateLbandFreqs(msg.data, msg.size);
             delete [] msg.data; // not injecting to queue to the GNSS, so we need to delete the buffer here
           } else {
             Gnss.inject(msg); // we do not have to delete msg.data here, this is done by receiving side of the queue 
@@ -459,7 +461,7 @@ protected:
           delete [] msg.data;
         }
       } else {
-        log_e("topic \"%s\" with %d bytes failed, no memory", topic.c_str(), msg.size);
+        log_e("topic \"%s\" with %d bytes failed, no memory", topic.c_str(), messageSize);
       }
     }
   }
@@ -476,10 +478,10 @@ protected:
   WiFiClient ntripWifiClient;   //!< the wifi client used for ntrip
   
   /** Connect to a NTRIP server
-   *  \param ntrip  the server:port/mountpoint to connect
    *  \return       connection success
    */
-  bool ntripConnect(String ntrip) {
+  bool ntripConnect(void) {
+    String ntrip = Config.getValue(CONFIG_VALUE_NTRIP_SERVER);
     int pos1 = ntrip.indexOf(':');
     int pos2 = ntrip.indexOf('/');
     pos1 = (-1 == pos1) ? pos2 : pos1;
@@ -571,8 +573,8 @@ protected:
     long now = millis();
     if (ntripGgaMs - now <= 0) {
       ntripGgaMs = now + NTRIP_GGA_RATE;
-      String gga = Config.getValue(CONFIG_VALUE_NTRIP_GGA);
-      if (0 < gga.length()) {
+      String gga;
+      if (Config.getGga(gga)) {
         const char* strGga = gga.c_str();
         int wrote = ntripWifiClient.println(strGga);
         if (wrote != gga.length())
@@ -758,25 +760,23 @@ protected:
         mqttClient.poll();
       }
       int32_t now = millis();
-      bool online  = WiFi.status() == WL_CONNECTED;
-      if (!online && wasOnline) {
+      bool onlineWlan  = WiFi.status() == WL_CONNECTED;
+      if (!onlineWlan && wasOnline) {
         log_w("lost connection");
         wasOnline = false;
         ttagNextTry = now;
-      } else if (!wasOnline && online) {
+      } else if (!wasOnline && onlineWlan) {
         log_i("got connection");
         ttagNextTry = now;
       }
-      wasOnline = online;
+      wasOnline = onlineWlan;
       Websocket.poll();
       if (0 >= (ttagNextTry - now)) {
         ttagNextTry = now + WLAN_1S_RETRY;
-        String id     = Config.getValue(CONFIG_VALUE_CLIENTID);
-        String ntrip  = Config.getValue(CONFIG_VALUE_NTRIP_SERVER);
-        String useSrc = Config.getValue(CONFIG_VALUE_USESOURCE);
-        bool useWlan  = (-1 != useSrc.indexOf("WLAN"));
-        bool useNtrip = useWlan && useSrc.startsWith("NTRIP:");
-        bool useMqtt  = useWlan && useSrc.startsWith("PointPerfect:");
+        CONFIG::USE_SOURCE useSrc = Config.getUseSource();
+        bool useWlan   = (useSrc & CONFIG::USE_SOURCE::USE_WLAN) && onlineWlan;
+        bool useNtrip = useWlan && (useSrc & CONFIG::USE_SOURCE::USE_NTRIP);
+        bool useMqtt  = useWlan && (useSrc & CONFIG::USE_SOURCE::USE_POINTPERFECT);
         switch (state) {
           case INIT:
             ttagNextTry = now + WLAN_INIT_RETRY;
@@ -785,13 +785,13 @@ protected:
             break;
           case SEARCHING:
             ttagNextTry = now + WLAN_RECONNECT_RETRY;
-            if (online) {
+            if (onlineWlan) {
               portalStart();
               setState(CONNECTED); // allow some time for dns to resolve. 
             }
             break;
           case CONNECTED:
-            if (online) { 
+            if (onlineWlan) { 
               // test if we have access to the internet
               IPAddress ip;
               if (WiFi.hostByName(AWSTRUST_SERVER, ip)) {
@@ -801,40 +801,40 @@ protected:
             break;
           case ONLINE:
             if (useMqtt) {
-              if (0 == id.length()) {
-                ttagNextTry = now + WLAN_PROVISION_RETRY;
-                id = mqttProvision();
-              }
-              // we may now have a id if ZTP was sucessful
-              if (0 < id.length()){
+              if (useSrc & CONFIG::USE_SOURCE::USE_CLIENTID) {
                 ttagNextTry = now + WLAN_CONNECT_RETRY;
-                if (mqttConnect(id)) {
+                if (mqttConnect()) {
                   setState(MQTT);
                 }
-              } 
+              } else if (useSrc & CONFIG::USE_SOURCE::USE_ZTPTOKEN) {
+                ttagNextTry = now + WLAN_PROVISION_RETRY;
+                if (mqttProvision()) {
+                  setState(ONLINE);
+                }
+              }
             } else if (useNtrip) {
-              if (0 < ntrip.length()) {
+              if (useSrc & CONFIG::USE_SOURCE::USE_NTRIP_SERVER) {
                 ttagNextTry = now + WLAN_CONNECT_RETRY;
-                if (ntripConnect(ntrip)) {
+                if (ntripConnect()) {
                   setState(NTRIP);
                 }
               }
             }
             break;
           case MQTT:
-            if (!useMqtt || (0 == id.length()) || !mqttClient.connected()) {
+            if (useMqtt && (useSrc & CONFIG::USE_SOURCE::USE_CLIENTID) && mqttClient.connected()) {
+              mqttTask();
+            } else {
               mqttStop();
               setState(ONLINE);
-            } else {
-              mqttTask();
-            }
+            } 
             break;
           case NTRIP: 
-            if (!useNtrip || (0 == ntrip.length()) || !ntripWifiClient.connected()) {
+            if (useNtrip && (useSrc & CONFIG::USE_SOURCE::USE_NTRIP_SERVER) && ntripWifiClient.connected()) {
+              ntripTask();
+            } else {
               ntripStop();
               setState(ONLINE);
-            } else {
-              ntripTask();
             }
             break;
           default:
@@ -863,39 +863,44 @@ const char WLAN::PORTAL_HTML[] = R"html(
   button,input[type='button'],input[type='submit']{background-color:rgb(255,76,0);}
 </style>
 <script>
+  function _s(_n,_v,_h){
+    var _e=document.getElementById(_n);
+    if (!_e) {
+      _e=document.createElement('input');
+      if (_e) {
+        _e.id=_n;
+        _i.appendChild(_e);
+      }
+    }
+    if (_e) {
+      _e.value=_v;
+      _e.name=_n;
+      if (_h) {
+        _e.setAttribute('hidden','');
+      } else { 
+        _e.removeAttribute('hidden');
+      }
+    }
+  }
+  function _d(){
+    try {
+      var _j = JSON.parse(_r.result);
+      var _c = _j.MQTT.Connectivity;
+      var _o = { };
+      _s('clientId', _c.ClientID);
+      _s('brokerHost', _c.ServerURI.match(/\s*:\/\/(.*):\d+/)[1]);
+      _c = _c.ClientCredentials;
+      _s('clientKey', _c.Key, true);
+      _s('clientCert', _c.Cert, true);
+      _s('rootCa', _c.RootCA, true);
+      _s('stream', _j.MQTT.Subscriptions.Key.KeyTopics[0].match(/.{2}$/)[0]);
+      _s('ztpToken', '');
+      _i.value = '';
+    } catch(e) { alert('bad json content'); }
+  };
   function _l(_i){
     var _r = new FileReader();
-    function _s(_n,_v,_h){
-      var _e=document.getElementById(_n);
-      if (!_e) {
-        _e=document.createElement('input');
-        if (_e) {
-          _e.id=_n;
-          _i.appendChild(_e);
-        }
-      }
-      if (_e) {
-        _e.name=_n;
-        _e.value=_v;
-      }
-      if (_e && (null != _h)) _h ? _e.setAttribute('hidden','') : _e.removeAttribute('hidden')
-    }
-    _r.onload = function _d(){
-      try {
-        var _j = JSON.parse(_r.result);
-        var _c = _j.MQTT.Connectivity;
-        var _o = { };
-        _s('clientId', _c.ClientID);
-        _s('brokerHost', _c.ServerURI.match(/\s*:\/\/(.*):\d+/)[1]);
-        _c = _c.ClientCredentials;
-        _s('clientKey', _c.Key, true);
-        _s('clientCert', _c.Cert, true);
-        _s('rootCa', _c.RootCA, true);
-        _s('stream', _j.MQTT.Subscriptions.Key.KeyTopics[0].match(/.{2}$/)[0]);
-        _s('ztpToken', '');
-        _i.value = '';
-      } catch(e) { alert('bad json content'); }
-    };
+    _r.onload = _d;
     if (_i.files[0]) _r.readAsText(_i.files[0]);
   };
 </script>

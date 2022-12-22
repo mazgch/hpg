@@ -243,10 +243,11 @@ public:
         // Forward also messages from the IP services (LTE and WIFI) to the GUI though the WEBSOCKET
         // LBAND and GNSS are already sent directly, and we dont want KEYS and WEBSOCKET injections to loop back to the GUI
         if ((msg.source == WLAN) || (msg.source == LTE)) {
-          Websocket.write(msg.data, msg.size, (msg.source == LTE)  ? WEBSOCKET::SOURCE::LTE : WEBSOCKET::SOURCE::WLAN);
+          Websocket.write(msg.data, msg.size, (msg.source == LTE) ? WEBSOCKET::SOURCE::LTE : WEBSOCKET::SOURCE::WLAN);
+        } else {
+          delete [] msg.data;
+          msg.data = NULL;
         }
-        delete [] msg.data;
-        msg.data = NULL;
       }
     }
   }
@@ -347,7 +348,8 @@ protected:
         crc ^= string[i];
       }
       len += sprintf(&string[len], "*%02X", crc);
-      Config.setValue(CONFIG_VALUE_NTRIP_GGA, string);
+      String gga = string;
+      Config.setGga(gga);
     }
   } 
   

@@ -52,23 +52,21 @@ public:
     bool ok = rx.begin(UbxWire, LBAND_I2C_ADR);
     if (ok) {
       log_i("receiver detected");
+      String region;
+      curFreq = 0;
+      Config.getLbandCfg(region, curFreq);
       String fwver = GNSS::version("LBAND", &rx);
       qzss = fwver.startsWith("QZS");
-      String useSrc = Config.getValue(CONFIG_VALUE_USESOURCE);
-      bool useLband = (-1 != useSrc.indexOf("LBAND"));
       GNSS_CHECK_INIT;
       GNSS_CHECK(1) = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
       if (qzss) { // NEO-D9C
-        curFreq = 0;
-        curPower = useLband && Config.getValue(CONFIG_VALUE_REGION).equals("jp");
         rx.setRXMQZSSL6messageCallbackPtr(onRXMQZSSL6);
         // prepare the UART 2
         GNSS_CHECK(2) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1, VAL_LAYER_RAM);
         // prepare I2C
         GNSS_CHECK(3) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1, VAL_LAYER_RAM);  
+        curPower = region.equals("jp");
       } else { // NEO-D9S
-        curFreq = Config.getFreq();
-        curPower = useLband && (0 < curFreq);
         rx.setRXMPMPmessageCallbackPtr(onRXMPMP);
         // prepare the UART 2
         GNSS_CHECK(4) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2,     1, VAL_LAYER_RAM);
@@ -79,11 +77,16 @@ public:
         // https://developer.thingstream.io/guides/location-services/pointperfect-getting-started/pointperfect-l-band-configuration
         GNSS_CHECK(7) = rx.setVal8(0x10b10016,                            0, VAL_LAYER_RAM);
         GNSS_CHECK(8) = rx.setVal16(0x30b10015,                      0x6959, VAL_LAYER_RAM);
-        GNSS_CHECK(9)= rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY, curFreq, VAL_LAYER_RAM);
+        if (curFreq) {
+          GNSS_CHECK(9)= rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY,curFreq, VAL_LAYER_RAM);
+        }
+        curPower = (0 < curFreq);
       }
       online = ok = GNSS_CHECK_OK;
       GNSS_CHECK_EVAL("configuration");
       if (ok) {
+        CONFIG::USE_SOURCE useSrc = Config.getUseSource();
+        curPower = ((useSrc & CONFIG::USE_SOURCE::USE_LBAND) && (useSrc & CONFIG::USE_SOURCE::USE_POINTPERFECT)) ? curPower : false;
         rx.softwareEnableGNSS(curPower);
         if (qzss) {
           log_i("configuration complete, receiver online, %s", curPower ? "started" : "stopped");
@@ -169,28 +172,32 @@ protected:
    */
   void config(void) {
     // do update the ferquency from time to time
-    String useSrc = Config.getValue(CONFIG_VALUE_USESOURCE);
-    bool useLband = (-1 != useSrc.indexOf("LBAND"));
-    bool newPower;
-    if (qzss) {
-      newPower = useLband && Config.getValue(CONFIG_VALUE_REGION).equals("jp");
-    } else {
-      int newFreq = Config.getFreq();
-      newPower = useLband && (0 < newFreq);
-      if (newPower && (curFreq != newFreq)) {
-        if (rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY, newFreq, VAL_LAYER_RAM)) {
-          curFreq = newFreq;
-          if (curPower) {
-            rx.softwareResetGNSSOnly();
-            log_i("config freq %d, reset", newFreq);
-          } else {
-            rx.softwareEnableGNSS(true);
-            curPower = true;
-            log_i("config freq %d, started", newFreq);
-          }
+    bool newPower = false;
+    CONFIG::USE_SOURCE useSrc = Config.getUseSource();
+    if ((useSrc & CONFIG::USE_SOURCE::USE_LBAND) && (useSrc & CONFIG::USE_SOURCE::USE_POINTPERFECT)) {
+      String region;
+      uint32_t newFreq = 0;
+      if (Config.getLbandCfg(region, newFreq)) {
+        if (qzss) {
+          newPower = region.equals("jp");
         } else {
-          log_w("config freq %d, failed, retry later", newFreq);
-          newPower = curPower; // don't change the power in that case
+          newPower = (0 < newFreq);
+          if (newPower && (curFreq != newFreq)) {
+            if (rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY, newFreq, VAL_LAYER_RAM)) {
+              curFreq = newFreq;
+              if (curPower) {
+                rx.softwareResetGNSSOnly();
+                log_i("config freq %lu, reset", newFreq);
+              } else {
+                rx.softwareEnableGNSS(true);
+                curPower = true;
+                log_i("config freq %lu, started", newFreq);
+              }
+            } else {
+              log_w("config freq %lu, failed, retry later", newFreq);
+              newPower = curPower; // don't change the power in that case
+            }
+          }
         }
       }
     }

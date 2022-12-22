@@ -96,6 +96,7 @@ protected:
   String subTopic;            //!< requested topic to be subscribed (needed by the callback) 
   String unsubTopic;          //!< requested topic to be un-subscribed (needed by the callback)
   int mqttMsgs;               //!< remember the number of messages pending indicated by the URC
+  bool mqttConnected;         //!< flag that indicates connect status
 
   //! this helper deals with some AT commands that are not yet implemted in LENA-R8 and throw a warning
   SARA_R5_error_t LTE_IGNORE_LENA(SARA_R5_error_t err) { 
@@ -155,9 +156,9 @@ protected:
   }
 
   /** Connect to the Thingstream PointPerfect server using the credentials from ZTP process
-   *  \param id  the client ID for this device
    */
-  void mqttConnect(String id) {
+  void mqttConnect(void) {
+    String id = Config.getValue(CONFIG_VALUE_CLIENTID);
     String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
     String broker = Config.getValue(CONFIG_VALUE_BROKERHOST);
     String cert = Config.getValue(CONFIG_VALUE_CLIENTCERT);
@@ -219,7 +220,7 @@ protected:
      */
     bool busy = (0 < subTopic.length()) || (0 < unsubTopic.length());
     if (!busy) {
-      std::vector<String> newTopics = Config.getTopics();
+      std::vector<String> newTopics = Config.getMqttTopics();
       // loop through new topics and subscribe to the first topic that is not in our curent topics list. 
       for (auto it = newTopics.begin(); (it != newTopics.end()) && !busy; it = std::next(it)) {
         String topic = *it;
@@ -268,9 +269,7 @@ protected:
             GNSS::SOURCE source = GNSS::SOURCE::LTE;
             if (topic.startsWith(MQTT_TOPIC_KEY_FORMAT)) {
               source = GNSS::SOURCE::KEYS;
-              if (Config.setValue(CONFIG_VALUE_KEY, buf, len)) {
-                Config.save();
-              }
+              Config.setValue(CONFIG_VALUE_KEY, buf, len);
             }
             // if we detect data from a topic, then why not unsubscribe from it. 
             std::vector<String>::iterator pos = std::find(topics.begin(), topics.end(), topic);
@@ -288,7 +287,7 @@ protected:
               }
             } else if (topic.equals(MQTT_TOPIC_FREQ)) {
               // Do not inject this json data to GNSS but extract the LBAND frequencies
-              Config.setLbandFreqs(buf, (size_t)len); 
+              Config.updateLbandFreqs(buf, (size_t)len); 
             } else {
               // anything else can be sent to the GNSS as is
               len = Gnss.inject(buf, (size_t)len, source);
@@ -324,6 +323,7 @@ protected:
             log_e("login wrong state");
           } else {
             log_i("login");
+            mqttConnected = true;
             setState(MQTT, LTE_MQTTCMD_DELAY);
           }
           break;
@@ -336,6 +336,7 @@ protected:
             topics.clear();
             subTopic = "";
             unsubTopic = "";
+            mqttConnected = false;
             setState(ONLINE, LTE_MQTTCMD_DELAY);
           }
           break;
@@ -422,7 +423,7 @@ protected:
           } else if (command == SARA_R5_HTTP_COMMAND_POST_FILE) {
             // save the ZTP
             String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
-            String id = Config.setZtp(str, rootCa);
+            Config.setZtp(str, rootCa);
             setState(ONLINE);
           }
         }
@@ -442,67 +443,68 @@ protected:
   int ntripSocket;     //!< the socket handle 
 
   /** Connect to a NTRIP server
-   *  \param ntrip  the server:port/mountpoint to connect to
    *  \return       connection success
    */
-  bool ntripConnect(String ntrip) {
+  bool ntripConnect(void) {
+    String ntrip = Config.getValue(CONFIG_VALUE_NTRIP_SERVER);
     int pos1 = ntrip.indexOf(':');
     int pos2 = ntrip.indexOf('/');
     pos1 = (-1 == pos1) ? pos2 : pos1;
     String server = (-1   == pos1) ? ""                : ntrip.substring(0,pos1);
     uint16_t port = (pos1 == pos2) ? NTRIP_SERVER_PORT : ntrip.substring(pos1+1,pos2).toInt();
     String mntpnt = (-1   == pos2) ? ""                : ntrip.substring(pos2+1);
-    if ((0 == server.length()) || (0 == mntpnt.length())) return false;
-    String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
-    String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
-    //setSocketReadCallbackPlus(&onSocketData);
-    //setSocketCloseCallback(&onSocketClose); 
-    ntripSocket = socketOpen(SARA_R5_TCP);
-    if (0 <= ntripSocket) {
-      String authEnc;
-      String authHead;
-      if (0 < user.length() && 0 < pwd.length()) {
-        authEnc = base64::encode(user + ":" + pwd);
-        authHead = "Authorization: Basic ";
-        authHead += authEnc + "\r\n";
-      }                    
-      log_i("server \"%s:%d\" GET \"/%s\" auth \"%s\"", server.c_str(), port, mntpnt.c_str(), authEnc.c_str());
-      char buf[256];
-      int len = sprintf(buf, "GET /%s HTTP/1.0\r\n"
-                "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
-                "%s\r\n", mntpnt.c_str(), authHead.c_str());
-      LTE_CHECK_INIT;
-      LTE_CHECK(1) = socketConnect(ntripSocket, server.c_str(), port);
-      LTE_CHECK(2) = socketWrite(ntripSocket, buf, len);
-      int avail = 0;
-      const char* expectedReply = 0 == mntpnt.length() ? NTRIP_RESPONSE_SOURCETABLE : NTRIP_RESPONSE_ICY;
-      len = strlen(expectedReply);
-      int32_t start = millis();
-      int32_t now;
-      do {
-        vTaskDelay(10);
-        LTE_CHECK(3) = socketReadAvailable(ntripSocket, &avail);
-        now = millis();
-      } while (LTE_CHECK_OK && (0 < (start + NTRIP_CONNECT_TIMEOUT - now)) && (avail < len));
-      if (avail >= len) {
-        avail = len;
-      }
-      if (avail > 0) {
-        memset(&buf, 0, len+1);
-        LTE_CHECK(4) = socketRead(ntripSocket, avail, buf, &avail);
-      }
-      LTE_CHECK_EVAL("connect");
-      if (LTE_CHECK_OK) {
-        buf[avail] = 0;
-        if ((avail == len) && (0 == strncmp(buf, expectedReply, len))) {
-          log_i("got expected reply \"%.*s\\r\\n\"", len-2, expectedReply);
-          ntripGgaMs = now;
+    if ((0 < server.length()) || (0 < mntpnt.length())) {
+      String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
+      String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
+      //setSocketReadCallbackPlus(&onSocketData);
+      setSocketCloseCallback(socketCloseCallbackStatic); 
+      ntripSocket = socketOpen(SARA_R5_TCP);
+      if (0 <= ntripSocket) {
+        String authEnc;
+        String authHead;
+        if (0 < user.length() && 0 < pwd.length()) {
+          authEnc = base64::encode(user + ":" + pwd);
+          authHead = "Authorization: Basic ";
+          authHead += authEnc + "\r\n";
+        }                    
+        log_i("server \"%s:%d\" GET \"/%s\" auth \"%s\"", server.c_str(), port, mntpnt.c_str(), authEnc.c_str());
+        char buf[256];
+        int len = sprintf(buf, "GET /%s HTTP/1.0\r\n"
+                  "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
+                  "%s\r\n", mntpnt.c_str(), authHead.c_str());
+        LTE_CHECK_INIT;
+        LTE_CHECK(1) = socketConnect(ntripSocket, server.c_str(), port);
+        LTE_CHECK(2) = socketWrite(ntripSocket, buf, len);
+        int avail = 0;
+        const char* expectedReply = 0 == mntpnt.length() ? NTRIP_RESPONSE_SOURCETABLE : NTRIP_RESPONSE_ICY;
+        len = strlen(expectedReply);
+        int32_t start = millis();
+        int32_t now;
+        do {
+          vTaskDelay(10);
+          LTE_CHECK(3) = socketReadAvailable(ntripSocket, &avail);
+          now = millis();
+        } while (LTE_CHECK_OK && (0 < (start + NTRIP_CONNECT_TIMEOUT - now)) && (avail < len));
+        if (avail >= len) {
+          avail = len;
+        }
+        if (avail > 0) {
+          memset(&buf, 0, len+1);
+          LTE_CHECK(4) = socketRead(ntripSocket, avail, buf, &avail);
+        }
+        LTE_CHECK_EVAL("connect");
+        if (LTE_CHECK_OK) {
+          buf[avail] = 0;
+          if ((avail == len) && (0 == strncmp(buf, expectedReply, len))) {
+            log_i("got expected reply \"%.*s\\r\\n\"", len-2, expectedReply);
+            ntripGgaMs = now;
+          } else {
+            log_e("expected reply \"%.*s\\r\\n\" failed after %d ms, got \"%s\"", len-2, expectedReply, now - start, buf);
+            ntripStop();
+          }
         } else {
-          log_e("expected reply \"%.*s\\r\\n\" failed after %d ms, got \"%s\"", len-2, expectedReply, now - start, buf);
           ntripStop();
         }
-      } else {
-        ntripStop();
       }
     }
     return 0 <= ntripSocket;
@@ -554,20 +556,35 @@ protected:
       long now = millis();
       if (ntripGgaMs - now <= 0) {
         ntripGgaMs = now + NTRIP_GGA_RATE;
-        String gga = Config.getValue(CONFIG_VALUE_NTRIP_GGA);
-        int len = gga.length();
-        if (0 < len) {
+        String gga;
+        if (Config.getGga(gga)) {
+          int len = gga.length();
           gga += "\r\n";
           LTE_CHECK_INIT;
           LTE_CHECK(1) = socketWrite(ntripSocket, gga);
           LTE_CHECK_EVAL("write");
           if (LTE_CHECK_OK) {
-            log_i("write \"%.*s\\r\\n\" %d bytes",len, gga.c_str(), len+2);
+            log_i("write \"%.*s\\r\\n\" %d bytes", len, gga.c_str(), len+2);
           }
         }
       }
     }
   }  
+
+  void socketCloseCallback(int socket) {
+    if (socket != ntripSocket) {
+      log_e("close wrong socket");
+    } else if (state != NTRIP) {
+      log_e("close wrong state");
+    } else {
+      ntripSocket = -1;
+      setState(ONLINE);
+    }
+  }
+  //! static callback helper, socketCloseCallback will do the real work
+  static void socketCloseCallbackStatic(int socket) {
+    Lte.socketCloseCallback(socket);
+  }
   
   // -----------------------------------------------------------------------
   // LTE 
@@ -876,14 +893,12 @@ protected:
       int32_t now = millis();
       if (0 >= (ttagNextTry - now)) {
         ttagNextTry = now + LTE_1S_RETRY;
-        String id = Config.getValue(CONFIG_VALUE_CLIENTID);
-        String ntrip = Config.getValue(CONFIG_VALUE_NTRIP_SERVER);
-        String useSrc = Config.getValue(CONFIG_VALUE_USESOURCE);
+        CONFIG::USE_SOURCE useSrc = Config.getUseSource();
         bool onlineWlan = WiFi.status() == WL_CONNECTED;
-        bool useWlan   = (-1 != useSrc.indexOf("WLAN")) && onlineWlan;
-        bool useLte    = (-1 != useSrc.indexOf("LTE"))  && !useWlan;
-        bool useNtrip = useLte && useSrc.startsWith("NTRIP:");
-        bool useMqtt  = useLte && useSrc.startsWith("PointPerfect:");
+        bool useWlan   = (useSrc & CONFIG::USE_SOURCE::USE_WLAN) && onlineWlan;
+        bool useLte    = (useSrc & CONFIG::USE_SOURCE::USE_LTE)  && !useWlan;
+        bool useNtrip = useLte && (useSrc & CONFIG::USE_SOURCE::USE_NTRIP);
+        bool useMqtt  = useLte && (useSrc & CONFIG::USE_SOURCE::USE_POINTPERFECT);
         switch (state) {
           case INIT:
             ttagNextTry = now + LTE_DETECT_RETRY;
@@ -909,38 +924,39 @@ protected:
             }
             break;
           case ONLINE:
-            if (useNtrip) {
-              if (0 < ntrip.length()) {
+            if (useMqtt) {
+              if (useSrc & CONFIG::USE_SOURCE::USE_CLIENTID) {
                 ttagNextTry = now + LTE_CONNECT_RETRY;
-                if (ntripConnect(ntrip)) {
+                mqttConnect();        // callback will advance the state
+              } else if (useSrc & CONFIG::USE_SOURCE::USE_ZTPTOKEN) {
+                ttagNextTry = now + LTE_PROVISION_RETRY;
+                mqttProvision();      // callback will advance the state
+                setState(NTRIP);
+              }
+            } else if (useNtrip) {
+              if (useSrc & CONFIG::USE_SOURCE::USE_NTRIP_SERVER) {
+                ttagNextTry = now + LTE_CONNECT_RETRY;
+                if (ntripConnect()) {
                   setState(NTRIP);
                 }
-              } 
-            } else if (useMqtt) {
-              if (0 == id.length()) {
-                ttagNextTry = now + LTE_PROVISION_RETRY;
-                mqttProvision(); // callback will advance the state
-              } else {
-                ttagNextTry = now + LTE_CONNECT_RETRY;
-                mqttConnect(id); // callback will advance the state
               }
             }
             break;
           case MQTT:
-            if (!useMqtt || (0 == id.length())) {
+            if (useMqtt && (useSrc & CONFIG::USE_SOURCE::USE_CLIENTID) && mqttConnected) {
+              mqttTask();
+            } else {
               if (mqttStop()) {
                 setState(ONLINE);
               }
-            } else {
-              mqttTask();
             }
             break;
           case NTRIP: 
-            if (!useNtrip || (0 == ntrip.length())) {
+            if (useNtrip && (useSrc & CONFIG::USE_SOURCE::USE_NTRIP_SERVER) && (0 <= ntripSocket)) {
+              ntripTask();
+            } else {
               ntripStop();
               setState(ONLINE);
-            } else {
-              ntripTask();
             }
             break;
           default:
