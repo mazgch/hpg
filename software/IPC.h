@@ -187,15 +187,15 @@ protected:
 
 };
 
-//#define PIPE_BASE Stream
+#define PIPE_PRINT //!< enable this to remove the Stream read interface
 
 /** You can attach a PIPE to a QUEUE and this allos you to read and write like a buffered loopback stream 
  *  only one task should write and read this stream.
  */
-#ifndef PIPE_BASE
-class PIPE : public Print {
+#ifndef PIPE_PRINT
+class PIPE : public Stream {
 #else
-class PIPE : public PIPE_BASE {
+class PIPE : public Print {
 #endif
 
 public: 
@@ -203,7 +203,7 @@ public:
   PIPE(QUEUE &queue, ELEMENT::SOURCE source, ELEMENT::CONTENT content = ELEMENT::CONTENT::BINARY) : wrSource{source}, wrContent{content} {
     pQueue = &queue;
     wrIndex = 0; 
-#ifdef PIPE_BASE
+#ifndef PIPE_PRINT
     rdIndex = 0;
 #endif
   }
@@ -211,7 +211,7 @@ public:
   ~PIPE() {
     wr.free();
     wrIndex = 0;
-#ifdef PIPE_BASE
+#ifndef PIPE_PRINT
     do {
       rd.free();
     } while (pQueue->receive(rd, 0));
@@ -292,7 +292,7 @@ public:
     }
   }
 
-#ifdef PIPE_BASE
+#ifndef PIPE_PRINT
   // --------------------------------------------------------------------------------------
   // Stream interface: https://github.com/arduino/ArduinoCore-API/blob/master/api/Stream.h
   // --------------------------------------------------------------------------------------
@@ -302,7 +302,7 @@ public:
    */
   int available(void) override {
     if (NULL == rd.data) {
-      pQueue->receive(rd, 0);
+      pQueue->receive(rd, pdMS_TO_TICKS(_timeout));
     }
     return rd.size - rdIndex;
   }
@@ -351,7 +351,7 @@ protected:
   size_t wrIndex;
   const ELEMENT::SOURCE wrSource;
   const ELEMENT::CONTENT wrContent;
-#ifdef PIPE_BASE
+#ifndef PIPE_PRINT
 protected: 
   ELEMENT rd;
   size_t rdIndex;
@@ -413,7 +413,7 @@ void testQueuePipe(void) {
     }
     log_i("%s", element.dump().c_str());
     
-#ifdef PIPE_BASE
+#ifndef PIPE_PRINT
     const char* txtData2 = "The five boxing wizards jump quickly!";
     log_i("stream %d", ESP.getFreeHeap());
     pipeLtetoFile.print(txtData2);
