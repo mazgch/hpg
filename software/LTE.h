@@ -256,20 +256,20 @@ protected:
         log_d("read request %d msg", mqttMsgs);
         // The MQTT API does not allow getting the size before actually reading the data. So we 
         // have to allocate a big enough buffer. PointPerfect may send upto 9kB on the MGA topic.
-        uint8_t *buf = new uint8_t[MQTT_MAX_MSG_SIZE];
-        if (buf) {
+        MSG msg(MQTT_MAX_MSG_SIZE, MSG::SRC::LTE, MSG::CONTENT::CORRECTIONS); 
+        if (msg) {
           String topic;
           int len = -1;
           int qos = -1;
-          SARA_R5_error_t err = readMQTT(&qos, &topic, buf, MQTT_MAX_MSG_SIZE, &len);
+          SARA_R5_error_t err = readMQTT(&qos, &topic, msg.data, msg.size, &len);
           if (SARA_R5_SUCCESS == err) {
+            msg.shrink(len); // adjust the buffer size (free few kBs)
             mqttMsgs = 0; // expect a URC afterwards
             const char* strTopic = topic.c_str();
             log_i("topic \"%s\" read %d bytes", strTopic, len);
-            GNSS::SOURCE source = GNSS::SOURCE::LTE;
             if (topic.startsWith(MQTT_TOPIC_KEY_FORMAT)) {
-              source = GNSS::SOURCE::KEYS;
-              Config.setValue(CONFIG_VALUE_KEY, buf, len);
+              msg.content = MSG::CONTENT::KEYS;
+              Config.setValue(CONFIG_VALUE_KEY, msg.data, msg.size);
             }
             // if we detect data from a topic, then why not unsubscribe from it. 
             std::vector<String>::iterator pos = std::find(topics.begin(), topics.end(), topic);
@@ -287,16 +287,16 @@ protected:
               }
             } else if (topic.equals(MQTT_TOPIC_FREQ)) {
               // Do not inject this json data to GNSS but extract the LBAND frequencies
-              Config.updateLbandFreqs(buf, (size_t)len); 
+              Config.updateLbandFreqs(msg.data, msg.size); 
             } else {
               // anything else can be sent to the GNSS as is
-              len = Gnss.inject(buf, (size_t)len, source);
+              queueToGnss.send(msg);
             }
           } else {
             log_e("read failed with error %d", err);
           }
-          // we need to free the buffer, as the inject function took a copy with only the required size
-          delete [] buf;
+        } else {
+          log_e("dropped, no memory"); 
         }
       }
     }
@@ -534,22 +534,17 @@ protected:
       LTE_CHECK_INIT;
       LTE_CHECK(1) = socketReadAvailable(ntripSocket, &messageSize);
       if (LTE_CHECK_OK && (0 < messageSize)) {
-        GNSS::MSG msg;
-        msg.data = new uint8_t[messageSize];
-        if (NULL != msg.data) {
-          int readSize = 0;
-          LTE_CHECK(2) = socketRead(ntripSocket, messageSize, (char*)msg.data, &readSize);
-          if (LTE_CHECK_OK && (readSize == messageSize)) {
-            msg.size = readSize;
-            msg.source = GNSS::SOURCE::LTE;
-            log_i("read %d bytes", readSize);
-            Gnss.inject(msg);
+        MSG msg(messageSize, MSG::SRC::WLAN, MSG::CONTENT::CORRECTIONS);
+        if (msg) {
+          LTE_CHECK(2) = socketRead(ntripSocket, msg.size, (char*)msg.data, &messageSize);
+          if (LTE_CHECK_OK && (msg.size == messageSize)) {
+            log_i("read %d bytes", messageSize);
+            queueToGnss.send(msg);
           } else {
-            log_e("read %d bytes failed reading after %d", messageSize, readSize); 
-            delete [] msg.data;
+            log_e("read %d bytes failed reading after %d", msg.size, messageSize); 
           }
         } else {
-          log_e("read %d bytes failed, no memory", messageSize);
+          log_e("dropped %d bytes, no memory", messageSize); 
         }
       }
       LTE_CHECK_EVAL("read");
@@ -964,6 +959,7 @@ protected:
             break;
         }
       }
+      pipeSerialToSdcard.flush();
       vTaskDelay(30);
     }
   }

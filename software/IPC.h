@@ -17,38 +17,62 @@
 #ifndef __IPC_H__
 #define __IPC_H__
 
-class ELEMENT {
+class MSG {
 
 public: 
 
-  ELEMENT() {
+  MSG() {
     clear();
   }
   
-  ~ELEMENT() {
+  ~MSG() {
     free();
   }
 
-  typedef enum { NOCONTENT, TEXT, BINARY, KEYS, CORRECTIONS, CONFIG } CONTENT;
+  enum class CONTENT { NONE, TEXT, BINARY, KEYS, CORRECTIONS, CONFIG, NUM };
   
   static const char* text(CONTENT content) {
     static const char* text[] = { "none", "TEXT", "BINARY", "KEYS", "CORRECTIONS", "CONFIG" };
-    return (content < sizeof(text)/sizeof(*text)) ? text[content] : "??";
+    size_t ix = (size_t)content;
+    return (ix < sizeof(text)/sizeof(*text)) ? text[ix] : "??";
   }
   
-  typedef enum { NOSOURCE, WLAN, LTE, LBAND, GNSS, BLUETOOTH, WEBSOCKET, UART, CANBUS, APP } SOURCE;
+  enum class SRC { NONE, WLAN, LTE, LBAND, GNSS, BLUETOOTH, WEBSOCKET, SDCARD, UART, CANBUS, APP, NUM };
   
-  static const char* text(SOURCE source) {
-    static const char* text[] = { "none", "WLAN", "LTE", "LBAND", "GNSS", "BLUETOOTH", "WEBSOCKET", "UART",  "CANBUS", "APP" };
-    return (source < sizeof(text)/sizeof(*text)) ? text[source] : "??";
+  static const char* text(SRC src) {
+    static const char* text[] = { "none", "WLAN", "LTE", "LBAND", "GNSS", "BLUETOOTH", "WEBSOCKET", "SDCARD", "UART",  "CANBUS", "APP" };
+    size_t ix = (size_t)src;
+    return (ix < sizeof(text)/sizeof(*text)) ? text[ix] : "??";
   }
 
-  String dump(int maxLength = 100) {
+  MSG(const void* ptr, size_t size, SRC src, CONTENT content = CONTENT::BINARY) {
+    init(ptr, size, src, content);
+  }
+  
+  MSG(const char* string, SRC src, CONTENT _content = CONTENT::TEXT) {
+    size_t len = (NULL != string) ? strlen(string) : 0;
+    init(string, len, src, _content);
+  }
+  
+  MSG(size_t size, SRC src, CONTENT content = CONTENT::BINARY) {
+    init(NULL, size, src, content);
+  }
+  
+  operator bool() const {
+    return data != NULL;
+  }
+
+  operator String() const {
+    return dump();
+  }
+
+  String dump(int maxLength = 100) const {
     char string[maxLength];
-    int len = snprintf(string, sizeof(string), "source %d-%s content %d-%s size %d data", source, text(source), content, text(content), size);
+    int len = snprintf(string, sizeof(string), "src %s content %s size %d data", 
+              text(src), text(content), size);
     if (NULL == data) {
       len += snprintf(&string[len], sizeof(string) - len, " null");
-    } else if (content == TEXT) {
+    } else if (content == CONTENT::TEXT) {
       if (sizeof(string) - (len + 4/* space, 2 quotes and \0 */) >= size) {
         len += snprintf(&string[len], sizeof(string) - len, " \"%.*s\"", size, data);
       } else {
@@ -64,31 +88,25 @@ public:
         len += snprintf(&string[len], sizeof(string) - len, "...");
       }
     }
-    return String(string);
+    return string;
   }
 
-  ELEMENT(const uint8_t* data, size_t size, SOURCE source, CONTENT content = BINARY) {
-    init(data, size, source, content);
-  }
-  
-  ELEMENT(const char* string, SOURCE source) {
-    size_t len = strlen(string);
-    init((const uint8_t*)string, len, source, TEXT);
-  }
-  
-  ELEMENT(SOURCE source, size_t size, CONTENT content = BINARY) {
-    init(NULL, size, source, content);
-  }
-  
-  uint8_t* malloc(size_t length) {
-    data = new uint8_t[length];
-    size = (NULL != data) ? length : 0;
-    return data;
+  void malloc(size_t len) {
+    data = (uint8_t*)::malloc(len);
+    size = (NULL != data) ? len : 0;
+  }         
+
+  void shrink(size_t newSize) {
+    uint8_t* newData = (uint8_t*)::realloc(data, newSize);
+    if (NULL != newData) {
+      data = newData;
+      size = newSize;
+    }
   }
 
   void free(void) {
     if (NULL != data) {
-      delete [] data;
+      ::free(data);
       clear(); 
     }
   }
@@ -96,8 +114,8 @@ public:
   void clear(void) {
     data = NULL;
     size = 0;
-    source = NOSOURCE;
-    content = NOCONTENT; 
+    src = SRC::NONE;
+    content = CONTENT::NONE; 
   }
 
   int write(const void* ptr, size_t len, size_t index = 0){
@@ -113,81 +131,91 @@ public:
   uint8_t* data;
   size_t size;
   CONTENT content;
-  SOURCE source; 
+  SRC src; 
 
 protected:
 
-  void init(const uint8_t* _data, size_t _size, SOURCE _source, CONTENT _content) {
-    malloc(_size);
+  void init(const void* ptr, size_t len, SRC _src, CONTENT _content) {
+    malloc(len);
     if (NULL != data) {
-      if (NULL != _data) {
-        memcpy(data, _data, _size);
+      if (NULL != ptr) {
+        memcpy(data, ptr, len);
       }
-      source = _source;
+      src = _src;
       content = _content;
     } else {
-      source = NOSOURCE;
-      content = NOCONTENT;
+      src = SRC::NONE;
+      content = CONTENT::NONE;
     }
   }
+  
 };
 
 class QUEUE {
 
 public: 
 
-  QUEUE(size_t num) {
-    queue = xQueueCreate(num, sizeof(ELEMENT));
+  QUEUE(size_t num, MSG::SRC _dest) {
+    queue = xQueueCreate(num, sizeof(MSG));
+    dest = _dest;
   }
 
   ~QUEUE() {
     if (NULL != queue) {
-      ELEMENT element;
-      // remove all elements from the queue
-      while (xQueueReceive(queue, &element, 0) == pdTRUE) {
-        element.free();
+      MSG msg;
+      // remove all msgs from the queue
+      while (xQueueReceive(queue, &msg, 0) == pdTRUE) {
+        msg.free();
       }
       vQueueDelete(queue);
     }
     queue = NULL;
   }
 
-  bool send(ELEMENT &element, TickType_t ticks = portMAX_DELAY) {
-    if ((NULL != queue) && (xQueueSendToBack(queue, &element, ticks) == pdTRUE)) {
-      element.clear(); // the element with its data is now in the queue, wipe it
-      return true;
+  bool send(MSG &msg, TickType_t ticks = portMAX_DELAY) {
+    if ((NULL != queue) && msg) {
+      log_v("dest %s %s", MSG::text(dest), msg.dump().c_str());
+      if (xQueueSendToBack(queue, &msg, ticks) == pdTRUE) {
+        msg.clear(); // the msg with its data is now in the queue, wipe it
+        return true;
+      }
     }
+    log_e("dest %s dropped %s", MSG::text(dest), msg.dump().c_str());
     return false;
   }
 
-  bool sendFront(ELEMENT &element, TickType_t ticks = portMAX_DELAY) {
-    if ((NULL != queue) && (xQueueSendToFront(queue, &element, ticks) == pdTRUE)) {
-      element.clear(); // the element with its data is now in the queue, wipe it
-      return true;
+  bool sendFront(MSG &msg, TickType_t ticks = portMAX_DELAY) {
+    if ((NULL != queue) && msg) {
+      log_v("dest %s %s", MSG::text(dest), msg.dump().c_str());
+      if (xQueueSendToFront(queue, &msg, ticks) == pdTRUE) {
+        msg.clear(); // the msg with its data is now in the queue, wipe it
+        return true;
+      }
     }
+    log_e("dest %s dropped %s", MSG::text(dest), msg.dump().c_str());
     return false;
   }
   
-  bool receive(ELEMENT &element, TickType_t ticks = portMAX_DELAY) {
-    // first relase any buffer still attached to the element
-    element.free();
-    if ((NULL != queue) && (xQueueReceive(queue, &element, ticks) == pdTRUE)) {
-      return true;
+  bool receive(MSG &msg, TickType_t ticks = portMAX_DELAY) {
+    // first relase any buffer still attached to the msg
+    msg.free();
+    if (NULL != queue) {
+      if (xQueueReceive(queue, &msg, ticks) == pdTRUE){
+        log_v("dest %s %s", MSG::text(dest), msg.dump().c_str());
+        return true;
+      }
     }
     return false;
-  }
-
-  inline TickType_t ms2ticks(int ms) {
-    return (ms != INT_MAX) ? pdMS_TO_TICKS(ms) : portMAX_DELAY;
   }
  
 protected:
 
   xQueueHandle queue;
-
+  MSG::SRC dest;
+  
 };
 
-#define PIPE_PRINT //!< enable this to remove the Stream read interface
+//#define PIPE_PRINT //!< enable this to remove the Stream read interface
 
 /** You can attach a PIPE to a QUEUE and this allos you to read and write like a buffered loopback stream 
  *  only one task should write and read this stream.
@@ -200,7 +228,7 @@ class PIPE : public Print {
 
 public: 
 
-  PIPE(QUEUE &queue, ELEMENT::SOURCE source, ELEMENT::CONTENT content = ELEMENT::CONTENT::BINARY) : wrSource{source}, wrContent{content} {
+  PIPE(QUEUE &queue, MSG::SRC src, MSG::CONTENT content = MSG::CONTENT::BINARY) : wrSrc{src}, wrContent{content} {
     pQueue = &queue;
     wrIndex = 0; 
 #ifndef PIPE_PRINT
@@ -239,8 +267,13 @@ public:
         if ((NULL == wr.data) && (maxAllocSize < allocSize)) {
           wr.malloc(maxAllocSize);
         }
-        wr.source = wrSource;
+        wr.src = wrSrc;
         wr.content = wrContent;
+        if (NULL == wr.data) {
+          // dropping bytes here
+          log_e("dropping %d", size);
+          size = 0;
+        }
       }
       size_t len = wr.size - wrIndex;     // limit available space in memory
       len = (size < len) ? size : len; // limnit to size we need to write
@@ -258,7 +291,7 @@ public:
             wrIndex = 0;
           }
         }
-      } else if (wrIndex == wr.size) {
+      } else if ((NULL != wr.data) && (wrIndex == wr.size)) {
         if (!pQueue->send(wr, portMAX_DELAY)) {
           // we tried waiting forever for the queue to get empty but it still failed
           // so drop it and finish the whole write command, wrote may be wrong in this case
@@ -266,9 +299,6 @@ public:
           size = 0;
         }
         wrIndex = 0;
-      } else {
-        // we can't write likely wo did not get memory, lets be nice and yield for a while until we can allocate again
-        vTaskDelay(pdMS_TO_TICKS(1));
       }
     } 
     return wrote; 
@@ -283,7 +313,9 @@ public:
    */
   void flush(void) override { 
     if (0 < wrIndex) {      // check if we have any pending data
-      wr.size = wrIndex;    // adjust the data size 
+      if (wrIndex < wr.size) {
+        wr.shrink(wrIndex); // adjust the data size
+      }
       if (!pQueue->send(wr, portMAX_DELAY)) {
         // we tried waiting forever for the queue to get empty but it still failed, so drop it
         wr.free();
@@ -344,106 +376,31 @@ public:
   
 protected: 
   
-  const size_t minAllocSize = 256;
+  const size_t minAllocSize = 512;
   const size_t maxAllocSize = 2048;
   QUEUE* pQueue;
-  ELEMENT wr;
+  MSG wr;
   size_t wrIndex;
-  const ELEMENT::SOURCE wrSource;
-  const ELEMENT::CONTENT wrContent;
+  const MSG::SRC wrSrc;
+  const MSG::CONTENT wrContent;
 #ifndef PIPE_PRINT
 protected: 
-  ELEMENT rd;
+  MSG rd;
   size_t rdIndex;
   const int BAD_CH = -1; 
 #endif
 };
 
-#if 1
-void testQueuePipe(void) {
-  log_i("start %d", ESP.getFreeHeap());
-  {
-    const uint8_t binData[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F };
-    const char* txtData = "The quick brown fox jumps over the lazy dog!";
-    QUEUE  gps2file(10); 
-    PIPE   pipeGpstoFile(gps2file, ELEMENT::SOURCE::GNSS, ELEMENT::CONTENT::BINARY);
-    PIPE   pipeLtetoFile(gps2file, ELEMENT::SOURCE::LTE,  ELEMENT::CONTENT::TEXT);
-    
-    log_i("create %d", ESP.getFreeHeap());
-    ELEMENT element;
-    ELEMENT txtElem(txtData, ELEMENT::SOURCE::LTE);
-    ELEMENT binElem(binData, sizeof(binData), ELEMENT::SOURCE::GNSS);
-    log_i("%s", element.dump().c_str());
-    log_i("%s", txtElem.dump().c_str());
-    log_i("%s", binElem.dump().c_str());
-  
-    log_i("send %d", ESP.getFreeHeap());
-    gps2file.send(element);
-    gps2file.send(txtElem);
-    gps2file.send(binElem);
-    log_i("%s", element.dump().c_str());
-    log_i("%s", txtElem.dump().c_str());
-    log_i("%s", binElem.dump().c_str());
-    
-    log_i("read %d", ESP.getFreeHeap());
-    while (gps2file.receive(element, 0)) {
-      log_i("%s", element.dump().c_str());
-    }
-    log_i("%s", element.dump().c_str());
-    
-    log_i("print %d", ESP.getFreeHeap());
-    pipeLtetoFile.print(txtData);
-    pipeGpstoFile.write(binData, sizeof(binData));
-    pipeLtetoFile.print(txtData);
-    pipeGpstoFile.write(binData, sizeof(binData));
-    for (size_t ix = 0; ix < sizeof(binData) * 1; ix ++) {
-      pipeGpstoFile.write(binData[ix % sizeof(binData)]);
-    }
-    for (size_t ix = 0; ix < 6; ix ++) {
-      pipeLtetoFile.print(txtData);
-      pipeGpstoFile.write(binData, sizeof(binData));
-    }
-    log_i("flush %d", ESP.getFreeHeap());
-    pipeLtetoFile.flush();
-    pipeGpstoFile.flush();
+QUEUE queueToBluetooth(10,                  MSG::SRC::BLUETOOTH);
+PIPE pipeGnssToBluetooth(queueToBluetooth,  MSG::SRC::GNSS); // using Gnss::rx.setNMEAOutputPort
 
-    log_i("read %d", ESP.getFreeHeap());
-    while (gps2file.receive(element, 0)) {
-      log_i("%s", element.dump().c_str());
-    }
-    log_i("%s", element.dump().c_str());
-    
-#ifndef PIPE_PRINT
-    const char* txtData2 = "The five boxing wizards jump quickly!";
-    log_i("stream %d", ESP.getFreeHeap());
-    pipeLtetoFile.print(txtData2);
-    pipeLtetoFile.flush();
-    String str = pipeLtetoFile.readStringUntil('j') + "j";
-    pipeLtetoFile.print(txtData2);
-    pipeLtetoFile.flush();
-    String str2 = pipeLtetoFile.readStringUntil('!') + "!";
-    String str3 = pipeLtetoFile.readStringUntil('!') + "!";
-    log_i("pipe read \"%s\" \"%s\" \"%s\"", str.c_str(), str2.c_str(), str3.c_str());
-#endif
-      
-    log_i("read %d", ESP.getFreeHeap());
-    while (gps2file.receive(element, 0)) {
-      log_i("%s", element.dump().c_str());
-    }
-    log_i("%s", element.dump().c_str());
-    
-    log_i("done %d", ESP.getFreeHeap());
-  }
-  log_i("end %d", ESP.getFreeHeap());
-}
-#endif
+QUEUE queueToWebsocket(30,                  MSG::SRC::WEBSOCKET);
+PIPE pipeGnssToWebsocket(queueToWebsocket,  MSG::SRC::GNSS); // using Gnss::rx.setOutputPort Lband::rx.setOutputPort 
 
-QUEUE queueToBluetooth(10);
-PIPE pipeToBluetooth(queueToBluetooth, ELEMENT::SOURCE::GNSS);
+QUEUE queueToSdcard(30,                     MSG::SRC::SDCARD);
+PIPE pipeWireToSdcard(queueToSdcard,        MSG::SRC::GNSS);
+PIPE pipeSerialToSdcard(queueToSdcard,      MSG::SRC::LTE);
 
-QUEUE queueToGnss(20);
-PIPE lbandToGnss(queueToGnss, ELEMENT::SOURCE::LBAND);
-PIPE wlanToGnss(queueToGnss,  ELEMENT::SOURCE::WLAN);
-PIPE lteToGnss(queueToGnss,   ELEMENT::SOURCE::LTE);
+QUEUE queueToGnss(20,                       MSG::SRC::GNSS); // used by LTE, WLAN, BLUETOOTH and CONFIG to inject data to the GNSS
 
 #endif // __IPC_H__

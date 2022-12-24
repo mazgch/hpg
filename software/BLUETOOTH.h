@@ -27,29 +27,25 @@
  */
 #define BLUETOOTH_SERVICE         (false ? SPS_SERVICE_UUID : NUS_SERVICE_UUID)
 
-const int BLUETOOTH_PACKET_DELAY  =          10;  //!< Delay notifys by this not to overload the BLE stack  
-const int BLUETOOTH_NODATA_DELAY  =          30;  //!< Yield time to allow new data to become available 
-
+const int BLUETOOTH_PACKET_DELAY  =           1;  //!< Delay notifys by this not to overload the BLE stack  
 const int BLUETOOTH_TX_SIZE       =         512;  //!< Preferred (max) size of tx characteristics  
-const int BLUETOOTH_BUFFER_SIZE   =      2*1024;  //!< Local circular buffer to keep the data until we can send it. 
 const int BLUETOOTH_MTU_OVERHEAD  =           3;  //!< MTU overhead = 1 attribute opcode + 2 client receive MTU size 
 
 const char* BLUETOOTH_TASK_NAME   = "Bluetooth";  //!< Bluetooth task name
-const int BLUETOOTH_STACK_SIZE    =      3*1024;  //!< Bluetooth task stack size
+const int BLUETOOTH_STACK_SIZE    =      2*1024;  //!< Bluetooth task stack size
 const int BLUETOOTH_TASK_PRIO     =           1;  //!< Bluetooth task priority
 const int BLUETOOTH_TASK_CORE     =           1;  //!< Bluetooth task MCU code
 
 /** This class encapsulates all BLUETOOTH functions. 
 */
-class BLUETOOTH : public BLECharacteristicCallbacks, public BLEServerCallbacks, public Stream {
+class BLUETOOTH : public BLECharacteristicCallbacks, public BLEServerCallbacks {
 
 public:
 
   /** constructor
    *  \param size the size of the local cicular buffer
    */
-  BLUETOOTH(size_t size) : buffer{size} {
-    mutex = xSemaphoreCreateMutex();
+  BLUETOOTH() {
     txChar = NULL;
     rxChar = NULL;
     creditsChar = NULL;
@@ -95,40 +91,11 @@ public:
       advertising->addServiceUUID(BLUETOOTH_SERVICE);
       advertising->start();        
       log_i("device \"%s\" mode \"%s\"", name.c_str(), (BLUETOOTH_SERVICE == SPS_SERVICE_UUID) ? "SPS" : "NUS");
-      xTaskCreatePinnedToCore(task, BLUETOOTH_TASK_NAME, BLUETOOTH_STACK_SIZE, this, BLUETOOTH_TASK_PRIO, NULL, BLUETOOTH_TASK_CORE);
     } else {
       log_e("setup failed");
     }
+    xTaskCreatePinnedToCore(task, BLUETOOTH_TASK_NAME, BLUETOOTH_STACK_SIZE, this, BLUETOOTH_TASK_PRIO, NULL, BLUETOOTH_TASK_CORE);
   }
-
-  // --------------------------------------------------------------------------------------
-  // STREAM interface defined by Arduino
-  // https://github.com/arduino/ArduinoCore-API/blob/master/api/Stream.h
-  // --------------------------------------------------------------------------------------
-  size_t write(uint8_t ch) override {
-    int wrote = 0;
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      if (connected && (buffer.size() > 1)) { 
-        wrote = buffer.write(ch);
-      }
-      xSemaphoreGive(mutex);
-    }
-    return wrote;
-  }
-  size_t write(const uint8_t *ptr, size_t size) override {
-    int wrote = 0;
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      if (connected && (buffer.size() > 1)) { 
-        wrote = buffer.write((const char*)ptr, size);
-      }
-      xSemaphoreGive(mutex);
-    }
-    return wrote;
-  }
-  void flush(void)    override { /*nothing*/ }
-  int available(void) override { return   0; }
-  int read(void)      override { return  -1; }
-  int peek(void)      override { return  -1; }
 
 protected:
 
@@ -143,35 +110,28 @@ protected:
    * connected clients usining Bluetooth. 
    */
   void task(void) {
-    while(true) {
-      size_t wrote = 0;
-      bool loop;
-      do {
-        loop = false;
-        if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-          size_t len = 0;
-          uint8_t temp[txSize]; 
-          if (!creditsChar || ((SPS_CREDITS_DISCONNECT != txCredits) && (0 < txCredits))) {
-            len = buffer.read((char*)temp, sizeof(temp));
-            loop = (len == sizeof(temp));
-            if (creditsChar && (0 < len)) {
-              txCredits --;
+    MSG msg;
+    while (queueToBluetooth.receive(msg)) {
+      size_t index = 0;
+      while ((index < msg.size) && (txSize > 0) && connected && (!creditsChar || (SPS_CREDITS_DISCONNECT != txCredits))) {
+        if (!creditsChar || (0 < txCredits)) {
+          int len = msg.size - index;
+          if (len > txSize) len = txSize;
+          if (len >= 0) {
+            if (0 < len) {
+              txChar->setValue(msg.data + index, len);
+              txChar->notify(true);
+              if (creditsChar && (0 < len)) {
+                  txCredits --;
+              }
+              index += len;
             }
           }
-          xSemaphoreGive(mutex);
-          if (0 < len) {
-            txChar->setValue(temp, len);
-            txChar->notify(true);
-            wrote += len;
-          }  
-          vTaskDelay(BLUETOOTH_PACKET_DELAY); // Yield
         }
-      } while (loop);
-      if (0 < wrote) {
-        log_v("wrote %d bytes", wrote);
+        vTaskDelay(pdMS_TO_TICKS(BLUETOOTH_PACKET_DELAY)); // Yield
       }
-      vTaskDelay(BLUETOOTH_NODATA_DELAY); // Yield
     }
+    // will never get here ...
   }
 
   /* Callback to inform about connections  
@@ -221,21 +181,19 @@ protected:
           log_d("credits %d added %d", txCredits, credits);
         } 
       } else if (pCharacteristic == rxChar) {
-        std::string value = pCharacteristic->getValue();
-        extern size_t GNSS_INJECT_BLUETOOTH(const void* ptr, size_t len);
-        int read = GNSS_INJECT_BLUETOOTH(value.c_str(), value.length());
+        size_t len = pCharacteristic->getDataLength();
+        MSG msg(pCharacteristic->getValue().c_str(), len, MSG::SRC::BLUETOOTH, MSG::CONTENT::CORRECTIONS);
+        queueToGnss.send(msg);
         if (creditsChar)  {
           // we consumed a packed, give a credit back
           creditsChar->setValue(1);
           creditsChar->notify(true);
         }
-        log_v("read %d bytes", read); /*unused*/(void)read;
+        log_v("read %d bytes", len);
       }
     }
   }
 
-  SemaphoreHandle_t mutex;         //!< Protect the cbuf from cross task access
-  cbuf buffer;                     //!< Local circular buffer to keep the data until we can send it. 
   size_t txSize;                   //!< Requested max size of tx characteristics (depends on MTU from client)
   volatile int8_t txCredits;       //!< the number of packet credits we are allowed to send 
   volatile bool connected;         //!< True if a client is connected. 
@@ -255,6 +213,6 @@ protected:
   const char *NUS_TX_CHARACTERISTIC_UUID      = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"; //!< NUS TX UUID
 };
 
-BLUETOOTH Bluetooth(BLUETOOTH_BUFFER_SIZE); //!< The global Bluetooth / BLE peripherial object
+BLUETOOTH Bluetooth; //!< The global Bluetooth / BLE peripherial object
 
 #endif // __BLUETOOTH_H__

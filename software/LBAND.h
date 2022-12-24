@@ -48,7 +48,7 @@ public:
    */
   bool detect(void) {
     //rx.enableDebugging()
-    rx.setOutputPort(Websocket); // forward all messages
+    rx.setOutputPort(pipeGnssToWebsocket); // forward all messages
     bool ok = rx.begin(UbxWire, LBAND_I2C_ADR);
     if (ok) {
       log_i("receiver detected");
@@ -114,6 +114,8 @@ public:
     if (online) {
       rx.checkUblox(); 
       rx.checkCallbacks();
+      pipeGnssToWebsocket.flush();
+      pipeWireToSdcard.flush();
     }
   }
   
@@ -125,18 +127,15 @@ protected:
   static void onRXMPMP(UBX_RXM_PMP_message_data_t *pmpData)
   {
     if (NULL != pmpData) {
-      GNSS::MSG msg;
-      uint16_t size = ((uint16_t)pmpData->lengthMSB << 8) | (uint16_t)pmpData->lengthLSB;
-      msg.size = size + 8;
-      msg.data = new uint8_t[msg.size];
       double ebn0 = 0.125 * pmpData->payload[22];
       uint16_t serviceId = pmpData->payload[16] + ((uint16_t)pmpData->payload[17] << 8);
-      if (NULL != msg.data) {
-        msg.source = GNSS::SOURCE::LBAND;
+      uint16_t size = ((uint16_t)pmpData->lengthMSB << 8) | (uint16_t)pmpData->lengthLSB;
+      MSG msg(size + 8, MSG::SRC::LBAND, MSG::CONTENT::CORRECTIONS);
+      if (msg) {
         memcpy(msg.data, &pmpData->sync1, size + 6);
-        memcpy(&msg.data[size + 6], &pmpData->checksumA, 2);
+        memcpy(msg.data + size + 6, &pmpData->checksumA, 2);
         log_i("received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X", msg.size, ebn0, serviceId);
-        Gnss.inject(msg); // Push the sync chars, class, ID, length and payload
+        queueToGnss.send(msg); // Push the sync chars, class, ID, length and payload
       } else {
         log_e("received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X, no memory", msg.size, ebn0, serviceId);
       }
@@ -149,18 +148,15 @@ protected:
   static void onRXMQZSSL6(UBX_RXM_QZSSL6_message_data_t *qzssData)
   {
     if (NULL != qzssData) {
-      GNSS::MSG msg;
-      uint16_t size = ((uint16_t)qzssData->lengthMSB << 8) | (uint16_t)qzssData->lengthLSB;
-      msg.size = size + 8;
-      msg.data = new uint8_t[msg.size];
       int svid = qzssData->payload[1];
       double cno = 0.00390625 * qzssData->payload[2] + qzssData->payload[3];
-      if (NULL != msg.data) {
-        msg.source = GNSS::SOURCE::LBAND;
+      uint16_t size = ((uint16_t)qzssData->lengthMSB << 8) | (uint16_t)qzssData->lengthLSB;
+      MSG msg(size + 8, MSG::SRC::LBAND, MSG::CONTENT::CORRECTIONS);
+      if (msg) {
         memcpy(msg.data, &qzssData->sync1, size + 6);
-        memcpy(&msg.data[size + 6], &qzssData->checksumA, 2);
+        memcpy(msg.data + size + 6, &qzssData->checksumA, 2);
         log_i("received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB", msg.size, svid, cno);
-        Gnss.inject(msg); // Push the sync chars, class, ID, length and payload
+        queueToGnss.send(msg); // Push the sync chars, class, ID, length and payload
       } else {
         log_e("received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB, no memory", msg.size, svid, cno);
       }

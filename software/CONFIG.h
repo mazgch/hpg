@@ -56,6 +56,7 @@ const char AWSTRUST_ROOTCAURL[]   = "https://" AWSTRUST_SERVER AWSTRUST_ROOTCAPA
 
 const unsigned short MQTT_BROKER_PORT     =              8883;  //!< MQTTS port
 const int MQTT_MAX_MSG_SIZE               =            9*1024;  //!< the max size of a MQTT pointperfect topic
+const int MQTT_MAX_KEY_SIZE               =                60;
 
 const char MQTT_TOPIC_MGA[]               =     "/pp/ubx/mga";  //!< GNSS assistance topic 
 const char MQTT_TOPIC_KEY_FORMAT[]        =   "/pp/ubx/0236/";  //!< LBAND decryption keys topic
@@ -322,7 +323,6 @@ public:
             // adjust the current freq if region is the same
             if ((newFreq != lbandFreq) && servceRegion.equals(curRegion)) {
               lbandFreq = newFreq;
-              log_i("current lbandFreq from %li to %li", lbandFreq, newFreq);
               changed = true;
             }
             // keep track in the nvs

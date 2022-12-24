@@ -31,17 +31,14 @@ const uint16_t WEBSOCKET_PORT     =        8080; //!< needs to match WEBSOCKET_H
 
 /** This class encapsulates all WLAN functions. 
 */
-class WEBSOCKET : public Stream {
+class WEBSOCKET {
 
 public: 
 
   /** constructor
    *  \param size  the size of the cicular buffer
    */
-  WEBSOCKET(size_t size = 5*1024) : buffer{size} {
-    mutex = xSemaphoreCreateMutex();
-    queue = xQueueCreate(10, sizeof(MSG));
-    connected = false;
+  WEBSOCKET()  {
   }
 
   /** attach the the websocket to the manager and start listening
@@ -93,188 +90,23 @@ public:
       log_i("new client, total %d", wsClients.size() + 1);
       wsClients.push_back(client);
     }
-    connected = wsClients.size() > 0;
-    send();
-  }
-
-  // --------------------------------------------------------------------------------------
-  // STREAM interface: https://github.com/arduino/ArduinoCore-API/blob/master/api/Stream.h
-  // --------------------------------------------------------------------------------------
- 
-  typedef enum                          {  WLAN = 0, LTE,   LBAND,   GNSS, NUM } SOURCE; //!< source enum for MSG
-  const char* SOURCE_LUT[SOURCE::NUM] = { "WLAN",   "LTE", "LBAND", "GNSS"     };  //!< source to text conversion
-  typedef struct { 
-    SOURCE source;            //!< source of data 
-    char* data;               //!< data buffer, allocated by calling task and released  by consumers  
-    size_t size;              //!< data size
-    bool binary;              //!< type of the data 
-  } MSG;                      //!< queue element
-  xQueueHandle queue;         //!< queue to hold the different data to be sent to the websocket
-  SemaphoreHandle_t mutex;    //!< protects cbuf from concurnet access by tasks. 
-  cbuf buffer;                //!< the circular local buffer
-  
-  /** write data into the queue to be sent 
-   *  \param buffer  data to write
-   *  \param size    of data to write 
-   *  \param source  the origin of this data
-   *  \param binary  how to send the data over the websocket
-   *  \return        the bytes put in the queue
-   */
-  size_t write(const void* buffer, size_t size, SOURCE source, bool binary = true) {
-    size_t wrote = 0;
-    if (connected) {
-      MSG msg;
-      msg.data = new char[size];
-      if (msg.data) {
-        memcpy(msg.data, buffer, size);
-        msg.size = size;
-        msg.source = source;
-        msg.binary = binary;
-        if (xQueueSendToBack(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
-          log_d("queue %d bytes from %d(%s)", size, source, SOURCE_LUT[source]);
-          wrote += msg.size;
-        } else {
-          log_e("queue %d bytes from %d(%s) failed, queue full", size, source, SOURCE_LUT[source]);
-          delete [] msg.data;
-        }
-      } else {
-        log_e("queue %d bytes from %d(%s), failed alloc", size, SOURCE_LUT[source]);
-      }
-    }
-    return wrote;
-  }
-
-#if 0
-  size_t write(GNSS::MSG &gnssMsg) {
-    size_t wrote = 0;
-    if (connected) {
-      MSG msg;
-      msg.data = gnssMsg.data;
-      msg.size = gnssMsg.size;
-      msg.source = (gnssMsg.source == GNSS::SOURCE::LTE) ? LTE : WLAN;
-      msg.binary = true;
-      if (xQueueSendToBack(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
-        log_d("queue %d bytes from %d(%s)", size, source, SOURCE_LUT[source]);
-        wrote += msg.size;
-      } else {
-        log_e("queue %d bytes from %d(%s) failed, queue full", size, source, SOURCE_LUT[source]);
-        delete [] msg.data;
-      }
-    } else {
-      delete [] gnssMsg.data;
-    }
-    gnssMsg.data = NULL;
-    return wrote;
-  }
-#endif
-
-  /** write data into the queue to be sent 
-   *  \param buffer  a string to write
-   *  \param source  the origin of this data
-   *  \return        the bytes put in the queue
-   */
-  size_t write(const char* buffer, SOURCE source) {
-    return write(buffer, strlen(buffer), source, false);
-  }
-
-  /** send both the message queue data as well as the cicular buffer to the websocket. 
-   *  This will also free any buffer allocated in the queue elements.
-   */
-  void send(void) {
+    
     int total = 0;
     MSG msg;
-    while (xQueueReceive(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
+    while (queueToWebsocket.receive(msg, 0/*portMAX_DELAY*/)) {
       for (auto it = wsClients.begin(); (it != wsClients.end()); it = std::next(it)) {
         if (it->available()) {
-          if (msg.binary) {
-            it->sendBinary(msg.data, msg.size);
+          if (msg.content != MSG::CONTENT::TEXT) {
+            it->sendBinary((const char*)msg.data, msg.size);
           } else {
-            it->send(msg.data, msg.size);
+            it->send((const char*)msg.data, msg.size);
           }
         }
       }
       total += msg.size;
-      log_d("queue %d bytes from %d(%s)", msg.size, msg.source, SOURCE_LUT[msg.source]);
-      delete [] msg.data;
-      msg.data = NULL;
-    }
-    bool loop;
-    do {
-      loop = false;
-      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-        uint8_t temp[UBXFILE_BLOCK_SIZE];
-        size_t len = buffer.read((char*)temp, sizeof(temp));
-        xSemaphoreGive(mutex);
-        if (0 < len) {
-          for (auto it = wsClients.begin(); (it != wsClients.end()); it = std::next(it)) {
-            if (it->available()) {
-              it->sendBinary((const char*)temp, len);
-            }
-          }
-          log_d("buffer %d bytes", len);
-          total += len;
-          loop = true;
-        }
-      }
-      vTaskDelay(0); // Yield
-    } while (loop);
-    if (0 < total) {
-      log_d("total %d bytes", total);
+      log_d("queue %d bytes from %s", msg.size, MSG::text(msg.src));
     }
   }
-    
-  // --------------------------------------------------------------------------------------
-  // STREAM interface: https://github.com/arduino/ArduinoCore-API/blob/master/api/Stream.h
-  // --------------------------------------------------------------------------------------
- 
-  /** The character written is passed into a circular buffer
-   *  \param ch  character to write
-   *  \return    the bytes written
-   */ 
-  size_t write(uint8_t ch) override {
-    size_t size = 0;
-    if (connected) {
-      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-        size = buffer.write(ch);
-        xSemaphoreGive(mutex);
-      }
-    }
-    return size;
-  }
-  
-  /** All data written is passed into the circular buffer
-   *  \param ptr   pointer to buffer to write
-   *  \param size  number of bytes in ptr to write
-   *  \return      the bytes written
-   */ 
-  size_t write(const uint8_t *ptr, size_t size) override {
-    if (connected) {
-      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-        size = buffer.write((const char*)ptr, size);
-        xSemaphoreGive(mutex);
-      }
-    }
-    return size;
-  }
-  
-  /** override flush functions of the stream interface 
-   */
-  void flush(void)    override { /*nothing*/ }
-  
-  /** override available functions of the stream interface 
-   *  \return  nothing available
-   */
-  int available(void) override { return   0; }
-  
-  /** override read functions of the stream interface 
-   *  \return  a bad character
-   */
-  int read(void)      override { return  -1; }
-  
-  /** override peek functions of the stream interface 
-   *  \return  a bad character
-   */
-  int peek(void)      override { return  -1; }
    
 protected:
   void serve(const char* file, const char* format, const char* content) {
@@ -297,8 +129,10 @@ protected:
     } else {
       log_i("binary %d bytes", message.length());
       // function is declared here to avoid include dependency
-      extern size_t GNSS_INJECT_WEBSOCKET(const void* ptr, size_t len);
-      GNSS_INJECT_WEBSOCKET(message.c_str(), message.length());
+      MSG msg(message.c_str(), message.length(), MSG::SRC::WEBSOCKET, MSG::CONTENT::BINARY);
+      if (msg) {
+        queueToGnss.send(msg);
+      }
     }
   }
 
@@ -318,8 +152,7 @@ protected:
   std::vector<WebsocketsClient> wsClients;  //!< list websocket clients connected
   WebsocketsServer wsServer;                //!< websocket server listens for incoming connections 
   WiFiManager* pManager;                    //!< the wifi manager with its captive portal
-  bool connected;                           //!< wifi connected flag
-
+  
   static const char HTML[];   //!< the content of served file monitor.html
   static const char CSS[];    //!< the content of served file monitor.css
   static const char JS[];     //!< the content of served file monitor.js

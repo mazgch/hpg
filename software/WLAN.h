@@ -40,12 +40,12 @@ const int WLAN_PROVISION_RETRY    =       10000;  //!< delay between provisionin
 const int WLAN_CONNECT_RETRY      =       10000;  //!< delay between server connection attempts to correction severs
 
 const char* WLAN_TASK_NAME        =      "Wlan";  //!< Wlan task name
-const int WLAN_STACK_SIZE         =      6*1024;  //!< Wlan task stack size
+const int WLAN_STACK_SIZE         =      4*1024;  //!< Wlan task stack size
 const int WLAN_TASK_PRIO          =           1;  //!< Wlan task priority
 const int WLAN_TASK_CORE          =           1;  //!< Wlan task MCU code
 
 const char* LED_TASK_NAME         =       "Led";  //!< Led task name
-const int LED_STACK_SIZE          =         600;  //!< led task stack size
+const int LED_STACK_SIZE          =         700;  //!< led task stack size
 const int LED_TASK_PRIO           =           2;  //!< led task priority
 const int LED_TASK_CORE           =           1;  //!< led task MCU code
 
@@ -439,29 +439,25 @@ protected:
   void onMQTT(int messageSize) {
     if (messageSize) {
       String topic = mqttClient.messageTopic();
-      GNSS::MSG msg;
-      msg.data = new uint8_t[messageSize];
-      if (NULL != msg.data) {
-        msg.size = mqttClient.read(msg.data, messageSize);
+      MSG msg(messageSize, MSG::SRC::WLAN, MSG::CONTENT::CORRECTIONS);
+      if (msg) {
+        msg.size = mqttClient.read(msg.data, msg.size);
         if (msg.size == messageSize) {
-          msg.source = GNSS::SOURCE::WLAN;
           log_i("topic \"%s\" with %d bytes", topic.c_str(), msg.size); 
           if (topic.startsWith(MQTT_TOPIC_KEY_FORMAT)) {
-            msg.source = GNSS::SOURCE::KEYS;
+            msg.content = MSG::CONTENT::KEYS;
             Config.setValue(CONFIG_VALUE_KEY, msg.data, msg.size);
           }
           if (topic.equals(MQTT_TOPIC_FREQ)) {
             Config.updateLbandFreqs(msg.data, msg.size);
-            delete [] msg.data; // not injecting to queue to the GNSS, so we need to delete the buffer here
           } else {
-            Gnss.inject(msg); // we do not have to delete msg.data here, this is done by receiving side of the queue 
+            queueToGnss.send(msg); // we do not have to delete msg.data here, this is done by receiving side of the queue 
           }
         } else { 
           log_e("topic \"%s\" with %d bytes failed reading after %d", topic.c_str(), messageSize, msg.size); 
-          delete [] msg.data;
         }
       } else {
-        log_e("topic \"%s\" with %d bytes failed, no memory", topic.c_str(), messageSize);
+        log_e("topic \"%s\" dropped %d bytes, no memory", topic.c_str(), messageSize); 
       }
     }
   }
@@ -554,20 +550,17 @@ protected:
   {
     int messageSize = ntripWifiClient.available();
     if (0 < messageSize) {
-      GNSS::MSG msg;
-      msg.data = new uint8_t[messageSize];
-      if (NULL != msg.data) {
-        msg.size = ntripWifiClient.read(msg.data, messageSize);
+      MSG msg(messageSize, MSG::SRC::WLAN, MSG::CONTENT::CORRECTIONS);
+      if (msg) {
+        msg.size = ntripWifiClient.read(msg.data, msg.size);
         if (msg.size == messageSize) {
-          msg.source = GNSS::SOURCE::WLAN;
           log_i("read %d bytes", messageSize);
-          Gnss.inject(msg);
+          queueToGnss.send(msg);
         } else {
           log_e("read %d bytes failed reading after %d", messageSize, msg.size); 
-          delete [] msg.data;
         }
       } else {
-        log_e("read %d bytes failed, no memory",  messageSize);
+        log_e("dropped %d bytes, no memory",  messageSize); 
       }
     }
     long now = millis();
@@ -577,10 +570,11 @@ protected:
       if (Config.getGga(gga)) {
         const char* strGga = gga.c_str();
         int wrote = ntripWifiClient.println(strGga);
-        if (wrote != gga.length())
+        if (wrote != gga.length()) {
           log_i("println \"%s\" %d bytes", strGga, wrote);
-        else
+        } else {
           log_e("println \"%s\" %d bytes, failed", strGga, wrote);
+        }
       }
     }
   }

@@ -41,8 +41,8 @@ const int GNSS_CORRECTION_TIMEOUT =       12000;  //!< If the current correction
 const int GNSS_I2C_ADR            =        0x42;  //!< ZED-F9x I2C address
 
 // helper macro for source handling (selection in the receiver)
-#define GNSS_SPARTAN_USESOURCE(source)      ((source == LBAND) ?  1      : 0)           //!< convert from internal source to USE_SOUCRE value
-#define GNSS_SPARTAN_USESOURCE_TXT(source)  ((source == LBAND) ? "1-PMP" : "0-SPARTAN") //!< convert from internal source to text 
+#define GNSS_SPARTAN_USESOURCE(src)      ((src == MSG::SRC::LBAND) ?  1      : 0)           //!< convert from internal source to USE_SOUCRE value
+#define GNSS_SPARTAN_USESOURCE_TXT(src)  ((src == MSG::SRC::LBAND) ? "1-PMP" : "0-SPARTAN") //!< convert from internal source to text 
 
 // helper macros to handle the receiver configuration 
 #define GNSS_CHECK_INIT           int _step = 0; bool _ok = true  //!< init variable
@@ -61,13 +61,10 @@ public:
   /** constructor
    */
   GNSS(void) {
-    queue = xQueueCreate( 10, sizeof( MSG ) );
     online = false;
     ttagNextTry = millis();
-    curSource = NONE;
-    for (int i = 0; i < SOURCE::NUM; i ++) {
-      ttagSource[i] = ttagNextTry;
-    }
+    curSrc = MSG::SRC::NONE;
+    ttagSourceIp = ttagNextTry;
   }
 
   /** get, decode and dump the version
@@ -101,9 +98,9 @@ public:
    */
   bool detect(void) {
     //rx.enableDebugging();
-    rx.setOutputPort(Websocket);    // forward all messages
+    rx.setOutputPort(pipeGnssToWebsocket);    // forward all messages
 #ifdef __BLUETOOTH_H__
-    rx.setNMEAOutputPort(Bluetooth); // forward NMEA messages
+    rx.setNMEAOutputPort(pipeGnssToBluetooth); 
 #endif
     bool ok = rx.begin(UbxWire, GNSS_I2C_ADR); //Connect to the Ublox module using Wire port
     if (ok) {
@@ -159,57 +156,18 @@ public:
       GNSS_CHECK_EVAL("configuration");
       if (ok) {
         log_i("configuration complete, receiver online");
-        uint8_t key[64];
-        int keySize = Config.getValue(CONFIG_VALUE_KEY, key, sizeof(key));
-        if (keySize > 0) {
-          log_i("inject saved keys");
-          inject(key, keySize, KEYS);
+        MSG msg(MQTT_MAX_KEY_SIZE, MSG::SRC::GNSS, MSG::CONTENT::KEYS);
+        if (msg) {
+          int size = Config.getValue(CONFIG_VALUE_KEY, msg.data, msg.size);
+          if (0 < size) {
+            msg.shrink(size);
+            log_i("inject saved keys");
+            queueToGnss.send(msg);
+          }
         }
       }
     }
     return ok;
-  }
-
-  typedef enum                          {  WLAN = 0, LTE,   LBAND,   KEYS,   WEBSOCKET,   BLUETOOTH,   NONE, NUM } SOURCE; //!< source enum for MSG 
-  const char* SOURCE_LUT[SOURCE::NUM] = { "WLAN",   "LTE", "LBAND", "KEYS", "WEBSOCKET", "BLUETOOTH", "-"        };  //!< source to text conversion
-  typedef struct { 
-    SOURCE source;      //!< source of data 
-    uint8_t* data;      //!< data buffer, allocated by calling task and released  by consumers  
-    size_t size;        //!< data size
-  } MSG;                //!< queue element
-  xQueueHandle queue;   //!< queue to hold the different data to be sent to the receiver
-
-  /** inject a message into the queue to be sent to the receiver, 
-   *  \param msg  message to be added, this msg.data is freed by  
-   *  return      number of bytes sucessfully written to the queue, will be sent later
-   */
-  size_t inject(MSG& msg) {
-    if (xQueueSendToBack(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
-      return msg.size;
-    }
-    delete [] msg.data;
-    msg.data = NULL;
-    log_e("%d bytes from %s source failed, queue full", msg.size, SOURCE_LUT[msg.source]);
-    return 0;
-  }
-  
-  /** inject a message into the queue to be sent to the receiver, 
-   *  \param ptr   pointer to data that will be copied and sent  
-   *  \param size  number of bytes in data that will be copied and sent  
-   *  \param src   the source of data
-   *  return       number of bytes sucessfully written to the queue, will be sent later
-   */
-  size_t inject(const uint8_t* ptr, size_t len, SOURCE src) {
-    MSG msg;
-    msg.data = new uint8_t[len];
-    if (NULL != msg.data) {
-      memcpy(msg.data, ptr, len);
-      msg.size = len;
-      msg.source = src;
-      return inject(msg);
-    }
-    log_e("%d bytes from %s source failed, no memory", msg.size, SOURCE_LUT[msg.source]);
-    return 0;
   }
 
   /** This needs to be called from a task periodically, it makes sure the receiver is detected, 
@@ -226,27 +184,24 @@ public:
     if (online) {
       rx.checkUblox();
       rx.checkCallbacks();
-      // send the queue 
-      int len = 0;
+#ifdef __BLUETOOTH_H__
+      pipeGnssToBluetooth.flush();
+#endif
+      pipeGnssToWebsocket.flush();
+      pipeWireToSdcard.flush();
       MSG msg;
-      while (xQueueReceive(queue, &msg, 0/*portMAX_DELAY*/) == pdPASS) {
+      while (queueToGnss.receive(msg, 0)) {
+        checkSpartanUseSourceCfg(msg.src, msg.content);
+        online = rx.pushRawData(msg.data, msg.size);
         if (online) {
-          checkSpartanUseSourceCfg(msg.source);
-          online = rx.pushRawData(msg.data, msg.size);
-          if (online) {
-            len += msg.size;
-            log_d("%d bytes from %s source", msg.size, SOURCE_LUT[msg.source]);
-          } else {
-            log_e("%d bytes from %s source failed", msg.size, SOURCE_LUT[msg.source]);
-          }
+          log_d("%d bytes from %s source", msg.size, msg.text(msg.src));
+        } else {
+          log_e("%d bytes from %s source failed", msg.size, msg.text(msg.src));
         }
         // Forward also messages from the IP services (LTE and WIFI) to the GUI though the WEBSOCKET
         // LBAND and GNSS are already sent directly, and we dont want KEYS and WEBSOCKET injections to loop back to the GUI
-        if ((msg.source == WLAN) || (msg.source == LTE)) {
-          Websocket.write(msg.data, msg.size, (msg.source == LTE) ? WEBSOCKET::SOURCE::LTE : WEBSOCKET::SOURCE::WLAN);
-        } else {
-          delete [] msg.data;
-          msg.data = NULL;
+        if (((msg.src == MSG::SRC::WLAN) || (msg.src == MSG::SRC::LTE)) && (msg.content != MSG::CONTENT::KEYS)) {
+          queueToWebsocket.send(msg);
         }
       }
     }
@@ -254,35 +209,37 @@ public:
 
 protected:
 
-  SOURCE curSource;                   //!< current source in use of correction data
-  uint32_t ttagSource[SOURCE::NUM];   //!< the time (millis()) of last correction data reception for each source
+  MSG::SRC curSrc;            //!< current source in use of correction data
+  uint32_t ttagSourceIp;     //!< the time (millis()) of last correction data reception for lband and IP
   
   /** Check the current source of data and make sure the receiver is configured correctly so that it can process the protocol / data.
    *  \param source  the source of which it got correction data. 
    *  \return        true if this is the souce is the chosen source. 
    */
-  bool checkSpartanUseSourceCfg(SOURCE source) {
-    if ((source == WLAN) || (source == LTE) || (source == LBAND)) {
+  bool checkSpartanUseSourceCfg(MSG::SRC src, MSG::CONTENT content) {
+    if (content == MSG::CONTENT::CORRECTIONS) {
       // manage correction stream selection 
       int32_t now = millis();
-      ttagSource[source] = millis() + GNSS_CORRECTION_TIMEOUT;
-      if (source != curSource) { // source would change
-        if (  (curSource == NONE) || // just use any source, if we never set it. 
-             ((curSource == LBAND) && (source != LBAND)) || // prefer any IP source over LBAND
-             ((curSource != LBAND) && (0 >= (ttagSource[curSource] - now)) ) ) { // let IP source timeout before switching to any other source 
+      if (curSrc != MSG::SRC::LBAND) {
+        ttagSourceIp = millis() + GNSS_CORRECTION_TIMEOUT;
+      }
+      if (src != curSrc) { // source would change
+        if (  (curSrc == MSG::SRC::NONE) || // just use any source, if we never set it. 
+             ((curSrc == MSG::SRC::LBAND) && (src != MSG::SRC::LBAND)) || // prefer any IP source over LBAND
+             ((curSrc != MSG::SRC::LBAND) && (0 >= (ttagSourceIp - now)) ) ) { // let IP source timeout before switching to any other source 
           // we are not switching to an error here, sometimes this command is not acknowledged, so we will just retry next time. 
-          bool ok/*online*/ = rx.setVal8(UBLOX_CFG_SPARTN_USE_SOURCE, GNSS_SPARTAN_USESOURCE(source), VAL_LAYER_RAM);
+          bool ok/*online*/ = rx.setVal8(UBLOX_CFG_SPARTN_USE_SOURCE, GNSS_SPARTAN_USESOURCE(src), VAL_LAYER_RAM);
           if (ok) {
-            log_i("useSource %s from source %s", GNSS_SPARTAN_USESOURCE_TXT(source), SOURCE_LUT[source]);
-            curSource = source;
+            log_i("useSource %s from source %s", GNSS_SPARTAN_USESOURCE_TXT(src), MSG::text(src));
+            curSrc = src;
           } else {
             // WORKAROUND: for some reson the spartanUseSource command fails, reason is unknow, we dont realy worry here and will do it just again next time 
-            log_w("useSource  %s from source %s failed", GNSS_SPARTAN_USESOURCE_TXT(source), SOURCE_LUT[source]);
+            log_w("useSource  %s from source %s failed", GNSS_SPARTAN_USESOURCE_TXT(src),  MSG::text(src));
           }
         }
       }
     }
-    return curSource == source;
+    return curSrc == src;
   }
   
   /** process the UBX-NAV-PVT message, extract information for the console, monitor and needed for the correction clients
@@ -296,10 +253,10 @@ protected:
       uint8_t carrSoln = ubxDataStruct->flags.bits.carrSoln; // Print the carrier solution
       double fLat = 1e-7 * ubxDataStruct->lat;
       double fLon = 1e-7 * ubxDataStruct->lon;
-      log_i("%d.%d.%d %02d:%02d:%02d lat %.7f lon %.7f msl %.3f fix %d(%s) carr %d(%s) hacc %.3f source %s", 
+      log_i("%d.%d.%d %02d:%02d:%02d lat %.7f lon %.7f msl %.3f fix %d(%s)%s carr %d(%s) hacc %.3f source %s", 
             ubxDataStruct->day, ubxDataStruct->month, ubxDataStruct->year, ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, 
-            fLat, fLon, 1e-3 * ubxDataStruct->hMSL, fixType, fixLut[fixType & 7], carrSoln, carrLut[carrSoln & 3], 
-            1e-3*ubxDataStruct->hAcc, Gnss.SOURCE_LUT[Gnss.curSource]);
+            fLat, fLon, 1e-3 * ubxDataStruct->hMSL, fixType, fixLut[fixType & 7], ubxDataStruct->flags.bits.gnssFixOK ? "+OK": "", carrSoln, carrLut[carrSoln & 3], 
+            1e-3*ubxDataStruct->hAcc, MSG::text(Gnss.curSrc));
             
       // update the pointperfect topic and lband frequency depending on region we are in
       if ((fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) {
@@ -308,9 +265,12 @@ protected:
       // forward a message to the websocket for the simple built in monitor
       char string[128];
       snprintf(string, sizeof(string), "%02d:%02d:%02d %s %s %s %.3f %.7f %.7f %.3f\r\n",
-            ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, Gnss.SOURCE_LUT[Gnss.curSource], 
+            ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, MSG::text(Gnss.curSrc), 
             fixLut[fixType & 7], carrLut[carrSoln & 3], 1e-3*ubxDataStruct->hAcc, fLat, fLon, 1e-3 * ubxDataStruct->hMSL);
-      Websocket.write(string, WEBSOCKET::SOURCE::GNSS);
+      MSG msg(string, MSG::SRC::GNSS, MSG::CONTENT::TEXT);
+      if (msg) {
+        queueToWebsocket.send(msg);
+      }
       // keep a GGA sentence for the NTRIP client
       saveGGA(ubxDataStruct);
     }
@@ -359,18 +319,5 @@ protected:
 };
 
 GNSS Gnss; //!< The global GNSS peripherial object
-
-/** Static function that can be easily called from the WEBSOCKET modules avoiding include dependencies
- *  \param ptr  data to inject
- *  \param len  size of data
- *  \return     the sucessfully injected size of data
-*/
-#define GNSS_INJECT(source) \
-      size_t GNSS_INJECT_##source (const void* ptr, size_t len) { \
-        return Gnss.inject((const uint8_t*)ptr, len, GNSS::SOURCE::source); \
-      }
-
-GNSS_INJECT(WEBSOCKET)  //!< easy inject function for WEBSOCKET source
-GNSS_INJECT(BLUETOOTH)  //!< easy inject function for BLUETOOTH source
   
 #endif // __GNSS_H__

@@ -68,7 +68,7 @@
 #include "HW.h"
 #include "CONFIG.h"
 #include "UBXFILE.h"
-//#include "BLUETOOTH.h"  // Comment this to save memory if not needed, choose the flash size 4MB and suitable partition
+#include "BLUETOOTH.h"  // Comment this to save memory if not needed, choose the flash size 4MB and suitable partition
 #include "WLAN.h"
 #include "GNSS.h"
 #include "LBAND.h"
@@ -91,7 +91,6 @@ void setup(void) {
   String hwName = Config.getDeviceName();
   log_i("mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());  
   espVersion();
-  testQueuePipe();
   Config.init();
   // SD card 
   UbxSd.init(); // handling SD card and files runs in a task
@@ -124,7 +123,7 @@ void loop(void) {
   LBand.poll();
   Gnss.poll();
   delay(50);
-
+  
   memUsage();
 }
 

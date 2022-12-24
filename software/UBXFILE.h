@@ -22,15 +22,11 @@
 #include <SD.h>
 #include <cbuf.h> 
 
-const int UBXSERIAL_BUFFER_SIZE   =      0*1024;  //!< Size of circular buffer, typically AT modem gets bursts upto 9kB of MQTT data, but 2kB is also fine
-const int UBXWIRE_BUFFER_SIZE     =     12*1024;  //!< Size of circular buffer, typically we see about 2.5kBs coming from the GNSS
-const int UBXFILE_BLOCK_SIZE      =         512;  //!< Size of the blocks used to pull from the buffer and send to the File. 
-
 #define   UBXSD_DIR                       "/LOG"  //!< Directory on the SD card to store logfiles in 
 #define   UBXSD_UBXFORMAT        "/HPG-%04d.UBX"  //!< The UBX logfiles name format
 #define   UBXSD_ATFORMAT         "/HPG-%04d.TXT"  //!< The AT command logfiles name format
-const int UBXSD_MAXFILE           =        9999;  //!< the max number to try to open (should be smaller or fit the format above) 
-const int UBXSD_NODATA_DELAY      =         100;  //!< If no data is in the buffer wait so much time until we write new to the buffer, 
+const int UBXSD_MAXFILE           =         999;  //!< the max number to try to open (should be smaller or fit the format above) 
+const int UBXSD_CHECKCARD_DELAY   =         100;  //!< If no data is in the buffer wait so much time until we write new to the buffer, 
 const int UBXSD_DETECT_RETRY      =        2000;  //!< Delay between SD card detection trials 
 const int UBXSD_SDCARDFREQ        =     4000000;  //!< Frequency of the SD card
 
@@ -42,116 +38,6 @@ const char* UBXSD_TASK_NAME       =     "UbxSd";  //!< UBXSD task name
 const int UBXSD_STACK_SIZE        =      3*1024;  //!< UBXSD task stack size
 const int UBXSD_TASK_PRIO         =           1;  //!< UBXSD task priority
 const int UBXSD_TASK_CORE         =           1;  //!< UBXSD task MCU code
-
-/** This class encapsulates all UBXFILEE functions. 
-*/
-class UBXFILE {
-
-public:
-
-  /** constructor
-   *  \param size  the circular buffer size
-   */
-  UBXFILE(size_t size) : buffer{size} {
-    mutex = xSemaphoreCreateMutex();
-    opened = false;
-    size = 0;
-  }
-
-  /** Open a new file, will seach the current files and use the next best by 
-   *  incrementing the file name index.
-   *  \param format  the name format test and open. 
-   *  \param max     the maximum file name index
-   */
-  void open(const char* format, int max) {
-    if (buffer.size() > 1) {
-      char fn[20];
-      for (int i = 0; (i <= max) && !opened; i ++) {
-        sprintf(fn, format, i);
-        if (!SD.exists(fn)) {
-          if (file = SD.open(fn, FILE_WRITE)) {
-            log_i("UBXFILE created file \"%s\"", fn);
-            opened = true;
-            size = 0;
-          }
-        }
-      }
-    }
-  }
-
-  /** check if file is open
-   *  \return  true if it is open. 
-   */
-  bool isOpen(void) {
-    return opened;
-  }
-
-  /** close the file 
-   */
-  void close(void) {
-    if (opened) {
-      log_e("UBXFILE \"%s\" closed after %d bytes", file.name(), size);
-      file.close();
-      opened = false;
-    }
-  }
-  
-  /** store that data from the circular buffer in the file
-   *  \return  the bytes stored in this call. 
-   */
-  size_t store(void) {
-    size_t wrote = 0;
-    if (opened) {
-      bool loop;
-      do {
-        loop = false;
-        if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-          uint8_t temp[UBXFILE_BLOCK_SIZE];
-          size_t len = buffer.read((char*)temp, sizeof(temp));
-          xSemaphoreGive(mutex);
-          if (0 < len) {
-#if 0
-            int ret = file.write(temp, len);
-#else
-            // Retry multiple times in case we run low on memory due to a temprorary large 
-            // buffer in the queue and hope this gets freed quite soon. 
-            long start = millis();
-            int ret = 0;
-            while(true) {
-              ret = file.write(temp, len);
-              if ((ret != 0) || (millis() - start > 400))
-                break;
-              // just wait a bit
-              vTaskDelay(10);
-            }
-#endif
-            if (len == ret) {
-              log_d("UBXFILE \"%s\" writing %d bytes", file.name(), len);
-              size += len;
-              wrote += len;
-              loop = (len == sizeof(temp)); // likely more data
-            } else { 
-              log_e("UBXFILE \"%s\" writing %d bytes, failed and write returned %d", file.name(), len, ret);
-            }
-          }
-        }
-        vTaskDelay(0); // Yield
-      } while (loop);
-      if ((0 < wrote) && opened) {
-        file.flush();
-      } 
-    }
-    return size;
-  }
-  
-protected:
-  
-  SemaphoreHandle_t mutex;  //!< protects cbuf from concurnet access by tasks. 
-  cbuf buffer;              //!< the circular local buffer
-  bool opened;              //!< flag open status
-  File file;                //!< the file
-  size_t size;              //!< the files size
-};
 
 /** older versions of ESP32_Arduino do not yet support flow control, but we need this for the modem. 
  *  The following flag will make sure code is added for this,
@@ -166,15 +52,14 @@ protected:
 /** This class encapsulates all UBXSERIAL functions. the class can be used as alternative to a 
  *  normal Serial port, but add full RX and TX logging capability. 
 */
-class UBXSERIAL : public HardwareSerial, public UBXFILE {
+class UBXSERIAL : public HardwareSerial {
 public:
 
   /** constructor
    *  \param size      the circular buffer size
    *  \param uart_num  the hardware uart number
    */
-  UBXSERIAL(size_t size, uint8_t uart_num) 
-        : HardwareSerial{uart_num}, UBXFILE{size} {
+  UBXSERIAL(uint8_t uart_num) : HardwareSerial{uart_num} {
     setRxBufferSize(256);
   }
 
@@ -187,12 +72,7 @@ public:
    *  \return    the bytes written
    */ 
   size_t write(uint8_t ch) override {
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      if (buffer.size() > 1) { 
-        buffer.write((const char*)&ch, 1);
-      }
-      xSemaphoreGive(mutex);
-    }
+    pipeSerialToSdcard.write(ch);
     return HardwareSerial::write(ch);
   }
   
@@ -202,12 +82,7 @@ public:
    *  \return      the bytes written
    */ 
   size_t write(const uint8_t *ptr, size_t size) override {
-    if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      if (buffer.size() > 1) { 
-        buffer.write((const char*)ptr, size);
-      } 
-      xSemaphoreGive(mutex);
-    }
+    pipeSerialToSdcard.write(ptr, size);
     return HardwareSerial::write(ptr, size);  
   }
 
@@ -217,12 +92,7 @@ public:
   int read(void) override {
     int ch = HardwareSerial::read();
     if (-1 != ch) {
-      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-        if (buffer.size() > 1) { 
-          buffer.write((const char*)&ch, 1);
-        } 
-        xSemaphoreGive(mutex);
-      }
+      pipeSerialToSdcard.write(ch);
     }
     return ch;
   }
@@ -248,13 +118,13 @@ public:
 #endif
 };
 
-UBXSERIAL UbxSerial(UBXSERIAL_BUFFER_SIZE, UART_NUM_1); //!< The global UBXSERIAL peripherial object (replaces Serial1)
+UBXSERIAL UbxSerial(UART_NUM_1); //!< The global UBXSERIAL peripherial object (replaces Serial1)
 
 /** This class encapsulates all UBXWIRESERIAL functions. the class can be used as alternative 
  *  to a normal Wire port, but add full RX and TX logging capability of the data stream filtering 
  *  out I2C register set and stream length reads at address 0xFD and 0xFE.  
  */
-class UBXWIRE : public TwoWire, public UBXFILE {
+class UBXWIRE : public TwoWire {
 
 public:
 
@@ -262,8 +132,7 @@ public:
    *  \param size     the circular buffer size
    *  \param bus_num  the hardware I2C/Wire bus number
    */
-  UBXWIRE(size_t size, uint8_t bus_num) 
-        : TwoWire{bus_num}, UBXFILE{size} {
+  UBXWIRE(uint8_t bus_num) : TwoWire{bus_num} {
     state = READ;
     lenLo = 0;
   }
@@ -274,34 +143,19 @@ public:
    */ 
   size_t write(uint8_t ch) override {
     if (state == READFD) {
-      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-        if (buffer.size() > 1) {
-          buffer.write(0xFD);  // seems we ar just writing after assumed address set to length field
-          buffer.write(ch);
-        } 
-        xSemaphoreGive(mutex);
-      }
+      const uint8_t mem[] = { 0xFD, ch };
+      pipeWireToSdcard.write(mem, sizeof(mem));  // seems we ar just writing after assumed address set to length field
     } else if (state == READFE) {
-      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-        if (buffer.size() > 1) {
-          buffer.write(0xFD);     // quite unusal should never happen 
-          buffer.write(lenLo);     // we set register address and read part of the length 
-          buffer.write(ch);       // now we write again
-        }
-        xSemaphoreGive(mutex);
-      }
+      // quite unusal should never happen 
+      const uint8_t mem[] = { 0xFD, lenLo, ch };
+      pipeWireToSdcard.write(mem, sizeof(mem)); // we set register address and read part of the length, now we write again
     }
     else if (ch == 0xFD) {
       state = READFD;
       // do not write this now
     } else {
       state = WRITE;
-      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-        if (buffer.size() > 1) {
-          buffer.write(ch);
-        } 
-        xSemaphoreGive(mutex);
-      }
+      pipeWireToSdcard.write(ch);
     }
     return TwoWire::write(ch);
   }
@@ -315,15 +169,10 @@ public:
     if ((1 == size) && (0xFD == *ptr)) {
       state = READFD;
     } else {
-      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-        if (buffer.size() > 1) {
-          if (state == READFD) {
-            buffer.write(0xFD);
-          }
-          buffer.write((const char*)ptr, size);
-        } 
-        xSemaphoreGive(mutex);
+      if (state == READFD) {
+        pipeWireToSdcard.write(0xFD);
       }
+      pipeWireToSdcard.write(ptr, size);
       state = WRITE;
     }
     return TwoWire::write(ptr, size);  
@@ -341,12 +190,7 @@ public:
       state = READ;
       //lenHi = ch;
     } else {
-      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-        if (buffer.size() > 1) {
-          buffer.write(ch);
-        } 
-        xSemaphoreGive(mutex);
-      }
+      pipeWireToSdcard.write(ch);
     }
     return ch;
   }
@@ -356,7 +200,7 @@ protected:
   uint8_t lenLo;                              //!> backup of lenLo 
 };
 
-UBXWIRE UbxWire(UBXWIRE_BUFFER_SIZE, 0); //!< The global UBXWIRE peripherial object (replaces Wire)
+UBXWIRE UbxWire(0); //!< The global UBXWIRE peripherial object (replaces Wire)
 
 /** This class encapsulates all UBXSD functions that are responsible for managing the 
  *  SD card and its log files. 
@@ -440,24 +284,63 @@ protected:
       }
       if (state == MOUNTED) {
         if (!SD.exists(UBXSD_DIR) ? SD.mkdir(UBXSD_DIR) : true) {
-          UbxSerial.open(UBXSD_DIR UBXSD_ATFORMAT, UBXSD_MAXFILE);
-          UbxWire.open(UBXSD_DIR UBXSD_UBXFORMAT, UBXSD_MAXFILE);
-          while (getState() != REMOVED) {
-            UbxSerial.store();
-            UbxWire.store();
-            vTaskDelay(UBXSD_NODATA_DELAY);
+          File file[2];
+          size_t fileSize[2] = { 0, 0 }; 
+          open(file[0], UBXSD_DIR UBXSD_UBXFORMAT, UBXSD_MAXFILE);
+          open(file[1], UBXSD_DIR UBXSD_ATFORMAT,  UBXSD_MAXFILE);
+          while ((getState() != REMOVED) && (file[0] || file[1])) {
+            MSG msg;
+            while (queueToSdcard.receive(msg, pdMS_TO_TICKS(UBXSD_CHECKCARD_DELAY))) {
+              int ix = (msg.src == MSG::SRC::GNSS) ? 0 : 
+                       (msg.src == MSG::SRC::LTE)  ? 1 : -1;
+              if ((0 <= ix) && file[ix]) {
+                size_t size = file[ix].write(msg.data, msg.size);
+                fileSize[ix] += size;
+                if (msg.size != size) {
+                  log_e("closed file %s size %d, due to error", file[ix].name(), fileSize[ix]); 
+                  file[ix].close();
+                }
+              }
+            }
+            for (int ix = 0; ix < 2; ix ++) {
+              if (file[ix]) {
+                file[ix].flush();
+              }
+            }
           } 
-          UbxSerial.close();
-          UbxWire.close();
+          for (int ix = 0; ix < 2; ix ++) {
+            if (file[ix]) {
+              log_i("closed file %s size %d", file[ix].name(), fileSize[ix]); 
+              file[ix].close();
+            }
+          }
         }
         oldState = state = getState();
-        log_d("UBXSD stack free %d total %d", uxTaskGetStackHighWaterMark(0), UBXSD_STACK_SIZE);
-        log_i("UBXSD card state changed %d (%s)", state, STATE_LUT[state]);
+        log_i("card state changed %d (%s)", state, STATE_LUT[state]);
         SD.end();
         SPI.end();
       }
-      vTaskDelay(UBXSD_DETECT_RETRY); // wait a bit before 
+      for (int i = 0; i < 10; i ++) { // empty the pipe here
+        MSG msg;
+        while (queueToSdcard.receive(msg, 0)) {
+        }
+        vTaskDelay(UBXSD_DETECT_RETRY/10); // wait a bit before 
+      }
     }
+  }
+
+  bool open(File &file, const char* format, int max) {
+    char fn[20];
+    for (int i = 0; (i <= max); i ++) {
+      sprintf(fn, format, i);
+      if (!SD.exists(fn)) {
+        if (file = SD.open(fn, FILE_WRITE)) {
+          log_i("created file \"%s\"", fn);
+          return true;
+        }
+      }
+    }
+    return false;
   }
 };
 
