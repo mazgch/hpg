@@ -23,7 +23,7 @@
 #include "HW.h"
 #include "CONFIG.h"
 #include "GNSS.h"
-#include "UBXFILE.h"
+#include "SDCARD.h"
   
 const int LTE_1S_RETRY            =        1000;  //!< standard 1s retry
 const int LTE_DETECT_RETRY        =        5000;  //!< delay between detect attempts
@@ -75,7 +75,7 @@ public:
    *  \note we do not pass the pins to the class as we prefer to be in control of them 
    */
   LTE() : SARA_R5{ PIN_INVALID/*LTE_PWR_ON*/, PIN_INVALID/*LTE_RESET*/, 3/*retries*/ } { 
-    state = INIT;
+    state = STATE::INIT;
     ntripSocket = -1;
     hwInit();
   }
@@ -319,16 +319,16 @@ protected:
     } else { 
       switch (command) {
         case SARA_R5_MQTT_COMMAND_LOGIN:
-          if (state != ONLINE) {
+          if (state != STATE::ONLINE) {
             log_e("login wrong state");
           } else {
             log_i("login");
             mqttConnected = true;
-            setState(MQTT, LTE_MQTTCMD_DELAY);
+            setState(STATE::MQTT, LTE_MQTTCMD_DELAY);
           }
           break;
         case SARA_R5_MQTT_COMMAND_LOGOUT:
-          if ((state != MQTT) && (state != ONLINE)) {
+          if ((state != STATE::MQTT) && (state != STATE::ONLINE)) {
             log_e("logout wrong state");
           } else {
             log_i("logout");
@@ -337,11 +337,11 @@ protected:
             subTopic = "";
             unsubTopic = "";
             mqttConnected = false;
-            setState(ONLINE, LTE_MQTTCMD_DELAY);
+            setState(STATE::ONLINE, LTE_MQTTCMD_DELAY);
           }
           break;
         case SARA_R5_MQTT_COMMAND_SUBSCRIBE:
-          if (state != MQTT) {
+          if (state != STATE::MQTT) {
             log_e("subscribe wrong state");
           } else if (!subTopic.length()) {
             log_e("subscribe result %d but no topic", result);
@@ -349,11 +349,11 @@ protected:
             log_i("subscribe result %d topic \"%s\"", result, subTopic.c_str());
             topics.push_back(subTopic);
             subTopic = "";
-            setState(MQTT, LTE_MQTTCMD_DELAY);
+            setState(STATE::MQTT, LTE_MQTTCMD_DELAY);
           }  
           break;
         case SARA_R5_MQTT_COMMAND_UNSUBSCRIBE:
-          if (state != MQTT) {
+          if (state != STATE::MQTT) {
             log_e("unsubscribe wrong state");
           } else if (!unsubTopic.length()) {
             log_e("unsubscribe result %d but no topic", result);
@@ -363,19 +363,19 @@ protected:
               topics.erase(pos);
               log_i("unsubscribe result %d topic \"%s\"", result, unsubTopic.c_str());
               unsubTopic = "";
-              setState(MQTT, LTE_MQTTCMD_DELAY);
+              setState(STATE::MQTT, LTE_MQTTCMD_DELAY);
             } else {
               log_e("unsubscribe result %d topic \"%s\" but topic not in list", result, unsubTopic.c_str());
             }
           } 
           break;
         case SARA_R5_MQTT_COMMAND_READ: 
-          if (state != MQTT) {
+          if (state != STATE::MQTT) {
             log_e("read wrong state");
           } else {
             log_d("read result %d", result);
             mqttMsgs = result;
-            setState(MQTT, LTE_MQTTCMD_DELAY);
+            setState(STATE::MQTT, LTE_MQTTCMD_DELAY);
           }
           break;
         default:
@@ -419,12 +419,12 @@ protected:
           if (command == SARA_R5_HTTP_COMMAND_GET) {
             // save the AWS root CA
             Config.setValue(CONFIG_VALUE_ROOTCA, str);
-            setState(ONLINE);
+            setState(STATE::ONLINE);
           } else if (command == SARA_R5_HTTP_COMMAND_POST_FILE) {
             // save the ZTP
             String rootCa = Config.getValue(CONFIG_VALUE_ROOTCA);
             Config.setZtp(str, rootCa);
-            setState(ONLINE);
+            setState(STATE::ONLINE);
           }
         }
       }
@@ -569,11 +569,11 @@ protected:
   void socketCloseCallback(int socket) {
     if (socket != ntripSocket) {
       log_e("close wrong socket");
-    } else if (state != NTRIP) {
+    } else if (state != STATE::NTRIP) {
       log_e("close wrong state");
     } else {
       ntripSocket = -1;
-      setState(ONLINE);
+      setState(STATE::ONLINE);
     }
   }
   //! static callback helper, socketCloseCallback will do the real work
@@ -738,10 +738,10 @@ protected:
     const char* actText = REG_LUT(REG_ACT_LUT, Act);
     const char* statusText = REG_LUT(REG_STATUS_LUT, status);
     log_d("status %d(%s) %s \"%04X\" ci \"%08X\" Act %d(%s)", status, statusText, strTacLac, tacLac, ci, Act, actText); /*unused*/ (void)actText; (void)statusText;
-    if (((status == SARA_R5_REGISTRATION_HOME) || (status == SARA_R5_REGISTRATION_ROAMING)) && (state < REGISTERED)) {
-      setState(REGISTERED);
-    } else if ((status == SARA_R5_REGISTRATION_SEARCHING) && (state >= REGISTERED)) {
-      setState(WAITREGISTER);
+    if (((status == SARA_R5_REGISTRATION_HOME) || (status == SARA_R5_REGISTRATION_ROAMING)) && (state < STATE::REGISTERED)) {
+      setState(STATE::REGISTERED);
+    } else if ((status == SARA_R5_REGISTRATION_SEARCHING) && (state >= STATE::REGISTERED)) {
+      setState(STATE::WAITREGISTER);
     }
   }
   //! static callback helper, regCallback will do the real work
@@ -810,7 +810,7 @@ protected:
     log_d("psdCallback profile %d  IP %s", profile, ip.toString().c_str());
     if (profile == LTE_PSD_PROFILE) {
       String id = Config.getValue(CONFIG_VALUE_CLIENTID);
-      Lte.setState(ONLINE);
+      Lte.setState(STATE::ONLINE);
     }
   }
   
@@ -818,8 +818,7 @@ protected:
   // STATEMACHINE
   // -----------------------------------------------------------------------
 
-  //! states of the statemachine 
-  typedef enum { 
+  enum class STATE { 
     INIT = 0, 
     CHECKSIM, 
     SIMREADY, 
@@ -829,19 +828,7 @@ protected:
     MQTT, 
     NTRIP, 
     NUM 
-  } STATE;
-  //! string conversion helper table, must be aligned and match with STATE
-  const char* STATE_LUT[STATE::NUM] = {
-    "init", 
-    "check sim", 
-    "sim ready", 
-    "wait register", 
-    "registered",
-    "online",
-    "mqtt", 
-    "ntrip"
-  }; 
-  STATE state;            //!< the current state
+  } state;                //!< the current state
   int32_t ttagNextTry;    //!< time tag when to call the state machine again
 
   /** advance the state and report transitions
@@ -850,7 +837,18 @@ protected:
    */
   void setState(STATE newState, int32_t delay = 0) {
     if (state != newState) {
-      log_i("state change %d(%s)", newState, STATE_LUT[newState]);
+      static const char* text[] = {
+        "init", 
+        "check sim", 
+        "sim ready", 
+        "wait register", 
+        "registered",
+        "online",
+        "mqtt", 
+        "ntrip"
+      };
+      size_t ix = (size_t)newState;
+      log_i("state change %s", text[ix]);
       state = newState;
     }
     ttagNextTry = millis() + delay; 
@@ -870,18 +868,18 @@ protected:
     if (!lteDetect()) {
       log_w("LARA-R6/SARA-R5/LENA-R8 not detected, check wiring");
     } else {
-      setState(CHECKSIM);  
+      setState(STATE::CHECKSIM);  
     }
     while(true) {
-      if ((PIN_INVALID != LTE_ON) && (state != INIT)) {
+      if ((PIN_INVALID != LTE_ON) && (state != STATE::INIT)) {
         // detect if LTE was turned off
         if (HIGH == digitalRead(LTE_ON)) {
           UbxSerial.end();
-          setState(INIT, LTE_DETECT_RETRY);
+          setState(STATE::INIT, LTE_DETECT_RETRY);
         }
       }
         
-      if (state != INIT) {
+      if (state != STATE::INIT) {
         SARA_R5::poll();
       }
       
@@ -895,30 +893,30 @@ protected:
         bool useNtrip = useLte && (useSrc & CONFIG::USE_SOURCE::USE_NTRIP);
         bool useMqtt  = useLte && (useSrc & CONFIG::USE_SOURCE::USE_POINTPERFECT);
         switch (state) {
-          case INIT:
+          case STATE::INIT:
             ttagNextTry = now + LTE_DETECT_RETRY;
             if (lteDetect()) {
-              setState(CHECKSIM);
+              setState(STATE::CHECKSIM);
             } 
             break;    
-          case CHECKSIM:
+          case STATE::CHECKSIM:
             ttagNextTry = now + LTE_CHECKSIM_RETRY;
             if (lteInit()) {
-              setState(WAITREGISTER);
+              setState(STATE::WAITREGISTER);
             }
             break;
-          case WAITREGISTER:
+          case STATE::WAITREGISTER:
             if (lteRegistered()) {
-              setState(REGISTERED);
+              setState(STATE::REGISTERED);
             }
             break;
-          case REGISTERED:
+          case STATE::REGISTERED:
             ttagNextTry = now + LTE_ACTIVATION_RETRY;
             if (lteActivate()) {
-              setState(ONLINE);
+              setState(STATE::ONLINE);
             }
             break;
-          case ONLINE:
+          case STATE::ONLINE:
             if (useMqtt) {
               if (useSrc & CONFIG::USE_SOURCE::USE_CLIENTID) {
                 ttagNextTry = now + LTE_CONNECT_RETRY;
@@ -926,36 +924,36 @@ protected:
               } else if (useSrc & CONFIG::USE_SOURCE::USE_ZTPTOKEN) {
                 ttagNextTry = now + LTE_PROVISION_RETRY;
                 mqttProvision();      // callback will advance the state
-                setState(NTRIP);
+                setState(STATE::NTRIP);
               }
             } else if (useNtrip) {
               if (useSrc & CONFIG::USE_SOURCE::USE_NTRIP_SERVER) {
                 ttagNextTry = now + LTE_CONNECT_RETRY;
                 if (ntripConnect()) {
-                  setState(NTRIP);
+                  setState(STATE::NTRIP);
                 }
               }
             }
             break;
-          case MQTT:
+          case STATE::MQTT:
             if (useMqtt && (useSrc & CONFIG::USE_SOURCE::USE_CLIENTID) && mqttConnected) {
               mqttTask();
             } else {
               if (mqttStop()) {
-                setState(ONLINE);
+                setState(STATE::ONLINE);
               }
             }
             break;
-          case NTRIP: 
+          case STATE::NTRIP: 
             if (useNtrip && (useSrc & CONFIG::USE_SOURCE::USE_NTRIP_SERVER) && (0 <= ntripSocket)) {
               ntripTask();
             } else {
               ntripStop();
-              setState(ONLINE);
+              setState(STATE::ONLINE);
             }
             break;
           default:
-            setState(INIT);
+            setState(STATE::INIT);
             break;
         }
       }

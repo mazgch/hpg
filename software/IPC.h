@@ -158,6 +158,7 @@ public:
   QUEUE(size_t num, MSG::SRC _dest) {
     queue = xQueueCreate(num, sizeof(MSG));
     dest = _dest;
+    minFree = num;
   }
 
   ~QUEUE() {
@@ -180,7 +181,7 @@ public:
         return true;
       }
     }
-    log_e("dest %s dropped %s", MSG::text(dest), msg.dump().c_str());
+    log_e("dest %s ticks %d dropped %s", MSG::text(dest), ticks, msg.dump().c_str());
     return false;
   }
 
@@ -192,7 +193,7 @@ public:
         return true;
       }
     }
-    log_e("dest %s dropped %s", MSG::text(dest), msg.dump().c_str());
+    log_e("dest %s ticks %d dropped %s", MSG::text(dest), ticks, msg.dump().c_str());
     return false;
   }
   
@@ -200,17 +201,25 @@ public:
     // first relase any buffer still attached to the msg
     msg.free();
     if (NULL != queue) {
+      uint8_t avail = uxQueueSpacesAvailable(queue);
+      if (avail < minFree) {
+        minFree = avail;
+      }
       if (xQueueReceive(queue, &msg, ticks) == pdTRUE){
-        log_v("dest %s %s", MSG::text(dest), msg.dump().c_str());
+        log_v("dest %s ticks %d %s", MSG::text(dest), ticks, msg.dump().c_str());
         return true;
       }
     }
     return false;
   }
- 
+
+  uint8_t getMinFree(void) {
+    return minFree;
+  }
 protected:
 
   xQueueHandle queue;
+  uint8_t minFree;
   MSG::SRC dest;
   
 };
@@ -391,16 +400,20 @@ protected:
 #endif
 };
 
-QUEUE queueToBluetooth(10,                  MSG::SRC::BLUETOOTH);
-PIPE pipeGnssToBluetooth(queueToBluetooth,  MSG::SRC::GNSS); // using Gnss::rx.setNMEAOutputPort
+// SdCard is a high priority task, so queue can be small
+QUEUE queueToSdcard(5,                      MSG::SRC::SDCARD);    //!< queue into UBXSD (SdCard) task
+PIPE pipeWireToSdcard(queueToSdcard,        MSG::SRC::GNSS);      //!< Stream interface from Wire used by GNEE/LBAND into UBXSD (SdCard)
+PIPE pipeSerialToSdcard(queueToSdcard,      MSG::SRC::LTE);       //!< Stream interface from Serial used by Lte into UBXSD (SdCard)
 
-QUEUE queueToWebsocket(30,                  MSG::SRC::WEBSOCKET);
-PIPE pipeGnssToWebsocket(queueToWebsocket,  MSG::SRC::GNSS); // using Gnss::rx.setOutputPort Lband::rx.setOutputPort 
+// Bluetoooth is a high priority task, so queue can be small
+QUEUE queueToBluetooth(5,                   MSG::SRC::BLUETOOTH); //!< queue into BLUETOOTH Task
+PIPE pipeGnssToBluetooth(queueToBluetooth,  MSG::SRC::GNSS);      //!< Stream interface used by GNSS::rx.setNMEAOutputPort
 
-QUEUE queueToSdcard(30,                     MSG::SRC::SDCARD);
-PIPE pipeWireToSdcard(queueToSdcard,        MSG::SRC::GNSS);
-PIPE pipeSerialToSdcard(queueToSdcard,      MSG::SRC::LTE);
+// Websocket is a low priority task make sure we can hold enough messages
+QUEUE queueToWebsocket(30,                  MSG::SRC::WEBSOCKET); //!< queue into Websocket Task
+PIPE pipeGnssToWebsocket(queueToWebsocket,  MSG::SRC::GNSS);      //!< Stream interface used by  GNSS::rx.setOutputPort LBAND::rx.setOutputPort 
 
-QUEUE queueToGnss(20,                       MSG::SRC::GNSS); // used by LTE, WLAN, BLUETOOTH and CONFIG to inject data to the GNSS
+// Gnss/Lband/loopTask is a low priority task make sure we can hold enough messages
+QUEUE queueToGnss(20,                       MSG::SRC::GNSS);      //!< queue into Gnss Task, used by LBAND, LTE, WLAN, BLUETOOTH and CONFIG to inject data to the GNSS
 
 #endif // __IPC_H__

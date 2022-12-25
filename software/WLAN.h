@@ -46,7 +46,7 @@ const int WLAN_TASK_CORE          =           1;  //!< Wlan task MCU code
 
 const char* LED_TASK_NAME         =       "Led";  //!< Led task name
 const int LED_STACK_SIZE          =         700;  //!< led task stack size
-const int LED_TASK_PRIO           =           2;  //!< led task priority
+const int LED_TASK_PRIO           =           3;  //!< led task priority
 const int LED_TASK_CORE           =           1;  //!< led task MCU code
 
 extern class WLAN Wlan;  //!< Forward declaration of class
@@ -60,7 +60,8 @@ public:
   /** constructor
    */
   WLAN() : mqttClient(mqttWifiClient) {
-    state = INIT;
+    state = STATE::INIT;
+    ttagNextTry = millis();
     wasOnline = false;
     
     pinInit();
@@ -668,7 +669,7 @@ protected:
   /** init the pin function 
    */
   void pinInit(void) {
-    ttagPinChange = ttagNextTry = millis();
+    ttagPinChange = millis();
     lastPinLvl = HIGH;
   }
 
@@ -694,7 +695,7 @@ protected:
   // -----------------------------------------------------------------------
   
   //! states of the statemachine 
-  typedef enum { 
+  enum class STATE { 
     INIT = 0, 
     SEARCHING, 
     CONNECTED, 
@@ -702,17 +703,7 @@ protected:
     MQTT, 
     NTRIP, 
     NUM 
-  } STATE;
-  //! string conversion helper table, must be aligned and match with STATE
-  const struct { const char* name; LED_PATTERN pattern; } STATE_LUT[STATE::NUM] = { 
-    { "init",           LED_PATTERN_OFF },
-    { "searching",      LED_PATTERN_4Hz }, 
-    { "connected",      LED_PATTERN_2Hz }, 
-    { "online",         LED_PATTERN_1Hz },
-    { "mqtt",           LED_PATTERN_2s  },
-    { "ntrip",          LED_PATTERN_2s  }
-  }; 
-  STATE state;            //!< the current state
+  } state;                //!< the current state
   int32_t ttagNextTry;    //!< time tag when to call the state machine again
   bool wasOnline;         //!< a flag indicating if we were online 
   
@@ -720,11 +711,21 @@ protected:
    *  \param newState  the new state
    *  \param delay     schedule delay
    */
-  void setState(STATE value, int32_t delay = 0) {
-    if (state != value) {
-      log_i("state change %d(%s)", value, STATE_LUT[value].name);
-      ledSet(STATE_LUT[value].pattern);
-      state = value;
+  void setState(STATE newState, int32_t delay = 0) {
+    if (state != newState) {
+      const struct 
+        { const char* text; LED_PATTERN pattern;  } lut[] = { 
+        { "init",           LED_PATTERN_OFF       },
+        { "searching",      LED_PATTERN_4Hz       }, 
+        { "connected",      LED_PATTERN_2Hz       }, 
+        { "online",         LED_PATTERN_1Hz       },
+        { "mqtt",           LED_PATTERN_2s        },
+        { "ntrip",          LED_PATTERN_2s        }
+      }; 
+      size_t ix = (size_t)newState;
+      log_i("state change %s", lut[ix].text);
+      ledSet(lut[ix].pattern);
+      state = newState;
     }
     ttagNextTry = millis() + delay; 
   }
@@ -741,13 +742,13 @@ protected:
    */
   void task(void) {
     portalInit();  
-    setState(SEARCHING);
+    setState(STATE::SEARCHING);
     
     while(true) {
       // press a pin for a selected time to extern back into captive portal
-      if (pinCheck() && (state > SEARCHING)) {
+      if (pinCheck() && (state != STATE::SEARCHING) && (state != STATE::INIT)) {
         portalReset();
-        setState(SEARCHING);
+        setState(STATE::SEARCHING);
       }
       manager.process();
       if (mqttClient.connected()) {
@@ -772,63 +773,63 @@ protected:
         bool useNtrip = useWlan && (useSrc & CONFIG::USE_SOURCE::USE_NTRIP);
         bool useMqtt  = useWlan && (useSrc & CONFIG::USE_SOURCE::USE_POINTPERFECT);
         switch (state) {
-          case INIT:
+          case STATE::INIT:
             ttagNextTry = now + WLAN_INIT_RETRY;
             portalInit();  
-            setState(SEARCHING);
+            setState(STATE::SEARCHING);
             break;
-          case SEARCHING:
+          case STATE::SEARCHING:
             ttagNextTry = now + WLAN_RECONNECT_RETRY;
             if (onlineWlan) {
               portalStart();
-              setState(CONNECTED); // allow some time for dns to resolve. 
+              setState(STATE::CONNECTED); // allow some time for dns to resolve. 
             }
             break;
-          case CONNECTED:
+          case STATE::CONNECTED:
             if (onlineWlan) { 
               // test if we have access to the internet
               IPAddress ip;
               if (WiFi.hostByName(AWSTRUST_SERVER, ip)) {
-                setState(ONLINE);
+                setState(STATE::ONLINE);
               }
             }
             break;
-          case ONLINE:
+          case STATE::ONLINE:
             if (useMqtt) {
               if (useSrc & CONFIG::USE_SOURCE::USE_CLIENTID) {
                 ttagNextTry = now + WLAN_CONNECT_RETRY;
                 if (mqttConnect()) {
-                  setState(MQTT);
+                  setState(STATE::MQTT);
                 }
               } else if (useSrc & CONFIG::USE_SOURCE::USE_ZTPTOKEN) {
                 ttagNextTry = now + WLAN_PROVISION_RETRY;
                 if (mqttProvision()) {
-                  setState(ONLINE);
+                  setState(STATE::ONLINE);
                 }
               }
             } else if (useNtrip) {
               if (useSrc & CONFIG::USE_SOURCE::USE_NTRIP_SERVER) {
                 ttagNextTry = now + WLAN_CONNECT_RETRY;
                 if (ntripConnect()) {
-                  setState(NTRIP);
+                  setState(STATE::NTRIP);
                 }
               }
             }
             break;
-          case MQTT:
+          case STATE::MQTT:
             if (useMqtt && (useSrc & CONFIG::USE_SOURCE::USE_CLIENTID) && mqttClient.connected()) {
               mqttTask();
             } else {
               mqttStop();
-              setState(ONLINE);
+              setState(STATE::ONLINE);
             } 
             break;
-          case NTRIP: 
+          case STATE::NTRIP: 
             if (useNtrip && (useSrc & CONFIG::USE_SOURCE::USE_NTRIP_SERVER) && ntripWifiClient.connected()) {
               ntripTask();
             } else {
               ntripStop();
-              setState(ONLINE);
+              setState(STATE::ONLINE);
             }
             break;
           default:

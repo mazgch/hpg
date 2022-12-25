@@ -167,6 +167,8 @@ enum HW_PINS {
     PIN_INVALID = -1
 };
 
+#define MICROSD_DET_REMOVED ((HW_TARGET == MAZGCH_HPG_MODULAR_V01) ? LOW : HIGH) //!< sd card detected level
+
 /** Helper macro for GPIO debugging with a logic analyzer (e.g. Seleae Logic Pro 8 or 16)
  *  Will do nothing if pin is set invalid. Carefully check the schemtic before using a GPIO. 
  */

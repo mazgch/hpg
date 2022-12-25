@@ -67,7 +67,7 @@
 #include "IPC.h"
 #include "HW.h"
 #include "CONFIG.h"
-#include "UBXFILE.h"
+#include "SDCARD.h"
 #include "BLUETOOTH.h"  // Comment this to save memory if not needed, choose the flash size 4MB and suitable partition
 #include "WLAN.h"
 #include "GNSS.h"
@@ -93,7 +93,7 @@ void setup(void) {
   espVersion();
   Config.init();
   // SD card 
-  UbxSd.init(); // handling SD card and files runs in a task
+  Sdcard.init(); // handling SD card and files runs in a task
 #ifdef __BLUETOOTH_H__
   Bluetooth.init(hwName);
 #endif
@@ -158,7 +158,19 @@ void memUsage(void) {
     lastMs = now + MEM_USAGE_INTERVAL;
     char buf[128];
     int len = 0;
-    const char* tasks[] = { pcTaskGetName(NULL), "Lte", "Wlan", "Bluetooth", "UbxSd", "Led", "Can" };
+    const char* tasks[] = { 
+      pcTaskGetName(NULL), 
+      WLAN_TASK_NAME, 
+      LTE_TASK_NAME, 
+      SDCARD_TASK_NAME, 
+      LED_TASK_NAME,
+#ifdef __BLUETOOTH_H__
+      BLUETOOTH_TASK_NAME, 
+#endif
+#ifdef __CANBUS_H__
+      CAN_TASK_NAME, 
+#endif
+    };
     for (int i = 0; i < sizeof(tasks)/sizeof(*tasks); i ++) {
       const char *name = tasks[i];
       TaskHandle_t h = xTaskGetHandle(name);
@@ -167,7 +179,12 @@ void memUsage(void) {
         len += sprintf(&buf[len], " %s %u", tasks[i], stack);
       }
     }
-    log_i("stacks:%s heap: min %d cur %d size %d tasks: %d", buf, 
-          ESP.getMinFreeHeap(), ESP.getFreeHeap(), ESP.getHeapSize(), uxTaskGetNumberOfTasks());
+    log_i("stacks:%s "
+          "heap: min %d cur %d size %d "
+          "queues: Gnss %d Websocket %d SdCard %d Bluetooth %d "
+          "tasks: %d", buf, 
+          ESP.getMinFreeHeap(), ESP.getFreeHeap(), ESP.getHeapSize(), 
+          queueToGnss.getMinFree(), queueToWebsocket.getMinFree(), queueToSdcard.getMinFree(), queueToBluetooth.getMinFree(),
+          uxTaskGetNumberOfTasks());
   }
 }

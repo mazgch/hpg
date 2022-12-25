@@ -55,10 +55,10 @@ const char THINGSTREAM_ZTPURL[]   = "https://" THINGSTREAM_SERVER THINGSTREAM_ZT
 const char AWSTRUST_ROOTCAURL[]   = "https://" AWSTRUST_SERVER AWSTRUST_ROOTCAPATH; // full AWS root CA url
 
 const unsigned short MQTT_BROKER_PORT     =              8883;  //!< MQTTS port
-const int MQTT_MAX_MSG_SIZE               =            9*1024;  //!< the max size of a MQTT pointperfect topic
+const int MQTT_MAX_MSG_SIZE               =            7*1024;  //!< the max size of a MQTT pointperfect topic
 const int MQTT_MAX_KEY_SIZE               =                60;
 
-const char MQTT_TOPIC_MGA[]               =     "/pp/ubx/mga";  //!< GNSS assistance topic 
+#define MQTT_TOPIC_MGA                          "/pp/ubx/mga"  //!< GNSS assistance topic 
 const char MQTT_TOPIC_KEY_FORMAT[]        =   "/pp/ubx/0236/";  //!< LBAND decryption keys topic
 const char MQTT_TOPIC_FREQ[]           = "/pp/frequencies/Lb";  //!< LBAND frequency topic 
 
@@ -71,6 +71,11 @@ const char MQTT_TOPIC_IP_GAD[]            =            "/gad";  //!< geographic 
 const char MQTT_TOPIC_IP_HPAC[]           =           "/hpac";  //!< high precision atmospheric corrections
 const char MQTT_TOPIC_IP_OCB[]            =            "/ocb";  //!< orbit, clock and bias
 const char MQTT_TOPIC_IP_CLK[]            =            "/clk";  //!< clock correction
+
+const char MQTT_TOPIC_MGA_GPS[]       = MQTT_TOPIC_MGA "/gps";  //!< GPS (US)
+const char MQTT_TOPIC_MGA_GLO[]       = MQTT_TOPIC_MGA "/glo";  //!< Glonass (RU)
+const char MQTT_TOPIC_MGA_GAL[]       = MQTT_TOPIC_MGA "/gal";  //!< Galileo (EU)
+const char MQTT_TOPIC_MGA_BDS[]       = MQTT_TOPIC_MGA "/bds";  //!< Beidou (CN)
 
 // -----------------------------------------------------------------------
 // NTRIP settings 
@@ -537,7 +542,11 @@ protected:
 
   std::vector<String> updateTopics(String &stream, String &region) {
     std::vector<String> topics;
-    topics.push_back(MQTT_TOPIC_MGA);
+    //topics.push_back(MQTT_TOPIC_MGA);
+    topics.push_back(MQTT_TOPIC_MGA_GPS);
+    topics.push_back(MQTT_TOPIC_MGA_GLO);
+    topics.push_back(MQTT_TOPIC_MGA_GAL);
+    topics.push_back(MQTT_TOPIC_MGA_BDS);
     if (0 < stream.length()) {
       topics.push_back(MQTT_TOPIC_KEY_FORMAT + stream);
       if (stream.equals(MQTT_STREAM_LBAND)) {

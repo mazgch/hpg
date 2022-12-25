@@ -33,7 +33,7 @@ const int BLUETOOTH_MTU_OVERHEAD  =           3;  //!< MTU overhead = 1 attribut
 
 const char* BLUETOOTH_TASK_NAME   = "Bluetooth";  //!< Bluetooth task name
 const int BLUETOOTH_STACK_SIZE    =      2*1024;  //!< Bluetooth task stack size
-const int BLUETOOTH_TASK_PRIO     =           1;  //!< Bluetooth task priority
+const int BLUETOOTH_TASK_PRIO     =           2;  //!< Bluetooth task priority
 const int BLUETOOTH_TASK_CORE     =           1;  //!< Bluetooth task MCU code
 
 /** This class encapsulates all BLUETOOTH functions. 
