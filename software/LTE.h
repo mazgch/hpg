@@ -263,7 +263,7 @@ protected:
           int qos = -1;
           SARA_R5_error_t err = readMQTT(&qos, &topic, msg.data, msg.size, &len);
           if (SARA_R5_SUCCESS == err) {
-            msg.shrink(len); // adjust the buffer size (free few kBs)
+            msg.resize(len); // adjust the buffer size (free few kBs)
             mqttMsgs = 0; // expect a URC afterwards
             const char* strTopic = topic.c_str();
             log_i("topic \"%s\" read %d bytes", strTopic, len);
@@ -854,8 +854,8 @@ protected:
     ttagNextTry = millis() + delay; 
   }
   
-  /* FreeRTOS static task function, will just call the objects task function  
-   * \param pvParameters the Lte object (this)
+  /** FreeRTOS static task function, will just call the objects task function  
+   *  \param pvParameters the Lte object (this)
    */
   static void task(void * pvParameters) {
     ((LTE*) pvParameters)->task();

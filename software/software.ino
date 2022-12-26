@@ -68,7 +68,7 @@
 #include "HW.h"
 #include "CONFIG.h"
 #include "SDCARD.h"
-#include "BLUETOOTH.h"  // Comment this to save memory if not needed, choose the flash size 4MB and suitable partition
+#include "BLUETOOTH.h"  // Comment this to save memory if not needed, choose the flash size 4MB and suitable partition, see line 22 above
 #include "WLAN.h"
 #include "GNSS.h"
 #include "LBAND.h"
@@ -89,7 +89,7 @@ void setup(void) {
     /*nothing*/;
   log_i("-------------------------------------------------------------------");
   String hwName = Config.getDeviceName();
-  log_i("mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());  
+  log_i("hpg.mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());  
   espVersion();
   Config.init();
   // SD card 

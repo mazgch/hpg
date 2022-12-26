@@ -35,7 +35,7 @@ const int SDCARD_SDCARDFREQ        =     4000000;  //!< Frequency of the SD card
  * either apply this patch https://github.com/espressif/arduino-esp32/pull/6745 or increase the stack to 6kB 
  */
 const char* SDCARD_TASK_NAME       =     "Sdcard";  //!< SDCARD task name
-const int SDCARD_STACK_SIZE        =      3*1024;  //!< SDCARD task stack size
+const int SDCARD_STACK_SIZE        =        2576;  //!< SDCARD task stack size, 100 bytes margin
 const int SDCARD_TASK_PRIO         =           2;  //!< SDCARD task priority
 const int SDCARD_TASK_CORE         =           1;  //!< SDCARD task MCU code
 
@@ -205,16 +205,33 @@ protected:
 
 UBXWIRE UbxWire(0); //!< The global UBXWIRE peripherial object (replaces Wire)
 
+/** class to handle a sd card file
+ */
 class SDCARDFILE {
 
 public:
 
+  /** constructor
+   */
   SDCARDFILE() {
     size = 0;
     isOpen = false;
     isDirty = false;
   }
 
+  /** destructor
+   */
+  ~SDCARDFILE() {
+    if (isOpen) {
+      file.close();
+      isOpen = false;
+    }
+  }
+
+  /** open a new non-existent file with the specified name format 
+   *  \param format  the path of the file, must contain a %04d that will be replaced by a incrementing index 
+   *  \return the success status
+   */
   bool open(const char* format) {
     char fn[20];
     for (int ix = 0; !isOpen && (ix <= SDCARD_MAXFILE); ix ++) {
@@ -234,6 +251,11 @@ public:
     return isOpen;
   }
   
+  /** write data to file
+   *  \param ptr   pointer to buffer to write
+   *  \param len   number of bytes in ptr to write
+   *  \return      the bytes written
+   */ 
   size_t write(const uint8_t* ptr, size_t len) {
     size_t wrote = 0;
     wrote = file.write(ptr, len);
@@ -246,6 +268,8 @@ public:
     return wrote;  
   }
   
+  /** flush any written data to the card
+   */ 
   void flush(void) {
     if (isDirty) {
       file.flush();
@@ -253,6 +277,8 @@ public:
     }
   }
     
+  /** close the file 
+  */ 
   void close(void) {
     log_i("\"%s\" size %d", file.name(), size);
     file.close();
@@ -261,15 +287,18 @@ public:
     isOpen = false;
   }
 
+  /** check if file is open
+   *  \return  open status
+   */
   operator bool() const {
     return isOpen;  
   }
   
 protected:
-  File file;
-  size_t size;
-  bool isOpen;
-  bool isDirty;
+  File file;     //!< the file
+  size_t size;   //!< it's total size 
+  bool isOpen;   //!< open status
+  bool isDirty;  //!< dirty flag, set by write, reset by flush
 };
   
 /** This class encapsulates all SDCARD functions that are responsible for managing the 
@@ -306,7 +335,7 @@ public:
 
   /** immediately spin out into a task
    */
-  void init() {
+  void init(void) {
     xTaskCreatePinnedToCore(task, SDCARD_TASK_NAME, SDCARD_STACK_SIZE, this, SDCARD_TASK_PRIO, NULL, SDCARD_TASK_CORE);
   }
       
@@ -319,9 +348,13 @@ protected:
     MOUNTED,
     ERROR,
     NUM 
-  } state;                        //!< Card state
+  } state;                        //!< the statemachine state
   int32_t ttagNextTry;            //!< time tag when to call the state machine again
   
+  /** advance the state and report transitions
+   *  \param newState  the new state
+   *  \param delay     schedule delay
+   */
   void setState(STATE newState, int32_t delay = 0) {
     if (state != newState) {
       const char* lut[] = { "UNKNOWN", "REMOVED", "INSERTED", "MOUNTED",  "ERROR" };
@@ -333,6 +366,7 @@ protected:
   }
   
   /** get the state of the SD card using the holder detect pin
+   *  \return  the status to the card detect pin 
    */
   STATE getCardState(void) {
     STATE state;
@@ -346,8 +380,8 @@ protected:
     return state;
   }
 
-  /* FreeRTOS static task function, will just call the objects task function  
-   * \param pvParameters the Lte object (this)
+  /** FreeRTOS static task function, will just call the objects task function  
+   *  \param pvParameters the Lte object (this)
    */
   static void task(void * pvParameters) {
     ((SDCARD*) pvParameters)->task();
@@ -429,6 +463,8 @@ protected:
     }
   }
 
+  /** Cleanup the files, filesystem, Sdcard and SPI reset the CS pin to input pull-up. 
+   */
   void cleanup(void) {
     if (fileGnss) {
       fileGnss.close();
@@ -447,8 +483,9 @@ protected:
       
 protected:
   
-  SDCARDFILE fileLte;
-  SDCARDFILE fileGnss;
+  SDCARDFILE fileLte;   //!< the file to store a AT command logfile
+  SDCARDFILE fileGnss;  //!< the file to store a UBX logfile
+   
 };
 
 SDCARD Sdcard; //!< The global SDCARD peripherial object

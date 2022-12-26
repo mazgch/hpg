@@ -39,13 +39,15 @@ const int WLAN_RECONNECT_RETRY    =       60000;  //!< delay between re-connecti
 const int WLAN_PROVISION_RETRY    =       10000;  //!< delay between provisioning attempts, provisioning may consume data
 const int WLAN_CONNECT_RETRY      =       10000;  //!< delay between server connection attempts to correction severs
 
+const char WLAN_NTP_SERVER[]   = "pool.ntp.org";  //!< NTP server
+
 const char* WLAN_TASK_NAME        =      "Wlan";  //!< Wlan task name
 const int WLAN_STACK_SIZE         =      4*1024;  //!< Wlan task stack size
 const int WLAN_TASK_PRIO          =           1;  //!< Wlan task priority
 const int WLAN_TASK_CORE          =           1;  //!< Wlan task MCU code
 
 const char* LED_TASK_NAME         =       "Led";  //!< Led task name
-const int LED_STACK_SIZE          =         700;  //!< led task stack size
+const int LED_STACK_SIZE          =         616;  //!< led task stack size, 100 bytes margin
 const int LED_TASK_PRIO           =           3;  //!< led task priority
 const int LED_TASK_CORE           =           1;  //!< led task MCU code
 
@@ -730,8 +732,8 @@ protected:
     ttagNextTry = millis() + delay; 
   }
 
-  /* FreeRTOS static task function, will just call the objects task function  
-   * \param pvParameters the Lte object (this)
+  /** FreeRTOS static task function, will just call the objects task function  
+   *  \param pvParameters the Lte object (this)
    */
   static void task(void * pvParameters) {
     ((WLAN*) pvParameters)->task();
@@ -790,7 +792,8 @@ protected:
               // test if we have access to the internet
               IPAddress ip;
               if (WiFi.hostByName(AWSTRUST_SERVER, ip)) {
-                setState(STATE::ONLINE);
+               configTime(0, 0, WLAN_NTP_SERVER);
+               setState(STATE::ONLINE);
               }
             }
             break;

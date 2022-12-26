@@ -160,7 +160,7 @@ public:
         if (msg) {
           int size = Config.getValue(CONFIG_VALUE_KEY, msg.data, msg.size);
           if (0 < size) {
-            msg.shrink(size);
+            msg.resize(size);
             log_i("inject saved keys");
             queueToGnss.send(msg);
           }

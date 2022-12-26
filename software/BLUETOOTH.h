@@ -32,7 +32,7 @@ const int BLUETOOTH_TX_SIZE       =         512;  //!< Preferred (max) size of t
 const int BLUETOOTH_MTU_OVERHEAD  =           3;  //!< MTU overhead = 1 attribute opcode + 2 client receive MTU size 
 
 const char* BLUETOOTH_TASK_NAME   = "Bluetooth";  //!< Bluetooth task name
-const int BLUETOOTH_STACK_SIZE    =      2*1024;  //!< Bluetooth task stack size
+const int BLUETOOTH_STACK_SIZE    =        1548;  //!< Bluetooth task stack size, 100 bytes margin
 const int BLUETOOTH_TASK_PRIO     =           2;  //!< Bluetooth task priority
 const int BLUETOOTH_TASK_CORE     =           1;  //!< Bluetooth task MCU code
 
@@ -99,8 +99,8 @@ public:
 
 protected:
 
-  /* FreeRTOS static task function, will just call the objects task function  
-   * \param pvParameters the Bluetooth object  (this)
+  /** FreeRTOS static task function, will just call the objects task function  
+   *  \param pvParameters the Bluetooth object  (this)
    */
   static void task(void * pvParameters) {
     ((BLUETOOTH*) pvParameters)->task();

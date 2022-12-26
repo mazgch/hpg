@@ -17,9 +17,8 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
-#include <SPIFFS.h>
 #include <vector>
-#include <mbedtls/base64.h>
+//#include <mbedtls/base64.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
 
@@ -240,7 +239,7 @@ public:
     } 
     return ok;
   }
-  
+
   /** set the value of a config key 
    *  \param key    the parameter key    
    *  \param value  the parameter value
@@ -272,6 +271,70 @@ public:
     return changed;
   }
 
+  /** get the value of a config key  
+   *  \param key      the parameter key    
+   *  \param value    the parameter value buffer
+   *  \param len      the parameter value buffer length
+   *  \return         the parameter value length
+   */
+  size_t getValue(const char *key, void* value, size_t len) {
+    if (nvs.isKey(key)) {
+      size_t oldLen = nvs.getBytesLength(key);
+      if (oldLen <= len) {
+        len = nvs.getBytes(key, value, oldLen);
+        log_d("key %s get %d bytes", key, oldLen);
+      } else {
+        len = 0;
+        log_e("key %s %d bytes, too large", key, oldLen);
+      }
+    } else { 
+      len = 0;
+    }
+    return len;
+  }
+
+  /** set the value of a config key 
+   *  \param key    the parameter key    
+   *  \param value  the parameter value
+   *  \param len    the parameter value length
+   *  \return       true if value was changed
+   */
+  bool setValue(const char *key, const void* value, size_t len) {
+    bool changed = false;
+    if (nvs.isKey(key)) {
+      size_t oldLen = nvs.getBytesLength(key);
+      if (oldLen == len) {
+        if (len != 0) {
+          uint8_t* old[oldLen];
+          oldLen = nvs.getBytes(key, old, oldLen);
+          changed = (oldLen == len) ? (0 == memcpy(old, value, len)) : true;
+        }
+      } else {
+        changed = true;
+      }
+      if (changed) {
+        if (0 < len) {
+          changed = nvs.putBytes(key, value, len);
+          if (changed) {
+            log_d("key %s changed from %d to %d bytes", key, oldLen, len);
+          }
+        } else {
+          changed = nvs.remove(key);
+          if (changed) {
+            log_d("key %s removed %d bytes", key, oldLen);
+          }
+        }
+      }
+    } else if (0 < len) {
+      changed = nvs.putBytes(key, value, len);
+      if (changed) {
+        log_d("key %s set %d bytes", key, len); 
+      }
+    }
+    return changed;
+  }
+
+#ifdef MBEDTLS_BASE64_H
   /** set the value of a config key 
    *  \param key     the parameter key    
    *  \param buffer  the buffer to store the key
@@ -307,6 +370,7 @@ public:
     }
     return decLen;
   }
+#endif
   
   /** extract the lband freuqencies for all supported regions from the json buffer 
    *  \param buf  the buffer with the json message

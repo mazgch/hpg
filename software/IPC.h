@@ -17,55 +17,99 @@
 #ifndef __IPC_H__
 #define __IPC_H__
 
+/** This file contains the inter process/task communication functiions. We are using queues 
+ *  to communicate between tasks. This ensures that shared data is accessed in a controlled way. 
+ *  The object that is sent across queues is MSG, which holds a buffer with the actual data. 
+ *  The sending task will allocate the buffer and it released by the receiving task. Pipes can 
+ *  be used to accumulate bytes (e.g. from a Stream) into resonable sized messages.  
+ */
+
+/** This objects is sent across queues from one task to another. Its holds a buffer with the 
+ *  actual data and some control variable. 
+ */
 class MSG {
 
 public: 
 
+  /** constructor
+   */
   MSG() {
     clear();
   }
   
+  /** destructor
+   */
   ~MSG() {
     free();
   }
+ 
+  enum class CONTENT { NONE, TEXT, BINARY, KEYS, CORRECTIONS, CONFIG, NUM }; //!< the content types
 
-  enum class CONTENT { NONE, TEXT, BINARY, KEYS, CORRECTIONS, CONFIG, NUM };
-  
+  /** conversion function from a content type into a string
+   */
   static const char* text(CONTENT content) {
     static const char* text[] = { "none", "TEXT", "BINARY", "KEYS", "CORRECTIONS", "CONFIG" };
     size_t ix = (size_t)content;
     return (ix < sizeof(text)/sizeof(*text)) ? text[ix] : "??";
   }
+
+  enum class SRC { NONE, WLAN, LTE, LBAND, GNSS, BLUETOOTH, WEBSOCKET, SDCARD, UART, CANBUS, APP, NUM }; //!< the source types
   
-  enum class SRC { NONE, WLAN, LTE, LBAND, GNSS, BLUETOOTH, WEBSOCKET, SDCARD, UART, CANBUS, APP, NUM };
-  
+  /** conversion function from a source type into a string
+   */
   static const char* text(SRC src) {
     static const char* text[] = { "none", "WLAN", "LTE", "LBAND", "GNSS", "BLUETOOTH", "WEBSOCKET", "SDCARD", "UART",  "CANBUS", "APP" };
     size_t ix = (size_t)src;
     return (ix < sizeof(text)/sizeof(*text)) ? text[ix] : "??";
   }
 
+  /** constructor, that initializes from existing data (allocates own buffer and takes a copy of the data)
+   *  \param ptr      data
+   *  \param size     the size of data
+   *  \prama src      the origin of this data
+   *  \prama content  the content type of data   
+   */
   MSG(const void* ptr, size_t size, SRC src, CONTENT content = CONTENT::BINARY) {
     init(ptr, size, src, content);
   }
   
+  /** constructor, that initializes from existing string (allocates own buffer and takes a copy of the data)
+   *  \param string   the text data
+   *  \prama src      the origin of this data
+   *  \prama content  the content type of data   
+   */
   MSG(const char* string, SRC src, CONTENT _content = CONTENT::TEXT) {
     size_t len = (NULL != string) ? strlen(string) : 0;
     init(string, len, src, _content);
   }
   
+  /** constructor, that allocates a buffer for certain size
+   *  \param size     the size to reserve for data, allocated but uninitialized
+   *  \prama src      the origin of this data
+   *  \prama content  the content type of data   
+   */
   MSG(size_t size, SRC src, CONTENT content = CONTENT::BINARY) {
     init(NULL, size, src, content);
   }
-  
+
+  /** is the message buffer valid/filled
+   *  \return  true if data buffer is sucessfully allocated
+   */
   operator bool() const {
     return data != NULL;
   }
 
+  /** dump the message to a string
+   *  \return  the object dumped as string 
+   */
   operator String() const {
     return dump();
   }
 
+  /** dump the message to a string
+   *  \param maxLength  maximum line length
+   *  \return           the object dumped as string 
+   */
   String dump(int maxLength = 100) const {
     char string[maxLength];
     int len = snprintf(string, sizeof(string), "src %s content %s size %d data", 
@@ -91,19 +135,33 @@ public:
     return string;
   }
 
-  void malloc(size_t len) {
+  /** message buffer alloc function
+   *  \param len  the buffer size
+   *  \return     sucess of failure of memory alloc
+   */
+  bool malloc(size_t len) {
     data = (uint8_t*)::malloc(len);
     size = (NULL != data) ? len : 0;
+    return (NULL != data);
   }         
 
-  void shrink(size_t newSize) {
-    uint8_t* newData = (uint8_t*)::realloc(data, newSize);
-    if (NULL != newData) {
-      data = newData;
-      size = newSize;
+  /** message buffer resize
+   *  \param newSize  the new buffer size
+   *  \return         sucess of failure of the buffer realloc/resize
+   */
+  bool resize(size_t newSize) {
+    if (size != newSize) {
+      uint8_t* newData = (uint8_t*)::realloc(data, newSize);
+      if (NULL != newData) {
+        data = newData;
+        size = newSize;
+      }
     }
+    return (size == newSize);
   }
 
+  /** Free the buffer and clear it
+   */
   void free(void) {
     if (NULL != data) {
       ::free(data);
@@ -111,6 +169,8 @@ public:
     }
   }
   
+  /** Just clear the message, this just detaches the pointer without freeing 
+   */
   void clear(void) {
     data = NULL;
     size = 0;
@@ -118,6 +178,12 @@ public:
     content = CONTENT::NONE; 
   }
 
+  /** safely write some data to the message's buffer from an index  
+   *  \param ptr    the data to write
+   *  \param len    the length of the data to write
+   *  \param index  the offset to write at 
+   *  \return       the data actually written
+   */
   int write(const void* ptr, size_t len, size_t index = 0){
     if ((index + len) > size) {
       len = (index < size) ? size - index : 0;
@@ -128,16 +194,21 @@ public:
     return len;
   }
   
-  uint8_t* data;
-  size_t size;
-  CONTENT content;
-  SRC src; 
+  uint8_t*    data;  //!< data buffer 
+  size_t      size;  //!< size of the data
+  CONTENT  content;  //!< content type that data hold. 
+  SRC          src;  //!< origin of the data
 
 protected:
 
+  /** Used to init the object, allocates the buffer and takes a copy of the data
+   *  \param ptr      data
+   *  \param size     the size of data
+   *  \prama src      the origin of this data
+   *  \prama content  the content type of data   
+   */
   void init(const void* ptr, size_t len, SRC _src, CONTENT _content) {
-    malloc(len);
-    if (NULL != data) {
+    if (malloc(len)) {
       if (NULL != ptr) {
         memcpy(data, ptr, len);
       }
@@ -151,16 +222,23 @@ protected:
   
 };
 
+/** A queue creates a safe way of communication between two tasks 
+ */
 class QUEUE {
 
 public: 
 
-  QUEUE(size_t num, MSG::SRC _dest) {
+  /** constructor
+   *  \param num   size of the queue
+   *  \param dest  the destination of thsi queue
+   */
+  QUEUE(size_t num, MSG::SRC _dest) : dest{_dest} {
     queue = xQueueCreate(num, sizeof(MSG));
-    dest = _dest;
     minFree = num;
   }
 
+  /** destructor
+   */
   ~QUEUE() {
     if (NULL != queue) {
       MSG msg;
@@ -173,6 +251,13 @@ public:
     queue = NULL;
   }
 
+  /** send a message to another task, put at the end of the queue
+   *  \param msg    the message to be sent 
+   *  \param ticks  number of os ticks to wait, 0 to return immediately, omit for blocking 
+   *  \return       send success
+   *  
+   *  \note buffer will be detached if send is successful, will be freed by receiving task 
+   */
   bool send(MSG &msg, TickType_t ticks = portMAX_DELAY) {
     if ((NULL != queue) && msg) {
       log_v("dest %s %s", MSG::text(dest), msg.dump().c_str());
@@ -185,6 +270,13 @@ public:
     return false;
   }
 
+  /** send a message to another task, put at the front of the queue
+   *  \param msg    the message to be sent 
+   *  \param ticks  number of os ticks to wait, 0 to return immediately, omit for blocking 
+   *  \return       send success
+   *  
+   *  \note buffer will be detached if send is successful, will be freed by receiving task 
+   */
   bool sendFront(MSG &msg, TickType_t ticks = portMAX_DELAY) {
     if ((NULL != queue) && msg) {
       log_v("dest %s %s", MSG::text(dest), msg.dump().c_str());
@@ -196,7 +288,30 @@ public:
     log_e("dest %s ticks %d dropped %s", MSG::text(dest), ticks, msg.dump().c_str());
     return false;
   }
+
+  /*bool sendFrontIsr(MSG &msg) {
+    if ((NULL != queue) && msg) {
+      log_v("dest %s %s", MSG::text(dest), msg.dump().c_str());
+      BaseType_t taskYield = pdFALSE;
+      if (xQueueSendToFrontISR(queue, &msg, taskYield) == pdTRUE) {
+        msg.clear(); // the msg with its data is now in the queue, wipe it
+        if(taskYield) {
+           taskYIELD_FROM_ISR();
+        }
+        return true;
+      }
+    }
+    log_e("dest %s ticks %d dropped %s", MSG::text(dest), ticks, msg.dump().c_str());
+    return false;
+  }*/
   
+  /** receive a message from another task
+   *  \param msg    the message received 
+   *  \param ticks  number of os ticks to wait, 0 to return immediately, omit for blocking 
+   *  \return       receive success
+   *  
+   *  \note buffer will be detached if send is successful, will be freed by receiving task 
+   */
   bool receive(MSG &msg, TickType_t ticks = portMAX_DELAY) {
     // first relase any buffer still attached to the msg
     msg.free();
@@ -213,14 +328,17 @@ public:
     return false;
   }
 
+  /** get the minimum number of free slots in this queue
+   *  \return  the min number fo free element in the queue
+   */
   uint8_t getMinFree(void) {
     return minFree;
   }
 protected:
 
-  xQueueHandle queue;
-  uint8_t minFree;
-  MSG::SRC dest;
+  xQueueHandle queue;   //!< the queue 
+  uint8_t minFree;      //!< the min number of queue elements
+  const MSG::SRC dest;  //!< the destination of this queue
   
 };
 
@@ -237,6 +355,11 @@ class PIPE : public Print {
 
 public: 
 
+  /** constructor
+   *  \param queue    the queue to attach 
+   *  \prama src      the origin of this data
+   *  \prama content  the content type of data   
+   */
   PIPE(QUEUE &queue, MSG::SRC src, MSG::CONTENT content = MSG::CONTENT::BINARY) : wrSrc{src}, wrContent{content} {
     pQueue = &queue;
     wrIndex = 0; 
@@ -245,6 +368,8 @@ public:
 #endif
   }
 
+  /** destructor
+   */
   ~PIPE() {
     wr.free();
     wrIndex = 0;
@@ -260,10 +385,19 @@ public:
   // Print interface: https://github.com/arduino/ArduinoCore-API/blob/master/api/Print.h
   // --------------------------------------------------------------------------------------
  
+  /** The character written is passed into the pipe buffer
+   *  \param ch  character to write
+   *  \return    the bytes written
+   */ 
   size_t write(uint8_t ch) override { 
     return write(&ch, 1);
   }
   
+  /** all data written is passed into the pipe buffer
+   *  \param ptr   pointer to buffer to write
+   *  \param size  number of bytes in ptr to write
+   *  \return      the bytes written
+   */ 
   size_t write(const uint8_t *data, size_t size) override { 
     size_t wrote = 0;
     while (0 < size) { 
@@ -271,17 +405,15 @@ public:
       if (NULL == wr.data) {
         // just allocate at least a minimal sized memory
         size_t allocSize = (size > minAllocSize) ? size : minAllocSize;
-        wr.malloc(allocSize);
-        // ok this failed, retry with a smaller chunk
-        if ((NULL == wr.data) && (maxAllocSize < allocSize)) {
-          wr.malloc(maxAllocSize);
-        }
         wr.src = wrSrc;
         wr.content = wrContent;
-        if (NULL == wr.data) {
-          // dropping bytes here
-          log_e("dropping %d", size);
-          size = 0;
+        // ok this failed, retry with a smaller chunk
+        if (!wr.malloc(allocSize) && (maxAllocSize < allocSize)) {
+          if (!wr.malloc(maxAllocSize)) {
+            // dropping bytes here
+            log_e("dropping %d", size);
+            size = 0;
+          }
         }
       }
       size_t len = wr.size - wrIndex;     // limit available space in memory
@@ -313,17 +445,20 @@ public:
     return wrote; 
   }
 
+  /** space availble in current pipe buffer without potentially blocking
+   *  \return  number fo bytes free, 
+  */
   int availableForWrite(void) override {
     // for sure we can write what is left free in our local buffer 
     return (NULL != wr.data) ? wr.size - wrIndex : 0;
   }
   
-  /** override flush functions of the stream interface 
+  /** override flush functions of the stream interface, this places the pipe buffer into the queue
    */
   void flush(void) override { 
     if (0 < wrIndex) {      // check if we have any pending data
       if (wrIndex < wr.size) {
-        wr.shrink(wrIndex); // adjust the data size
+        wr.resize(wrIndex); // adjust the data size
       }
       if (!pQueue->send(wr, portMAX_DELAY)) {
         // we tried waiting forever for the queue to get empty but it still failed, so drop it
@@ -385,28 +520,27 @@ public:
   
 protected: 
   
-  const size_t minAllocSize = 512;
-  const size_t maxAllocSize = 2048;
-  QUEUE* pQueue;
-  MSG wr;
-  size_t wrIndex;
-  const MSG::SRC wrSrc;
-  const MSG::CONTENT wrContent;
+  const size_t minAllocSize = 512;    //!< min size to alloc when writing small bits of data
+  const size_t maxAllocSize = 2048;   //!< retry size if buffer was big and failed
+  QUEUE* pQueue;                      //!< pointer to the attache queue
+  MSG wr;                             //!< the write message object
+  size_t wrIndex;                     //!< the written index in the buffer of the write object
+  const MSG::SRC wrSrc;               //!< the source of this pipe
+  const MSG::CONTENT wrContent;       //!< the content of this pipe
 #ifndef PIPE_PRINT
-protected: 
-  MSG rd;
-  size_t rdIndex;
-  const int BAD_CH = -1; 
+  MSG rd;                             //!< the read message object
+  size_t rdIndex;                     //!< the read index in the buffer of the read object
+  const int BAD_CH = -1;              //!< char to return in case of no data. 
 #endif
 };
 
 // SdCard is a high priority task, so queue can be small
-QUEUE queueToSdcard(5,                      MSG::SRC::SDCARD);    //!< queue into UBXSD (SdCard) task
+QUEUE queueToSdcard(3,                      MSG::SRC::SDCARD);    //!< queue into UBXSD (SdCard) task
 PIPE pipeWireToSdcard(queueToSdcard,        MSG::SRC::GNSS);      //!< Stream interface from Wire used by GNEE/LBAND into UBXSD (SdCard)
 PIPE pipeSerialToSdcard(queueToSdcard,      MSG::SRC::LTE);       //!< Stream interface from Serial used by Lte into UBXSD (SdCard)
 
 // Bluetoooth is a high priority task, so queue can be small
-QUEUE queueToBluetooth(5,                   MSG::SRC::BLUETOOTH); //!< queue into BLUETOOTH Task
+QUEUE queueToBluetooth(3,                   MSG::SRC::BLUETOOTH); //!< queue into BLUETOOTH Task
 PIPE pipeGnssToBluetooth(queueToBluetooth,  MSG::SRC::GNSS);      //!< Stream interface used by GNSS::rx.setNMEAOutputPort
 
 // Websocket is a low priority task make sure we can hold enough messages

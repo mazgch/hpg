@@ -83,8 +83,8 @@ protected:
   } ESF_QUEUE_STRUCT; //!< struct used by teh queue
   xQueueHandle queue; //!< queue between ISR and task 
  
-  /* FreeRTOS static task function, will just call the objects task function  
-   * \param pvParameters the Can object (this)
+  /** FreeRTOS static task function, will just call the objects task function  
+   *  \param pvParameters the Can object (this)
    */
   static void task(void * pvParameters) {
     ((CANBUS*) pvParameters)->task();
