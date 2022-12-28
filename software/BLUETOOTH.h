@@ -47,19 +47,65 @@ public:
     txSize = BLUETOOTH_TX_SIZE;
     txCredits = SPS_CREDITS_DISCONNECT;
     connected = false;
+    ttagNextTry = millis();
+    state = STATE::INIT;
   }
-    
+
+  enum class STATE {
+    INIT, START, ACTIVE  
+  } state; 
+  int32_t ttagNextTry; //!< time tag when to call the state machine again
+  const int BLUETOOTH_100MS_RETRY = 1000; 
+  const int BLUETOOTH_4S_RETRY    = 4000; // wifi takes about 4 seconds to stop communication 
+  
   /** initialize the object, this configures the peripherial and spins of a worker task. 
    *  \param name the device name
    */
-  void init(String name) {
+  void checkConfig(void) {
+    int32_t now = millis();
+    if (0 >= (ttagNextTry - now)) {
+      ttagNextTry = now + BLUETOOTH_100MS_RETRY;
+      CONFIG::USE_SOURCE useSrc = Config.getUseSource();
+      bool useBluetooth = !((useSrc & CONFIG::USE_SOURCE::USE_WLAN) && (useSrc & CONFIG::USE_SOURCE::USE_POINTPERFECT));
+      switch (state) {
+        case STATE::INIT:
+          if (useBluetooth) {
+            state = STATE::START;
+            ttagNextTry = now + BLUETOOTH_4S_RETRY;
+          }
+          break;
+        case STATE::START:
+          if (!useBluetooth) {
+            state = STATE::INIT;
+          } else {
+            if (startServer()) {
+              state = STATE::ACTIVE;
+            } else {
+              ttagNextTry = now + BLUETOOTH_4S_RETRY;
+            }
+          }
+          break;
+        case STATE::ACTIVE:
+          if (!useBluetooth) {
+            stopServer();
+            state = STATE::INIT;
+          }
+          break;
+        default:
+          break;
+      }
+    } 
+  }
+
+  bool startServer(void) {
+    String name = Config.getDeviceName();
     BLEDevice::init(std::string(name.c_str()));
     NimBLEDevice::setPower(ESP_PWR_LVL_P9); /** +9db */
     NimBLEDevice::setMTU(BLUETOOTH_TX_SIZE + BLUETOOTH_MTU_OVERHEAD);
     BLEAdvertising *advertising = NULL;
-    BLEServer *server = BLEDevice::createServer();    
+    server = BLEDevice::createServer();    
     if (server) {
-      server->setCallbacks(this); 
+      server->setCallbacks(this, false); 
       BLEService *service = server->createService(BLUETOOTH_SERVICE);
       if (service) {
         if (BLUETOOTH_SERVICE == SPS_SERVICE_UUID) {
@@ -86,29 +132,49 @@ public:
       advertising->addServiceUUID(BLUETOOTH_SERVICE);
       advertising->start();        
       log_i("device \"%s\" mode \"%s\"", name.c_str(), (BLUETOOTH_SERVICE == SPS_SERVICE_UUID) ? "SPS" : "NUS");
+      return true;
     } else {
-      log_e("setup failed");
-    }
+      cleanup();
+      return false;
+    } 
   }
-
+  
+  void stopServer(void) {
+    cleanup();
+    connected = false;
+    txSize = BLUETOOTH_TX_SIZE;
+    txCredits = SPS_CREDITS_DISCONNECT;
+    log_i("bye");
+  }
+  
+  void cleanup(void) {
+    if (server) {
+      server->stopAdvertising();
+      server = NULL;
+    }
+    rxChar = NULL;
+    txChar = NULL;
+    creditsChar = NULL;
+    BLEDevice::deinit(true);
+  }
+  
   void sendToClients(MSG &msg) {
     size_t index = 0;
-    while ((index < msg.size) && (txSize > 0) && connected && (!creditsChar || (SPS_CREDITS_DISCONNECT != txCredits))) {
+    while ((index < msg.size) && (txSize > 0) && connected && txChar && (!creditsChar || (SPS_CREDITS_DISCONNECT != txCredits))) {
       if (!creditsChar || (0 < txCredits)) {
-        int len = msg.size - index;
-        if (len > txSize) len = txSize;
-        if (len >= 0) {
-          if (0 < len) {
-            txChar->setValue(msg.data + index, len);
-            txChar->notify(true);
-            if (creditsChar && (0 < len)) {
-                txCredits --;
-            }
-            index += len;
+        size_t len = msg.size - index;
+        if (len > txSize) {
+          len = txSize;
+        }
+        if (0 < len) {
+          txChar->notify(msg.data + index, len, true);
+          if (creditsChar && (0 < len)) {
+              txCredits --;
           }
+          index += len;
         }
       }
-      vTaskDelay(pdMS_TO_TICKS(BLUETOOTH_PACKET_DELAY)); // Yield
+      taskYIELD(); // allow bluetooth to send the stuff
     }
   }
   
@@ -152,8 +218,7 @@ protected:
           log_d("disconnect");
         } else if (SPS_CREDITS_DISCONNECT == txCredits) {
           // upon connection we send our credits 
-          creditsChar->setValue(SPS_CREDITS_MAX);
-          creditsChar->notify(true);
+          creditsChar->notify(&SPS_CREDITS_MAX, sizeof(SPS_CREDITS_MAX), true);
           txCredits = credits;
           log_d("credits %d", txCredits);
         } else  {
@@ -162,14 +227,14 @@ protected:
         } 
       } else if (pCharacteristic == rxChar) {
         size_t len = pCharacteristic->getDataLength();
-        MSG msg(pCharacteristic->getValue().c_str(), len, MSG::SRC::BLUETOOTH, MSG::CONTENT::CORRECTIONS);
+        MSG msg(pCharacteristic->getValue().c_str(), len, MSG::SRC::BLUETOOTH, MSG::CONTENT::BINARY);
         queueToGnss.send(msg);
         if (creditsChar)  {
           // we consumed a packed, give a credit back
-          creditsChar->setValue(1);
-          creditsChar->notify(true);
+          const uint8_t one = 1;
+          creditsChar->notify(&one, sizeof(one), true);
         }
-        log_v("read %d bytes", len);
+        log_i("read %d bytes", len);
       }
     }
   }
@@ -177,12 +242,13 @@ protected:
   size_t txSize;                   //!< Requested max size of tx characteristics (depends on MTU from client)
   volatile int8_t txCredits;       //!< the number of packet credits we are allowed to send 
   volatile bool connected;         //!< True if a client is connected. 
+  BLEServer *server;
   BLECharacteristic *txChar;       //!< the TX characteristics of the Nordic BLE Uart / fifo characteristics of the u-blox BLE SPS service
   BLECharacteristic *rxChar;       //!< the RX characteristics of the Nordic BLE Uart / fifo characteristics of the u-blox BLE SPS service
   BLECharacteristic *creditsChar;  //!< the Credits characteristics of the u-blox BLE Uart
  
   // SPS - u-blox Bluetooth Low Energy Serial Port Service
-  const int8_t SPS_CREDITS_MAX                = 32;   //!< the we can receive a lot of data, just set the max value, -1 means reject/disconnect 
+  const uint8_t SPS_CREDITS_MAX               = 32;   //!< the we can receive a lot of data, just set the max value, -1 means reject/disconnect 
   const int8_t SPS_CREDITS_DISCONNECT         = -1; //!< credit value that indicates a disconnect
   const char *SPS_SERVICE_UUID                = "2456e1b9-26e2-8f83-e744-f34f01e9d701"; //!< SPS UUID
   const char *SPS_FIFO_CHARACTERISTIC_UUID    = "2456e1b9-26e2-8f83-e744-f34f01e9d703"; //!< SPS FIFO UUID

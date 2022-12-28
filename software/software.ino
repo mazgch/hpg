@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-// ESP32 libraries, version 2.0.5
+// ESP32 libraries, version 2.0.6
 //-----------------------------------
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
 // Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
@@ -34,7 +34,7 @@
 // Library Manager:    http://librarymanager/All#ArduinoWebsockets   
 // Github Repository:  https://github.com/gilmaimon/ArduinoWebsockets
 
-// ArduinoJson by Benoit Blanchon, version 6.19.4
+// ArduinoJson by Benoit Blanchon, version 6.20.0
 // Library Manager:    http://librarymanager/All#ArduinoJson      
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
 
@@ -53,7 +53,7 @@
 // Sparkfun libraries
 //-----------------------------------
 
-// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.20
+// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.21
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
 
@@ -77,51 +77,11 @@
 //#include "CANBUS.h"     // Comment this if not on vehicle using the CAN interface
 
 // ====================================================================================
-// higher prio communication task
-// ====================================================================================
-
-const char* COMM_TASK_NAME   =  "CommTask";  //!< Comm task name
-const int COMM_STACK_SIZE    =        2300;  //!< Comm task stack size, 100 bytes margin
-const int COMM_TASK_PRIO     =           2;  //!< Comm task priority
-const int COMM_TASK_CORE     =           1;  //!< Comm task MCU core
-
-const int COM_TASK_RATE      =          50;
-
-class COMMTASK {  
-
-public:
-  void init(void) {
-    xTaskCreatePinnedToCore(task, COMM_TASK_NAME,  COMM_STACK_SIZE,  this, COMM_TASK_PRIO,  NULL, COMM_TASK_CORE);
-  }
-  
-protected:
-  static void task(void */*pvParameters*/) {
-    while (true) {
-      Websocket.checkClients();
-      Sdcard.checkCard();
-      
-      MSG msg;
-      while (queueToCommTask.receive(msg, pdMS_TO_TICKS(COM_TASK_RATE))) {
-        //if ((msg.src == MSG::SRC::GNSS) || (msg.src == MSG::SRC::LBAND)) {
-          Websocket.sendToClients(msg);
-        //}
-        if (((msg.src == MSG::SRC::GNSS) || (msg.src == MSG::SRC::LBAND) || (msg.src == MSG::SRC::LTE)) &&
-             (msg.content == MSG::CONTENT::BINARY)) {
-#ifdef __BLUETOOTH_H__
-          Bluetooth.sendToClients(msg);
-#endif
-          Sdcard.writeLogFiles(msg);
-        }
-      }
-    }
-  }
-};
-
-COMMTASK CommTask;
-
-// ====================================================================================
 // MAIN setup / loop
 // ====================================================================================
+
+const int LOOP_TASK_PRIO     =           2;  //!< Loop Task task priority
+const int LOOP_TASK_RATE     =          50;  //!< 
 
 /** Main Arduino setup function, initilizes all functions which spins off various tasks
 */
@@ -136,31 +96,56 @@ void setup(void) {
   log_i("hpg.mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());  
   espVersion();
   Config.init();
-  CommTask.init();
-#ifdef __BLUETOOTH_H__
-  Bluetooth.init(hwName);
-#endif
-  Wlan.init();            // runs in a task, creates an additional LED task 
+  Wlan.init();            // runs in a task
   Lte.init();             // runs in a task
   if (!Gnss.detect()) { 
     log_w("GNSS ZED-F9 not detected, check wiring");
   }
   if (!LBand.detect()) {
     log_w("LBAND NEO-D9 not detected, check wiring");
-  }
+  } 
 #ifdef __CANBUS_H__
   Canbus.init();
 #endif
+
+  vTaskPrioritySet(NULL, LOOP_TASK_PRIO);
 }
 
 /** Main Arduino loop function is used to manage the GPS and LBAND communication 
 */
+
 void loop(void) {
+#ifdef __BLUETOOTH_H__
+  Bluetooth.checkConfig();
+#endif
+  Websocket.checkClients();
+  Sdcard.checkCard();
   LBand.poll();
   Gnss.poll();
-  delay(50);
+  pipeWireToCommTask.flush();
   
   memUsage();
+  
+  MSG msg;
+  while (queueToCommTask.receive(msg, pdMS_TO_TICKS(LOOP_TASK_RATE))) {
+    if ((msg.src == MSG::SRC::GNSS) && (msg.content == MSG::CONTENT::BINARY)) {
+      // this is the data that we receive from the GNSS (inludes LBAND)
+      Websocket.sendToClients(msg);
+#ifdef __BLUETOOTH_H__
+      Bluetooth.sendToClients(msg);
+#endif
+      Sdcard.writeLogFiles(msg);
+    } else if ( (msg.content == MSG::CONTENT::CORRECTIONS) || (msg.content == MSG::CONTENT::KEYS) || 
+                (msg.src == MSG::SRC::WEBSOCKET) || (msg.src == MSG::SRC::BLUETOOTH) ) {
+      // don't forward the keys or any data from LBAND
+      if ((msg.content == MSG::CONTENT::CORRECTIONS) && (msg.src != MSG::SRC::LBAND) ){
+        Websocket.sendToClients(msg); // this may be useful to debug RTCM or SPARTN in the Monitor GUI
+      }
+      // any data coming from the Websocket, Bluetooth or 
+      // if data is corrections or keys (inject to the gnss)
+      Gnss.sendToGnss(msg);
+    }
+  }
 }
 
 // ====================================================================================
@@ -196,10 +181,8 @@ void memUsage(void) {
     int len = 0;
     const char* tasks[] = { 
       pcTaskGetName(NULL), 
-      COMM_TASK_NAME, 
       WLAN_TASK_NAME, 
       LTE_TASK_NAME, 
-      LED_TASK_NAME,
 #ifdef __CANBUS_H__
       CAN_TASK_NAME, 
 #endif
@@ -214,10 +197,10 @@ void memUsage(void) {
     }
     log_i("stacks:%s "
           "heap: min %d cur %d size %d "
-          "queues: Gnss %d CommTask %d "
+          "queue: %d "
           "tasks: %d", buf, 
           ESP.getMinFreeHeap(), ESP.getFreeHeap(), ESP.getHeapSize(), 
-          queueToGnss.getMinFree(), queueToCommTask.getMinFree(), 
+          queueToCommTask.getMinFree(), 
           uxTaskGetNumberOfTasks());
   }
 }

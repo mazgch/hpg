@@ -49,7 +49,7 @@ public:
   bool detect(void) {
     //rx.enableDebugging()
 #ifndef USE_UBXWIRE
-    rx.setOutputPort(pipeLbandToCommTask);
+    rx.setOutputPort(pipeWireToCommTask);
 #endif
     bool ok = rx.begin(UbxWire, LBAND_I2C_ADR);
     if (ok) {
@@ -116,7 +116,6 @@ public:
     if (online) {
       rx.checkUblox(); 
       rx.checkCallbacks();
-      pipeLbandToCommTask.flush();
     }
   }
   

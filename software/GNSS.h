@@ -98,7 +98,7 @@ public:
    */
   bool detect(void) {
 #ifndef USE_UBXWIRE
-    rx.setOutputPort(pipeGnssToCommTask);
+    rx.setOutputPort(pipeWireToCommTask);
 #endif
     bool ok = rx.begin(UbxWire, GNSS_I2C_ADR); //Connect to the Ublox module using Wire port
     if (ok) {
@@ -182,22 +182,30 @@ public:
     if (online) {
       rx.checkUblox();
       rx.checkCallbacks();
-      pipeGnssToCommTask.flush();
-      MSG msg;
-      while (queueToGnss.receive(msg, 0)) {
-        checkSpartanUseSourceCfg(msg.src, msg.content);
-        online = rx.pushRawData(msg.data, msg.size);
-        if (online) {
-          log_d("%d bytes from %s source", msg.size, msg.text(msg.src));
-        } else {
-          log_e("%d bytes from %s source failed", msg.size, msg.text(msg.src));
-        }
-        // Forward also messages injected to the com task
-        queueToCommTask.send(msg);
-      }
     }
   }
 
+  void sendToGnss(MSG &msg) {
+    checkSpartanUseSourceCfg(msg.src, msg.content);
+    online = rx.pushRawData(msg.data, msg.size);
+    if (online) {
+      log_d("%d bytes from %s source", msg.size, msg.text(msg.src));
+    } else {
+      log_e("%d bytes from %s source failed", msg.size, msg.text(msg.src));
+    }
+  }
+
+  /*void checkQueue(TickType_t ticks = 0) {
+    MSG msg;
+    while (queueToGnss.receive(msg, ticks)) {
+      sendToGnss(msg);
+      // Forward also messages injected to the com task
+      if (msg.src != MSG::SRC::LBAND) {
+        queueToCommTask.send(msg);
+      }
+    }
+  }*/
+  
 protected:
 
   MSG::SRC curSrc;            //!< current source in use of correction data

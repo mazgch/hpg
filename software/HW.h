@@ -176,4 +176,77 @@ enum HW_PINS {
 #define HW_DBG_HI(pin)        HW_DBG_PIN(pin,HIGH)  //!< put the at the start of the code to profile
 #define HW_DBG_LO(pin)        HW_DBG_PIN(pin,LOW)   //!< put the at the end of the code to profile
 
+
+// -----------------------------------------------------------------------
+// LED
+// -----------------------------------------------------------------------
+
+class STATUSLED {
+
+public: 
+
+  //! some usefull patterns that allow you to incicate different states of the application. 
+  enum class PATTERN {
+    // on / off
+    OFF       = 0x00000000,
+    ON        = ~OFF,
+    // variable frequency
+    BLINK_4s  = 0x0000FFFF,
+    BLINK_2s  = 0x00FF00FF,
+    BLINK_1s  = 0x0F0F0F0F,
+    BLINK_1Hz = BLINK_1s,
+    BLINK_2Hz = 0x33333333,
+    BLINK_4Hz = 0x55555555,
+    // variable number pulses
+    PULSE_1x  = 0x00000003,
+    PULSE_2x  = 0x00000033,
+    PULSE_3x  = 0x00000333,
+    PULSE_4x  = 0x00003333,
+    PULSE_5x  = 0x00033333,
+    PULSE_6x  = 0x00333333,
+    PULSE_7x  = 0x03333333,
+    // special pattern
+    SOS       = 0x01599995,
+  };
+
+  /** constructor
+  */
+  STATUSLED() {
+    if (PIN_INVALID != LED) {
+      bit = 0;
+      pattern = PATTERN::OFF;
+      pinMode(LED, OUTPUT);
+      hw_timer_t *timer = timerBegin(0, 80, true); // ESP.getCpuFreqMHz()
+      extern void IRAM_ATTR statusLedTimerIsr(void);
+      timerAttachInterrupt(timer, &statusLedTimerIsr, false);
+      timerAlarmWrite(timer, (LED_CYCLE_PERIOD * 1000) / 32, true);
+      timerAlarmEnable(timer);
+    }
+  }
+  
+  /** destructor
+  */
+  ~STATUSLED() {
+    if (PIN_INVALID != LED) {
+      pinMode(LED, INPUT);
+    }
+  }
+  
+  PATTERN pattern;  //!< the current pattern to output
+  int bit;          //!< the current bit to output
+
+protected:  
+
+  const int32_t LED_CYCLE_PERIOD = 4000;  //!< the default cycle time where the pattern repeats 
+};
+
+STATUSLED StatusLed;
+
+/** interrupt handler for blinking led
+ */
+void IRAM_ATTR statusLedTimerIsr(void){
+  StatusLed.bit = (StatusLed.bit + 1) % 32;
+  digitalWrite(LED, (((uint32_t)StatusLed.pattern >> StatusLed.bit) & 1) ? HIGH : LOW);
+}
+
 #endif // __HW_H__

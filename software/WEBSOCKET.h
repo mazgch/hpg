@@ -95,15 +95,20 @@ public:
   }
   
   void sendToClients(MSG &msg) {
-    for (auto itClient = wsClients.begin(); (itClient != wsClients.end()); itClient = std::next(itClient)) {
-      if (itClient->available()) {
-        if (msg.content != MSG::CONTENT::TEXT) {
-          itClient->sendBinary((const char*)msg.data, msg.size);
-        } else {
-          itClient->send((const char*)msg.data, msg.size);
+    try {
+      for (auto itClient = wsClients.begin(); (itClient != wsClients.end()); itClient = std::next(itClient)) {
+        if (itClient->available()) {
+          if (msg.content == MSG::CONTENT::TEXT) {
+            itClient->send((const char*)msg.data, msg.size);
+          } else {
+            itClient->sendBinary((const char*)msg.data, msg.size);
+          }
+          taskYIELD(); // allow wlan/websocket to send the stuff
         }
       }
-    }
+    } catch (std::bad_alloc & exception) {
+      log_e("dropped source %s content %s size %d bytes", MSG::text(msg.src), MSG::text(msg.content), msg.size);
+    } 
   }
   
 protected:

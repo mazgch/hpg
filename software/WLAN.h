@@ -44,14 +44,9 @@ const int WLAN_CONNECT_RETRY      =       10000;  //!< delay between server conn
 const char WLAN_NTP_SERVER[]   = "pool.ntp.org";  //!< NTP server
 
 const char* WLAN_TASK_NAME        =      "Wlan";  //!< Wlan task name
-const int WLAN_STACK_SIZE         =      4*1024;  //!< Wlan task stack size
+const int WLAN_STACK_SIZE         =        6000;  //!< Wlan task stack size
 const int WLAN_TASK_PRIO          =           1;  //!< Wlan task priority
 const int WLAN_TASK_CORE          =           1;  //!< Wlan task MCU code
-
-const char* LED_TASK_NAME         =       "Led";  //!< Led task name
-const int LED_STACK_SIZE          =         616;  //!< led task stack size, 100 bytes margin
-const int LED_TASK_PRIO           =           3;  //!< led task priority
-const int LED_TASK_CORE           =           1;  //!< led task MCU code
 
 extern class WLAN Wlan;  //!< Forward declaration of class
 
@@ -69,14 +64,12 @@ public:
     wasOnline = false;
     
     pinInit();
-    ledInit();
   }
 
   /** initialize the object, this spins of a worker task for the WIFI and LED
    */
   void init(void) {
     xTaskCreatePinnedToCore(task,    WLAN_TASK_NAME, WLAN_STACK_SIZE, this, WLAN_TASK_PRIO, NULL, WLAN_TASK_CORE);
-    xTaskCreatePinnedToCore(ledTask, LED_TASK_NAME,  LED_STACK_SIZE,  this, LED_TASK_PRIO,  NULL, LED_TASK_CORE);
   }
   
 protected:
@@ -585,85 +578,6 @@ protected:
   }
 
   // -----------------------------------------------------------------------
-  // LED
-  // -----------------------------------------------------------------------
-
-  //! some usefull LED pattern that allow you to incicate different states of the application. 
-  typedef enum {
-    // on / off
-    LED_PATTERN_OFF     = 0x00000000,
-    LED_PATTERN_ON      = 0xFFFFFFFF,
-    // variable frequency
-    LED_PATTERN_4s      = 0x0000FFFF,
-    LED_PATTERN_2s      = 0x00FF00FF,
-    LED_PATTERN_1s      = 0x0F0F0F0F,
-    LED_PATTERN_1Hz     = LED_PATTERN_1s,
-    LED_PATTERN_2Hz     = 0x33333333,
-    LED_PATTERN_4Hz     = 0x55555555,
-    // variable number pulses
-    LED_PATTERN_1pulse  = 0x00000003,
-    LED_PATTERN_2pulse  = 0x00000033,
-    LED_PATTERN_3pulse  = 0x00000333,
-    LED_PATTERN_4pulse  = 0x00003333,
-    LED_PATTERN_5pulse  = 0x00033333,
-    LED_PATTERN_6pulse  = 0x00333333,
-    LED_PATTERN_7pulse  = 0x03333333,
-    // special pattern
-    LED_PATTERN_SOS     = 0x01599995,
-  } LED_PATTERN; 
-  
-  static const int32_t LED_CYCLE_PERIOD = 4000;  //!< the default cycle time where the pattern repeats 
-  
-  LED_PATTERN ledPattern;   //!< the current selected LED pattern
-  int32_t ledDelay;         //!< the current cycle time
-  int32_t msNextLed;        //!< the time of last LED gpio change
-  int ledBit;               //!< the current bit to process
-  
-  /* initialize the LED pins
-   */
-  void ledInit(void) {
-    if (PIN_INVALID != LED) {
-      pinMode(LED, OUTPUT);
-      ledSet();
-    }
-  }
-  
-  /* FreeRTOS static task function, will just call the objects task function  
-   * \param pvParameters the Wlan object (this)
-   */
-  static void ledTask(void * pvParameters) {
-    ((WLAN*) pvParameters)->ledTask();
-  }
-  
-  /** this task is flashing the led based on the selected pattern
-   */
-  void ledTask(void) {
-    while (true) {
-      int32_t now = millis();
-      if (0 >= (msNextLed - (now << 5))) {
-        msNextLed += ledDelay;
-        ledBit = (ledBit + 1) % 32;
-        digitalWrite(LED, ((ledPattern >> ledBit) & 1) ? HIGH : LOW);
-      }
-      vTaskDelay(50);
-    }
-  }
-
-  /** set a new pattern for the led
-   *  \param newPattern  the selected pattern sequence
-   *  \param newDelay    the period until the pattern repeats
-   */
-  void ledSet(LED_PATTERN newPattern = LED_PATTERN_OFF, int32_t newDelay = LED_CYCLE_PERIOD) {
-    msNextLed = (millis() << 5) + newDelay;
-    if (PIN_INVALID != LED) {
-      digitalWrite(LED, (newPattern & 1) ? HIGH : LOW);  
-    }  
-    ledPattern = newPattern;
-    ledDelay = newDelay;
-    ledBit = 0;    
-  }
-
-  // -----------------------------------------------------------------------
   // PIN
   // -----------------------------------------------------------------------
   
@@ -675,6 +589,7 @@ protected:
   void pinInit(void) {
     ttagPinChange = millis();
     lastPinLvl = HIGH;
+    // attachInterrupt(digitalPinToInterrupt(BOOT), blink, CHANGE);
   }
 
   /** check if the pin was pressed for a long time
@@ -718,17 +633,17 @@ protected:
   void setState(STATE newState, int32_t delay = 0) {
     if (state != newState) {
       const struct 
-        { const char* text; LED_PATTERN pattern;  } lut[] = { 
-        { "init",           LED_PATTERN_OFF       },
-        { "searching",      LED_PATTERN_4Hz       }, 
-        { "connected",      LED_PATTERN_2Hz       }, 
-        { "online",         LED_PATTERN_1Hz       },
-        { "mqtt",           LED_PATTERN_2s        },
-        { "ntrip",          LED_PATTERN_2s        }
+        { const char* text; STATUSLED::PATTERN pattern;   } lut[] = { 
+        { "init",           STATUSLED::PATTERN::OFF       },
+        { "searching",      STATUSLED::PATTERN::BLINK_4Hz }, 
+        { "connected",      STATUSLED::PATTERN::BLINK_2Hz }, 
+        { "online",         STATUSLED::PATTERN::BLINK_1Hz },
+        { "mqtt",           STATUSLED::PATTERN::BLINK_2s  },
+        { "ntrip",          STATUSLED::PATTERN::BLINK_2s  }
       }; 
       size_t ix = (size_t)newState;
       log_i("state change %s", lut[ix].text);
-      ledSet(lut[ix].pattern);
+      StatusLed.pattern = lut[ix].pattern;
       state = newState;
     }
     ttagNextTry = millis() + delay; 

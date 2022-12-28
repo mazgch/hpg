@@ -408,8 +408,8 @@ public:
         wr.src = wrSrc;
         wr.content = wrContent;
         // ok this failed, retry with a smaller chunk
-        if (!wr.malloc(allocSize) && (maxAllocSize < allocSize)) {
-          if (!wr.malloc(maxAllocSize)) {
+        if (!wr.malloc(allocSize) && (minAllocSize < allocSize)) {
+          if (!wr.malloc(minAllocSize)) {
             // dropping bytes here
             log_e("dropping %d", size);
             size = 0;
@@ -520,8 +520,7 @@ public:
   
 protected: 
   
-  const size_t minAllocSize = 1024;   //!< min size to alloc when writing small bits of data
-  const size_t maxAllocSize = 2048;   //!< retry size if buffer was big and failed
+  const size_t minAllocSize = 3072;   //!< min size to alloc when writing small bits of data
   QUEUE* pQueue;                      //!< pointer to the attache queue
   MSG wr;                             //!< the write message object
   size_t wrIndex;                     //!< the written index in the buffer of the write object
@@ -535,21 +534,14 @@ protected:
 };
 
 // Websocket is a low priority task make sure we can hold enough messages
-QUEUE queueToCommTask(10,                   MSG::SRC::WEBSOCKET); //!< queue into Websocket Task
+QUEUE queueToCommTask(15,                   MSG::SRC::WEBSOCKET); //!< queue into Websocket Task
 PIPE pipeSerialToCommTask(queueToCommTask,  MSG::SRC::LTE);       //!< Stream interface from Serial used by Lte
-//#define USE_UBXWIRE
-#ifdef USE_UBXWIRE 
 PIPE pipeWireToCommTask(queueToCommTask,    MSG::SRC::GNSS);    //!< Stream interface from by GNSS
-#define pipeLbandToCommTask  pipeWireToCommTask
-#define pipeGnssToCommTask   pipeWireToCommTask
-#else
-PIPE pipeGnssToCommTask(queueToCommTask,    MSG::SRC::GNSS);    //!< Stream interface from by GNSS
-PIPE pipeLbandToCommTask(queueToCommTask,   MSG::SRC::LBAND);   //!< Stream interface from by LBAND
-#endif
 
 /** Gnss/Lband/loopTask is a low priority task make sure we can hold enough messages
  *  Few messages from MQTT server, PointPerfect has about 10 topics, NTRIP is a 1.2kB/s, LBAND <2msg/s
  */
-QUEUE queueToGnss(15,                       MSG::SRC::GNSS);      //!< queue into Gnss Task, used by LBAND, LTE, WLAN, BLUETOOTH and CONFIG to inject data to the GNSS
+//QUEUE queueToGnss(15,                    MSG::SRC::GNSS);      //!< queue into Gnss Task, used by LBAND, LTE, WLAN, BLUETOOTH and CONFIG to inject data to the GNSS
+#define queueToGnss queueToCommTask
 
 #endif // __IPC_H__

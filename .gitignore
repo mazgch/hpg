@@ -1,2 +1,6 @@
 
 .DS_Store
+software/debug.cfg
+software/debug_custom.json
+software/esp32.svd
+software/esp32s3.svd
