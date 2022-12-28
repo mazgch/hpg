@@ -1382,15 +1382,15 @@ const spec = {
 function parse(data, i) {
 	const len = data.length; 
 	if (i >= len) return WAIT;
-	let by = data.charCodeAt(i++);
+	let by = data.charCodeAt(i);
 	if (0xD3 !== by) return NOTFOUND;
-	if (i >= len) return WAIT;
-	by = data.charCodeAt(i++);
+	if (i+1 >= len) return WAIT;
+	by = data.charCodeAt(i+1);
 	if ((0xFC & by) !== 0) return NOTFOUND;
 	let l = (by & 0x3) << 8;
-	if (i >= len) return WAIT;
-	by = data.charCodeAt(i++);
-	l += by + 3 + i;
+	if (i+2 >= len) return WAIT;
+	by = data.charCodeAt(i+2);
+	l += by + 6 + i;
 	if (l >= len) return WAIT;
     let crc = 0;
     // CRC24Q check
