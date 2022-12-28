@@ -1002,9 +1002,9 @@ function updateStatus( message ) {
         intStats.bytesPend = message.data.length;
         
     const fields = message.fields;
-    if ((message.type === 'output') && message.protocol.match(/^RTCM3|NMEA|UBX$/) && fields) {
+    if ((message.type === 'output') && message.protocol.match(/^NMEA|UBX$/) && fields) {
         let newEpoch = false;
-        if (db.time.sta) {
+        if (db.time.sta && fields) {
             if (undefined !== fields.time) {
                 const oldTime = db.time.value();
                 newEpoch = fields.time !== oldTime;
@@ -1056,12 +1056,12 @@ function updateStatus( message ) {
             db.long.set((fields.longI === 'W') ? -fields.longN : fields.longN, message);
         if ((undefined !== fields.latN) && (undefined !== fields.latI) && (0 === db.lat.sta))
             db.lat.set((fields.latI === 'S') ? -fields.latN : fields.latN, message);
-		if (0 === db.gSpeed.sta) {
-			if (undefined !== fields.spdKm)
-				db.gSpeed.set(0.06 * fields.spdKm. message);
-			else if (undefined !== fields.spdKn)
-				db.gSpeed.set(0.11112 * fields.spdKn. message);
-		}
+        if (0 === db.gSpeed.sta) {
+            if (undefined !== fields.spdKm)
+                db.gSpeed.set(0.06 * fields.spdKm. message);
+            else if (undefined !== fields.spdKn)
+                db.gSpeed.set(0.11112 * fields.spdKn. message);
+        }
         // complete from other fields
         if (undefined !== fields.sep) {
             if (undefined !== fields.msl)
@@ -1079,7 +1079,7 @@ function updateStatus( message ) {
             const time = ('0'+h).slice(-2) + ':' + ('0'+m).slice(-2) + ':' + ('0'+s.toFixed(3)).slice(-6);
             db.time.set(time, message);
         }
-		/*
+        /*
 		if ((undefined !== fields.ecefX) && (undefined !== fields.ecefY)){
 			if (0 === db.long.sta) {
 				db.long.set(Math.atan2(fields.ecefY, fields.ecefX), message);
