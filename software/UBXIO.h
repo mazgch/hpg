@@ -185,6 +185,7 @@ public:
       lenLo = ch;
     } else if (state == STATE::READFE) {
       state = STATE::READ;
+      //lenHi = ch;
     } else {
       pipeWireToCommTask.write(ch);
     }
