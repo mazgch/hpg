@@ -66,6 +66,7 @@
 #include "LOG.h"        // Comment this if you do not want a separate log level for this application 
 #include "IPC.h"
 #include "HW.h"
+#include "UBXIO.h"
 #include "CONFIG.h"
 #include "SDCARD.h"
 #include "BLUETOOTH.h"  // Comment this to save memory if not needed, choose the flash size 4MB and suitable partition, see line 22 above
@@ -74,6 +75,49 @@
 #include "LBAND.h"
 #include "LTE.h"
 //#include "CANBUS.h"     // Comment this if not on vehicle using the CAN interface
+
+// ====================================================================================
+// higher prio communication task
+// ====================================================================================
+
+const char* COMM_TASK_NAME   =  "CommTask";  //!< Comm task name
+const int COMM_STACK_SIZE    =        2300;  //!< Comm task stack size, 100 bytes margin
+const int COMM_TASK_PRIO     =           2;  //!< Comm task priority
+const int COMM_TASK_CORE     =           1;  //!< Comm task MCU core
+
+const int COM_TASK_RATE      =          50;
+
+class COMMTASK {  
+
+public:
+  void init(void) {
+    xTaskCreatePinnedToCore(task, COMM_TASK_NAME,  COMM_STACK_SIZE,  this, COMM_TASK_PRIO,  NULL, COMM_TASK_CORE);
+  }
+  
+protected:
+  static void task(void */*pvParameters*/) {
+    while (true) {
+      Websocket.checkClients();
+      Sdcard.checkCard();
+      
+      MSG msg;
+      while (queueToCommTask.receive(msg, pdMS_TO_TICKS(COM_TASK_RATE))) {
+        //if ((msg.src == MSG::SRC::GNSS) || (msg.src == MSG::SRC::LBAND)) {
+          Websocket.sendToClients(msg);
+        //}
+        if (((msg.src == MSG::SRC::GNSS) || (msg.src == MSG::SRC::LBAND) || (msg.src == MSG::SRC::LTE)) &&
+             (msg.content == MSG::CONTENT::BINARY)) {
+#ifdef __BLUETOOTH_H__
+          Bluetooth.sendToClients(msg);
+#endif
+          Sdcard.writeLogFiles(msg);
+        }
+      }
+    }
+  }
+};
+
+COMMTASK CommTask;
 
 // ====================================================================================
 // MAIN setup / loop
@@ -92,26 +136,18 @@ void setup(void) {
   log_i("hpg.mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());  
   espVersion();
   Config.init();
-  // SD card 
-  Sdcard.init(); // handling SD card and files runs in a task
+  CommTask.init();
 #ifdef __BLUETOOTH_H__
   Bluetooth.init(hwName);
 #endif
-  Wlan.init(); // WLAN runs in a tasks, creates an additional LED task 
-  //Lte.enableDebugging(Serial);
-  //Lte.enableAtDebugging(Serial); // we use UbxSerial for data logging instead
-  //Lte.enableAtDebugging(Websocket); // forward all messages
-  Lte.init();  // LTE runs in a task
-  // i2c wire
-  UbxWire.begin(I2C_SDA, I2C_SCL); // Start I2C
-  UbxWire.setClock(400000); //Increase I2C clock speed to 400kHz
+  Wlan.init();            // runs in a task, creates an additional LED task 
+  Lte.init();             // runs in a task
   if (!Gnss.detect()) { 
     log_w("GNSS ZED-F9 not detected, check wiring");
   }
   if (!LBand.detect()) {
     log_w("LBAND NEO-D9 not detected, check wiring");
   }
-  
 #ifdef __CANBUS_H__
   Canbus.init();
 #endif
@@ -160,13 +196,10 @@ void memUsage(void) {
     int len = 0;
     const char* tasks[] = { 
       pcTaskGetName(NULL), 
+      COMM_TASK_NAME, 
       WLAN_TASK_NAME, 
       LTE_TASK_NAME, 
-      SDCARD_TASK_NAME, 
       LED_TASK_NAME,
-#ifdef __BLUETOOTH_H__
-      BLUETOOTH_TASK_NAME, 
-#endif
 #ifdef __CANBUS_H__
       CAN_TASK_NAME, 
 #endif
@@ -181,10 +214,10 @@ void memUsage(void) {
     }
     log_i("stacks:%s "
           "heap: min %d cur %d size %d "
-          "queues: Gnss %d Websocket %d SdCard %d Bluetooth %d "
+          "queues: Gnss %d CommTask %d "
           "tasks: %d", buf, 
           ESP.getMinFreeHeap(), ESP.getFreeHeap(), ESP.getHeapSize(), 
-          queueToGnss.getMinFree(), queueToWebsocket.getMinFree(), queueToSdcard.getMinFree(), queueToBluetooth.getMinFree(),
+          queueToGnss.getMinFree(), queueToCommTask.getMinFree(), 
           uxTaskGetNumberOfTasks());
   }
 }

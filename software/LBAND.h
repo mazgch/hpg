@@ -48,7 +48,9 @@ public:
    */
   bool detect(void) {
     //rx.enableDebugging()
-    rx.setOutputPort(pipeGnssToWebsocket); // forward all messages
+#ifndef USE_UBXWIRE
+    rx.setOutputPort(pipeLbandToCommTask);
+#endif
     bool ok = rx.begin(UbxWire, LBAND_I2C_ADR);
     if (ok) {
       log_i("receiver detected");
@@ -114,8 +116,7 @@ public:
     if (online) {
       rx.checkUblox(); 
       rx.checkCallbacks();
-      pipeGnssToWebsocket.flush();
-      pipeWireToSdcard.flush();
+      pipeLbandToCommTask.flush();
     }
   }
   

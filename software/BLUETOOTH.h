@@ -27,14 +27,9 @@
  */
 #define BLUETOOTH_SERVICE         (false ? SPS_SERVICE_UUID : NUS_SERVICE_UUID)
 
-const int BLUETOOTH_PACKET_DELAY  =           1;  //!< Delay notifys by this not to overload the BLE stack  
+const int BLUETOOTH_PACKET_DELAY  =           0;  //!< Delay notifys by this not to overload the BLE stack  
 const int BLUETOOTH_TX_SIZE       =         512;  //!< Preferred (max) size of tx characteristics  
 const int BLUETOOTH_MTU_OVERHEAD  =           3;  //!< MTU overhead = 1 attribute opcode + 2 client receive MTU size 
-
-const char* BLUETOOTH_TASK_NAME   = "Bluetooth";  //!< Bluetooth task name
-const int BLUETOOTH_STACK_SIZE    =        1548;  //!< Bluetooth task stack size, 100 bytes margin
-const int BLUETOOTH_TASK_PRIO     =           2;  //!< Bluetooth task priority
-const int BLUETOOTH_TASK_CORE     =           1;  //!< Bluetooth task MCU code
 
 /** This class encapsulates all BLUETOOTH functions. 
 */
@@ -94,45 +89,30 @@ public:
     } else {
       log_e("setup failed");
     }
-    xTaskCreatePinnedToCore(task, BLUETOOTH_TASK_NAME, BLUETOOTH_STACK_SIZE, this, BLUETOOTH_TASK_PRIO, NULL, BLUETOOTH_TASK_CORE);
   }
 
-protected:
-
-  /** FreeRTOS static task function, will just call the objects task function  
-   *  \param pvParameters the Bluetooth object  (this)
-   */
-  static void task(void * pvParameters) {
-    ((BLUETOOTH*) pvParameters)->task();
-  }
-
-  /* This task is pulling data from the circular buffer and sending it to the 
-   * connected clients usining Bluetooth. 
-   */
-  void task(void) {
-    MSG msg;
-    while (queueToBluetooth.receive(msg)) {
-      size_t index = 0;
-      while ((index < msg.size) && (txSize > 0) && connected && (!creditsChar || (SPS_CREDITS_DISCONNECT != txCredits))) {
-        if (!creditsChar || (0 < txCredits)) {
-          int len = msg.size - index;
-          if (len > txSize) len = txSize;
-          if (len >= 0) {
-            if (0 < len) {
-              txChar->setValue(msg.data + index, len);
-              txChar->notify(true);
-              if (creditsChar && (0 < len)) {
-                  txCredits --;
-              }
-              index += len;
+  void sendToClients(MSG &msg) {
+    size_t index = 0;
+    while ((index < msg.size) && (txSize > 0) && connected && (!creditsChar || (SPS_CREDITS_DISCONNECT != txCredits))) {
+      if (!creditsChar || (0 < txCredits)) {
+        int len = msg.size - index;
+        if (len > txSize) len = txSize;
+        if (len >= 0) {
+          if (0 < len) {
+            txChar->setValue(msg.data + index, len);
+            txChar->notify(true);
+            if (creditsChar && (0 < len)) {
+                txCredits --;
             }
+            index += len;
           }
         }
-        vTaskDelay(pdMS_TO_TICKS(BLUETOOTH_PACKET_DELAY)); // Yield
       }
+      vTaskDelay(pdMS_TO_TICKS(BLUETOOTH_PACKET_DELAY)); // Yield
     }
-    // will never get here ...
   }
+  
+protected:
 
   /* Callback to inform about connections  
    * \param pServer pointer to the server 

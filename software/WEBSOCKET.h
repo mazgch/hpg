@@ -21,6 +21,7 @@
 using namespace websockets;
 
 const uint16_t WEBSOCKET_PORT     =        8080; //!< needs to match WEBSOCKET_HTML and hpg.mazg.ch value
+const int WEBSOCKET_SERVERCHECK_INTERVALL = 100;
 
 #define WEBSOCKET_HPGMAZGCHURL    "http://hpg.mazg.ch"
 #define WEBSOCKET_HPGMAZGCHNAME   "mazg.ch HPG Monitor"
@@ -64,18 +65,16 @@ public:
     }
   }
 
-  /** check the available and potential new clients
-   */
-  void poll(void) {
-    // poll all clients
-    for (auto it = wsClients.begin(); (it != wsClients.end()); it = std::next(it)) {
-      if (it->available()) {
-        it->poll();
+  void checkClients(void) {
+    bool changed = false;
+    for (auto itClient = wsClients.begin(); (itClient != wsClients.end()); itClient = std::next(itClient)) {
+      if (itClient->available()) {
+        itClient->poll();
       } else {
-        log_i("client unavailable");
-        it->close();
-        wsClients.erase(it);
-        it = std::prev(it);
+        itClient->close();
+        wsClients.erase(itClient);
+        itClient = std::prev(itClient);
+        changed = true;
       }
     }
     if (wsServer.poll()) {
@@ -87,27 +86,26 @@ public:
       String string = Config.getDeviceName();
       string = "Connected to " + string + "\r\n";
       client.send(string.c_str());
-      log_i("new client, total %d", wsClients.size() + 1);
       wsClients.push_back(client);
+      changed = true;
     }
-    
-    int total = 0;
-    MSG msg;
-    while (queueToWebsocket.receive(msg, 0/*portMAX_DELAY*/)) {
-      for (auto it = wsClients.begin(); (it != wsClients.end()); it = std::next(it)) {
-        if (it->available()) {
-          if (msg.content != MSG::CONTENT::TEXT) {
-            it->sendBinary((const char*)msg.data, msg.size);
-          } else {
-            it->send((const char*)msg.data, msg.size);
-          }
+    if (changed) {
+      log_i("clients changed, total %d", wsClients.size());
+    } 
+  }
+  
+  void sendToClients(MSG &msg) {
+    for (auto itClient = wsClients.begin(); (itClient != wsClients.end()); itClient = std::next(itClient)) {
+      if (itClient->available()) {
+        if (msg.content != MSG::CONTENT::TEXT) {
+          itClient->sendBinary((const char*)msg.data, msg.size);
+        } else {
+          itClient->send((const char*)msg.data, msg.size);
         }
       }
-      total += msg.size;
-      log_d("queue %d bytes from %s", msg.size, MSG::text(msg.src));
     }
   }
-   
+  
 protected:
   void serve(const char* file, const char* format, const char* content) {
     log_i("send \"%s\" as \"%s\"", file, format);  

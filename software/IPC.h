@@ -37,7 +37,7 @@ public:
     clear();
   }
   
-  /** destructor
+  /** destructor, will release also the data buffer unless it has been sent using the queue
    */
   ~MSG() {
     free();
@@ -520,7 +520,7 @@ public:
   
 protected: 
   
-  const size_t minAllocSize = 512;    //!< min size to alloc when writing small bits of data
+  const size_t minAllocSize = 1024;   //!< min size to alloc when writing small bits of data
   const size_t maxAllocSize = 2048;   //!< retry size if buffer was big and failed
   QUEUE* pQueue;                      //!< pointer to the attache queue
   MSG wr;                             //!< the write message object
@@ -534,20 +534,22 @@ protected:
 #endif
 };
 
-// SdCard is a high priority task, so queue can be small
-QUEUE queueToSdcard(3,                      MSG::SRC::SDCARD);    //!< queue into UBXSD (SdCard) task
-PIPE pipeWireToSdcard(queueToSdcard,        MSG::SRC::GNSS);      //!< Stream interface from Wire used by GNEE/LBAND into UBXSD (SdCard)
-PIPE pipeSerialToSdcard(queueToSdcard,      MSG::SRC::LTE);       //!< Stream interface from Serial used by Lte into UBXSD (SdCard)
-
-// Bluetoooth is a high priority task, so queue can be small
-QUEUE queueToBluetooth(3,                   MSG::SRC::BLUETOOTH); //!< queue into BLUETOOTH Task
-PIPE pipeGnssToBluetooth(queueToBluetooth,  MSG::SRC::GNSS);      //!< Stream interface used by GNSS::rx.setNMEAOutputPort
-
 // Websocket is a low priority task make sure we can hold enough messages
-QUEUE queueToWebsocket(30,                  MSG::SRC::WEBSOCKET); //!< queue into Websocket Task
-PIPE pipeGnssToWebsocket(queueToWebsocket,  MSG::SRC::GNSS);      //!< Stream interface used by  GNSS::rx.setOutputPort LBAND::rx.setOutputPort 
+QUEUE queueToCommTask(10,                   MSG::SRC::WEBSOCKET); //!< queue into Websocket Task
+PIPE pipeSerialToCommTask(queueToCommTask,  MSG::SRC::LTE);       //!< Stream interface from Serial used by Lte
+//#define USE_UBXWIRE
+#ifdef USE_UBXWIRE 
+PIPE pipeWireToCommTask(queueToCommTask,    MSG::SRC::GNSS);    //!< Stream interface from by GNSS
+#define pipeLbandToCommTask  pipeWireToCommTask
+#define pipeGnssToCommTask   pipeWireToCommTask
+#else
+PIPE pipeGnssToCommTask(queueToCommTask,    MSG::SRC::GNSS);    //!< Stream interface from by GNSS
+PIPE pipeLbandToCommTask(queueToCommTask,   MSG::SRC::LBAND);   //!< Stream interface from by LBAND
+#endif
 
-// Gnss/Lband/loopTask is a low priority task make sure we can hold enough messages
-QUEUE queueToGnss(20,                       MSG::SRC::GNSS);      //!< queue into Gnss Task, used by LBAND, LTE, WLAN, BLUETOOTH and CONFIG to inject data to the GNSS
+/** Gnss/Lband/loopTask is a low priority task make sure we can hold enough messages
+ *  Few messages from MQTT server, PointPerfect has about 10 topics, NTRIP is a 1.2kB/s, LBAND <2msg/s
+ */
+QUEUE queueToGnss(15,                       MSG::SRC::GNSS);      //!< queue into Gnss Task, used by LBAND, LTE, WLAN, BLUETOOTH and CONFIG to inject data to the GNSS
 
 #endif // __IPC_H__

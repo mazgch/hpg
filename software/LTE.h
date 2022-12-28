@@ -21,9 +21,8 @@
 #include <SparkFun_u-blox_SARA-R5_Arduino_Library.h>
 
 #include "HW.h"
+#include "UBXIO.h"
 #include "CONFIG.h"
-#include "GNSS.h"
-#include "SDCARD.h"
   
 const int LTE_1S_RETRY            =        1000;  //!< standard 1s retry
 const int LTE_DETECT_RETRY        =        5000;  //!< delay between detect attempts
@@ -78,6 +77,9 @@ public:
     state = STATE::INIT;
     ntripSocket = -1;
     hwInit();
+    //enableDebugging(Serial);
+    //enableAtDebugging(Serial);
+    //enableAtDebugging(pipeLteToCommTask); // forward all messages
   }
 
   /** initialize the object, this spins of a worker task. 
@@ -100,11 +102,11 @@ protected:
 
   //! this helper deals with some AT commands that are not yet implemted in LENA-R8 and throw a warning
   SARA_R5_error_t LTE_IGNORE_LENA(SARA_R5_error_t err) { 
-      if ((err != SARA_R5_SUCCESS) && module.startsWith("LENA-R8")) {
-        log_w("AT command error ignored due to LENA-R8 IP Status");
-        err = SARA_R5_SUCCESS;
-      }
-      return err; 
+    if ((err != SARA_R5_SUCCESS) && module.startsWith("LENA-R8")) {
+      log_w("AT command error ignored due to LENA-R8 IP Status");
+      err = SARA_R5_SUCCESS;
+    }
+    return err; 
   }
   
   /** Try to provision the PointPerfect to that we can start the MQTT server. This involves: 
@@ -957,7 +959,7 @@ protected:
             break;
         }
       }
-      pipeSerialToSdcard.flush();
+      pipeSerialToCommTask.flush();
       vTaskDelay(30);
     }
   }

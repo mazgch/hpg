@@ -22,9 +22,11 @@
 #include <WiFiClientSecure.h>
 #include <ArduinoMqttClient.h>
 #include <WiFiManager.h>
+
 #if defined(ARDUINO_UBLOX_NORA_W10) && defined(ESP_ARDUINO_VERSION) && (ESP_ARDUINO_VERSION < ESP_ARDUINO_VERSION_VAL(2,0,5))
   #error The WiFiManager triggers a race condition with ESP core > 2.3.0 -> please use Arduino_esp32 2.0.5 and 
 #endif
+
 #include <SparkFun_u-blox_SARA-R5_Arduino_Library.h>
 
 #include "HW.h"
@@ -767,7 +769,6 @@ protected:
         ttagNextTry = now;
       }
       wasOnline = onlineWlan;
-      Websocket.poll();
       if (0 >= (ttagNextTry - now)) {
         ttagNextTry = now + WLAN_1S_RETRY;
         CONFIG::USE_SOURCE useSrc = Config.getUseSource();

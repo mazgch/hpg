@@ -94,9 +94,9 @@ const char* NTRIP_RESPONSE_SOURCETABLE    = "SOURCETABLE 200 OK\r\n";  //!< sour
 #define    CONFIG_DEVICE_NAMEPREFIX                     "hpg"   //!< a hostname compatible prefix, only a-z, 0-9 and -
 
 // PointPerfect configuration 
-const char CONFIG_VALUE_ZTPTOKEN[]        =        "ztpToken";  //!< config key for ZTP tocken
-const char CONFIG_VALUE_BROKERHOST[]      =      "brokerHost";  //!< config key for brocker host
-const char CONFIG_VALUE_STREAM[]          =          "stream";  //!< config key for stream
+const char CONFIG_VALUE_ZTPTOKEN[]        =        "ztpToken";  //!< config key for ZTP token
+const char CONFIG_VALUE_BROKERHOST[]      =      "brokerHost";  //!< config key for broker host
+const char CONFIG_VALUE_STREAM[]          =          "stream";  //!< config key for stream (ip, Lb)
 const char CONFIG_VALUE_ROOTCA[]          =          "rootCa";  //!< config key for root certificate
 const char CONFIG_VALUE_CLIENTCERT[]      =      "clientCert";  //!< config key for client certificate
 const char CONFIG_VALUE_CLIENTKEY[]       =       "clientKey";  //!< config key for client keys
@@ -116,7 +116,7 @@ const char CONFIG_VALUE_SIMPIN[]          =          "simPin";  //!< config key 
 const char CONFIG_VALUE_MNOPROF[]         =      "mnoProfile";  //!< config key for modem MNO profile
 
 // temporary settings
-const char CONFIG_VALUE_REGION[]          =          "region";  //!< config key for current service region
+const char CONFIG_VALUE_REGION[]          =          "region";  //!< config key for current service region (eu, us, kr, jp, ...)
 const char CONFIG_VALUE_USESOURCE[]       =       "useSource";  //!< config key for current correction source / communication technology to use
 
 /** This class encapsulates all WLAN functions. 
@@ -198,7 +198,7 @@ public:
   bool getLbandCfg(String& region, uint32_t &freq) {
     if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
       region = servceRegion;
-      freq = lbandFreq;
+      freq = mqttStream.equals(MQTT_STREAM_LBAND) ? lbandFreq : 0;
       xSemaphoreGive(mutex); 
       return true;
     }
@@ -279,13 +279,13 @@ public:
    */
   size_t getValue(const char *key, void* value, size_t len) {
     if (nvs.isKey(key)) {
-      size_t oldLen = nvs.getBytesLength(key);
-      if (oldLen <= len) {
+      const size_t oldLen = nvs.getBytesLength(key);
+      if ((0 < oldLen) && (oldLen <= len)) {
         len = nvs.getBytes(key, value, oldLen);
         log_d("key %s get %d bytes", key, oldLen);
       } else {
         len = 0;
-        log_e("key %s %d bytes, too large", key, oldLen);
+        log_e("key %s %d bytes, length bad", key, oldLen);
       }
     } else { 
       len = 0;

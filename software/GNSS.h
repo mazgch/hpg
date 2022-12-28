@@ -97,10 +97,8 @@ public:
    *  \return  true if receiver is sucessfully detected, false if not
    */
   bool detect(void) {
-    //rx.enableDebugging();
-    rx.setOutputPort(pipeGnssToWebsocket);    // forward all messages
-#ifdef __BLUETOOTH_H__
-    rx.setNMEAOutputPort(pipeGnssToBluetooth); 
+#ifndef USE_UBXWIRE
+    rx.setOutputPort(pipeGnssToCommTask);
 #endif
     bool ok = rx.begin(UbxWire, GNSS_I2C_ADR); //Connect to the Ublox module using Wire port
     if (ok) {
@@ -184,11 +182,7 @@ public:
     if (online) {
       rx.checkUblox();
       rx.checkCallbacks();
-#ifdef __BLUETOOTH_H__
-      pipeGnssToBluetooth.flush();
-#endif
-      pipeGnssToWebsocket.flush();
-      pipeWireToSdcard.flush();
+      pipeGnssToCommTask.flush();
       MSG msg;
       while (queueToGnss.receive(msg, 0)) {
         checkSpartanUseSourceCfg(msg.src, msg.content);
@@ -198,11 +192,8 @@ public:
         } else {
           log_e("%d bytes from %s source failed", msg.size, msg.text(msg.src));
         }
-        // Forward also messages from the IP services (LTE and WIFI) to the GUI though the WEBSOCKET
-        // LBAND and GNSS are already sent directly, and we dont want KEYS and WEBSOCKET injections to loop back to the GUI
-        if (((msg.src == MSG::SRC::WLAN) || (msg.src == MSG::SRC::LTE)) && (msg.content != MSG::CONTENT::KEYS)) {
-          queueToWebsocket.send(msg);
-        }
+        // Forward also messages injected to the com task
+        queueToCommTask.send(msg);
       }
     }
   }
@@ -269,7 +260,7 @@ protected:
             fixLut[fixType & 7], carrLut[carrSoln & 3], 1e-3*ubxDataStruct->hAcc, fLat, fLon, 1e-3 * ubxDataStruct->hMSL);
       MSG msg(string, MSG::SRC::GNSS, MSG::CONTENT::TEXT);
       if (msg) {
-        queueToWebsocket.send(msg);
+        queueToCommTask.send(msg);
       }
       // keep a GGA sentence for the NTRIP client
       saveGGA(ubxDataStruct);
