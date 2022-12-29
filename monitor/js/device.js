@@ -143,12 +143,15 @@ function deviceStatusUpdate() {
     USTART.tableEntry('dev_status', device.status);
 	// show hide the window
 	const ok = device.socket && (device.socket.readyState == WebSocket.OPEN);
-	let el = document.getElementById('tile_message');
-	if (el) el.style.display = ok ? 'block' : 'none';
-	el = document.getElementById('tile_parameter');
-	if (el) el.style.display = ok ? 'block' : 'none';
-	el = document.getElementById('tile_automate');
-	if (el) el.style.display = (ok && OPT.js) ? 'block' : 'none';
+    if (ok) {
+        // unhide all device elements
+        let el = document.getElementById('tile_message');
+        if (el) el.removeAttribute('hidden');
+        el = document.getElementById('tile_parameter');
+        if (el) el.removeAttribute('hidden');
+        el = document.getElementById('tile_automate');
+        if (el && OPT.js) el.removeAttribute('hidden');
+    }
 }
     
 function deviceUninit() {
@@ -398,11 +401,10 @@ function socketOpen(url) {
     if (device.socket) {
         //device.status = 'opening';
         device.socket.binaryType = "arraybuffer";
-        device.socket.addEventListener('open', function(e) { onSocketConnect(e); } );
-        device.socket.addEventListener('close', function(e) { onSocketDisconnect(e); } );
-        //device.socket.addEventListener('message', function(e) { onSocketMessage(e); } );
-        device.socket.addEventListener('message', function(e) { onmessageEval(e); } );
-        device.socket.pin
+        device.socket.addEventListener('open',      onSocketConnect );
+        device.socket.addEventListener('close',     onSocketDisconnect );
+        device.socket.addEventListener('error',     onSocketError );
+        device.socket.addEventListener('message',   onSocketMessage );
     }
 }
 
@@ -421,14 +423,50 @@ function onSocketConnect(e) {
     deviceIdentification();                    
 }
 
-function onSocketDisconnect(e) {
+function onSocketDisconnect(evt) {
 /*REMOVE*/ //console.log('onSocketDisconnect');
     Console.debug('event', 'SOCKET', 'disconnected');
     device.status = 'disconnected';
+    device.waitPong = undefined;
     USTART.statusLed('error');
     deviceStatusUpdate();
+    if (device.timeout) {
+        clearTimeout(device.timeout);
+        device.timeout = undefined;
+    }
 }
 
+function onSocketError(evt) {
+/*REMOVE*/ //console.log('onSocketDisconnect');
+    if ( device.status == 'connected') {
+        Console.debug('event', 'SOCKET', (evt && evt.type) ? evt.type : 'timeout');
+        device.status = 'disconnected';
+        device.waitPong = undefined;
+        USTART.statusLed('error');
+        deviceStatusUpdate();
+        if (device.timeout) {
+            clearTimeout(device.timeout);
+            device.timeout = undefined;
+        }
+    }
+    if (device.socket) {
+        device.socket.removeEventListener('open',     onSocketConnect );
+        device.socket.removeEventListener('close',    onSocketDisconnect );
+        device.socket.removeEventListener('error',    onSocketError );
+        device.socket.removeEventListener('message',  onSocketMessage );
+        try {
+            device.socket.destroy()
+        } catch (e) {}
+        device.socket.close() // we are done
+        device.socket = undefined;
+    }
+    if (device.ws) {
+        Console.debug('event', 'SOCKET', 'reconnecting ' + device.ws);
+        socketOpen(device.ws); // try to repoen 
+        deviceStatusUpdate();
+    }
+}
+    
 function socketSend(messages){
     if ((device.socket !== undefined) && (device.socket.readyState == WebSocket.OPEN)) {
         Console.update(messages);
@@ -450,7 +488,7 @@ function socketSend(messages){
 }
 // Protocol
 // ------------------------------------------------------------------------------------
-function onmessageEval(evt) {
+function onSocketMessage(evt) {
     if (evt.data instanceof ArrayBuffer) {
         const data = String.fromCharCode.apply(null, new Uint8Array(evt.data));
         if (data && (0 < data.length)) {
@@ -473,8 +511,13 @@ function onmessageEval(evt) {
             device.name = m[1];
             USTART.tableEntry('dev_name', '<a target="_blank" href="http://'+device.ip+'">'+device.name+'</a>',true);
         }
-        Console.debug('event', 'AGENT', evt.data);
+        Console.debug('event', 'TEXT', evt.data);
     }
+    if (device.timeout) {
+        clearTimeout(device.timeout);
+        device.timeout = undefined;
+    }
+    device.timeout = setTimeout( onSocketError, 5000)
 }
 
 /* END OF MODULE */ return {
