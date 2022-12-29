@@ -414,9 +414,9 @@ function dbBase(opt) {
     }
     this.onpublish = function() {
         // attach an update function
-        console.log('publish' + this.name + ': ' + JSON.stringify(
+    /*    console.log('publish' + this.name + ': ' + JSON.stringify(
             { value:this.value(), hint:this.comment(), values:this.values(), stats:this.stats(), }
-        ));
+        ));*/
     }
     this.format = function(val) {
         if (val === this.nan) return '';
