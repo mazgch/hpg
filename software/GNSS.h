@@ -154,14 +154,11 @@ public:
       GNSS_CHECK_EVAL("configuration");
       if (ok) {
         log_i("configuration complete, receiver online");
-        MSG msg(MQTT_MAX_KEY_SIZE, MSG::SRC::GNSS, MSG::CONTENT::KEYS);
-        if (msg) {
-          int size = Config.getValue(CONFIG_VALUE_KEY, msg.data, msg.size);
-          if (0 < size) {
-            msg.resize(size);
-            log_i("inject saved keys");
-            queueToGnss.send(msg);
-          }
+        uint8_t keys[MQTT_MAX_KEY_SIZE];
+        int size = Config.getValue(CONFIG_VALUE_KEY,keys, MQTT_MAX_KEY_SIZE);
+        if (0 < size) {
+          log_i("inject saved keys");
+          ok = rx.pushRawData(keys, size);
         }
       }
     }
@@ -194,17 +191,6 @@ public:
       log_e("%d bytes from %s source failed", msg.size, msg.text(msg.src));
     }
   }
-
-  /*void checkQueue(TickType_t ticks = 0) {
-    MSG msg;
-    while (queueToGnss.receive(msg, ticks)) {
-      sendToGnss(msg);
-      // Forward also messages injected to the com task
-      if (msg.src != MSG::SRC::LBAND) {
-        queueToCommTask.send(msg);
-      }
-    }
-  }*/
   
 protected:
 
@@ -252,10 +238,10 @@ protected:
       uint8_t carrSoln = ubxDataStruct->flags.bits.carrSoln; // Print the carrier solution
       double fLat = 1e-7 * ubxDataStruct->lat;
       double fLon = 1e-7 * ubxDataStruct->lon;
-      log_i("%d.%d.%d %02d:%02d:%02d lat %.7f lon %.7f msl %.3f fix %d(%s)%s carr %d(%s) hacc %.3f source %s", 
+      log_i("%d.%d.%d %02d:%02d:%02d lat %.7f lon %.7f msl %.3f fix %d(%s)%s carr %d(%s) hacc %.3f svs %d source %s", 
             ubxDataStruct->day, ubxDataStruct->month, ubxDataStruct->year, ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, 
             fLat, fLon, 1e-3 * ubxDataStruct->hMSL, fixType, fixLut[fixType & 7], ubxDataStruct->flags.bits.gnssFixOK ? "+OK": "", carrSoln, carrLut[carrSoln & 3], 
-            1e-3*ubxDataStruct->hAcc, MSG::text(Gnss.curSrc));
+            1e-3*ubxDataStruct->hAcc, ubxDataStruct->numSV, MSG::text(Gnss.curSrc));
             
       // update the pointperfect topic and lband frequency depending on region we are in
       if ((fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) {
@@ -263,9 +249,9 @@ protected:
       }
       // forward a message to the websocket for the simple built in monitor
       char string[128];
-      snprintf(string, sizeof(string), "%02d:%02d:%02d %s %s %s %.3f %.7f %.7f %.3f\r\n",
+      snprintf(string, sizeof(string), "%02d:%02d:%02d %s %s%s %s %.3f %.7f %.7f %.3f %d\r\n",
             ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, MSG::text(Gnss.curSrc), 
-            fixLut[fixType & 7], carrLut[carrSoln & 3], 1e-3*ubxDataStruct->hAcc, fLat, fLon, 1e-3 * ubxDataStruct->hMSL);
+            fixLut[fixType & 7], ubxDataStruct->flags.bits.gnssFixOK ? "+OK": "", carrLut[carrSoln & 3], 1e-3*ubxDataStruct->hAcc, fLat, fLon, 1e-3 * ubxDataStruct->hMSL, ubxDataStruct->numSV);
       MSG msg(string, MSG::SRC::GNSS, MSG::CONTENT::TEXT);
       if (msg) {
         queueToCommTask.send(msg);

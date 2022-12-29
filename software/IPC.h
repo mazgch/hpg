@@ -232,7 +232,7 @@ public:
    *  \param num   size of the queue
    *  \param dest  the destination of thsi queue
    */
-  QUEUE(size_t num, MSG::SRC _dest) : dest{_dest} {
+  QUEUE(size_t num) {
     queue = xQueueCreate(num, sizeof(MSG));
     minFree = num;
   }
@@ -266,7 +266,7 @@ public:
         return true;
       }
     }
-    log_e("dest %s ticks %d dropped %s", MSG::text(dest), ticks, msg.dump().c_str());
+    log_e("source %s content %d ticks %d dropped %s", MSG::text(msg.src), MSG::text(msg.content), ticks, msg.dump().c_str());
     return false;
   }
 
@@ -285,7 +285,7 @@ public:
         return true;
       }
     }
-    log_e("dest %s ticks %d dropped %s", MSG::text(dest), ticks, msg.dump().c_str());
+    log_e("source %s content %d ticks %d dropped %s", MSG::text(msg.src), MSG::text(msg.content), ticks, msg.dump().c_str());
     return false;
   }
 
@@ -301,7 +301,7 @@ public:
         return true;
       }
     }
-    log_e("dest %s ticks %d dropped %s", MSG::text(dest), ticks, msg.dump().c_str());
+    //log_e("source %s content %d ticks %d dropped %s", MSG::text(msg.src), MSG::text(msg.content), ticks, msg.dump().c_str());
     return false;
   }*/
   
@@ -321,7 +321,6 @@ public:
         minFree = avail;
       }
       if (xQueueReceive(queue, &msg, ticks) == pdTRUE){
-        log_v("dest %s ticks %d %s", MSG::text(dest), ticks, msg.dump().c_str());
         return true;
       }
     }
@@ -338,8 +337,6 @@ protected:
 
   xQueueHandle queue;   //!< the queue 
   uint8_t minFree;      //!< the min number of queue elements
-  const MSG::SRC dest;  //!< the destination of this queue
-  
 };
 
 //#define PIPE_PRINT //!< enable this to remove the Stream read interface
@@ -534,14 +531,8 @@ protected:
 };
 
 // Websocket is a low priority task make sure we can hold enough messages
-QUEUE queueToCommTask(15,                   MSG::SRC::WEBSOCKET); //!< queue into Websocket Task
-PIPE pipeSerialToCommTask(queueToCommTask,  MSG::SRC::LTE);       //!< Stream interface from Serial used by Lte
+QUEUE queueToCommTask(15);                                      //!< queue into Websocket Task
+PIPE pipeSerialToCommTask(queueToCommTask,  MSG::SRC::LTE);     //!< Stream interface from Serial used by Lte
 PIPE pipeWireToCommTask(queueToCommTask,    MSG::SRC::GNSS);    //!< Stream interface from by GNSS
-
-/** Gnss/Lband/loopTask is a low priority task make sure we can hold enough messages
- *  Few messages from MQTT server, PointPerfect has about 10 topics, NTRIP is a 1.2kB/s, LBAND <2msg/s
- */
-//QUEUE queueToGnss(15,                    MSG::SRC::GNSS);      //!< queue into Gnss Task, used by LBAND, LTE, WLAN, BLUETOOTH and CONFIG to inject data to the GNSS
-#define queueToGnss queueToCommTask
 
 #endif // __IPC_H__

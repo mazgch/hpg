@@ -127,8 +127,11 @@ void loop(void) {
   memUsage();
   
   MSG msg;
-  while (queueToCommTask.receive(msg, pdMS_TO_TICKS(LOOP_TASK_RATE))) {
-    if ((msg.src == MSG::SRC::GNSS) && (msg.content == MSG::CONTENT::BINARY)) {
+  int32_t endMs = millis() + LOOP_TASK_RATE;
+  TickType_t ticks = pdMS_TO_TICKS(LOOP_TASK_RATE);
+  while (queueToCommTask.receive(msg, ticks)) {
+    // filter out the LBAND corrections (send BINARY UBX/NMEA or TEXT)
+    if ((msg.src == MSG::SRC::GNSS) && (msg.content != MSG::CONTENT::CORRECTIONS)) {
       // this is the data that we receive from the GNSS (inludes LBAND)
       Websocket.sendToClients(msg);
 #ifdef __BLUETOOTH_H__
@@ -145,6 +148,8 @@ void loop(void) {
       // if data is corrections or keys (inject to the gnss)
       Gnss.sendToGnss(msg);
     }
+    int32_t timeout = endMs - millis();
+    ticks = (timeout < 0) ? 0 : pdMS_TO_TICKS(timeout);
   }
 }
 

@@ -134,7 +134,7 @@ protected:
       // function is declared here to avoid include dependency
       MSG msg(message.c_str(), message.length(), MSG::SRC::WEBSOCKET, MSG::CONTENT::BINARY);
       if (msg) {
-        queueToGnss.send(msg);
+        queueToCommTask.send(msg);
       }
     }
   }

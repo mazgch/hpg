@@ -23,10 +23,6 @@
 
 const int LBAND_I2C_ADR           =        0x43;  //!< NEO-D9S I2C address
 
-//! because rx.softwareEnableGNSS(en) is not yet available in the sparkfun library 
-#define softwareEnableGNSS(en) setVal(qzss ? UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C \
-                                           : UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C, en, VAL_LAYER_RAM)
-
 /** This class encapsulates all LBAND functions. 
 */
 class LBAND {
@@ -135,7 +131,7 @@ protected:
         memcpy(msg.data, &pmpData->sync1, size + 6);
         memcpy(msg.data + size + 6, &pmpData->checksumA, 2);
         log_i("received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X", msg.size, ebn0, serviceId);
-        queueToGnss.send(msg); // Push the sync chars, class, ID, length and payload
+        queueToCommTask.send(msg); // Push the sync chars, class, ID, length and payload
       } else {
         log_e("received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X, no memory", msg.size, ebn0, serviceId);
       }
@@ -156,7 +152,7 @@ protected:
         memcpy(msg.data, &qzssData->sync1, size + 6);
         memcpy(msg.data + size + 6, &qzssData->checksumA, 2);
         log_i("received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB", msg.size, svid, cno);
-        queueToGnss.send(msg); // Push the sync chars, class, ID, length and payload
+        queueToCommTask.send(msg); // Push the sync chars, class, ID, length and payload
       } else {
         log_e("received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB, no memory", msg.size, svid, cno);
       }
@@ -184,8 +180,7 @@ protected:
               if (curPower) {
                 rx.softwareResetGNSSOnly();
                 log_i("config freq %lu, reset", newFreq);
-              } else {
-                rx.softwareEnableGNSS(true);
+              } else if (configPower(true)) {
                 curPower = true;
                 log_i("config freq %lu, started", newFreq);
               }
@@ -198,12 +193,29 @@ protected:
       }
     }
     if (curPower != newPower) {
-      rx.softwareEnableGNSS(newPower);
-      curPower = newPower;
-      log_i("%s", newPower ? "started" : "stopped");
+      if (configPower(newPower)) {
+        curPower = newPower;
+        log_i("%s", newPower ? "started" : "stopped");
+      }
     }
   }
   
+  bool configPower(bool enable) {
+    GNSS_CHECK_INIT;
+    rx.softwareEnableGNSS(enable);
+    //uint8_t gnssStop[]  = { 0xB5, 0x62, 0x06, 0x04, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x16, 0x71 };
+    //uint8_t gnssStart[] = { 0xB5, 0x62, 0x06, 0x04, 0x04, 0x00, 0x00, 0x00, 0x09, 0x00, 0x17, 0x76 };
+    //rx.pushRawData(enable ? gnssStart : gnssStop, size_t numDataBytes)
+    if (qzss) {
+      GNSS_CHECK(1) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,  enable?1:0, VAL_LAYER_RAM);
+    } else {
+      GNSS_CHECK(2) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,     enable?1:0, VAL_LAYER_RAM);
+      GNSS_CHECK(3) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_MON_PMP_I2C,     enable?1:0, VAL_LAYER_RAM);
+    } 
+    GNSS_CHECK_EVAL("enable");
+    return GNSS_CHECK_OK;
+  }      
+
   bool online;            //!< flag that indicates if the receiver is connected
   int32_t ttagNextTry;    //!< time tag when to call the state machine again
   SFE_UBLOX_GNSS rx;      //!< the receiver object

@@ -149,6 +149,7 @@ public:
   
   void cleanup(void) {
     if (server) {
+      server->advertiseOnDisconnect(false);
       server->stopAdvertising();
       server = NULL;
     }
@@ -194,7 +195,6 @@ protected:
   void onDisconnect(NimBLEServer *pServer) {
     log_i("disconnected");
     connected = pServer->getConnectedCount();
-    // pServer->startAdvertising();
   }
     
   /* Callback informing on MTU changes, this is needed to adjust the tx size
@@ -228,7 +228,7 @@ protected:
       } else if (pCharacteristic == rxChar) {
         size_t len = pCharacteristic->getDataLength();
         MSG msg(pCharacteristic->getValue().c_str(), len, MSG::SRC::BLUETOOTH, MSG::CONTENT::BINARY);
-        queueToGnss.send(msg);
+        queueToCommTask.send(msg);
         if (creditsChar)  {
           // we consumed a packed, give a credit back
           const uint8_t one = 1;

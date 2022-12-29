@@ -292,7 +292,7 @@ protected:
               Config.updateLbandFreqs(msg.data, msg.size); 
             } else {
               // anything else can be sent to the GNSS as is
-              queueToGnss.send(msg);
+              queueToCommTask.send(msg);
             }
           } else {
             log_e("read failed with error %d", err);
@@ -541,7 +541,7 @@ protected:
           LTE_CHECK(2) = socketRead(ntripSocket, msg.size, (char*)msg.data, &messageSize);
           if (LTE_CHECK_OK && (msg.size == messageSize)) {
             log_i("read %d bytes", messageSize);
-            queueToGnss.send(msg);
+            queueToCommTask.send(msg);
           } else {
             log_e("read %d bytes failed reading after %d", msg.size, messageSize); 
           }

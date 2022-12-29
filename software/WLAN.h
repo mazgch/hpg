@@ -449,7 +449,7 @@ protected:
           if (topic.equals(MQTT_TOPIC_FREQ)) {
             Config.updateLbandFreqs(msg.data, msg.size);
           } else {
-            queueToGnss.send(msg); // we do not have to delete msg.data here, this is done by receiving side of the queue 
+            queueToCommTask.send(msg); // we do not have to delete msg.data here, this is done by receiving side of the queue 
           }
         } else { 
           log_e("topic \"%s\" with %d bytes failed reading after %d", topic.c_str(), messageSize, msg.size); 
@@ -553,7 +553,7 @@ protected:
         msg.size = ntripWifiClient.read(msg.data, msg.size);
         if (msg.size == messageSize) {
           log_i("read %d bytes", messageSize);
-          queueToGnss.send(msg);
+          queueToCommTask.send(msg);
         } else {
           log_e("read %d bytes failed reading after %d", messageSize, msg.size); 
         }
