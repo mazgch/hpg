@@ -258,7 +258,8 @@ protected:
         log_d("read request %d msg", mqttMsgs);
         // The MQTT API does not allow getting the size before actually reading the data. So we 
         // have to allocate a big enough buffer. PointPerfect may send upto 9kB on the MGA topic.
-        MSG msg(MQTT_MAX_MSG_SIZE, MSG::SRC::LTE, MSG::CONTENT::CORRECTIONS); 
+        
+        MSG msg(MQTT_MAX_MSG_SIZE, MSG::SRC::LTE, MSG::HINT::NONE); 
         if (msg) {
           String topic;
           int len = -1;
@@ -267,10 +268,13 @@ protected:
           if (SARA_R5_SUCCESS == err) {
             msg.resize(len); // adjust the buffer size (free few kBs)
             mqttMsgs = 0; // expect a URC afterwards
+            msg.hint = topic.startsWith(MQTT_TOPIC_KEY_FORMAT)  ? MSG::HINT::KEYS : 
+                       topic.startsWith(MQTT_TOPIC_FREQ)        ? MSG::HINT::CONFIG :
+                       topic.startsWith(MQTT_TOPIC_MGA)         ? MSG::HINT::UBX : 
+                                                                  MSG::HINT::SPARTN ;
             const char* strTopic = topic.c_str();
             log_i("topic \"%s\" read %d bytes", strTopic, len);
-            if (topic.startsWith(MQTT_TOPIC_KEY_FORMAT)) {
-              msg.content = MSG::CONTENT::KEYS;
+            if (msg.hint == MSG::HINT::KEYS) {
               Config.setValue(CONFIG_VALUE_KEY, msg.data, msg.size);
             }
             // if we detect data from a topic, then why not unsubscribe from it. 
@@ -287,7 +291,7 @@ protected:
                 }
                 busy = true;
               }
-            } else if (topic.equals(MQTT_TOPIC_FREQ)) {
+            } else if (msg.hint == MSG::HINT::CONFIG) {
               // Do not inject this json data to GNSS but extract the LBAND frequencies
               Config.updateLbandFreqs(msg.data, msg.size); 
             } else {
@@ -536,7 +540,7 @@ protected:
       LTE_CHECK_INIT;
       LTE_CHECK(1) = socketReadAvailable(ntripSocket, &messageSize);
       if (LTE_CHECK_OK && (0 < messageSize)) {
-        MSG msg(messageSize, MSG::SRC::WLAN, MSG::CONTENT::CORRECTIONS);
+        MSG msg(messageSize, MSG::SRC::WLAN, MSG::HINT::RTCM);
         if (msg) {
           LTE_CHECK(2) = socketRead(ntripSocket, msg.size, (char*)msg.data, &messageSize);
           if (LTE_CHECK_OK && (msg.size == messageSize)) {

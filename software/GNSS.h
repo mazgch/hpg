@@ -40,10 +40,6 @@ const int GNSS_DETECT_RETRY       =        1000;  //!< Try to detect the receive
 const int GNSS_CORRECTION_TIMEOUT =       12000;  //!< If the current correction source has not received data for this period we will switch to the next source that receives data. 
 const int GNSS_I2C_ADR            =        0x42;  //!< ZED-F9x I2C address
 
-// helper macro for source handling (selection in the receiver)
-#define GNSS_SPARTAN_USESOURCE(src)      ((src == MSG::SRC::LBAND) ?  1      : 0)           //!< convert from internal source to USE_SOUCRE value
-#define GNSS_SPARTAN_USESOURCE_TXT(src)  ((src == MSG::SRC::LBAND) ? "1-PMP" : "0-SPARTAN") //!< convert from internal source to text 
-
 // helper macros to handle the receiver configuration 
 #define GNSS_CHECK_INIT           int _step = 0; bool _ok = true  //!< init variable
 #define GNSS_CHECK(s)             if (_ok) _step = s, _ok         //!< record the return result
@@ -63,8 +59,9 @@ public:
   GNSS(void) {
     online = false;
     ttagNextTry = millis();
-    curSrc = MSG::SRC::NONE;
-    ttagSourceIp = ttagNextTry;
+    spartnUseSource = -1;
+    curSrc = MSG::text(MSG::SRC::NONE); 
+    ttagSpartn = ttagNextTry;
   }
 
   /** get, decode and dump the version
@@ -183,48 +180,66 @@ public:
   }
 
   void sendToGnss(MSG &msg) {
-    checkSpartanUseSourceCfg(msg.src, msg.content);
+    checkSpartanUseSourceCfg(msg.src, msg.hint);
     online = rx.pushRawData(msg.data, msg.size);
     if (online) {
-      log_d("%d bytes from %s source", msg.size, msg.text(msg.src));
+      log_d("%d bytes from %s source", msg.size, MSG::text(msg.src));
     } else {
-      log_e("%d bytes from %s source failed", msg.size, msg.text(msg.src));
+      log_e("%d bytes from %s source failed", msg.size, MSG::text(msg.src));
     }
   }
   
 protected:
 
-  MSG::SRC curSrc;            //!< current source in use of correction data
-  uint32_t ttagSourceIp;     //!< the time (millis()) of last correction data reception for lband and IP
+  const char* curSrc;
+  uint8_t spartnUseSource;  //!< current source in use of correction data
+  int32_t ttagSpartn;      //!< the time (millis()) of last correction data reception for lband and IP
+  int32_t ttagCorrections;      //!< the time (millis()) of last correction data reception for lband and IP
   
   /** Check the current source of data and make sure the receiver is configured correctly so that it can process the protocol / data.
-   *  \param source  the source of which it got correction data. 
-   *  \return        true if this is the souce is the chosen source. 
+   *  \param src   the source of which it got correction data. 
+   *  \param hint  a hint what kind of data 
+   *  \return      true if this is the souce is the chosen source. 
    */
-  bool checkSpartanUseSourceCfg(MSG::SRC src, MSG::CONTENT content) {
-    if (content == MSG::CONTENT::CORRECTIONS) {
+  void checkSpartanUseSourceCfg(MSG::SRC src, MSG::HINT hint) {
+    int32_t now = millis();
+    enum { USE_RXMPMP = 1, USE_SPARTN = 0 };
+    if ((hint == MSG::HINT::SPARTN) || (hint ==  MSG::HINT::RXMPMP)) {
+      uint8_t newUseSource = (hint == MSG::HINT::RXMPMP) ? USE_RXMPMP : USE_SPARTN;
       // manage correction stream selection 
-      int32_t now = millis();
-      if (curSrc != MSG::SRC::LBAND) {
-        ttagSourceIp = millis() + GNSS_CORRECTION_TIMEOUT;
+      if (hint == MSG::HINT::SPARTN) {
+        ttagSpartn = millis() + GNSS_CORRECTION_TIMEOUT;
       }
-      if (src != curSrc) { // source would change
-        if (  (curSrc == MSG::SRC::NONE) || // just use any source, if we never set it. 
-             ((curSrc == MSG::SRC::LBAND) && (src != MSG::SRC::LBAND)) || // prefer any IP source over LBAND
-             ((curSrc != MSG::SRC::LBAND) && (0 >= (ttagSourceIp - now)) ) ) { // let IP source timeout before switching to any other source 
+      if (spartnUseSource != newUseSource) { // source would change
+        if ((hint == MSG::HINT::SPARTN) || (0 >= (ttagSpartn - now))) { // stick with spartn SPARTN, unless we did not get a message since a while 
           // we are not switching to an error here, sometimes this command is not acknowledged, so we will just retry next time. 
-          bool ok/*online*/ = rx.setVal8(UBLOX_CFG_SPARTN_USE_SOURCE, GNSS_SPARTAN_USESOURCE(src), VAL_LAYER_RAM);
+          bool ok/*online*/ = rx.setVal8(UBLOX_CFG_SPARTN_USE_SOURCE, newUseSource, VAL_LAYER_RAM);
           if (ok) {
-            log_i("useSource %s from source %s", GNSS_SPARTAN_USESOURCE_TXT(src), MSG::text(src));
-            curSrc = src;
+            log_i("spartnUseSource %d from source %s with hint %s", newUseSource, MSG::text(src), MSG::text(hint));
+            spartnUseSource = newUseSource;
           } else {
             // WORKAROUND: for some reson the spartanUseSource command fails, reason is unknow, we dont realy worry here and will do it just again next time 
-            log_w("useSource  %s from source %s failed", GNSS_SPARTAN_USESOURCE_TXT(src),  MSG::text(src));
+            log_w("spartnUseSource %d from source %s with hint %s failed", newUseSource, MSG::text(src), MSG::text(hint));
           }
         }
       }
     }
-    return curSrc == src;
+    if (hint == MSG::HINT::SPARTN) {
+      if (spartnUseSource == USE_SPARTN) {
+        curSrc = MSG::text(src);
+      }
+    } else if (hint == MSG::HINT::RXMPMP) {
+      if (spartnUseSource != USE_RXMPMP) {
+        curSrc = MSG::text(src);
+      }
+    } else if (hint == MSG::HINT::RXMQZSSL6) {
+      curSrc = "CLAS";
+    } else if (hint == MSG::HINT::RTCM) {
+      curSrc = MSG::text(src);
+    } else if (src == MSG::SRC::BLUETOOTH) {
+      // assume ntrip client runs on mobile 
+      curSrc = MSG::text(src);
+    }
   }
   
   /** process the UBX-NAV-PVT message, extract information for the console, monitor and needed for the correction clients
@@ -241,7 +256,7 @@ protected:
       log_i("%d.%d.%d %02d:%02d:%02d lat %.7f lon %.7f msl %.3f fix %d(%s)%s carr %d(%s) hacc %.3f svs %d source %s", 
             ubxDataStruct->day, ubxDataStruct->month, ubxDataStruct->year, ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, 
             fLat, fLon, 1e-3 * ubxDataStruct->hMSL, fixType, fixLut[fixType & 7], ubxDataStruct->flags.bits.gnssFixOK ? "+OK": "", carrSoln, carrLut[carrSoln & 3], 
-            1e-3*ubxDataStruct->hAcc, ubxDataStruct->numSV, MSG::text(Gnss.curSrc));
+            1e-3*ubxDataStruct->hAcc, ubxDataStruct->numSV, Gnss.curSrc);
             
       // update the pointperfect topic and lband frequency depending on region we are in
       if ((fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) {
@@ -250,9 +265,9 @@ protected:
       // forward a message to the websocket for the simple built in monitor
       char string[128];
       snprintf(string, sizeof(string), "%02d:%02d:%02d %s %s%s %s %.3f %.7f %.7f %.3f %d\r\n",
-            ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, MSG::text(Gnss.curSrc), 
+            ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, Gnss.curSrc, 
             fixLut[fixType & 7], ubxDataStruct->flags.bits.gnssFixOK ? "+OK": "", carrLut[carrSoln & 3], 1e-3*ubxDataStruct->hAcc, fLat, fLon, 1e-3 * ubxDataStruct->hMSL, ubxDataStruct->numSV);
-      MSG msg(string, MSG::SRC::GNSS, MSG::CONTENT::TEXT);
+      MSG msg(string, MSG::SRC::GNSS, MSG::HINT::TEXT);
       if (msg) {
         queueToCommTask.send(msg);
       }

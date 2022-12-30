@@ -43,53 +43,53 @@ public:
     free();
   }
  
-  enum class CONTENT { NONE, TEXT, BINARY, KEYS, CORRECTIONS, CONFIG, NUM }; //!< the content types
+  enum class HINT { NONE, CONFIG, DATA, TEXT, RTCM, KEYS, SPARTN, RXMPMP, RXMQZSSL6, ESFMEAS, UBX, AT }; //!< the hint is used to determin what to do with the data
 
-  /** conversion function from a content type into a string
+  /** conversion function from a destination type into a string
    */
-  static const char* text(CONTENT content) {
-    static const char* text[] = { "none", "TEXT", "BINARY", "KEYS", "CORRECTIONS", "CONFIG" };
-    size_t ix = (size_t)content;
+  static const char* text(HINT hint) {
+    static const char* text[] = { "NONE", "CONFIG", "DATA", "TEXT", "RTCM", "KEYS", "SPARTAN", "RXMPMP", "RXMQZSSL6", "ESFMEAS", "UBX", "AT", };
+    size_t ix = (size_t)hint;
     return (ix < sizeof(text)/sizeof(*text)) ? text[ix] : "??";
   }
 
-  enum class SRC { NONE, WLAN, LTE, LBAND, GNSS, BLUETOOTH, WEBSOCKET, SDCARD, UART, CANBUS, APP, NUM }; //!< the source types
+  enum class SRC { NONE, WLAN, LTE, LBAND, GNSS, BLUETOOTH, WEBSOCKET, WIRE, CANBUS, NUM }; //!< the source types
   
   /** conversion function from a source type into a string
    */
   static const char* text(SRC src) {
-    static const char* text[] = { "none", "WLAN", "LTE", "LBAND", "GNSS", "BLUETOOTH", "WEBSOCKET", "SDCARD", "UART",  "CANBUS", "APP" };
+    static const char* text[] = { "none", "WLAN", "LTE", "LBAND", "GNSS", "BLUETOOTH", "WEBSOCKET", "WIRE", "CANBUS", };
     size_t ix = (size_t)src;
     return (ix < sizeof(text)/sizeof(*text)) ? text[ix] : "??";
   }
 
   /** constructor, that initializes from existing data (allocates own buffer and takes a copy of the data)
-   *  \param ptr      data
-   *  \param size     the size of data
-   *  \prama src      the origin of this data
-   *  \prama content  the content type of data   
+   *  \param ptr   data
+   *  \param size  the size of data
+   *  \prama src   the origin of this data
+   *  \prama hint  the hint for the data content 
    */
-  MSG(const void* ptr, size_t size, SRC src, CONTENT content = CONTENT::BINARY) {
-    init(ptr, size, src, content);
+  MSG(const void* ptr, size_t size, SRC src, HINT hint) {
+    init(ptr, size, src, hint);
   }
   
   /** constructor, that initializes from existing string (allocates own buffer and takes a copy of the data)
-   *  \param string   the text data
-   *  \prama src      the origin of this data
-   *  \prama content  the content type of data   
+   *  \param string  the text data
+   *  \prama src     the origin of this data
+   *  \prama hint    the hint for the data content
    */
-  MSG(const char* string, SRC src, CONTENT _content = CONTENT::TEXT) {
+  MSG(const char* string, SRC src, HINT hint) {
     size_t len = (NULL != string) ? strlen(string) : 0;
-    init(string, len, src, _content);
+    init(string, len, src, hint);
   }
   
   /** constructor, that allocates a buffer for certain size
-   *  \param size     the size to reserve for data, allocated but uninitialized
-   *  \prama src      the origin of this data
-   *  \prama content  the content type of data   
+   *  \param size  the size to reserve for data, allocated but uninitialized
+   *  \prama src   the origin of this data
+   *  \prama hint  the hint for the data content  
    */
-  MSG(size_t size, SRC src, CONTENT content = CONTENT::BINARY) {
-    init(NULL, size, src, content);
+  MSG(size_t size, SRC src, HINT hint) {
+    init(NULL, size, src, hint);
   }
 
   /** is the message buffer valid/filled
@@ -112,11 +112,11 @@ public:
    */
   String dump(int maxLength = 100) const {
     char string[maxLength];
-    int len = snprintf(string, sizeof(string), "src %s content %s size %d data", 
-              text(src), text(content), size);
+    int len = snprintf(string, sizeof(string), "src %s hint %s size %d data", 
+              text(src), text(hint), size);
     if (NULL == data) {
       len += snprintf(&string[len], sizeof(string) - len, " null");
-    } else if (content == CONTENT::TEXT) {
+    } else if (hint == HINT::TEXT) {
       if (sizeof(string) - (len + 4/* space, 2 quotes and \0 */) >= size) {
         len += snprintf(&string[len], sizeof(string) - len, " \"%.*s\"", size, data);
       } else {
@@ -175,7 +175,7 @@ public:
     data = NULL;
     size = 0;
     src = SRC::NONE;
-    content = CONTENT::NONE; 
+    hint = HINT::NONE; 
   }
 
   /** safely write some data to the message's buffer from an index  
@@ -196,27 +196,27 @@ public:
   
   uint8_t*    data;  //!< data buffer 
   size_t      size;  //!< size of the data
-  CONTENT  content;  //!< content type that data hold. 
   SRC          src;  //!< origin of the data
+  HINT        hint;  //!< what to do with the data, bit fields with desitnatiosn set
 
 protected:
 
   /** Used to init the object, allocates the buffer and takes a copy of the data
-   *  \param ptr      data
-   *  \param size     the size of data
-   *  \prama src      the origin of this data
-   *  \prama content  the content type of data   
+   *  \param ptr    data
+   *  \param size   the size of data
+   *  \prama _src   the origin of this data
+   *  \prama _dest  hint for the data content 
    */
-  void init(const void* ptr, size_t len, SRC _src, CONTENT _content) {
+  void init(const void* ptr, size_t len, SRC _src, HINT _dest) {
     if (malloc(len)) {
       if (NULL != ptr) {
         memcpy(data, ptr, len);
       }
       src = _src;
-      content = _content;
+      hint = _dest;
     } else {
       src = SRC::NONE;
-      content = CONTENT::NONE;
+      hint = HINT::NONE;
     }
   }
   
@@ -230,7 +230,7 @@ public:
 
   /** constructor
    *  \param num   size of the queue
-   *  \param dest  the destination of thsi queue
+   *  \param hint  the destination of thsi queue
    */
   QUEUE(size_t num) {
     queue = xQueueCreate(num, sizeof(MSG));
@@ -260,13 +260,13 @@ public:
    */
   bool send(MSG &msg, TickType_t ticks = portMAX_DELAY) {
     if ((NULL != queue) && msg) {
-      log_v("dest %s %s", MSG::text(dest), msg.dump().c_str());
+      log_v("%s", msg.dump().c_str());
       if (xQueueSendToBack(queue, &msg, ticks) == pdTRUE) {
         msg.clear(); // the msg with its data is now in the queue, wipe it
         return true;
       }
     }
-    log_e("source %s content %d ticks %d dropped %s", MSG::text(msg.src), MSG::text(msg.content), ticks, msg.dump().c_str());
+    log_e("ticks %d dropped %s", ticks, msg.dump().c_str());
     return false;
   }
 
@@ -279,31 +279,35 @@ public:
    */
   bool sendFront(MSG &msg, TickType_t ticks = portMAX_DELAY) {
     if ((NULL != queue) && msg) {
-      log_v("dest %s %s", MSG::text(dest), msg.dump().c_str());
+      log_v("%s", msg.dump().c_str());
       if (xQueueSendToFront(queue, &msg, ticks) == pdTRUE) {
         msg.clear(); // the msg with its data is now in the queue, wipe it
         return true;
       }
     }
-    log_e("source %s content %d ticks %d dropped %s", MSG::text(msg.src), MSG::text(msg.content), ticks, msg.dump().c_str());
+    log_e("ticks %d dropped %s", ticks, msg.dump().c_str());
     return false;
   }
 
-  /*bool sendFrontIsr(MSG &msg) {
+  /** send a message to another task, put at the front of the queue (= high priority)
+   *  \param msg    the message to be sent 
+   *  \return       send success
+   *  
+   *  \note buffer will be detached if send is successful, will be freed by receiving task 
+   */
+  bool sendFrontIsr(MSG &msg) {
     if ((NULL != queue) && msg) {
-      log_v("dest %s %s", MSG::text(dest), msg.dump().c_str());
       BaseType_t taskYield = pdFALSE;
-      if (xQueueSendToFrontISR(queue, &msg, taskYield) == pdTRUE) {
+      if (xQueueSendToFrontFromISR(queue, &msg, &taskYield) == pdTRUE) {
         msg.clear(); // the msg with its data is now in the queue, wipe it
         if(taskYield) {
-           taskYIELD_FROM_ISR();
+           portYIELD_FROM_ISR();
         }
         return true;
       }
     }
-    //log_e("source %s content %d ticks %d dropped %s", MSG::text(msg.src), MSG::text(msg.content), ticks, msg.dump().c_str());
     return false;
-  }*/
+  }
   
   /** receive a message from another task
    *  \param msg    the message received 
@@ -353,11 +357,11 @@ class PIPE : public Print {
 public: 
 
   /** constructor
-   *  \param queue    the queue to attach 
-   *  \prama src      the origin of this data
-   *  \prama content  the content type of data   
+   *  \param queue  the queue to attach 
+   *  \prama src    the origin of this data
+   *  \prama hint   the destination for this data   
    */
-  PIPE(QUEUE &queue, MSG::SRC src, MSG::CONTENT content = MSG::CONTENT::BINARY) : wrSrc{src}, wrContent{content} {
+  PIPE(QUEUE &queue, MSG::SRC src, MSG::HINT hint) : wrSrc{src}, wrDest{hint} {
     pQueue = &queue;
     wrIndex = 0; 
 #ifndef PIPE_PRINT
@@ -403,7 +407,7 @@ public:
         // just allocate at least a minimal sized memory
         size_t allocSize = (size > minAllocSize) ? size : minAllocSize;
         wr.src = wrSrc;
-        wr.content = wrContent;
+        wr.hint = wrDest;
         // ok this failed, retry with a smaller chunk
         if (!wr.malloc(allocSize) && (minAllocSize < allocSize)) {
           if (!wr.malloc(minAllocSize)) {
@@ -522,7 +526,7 @@ protected:
   MSG wr;                             //!< the write message object
   size_t wrIndex;                     //!< the written index in the buffer of the write object
   const MSG::SRC wrSrc;               //!< the source of this pipe
-  const MSG::CONTENT wrContent;       //!< the content of this pipe
+  const MSG::HINT wrDest;             //!< the destination for this pipe
 #ifndef PIPE_PRINT
   MSG rd;                             //!< the read message object
   size_t rdIndex;                     //!< the read index in the buffer of the read object
@@ -532,7 +536,7 @@ protected:
 
 // Websocket is a low priority task make sure we can hold enough messages
 QUEUE queueToCommTask(15);                                      //!< queue into Websocket Task
-PIPE pipeSerialToCommTask(queueToCommTask,  MSG::SRC::LTE);     //!< Stream interface from Serial used by Lte
-PIPE pipeWireToCommTask(queueToCommTask,    MSG::SRC::GNSS);    //!< Stream interface from by GNSS
+PIPE pipeSerialToCommTask(queueToCommTask,  MSG::SRC::LTE,  MSG::HINT::AT);   //!< Stream interface from Serial used by Lte
+PIPE pipeWireToCommTask(queueToCommTask,    MSG::SRC::WIRE, MSG::HINT::UBX);  //!< Stream interface from Wire used by GNSS, LBAND
 
 #endif // __IPC_H__

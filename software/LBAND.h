@@ -58,13 +58,14 @@ public:
       GNSS_CHECK_INIT;
       GNSS_CHECK(1) = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
       if (qzss) { // NEO-D9C
+        curPower = region.equals("jp");
         rx.setRXMQZSSL6messageCallbackPtr(onRXMQZSSL6);
         // prepare the UART 2
         GNSS_CHECK(2) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1, VAL_LAYER_RAM);
         // prepare I2C
         GNSS_CHECK(3) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1, VAL_LAYER_RAM);  
-        curPower = region.equals("jp");
       } else { // NEO-D9S
+        curPower = (0 < curFreq);
         rx.setRXMPMPmessageCallbackPtr(onRXMPMP);
         // prepare the UART 2
         GNSS_CHECK(4) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2,     1, VAL_LAYER_RAM);
@@ -78,14 +79,13 @@ public:
         if (curFreq) {
           GNSS_CHECK(9)= rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY,curFreq, VAL_LAYER_RAM);
         }
-        curPower = (0 < curFreq);
       }
       online = ok = GNSS_CHECK_OK;
       GNSS_CHECK_EVAL("configuration");
       if (ok) {
         CONFIG::USE_SOURCE useSrc = Config.getUseSource();
         curPower = ((useSrc & CONFIG::USE_SOURCE::USE_LBAND) && (useSrc & CONFIG::USE_SOURCE::USE_POINTPERFECT)) ? curPower : false;
-        rx.softwareEnableGNSS(curPower);
+        ok = configPower(curPower);
         if (qzss) {
           log_i("configuration complete, receiver online, %s", curPower ? "started" : "stopped");
         } else { 
@@ -126,7 +126,7 @@ protected:
       double ebn0 = 0.125 * pmpData->payload[22];
       uint16_t serviceId = pmpData->payload[16] + ((uint16_t)pmpData->payload[17] << 8);
       uint16_t size = ((uint16_t)pmpData->lengthMSB << 8) | (uint16_t)pmpData->lengthLSB;
-      MSG msg(size + 8, MSG::SRC::LBAND, MSG::CONTENT::CORRECTIONS);
+      MSG msg(size + 8, MSG::SRC::LBAND, MSG::HINT::RXMPMP);
       if (msg) {
         memcpy(msg.data, &pmpData->sync1, size + 6);
         memcpy(msg.data + size + 6, &pmpData->checksumA, 2);
@@ -147,7 +147,7 @@ protected:
       int svid = qzssData->payload[1];
       double cno = 0.00390625 * qzssData->payload[2] + qzssData->payload[3];
       uint16_t size = ((uint16_t)qzssData->lengthMSB << 8) | (uint16_t)qzssData->lengthLSB;
-      MSG msg(size + 8, MSG::SRC::LBAND, MSG::CONTENT::CORRECTIONS);
+      MSG msg(size + 8, MSG::SRC::LBAND, MSG::HINT::RXMQZSSL6);
       if (msg) {
         memcpy(msg.data, &qzssData->sync1, size + 6);
         memcpy(msg.data + size + 6, &qzssData->checksumA, 2);
@@ -202,10 +202,14 @@ protected:
   
   bool configPower(bool enable) {
     GNSS_CHECK_INIT;
+#if 1
     rx.softwareEnableGNSS(enable);
-    //uint8_t gnssStop[]  = { 0xB5, 0x62, 0x06, 0x04, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x16, 0x71 };
-    //uint8_t gnssStart[] = { 0xB5, 0x62, 0x06, 0x04, 0x04, 0x00, 0x00, 0x00, 0x09, 0x00, 0x17, 0x76 };
-    //rx.pushRawData(enable ? gnssStart : gnssStop, size_t numDataBytes)
+#else
+    // alternative code if softwareEnableGNSS function is not yet available
+    uint8_t gnssStop[]  = { 0xB5, 0x62, 0x06, 0x04, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x16, 0x74 };
+    uint8_t gnssStart[] = { 0xB5, 0x62, 0x06, 0x04, 0x04, 0x00, 0x00, 0x00, 0x09, 0x00, 0x17, 0x76 };
+    rx.pushRawData(enable ? gnssStart : gnssStop, enable ? sizeof(gnssStart) : sizeof(gnssStop));
+#endif
     if (qzss) {
       GNSS_CHECK(1) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,  enable?1:0, VAL_LAYER_RAM);
     } else {

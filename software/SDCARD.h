@@ -157,17 +157,21 @@ public:
 
   void writeLogFiles(MSG &msg) {
     if (state == STATE::MOUNTED) {
-      if ((msg.src == MSG::SRC::GNSS) && fileGnss) {
-        const size_t wrote = fileGnss.write(msg.data, msg.size);
-        if (wrote != msg.size) {
-          state = STATE::ERROR;
+      if (msg.hint == MSG::HINT::AT) {
+        if (fileLte) {
+          const size_t wrote = fileLte.write(msg.data, msg.size);
+          if (wrote != msg.size) {
+            state = STATE::ERROR;
+          }
         }
-      } else if ((msg.src == MSG::SRC::LTE) && fileLte) {
-        const size_t wrote = fileLte.write(msg.data, msg.size);
-        if (wrote != msg.size) {
-          state = STATE::ERROR;
+      } else {
+        if (fileUbx) {
+          const size_t wrote = fileUbx.write(msg.data, msg.size);
+          if (wrote != msg.size) {
+            state = STATE::ERROR;
+          }
         }
-      }
+      } 
     }
   }
 
@@ -200,7 +204,7 @@ public:
             }
 #ifdef SDCARD_UBXFORMAT
             if (ok) {
-              ok = fileGnss.open(SDCARD_DIR SDCARD_UBXFORMAT);
+              ok = fileUbx.open(SDCARD_DIR SDCARD_UBXFORMAT);
             }
 #endif
 #ifdef SDCARD_ATFORMAT
@@ -280,8 +284,8 @@ protected:
   /** Cleanup the files, filesystem, Sdcard and SPI reset the CS pin to input pull-up. 
    */
   void cleanup(void) {
-    if (fileGnss) {
-      fileGnss.close();
+    if (fileUbx) {
+      fileUbx.close();
     }
     if (fileLte) {
       fileLte.close();
@@ -296,7 +300,7 @@ protected:
 protected:
   
   SDCARDFILE fileLte;   //!< the file to store a AT command logfile
-  SDCARDFILE fileGnss;  //!< the file to store a UBX logfile
+  SDCARDFILE fileUbx;  //!< the file to store a UBX logfile
    
 };
 

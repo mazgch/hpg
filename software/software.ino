@@ -130,23 +130,24 @@ void loop(void) {
   int32_t endMs = millis() + LOOP_TASK_RATE;
   TickType_t ticks = pdMS_TO_TICKS(LOOP_TASK_RATE);
   while (queueToCommTask.receive(msg, ticks)) {
-    // filter out the LBAND corrections (send BINARY UBX/NMEA or TEXT)
-    if ((msg.src == MSG::SRC::GNSS) && (msg.content != MSG::CONTENT::CORRECTIONS)) {
-      // this is the data that we receive from the GNSS (inludes LBAND)
-      Websocket.sendToClients(msg);
-#ifdef __BLUETOOTH_H__
-      Bluetooth.sendToClients(msg);
-#endif
+    // Any data from source Wire (this includes GNSS and LBAND data captured with setOutputPort) or SERIAL (RX / TX from LTE)
+    if ((msg.src == MSG::SRC::WIRE) || (msg.hint == MSG::HINT::AT)) { 
       Sdcard.writeLogFiles(msg);
-    } else if ( (msg.content == MSG::CONTENT::CORRECTIONS) || (msg.content == MSG::CONTENT::KEYS) || 
-                (msg.src == MSG::SRC::WEBSOCKET) || (msg.src == MSG::SRC::BLUETOOTH) ) {
-      // don't forward the keys or any data from LBAND
-      if ((msg.content == MSG::CONTENT::CORRECTIONS) && (msg.src != MSG::SRC::LBAND) ){
+      if (msg.src == MSG::SRC::WIRE) {
+#ifdef __BLUETOOTH_H__
+        Bluetooth.sendToClients(msg);
+#endif
+        Websocket.sendToClients(msg);
+      }
+    } else {
+      // text can only be sent to the websocket, anything else will go to the GNSS 
+      if (msg.hint != MSG::HINT::TEXT) { 
+        Gnss.sendToGnss(msg);
+      }
+      // don't forward the KEYS (to avoid leaking) or any data from (LBAND / PMP-QZSSL6 (is already in the WIRE data from GNSS) 
+      if ((msg.hint != MSG::HINT::KEYS) && (msg.src != MSG::SRC::LBAND)) {
         Websocket.sendToClients(msg); // this may be useful to debug RTCM or SPARTN in the Monitor GUI
       }
-      // any data coming from the Websocket, Bluetooth or 
-      // if data is corrections or keys (inject to the gnss)
-      Gnss.sendToGnss(msg);
     }
     int32_t timeout = endMs - millis();
     ticks = (timeout < 0) ? 0 : pdMS_TO_TICKS(timeout);
@@ -188,7 +189,7 @@ void memUsage(void) {
       pcTaskGetName(NULL), 
       WLAN_TASK_NAME, 
       LTE_TASK_NAME, 
-#ifdef __CANBUS_H__
+#ifdef CAN_ESF_MEAS_SERIAL
       CAN_TASK_NAME, 
 #endif
     };

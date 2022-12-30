@@ -98,7 +98,7 @@ public:
     try {
       for (auto itClient = wsClients.begin(); (itClient != wsClients.end()); itClient = std::next(itClient)) {
         if (itClient->available()) {
-          if (msg.content == MSG::CONTENT::TEXT) {
+          if (msg.hint == MSG::HINT::TEXT) {
             itClient->send((const char*)msg.data, msg.size);
           } else {
             itClient->sendBinary((const char*)msg.data, msg.size);
@@ -107,7 +107,7 @@ public:
         }
       }
     } catch (std::bad_alloc & exception) {
-      log_e("dropped source %s content %s size %d bytes", MSG::text(msg.src), MSG::text(msg.content), msg.size);
+      log_e("dropped %s", msg.dump().c_str());
     } 
   }
   
@@ -125,14 +125,15 @@ protected:
   
   static void onMessage(WebsocketsClient &client, WebsocketsMessage message) {
     if (!message.isBinary()) {
-      String data = message.data();
+      String data = message.data().c_str();
       log_i("string \"%s\" with %d bytes", data.c_str(), message.length()); 
       data = "Echo from HPG solution:\r\n" + data;
-      client.send(data.c_str());
+      MSG msg(data.c_str(), MSG::SRC::WEBSOCKET, MSG::HINT::TEXT);
+      queueToCommTask.send(msg);
     } else {
       log_i("binary %d bytes", message.length());
       // function is declared here to avoid include dependency
-      MSG msg(message.c_str(), message.length(), MSG::SRC::WEBSOCKET, MSG::CONTENT::BINARY);
+      MSG msg(message.c_str(), message.length(), MSG::SRC::WEBSOCKET, MSG::HINT::UBX);
       if (msg) {
         queueToCommTask.send(msg);
       }

@@ -227,7 +227,7 @@ protected:
         } 
       } else if (pCharacteristic == rxChar) {
         size_t len = pCharacteristic->getDataLength();
-        MSG msg(pCharacteristic->getValue().c_str(), len, MSG::SRC::BLUETOOTH, MSG::CONTENT::BINARY);
+        MSG msg(pCharacteristic->getValue().c_str(), len, MSG::SRC::BLUETOOTH, MSG::HINT::UBX);
         queueToCommTask.send(msg);
         if (creditsChar)  {
           // we consumed a packed, give a credit back
