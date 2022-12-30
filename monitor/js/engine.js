@@ -1699,7 +1699,7 @@ function parse(data, i) {
     if (i + lenHead >= len) return WAIT;    // must have header 
     if (e1) {
         by = data.charCodeAt(i + lenHead - 1); // check auth indicator in payload
-        const ai3 = (by & 0x38) >> 8;
+        const ai3 = (by & 0x38) >> 3;
         const al3 = (by & 0x07) >> 0;
         if (ai3 > 1) {
             const lutAuthSize = [ 8, 12, 16, 32, 64, 0, 0, 0 ];
