@@ -181,7 +181,6 @@ void setup(void) {
   Lte.init();             // runs in a task
 
 #if 1
-  UBXGNSS gnss;
   gnss.begin(UbxWire);
   gnss.addReadTask(UBXGNSS::I2CADR::GNSS,  MSG::SRC::GNSS);
   gnss.addReadTask(UBXGNSS::I2CADR::LBAND, MSG::SRC::LBAND);

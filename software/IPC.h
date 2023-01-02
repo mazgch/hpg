@@ -285,7 +285,7 @@ public:
 
   static size_t parseNMEA(const uint8_t *ptr, size_t size) {
     uint8_t by; 
-    const uint8_t _hex[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' }
+    const uint8_t _hex[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
     const size_t maxLen = 100 /* a strict sentence length is 82 chars, be tolearnt as we have extended bits  */ - 5 /* crc *XX\r\n */;
     if (0 >= size) return WAIT;
     by = ptr[0];
@@ -1228,4 +1228,6 @@ protected:
   static const uint8_t i2cRegStream   =       0xFF;
 };
 
+UBXGNSS gnss;
+  
 #endif // __IPC_H__
