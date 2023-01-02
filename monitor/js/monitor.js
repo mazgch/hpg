@@ -136,27 +136,27 @@ function httpGet(resolve, reject) {
 
 const gnssLut = {
     GPS     : { flag:'us', ch:'G', sv:[1, 32], sbas:[33,64],
-				sig:{ '1':'L1 C/A',
+                sig:{ '1':'L1 C/A',
                       '5':'L2C-M',
                       '6':'L2C-L',
                       '7':'L5-I',
                       '8':'L5-Q' } }, 
-	GLONASS : { flag:'ru', ch:'R', sv:[65,99], sbas:[33,64],
-				sig:{ '1':'L1 OF',
+    GLONASS : { flag:'ru', ch:'R', sv:[65,99], sbas:[33,64],
+                sig:{ '1':'L1 OF',
                       '3':'L2 OF' } }, 
-	Galileo : { flag:'eu', ch:'E', sv:[1, 36], sbas:[37,64],
+    Galileo : { flag:'eu', ch:'E', sv:[1, 36], sbas:[37,64],
                 sig:{ '1':'E5 a',
                       '2':'E5 b',
                       '7':'E1 BC' } },
-	BeiDou  : { flag:'cn', ch:'B', sv:[1, 63], // aka BDS 
-				sig:{ '1':'B1I',
+    BeiDou  : { flag:'cn', ch:'B', sv:[1, 63], // aka BDS 
+                sig:{ '1':'B1I',
                       '3':'B1C',
                       '5':'B2a',
                       'B':'B2I' } }, // to be confirmed 
-	// regional systems
-	IRNSS   : { flag:'in', ch:'I', sv:[1, 14], // Indian Regional Navigation Satellite System (aka NavIC)
+    // regional systems
+    IRNSS   : { flag:'in', ch:'I', sv:[1, 14], // Indian Regional Navigation Satellite System (aka NavIC)
                 sig:{ '1':'L5 A' } }, 
-	QZSS    : { flag:'jp', ch:'Q', sv:[1, 10], // Quasi-Zenith Satellite System  PRN 183, 184/196, 189/197, 185/200
+    QZSS    : { flag:'jp', ch:'Q', sv:[1, 10], // Quasi-Zenith Satellite System  PRN 183, 184/196, 189/197, 185/200
                 sig:{ '1':'L1C/A',
                       '4':'LIS',
                       '5':'L2 CM',
