@@ -437,23 +437,24 @@ protected:
   void onMQTT(int messageSize) {
     if (messageSize) {
       String topic = mqttClient.messageTopic();
-      MSG::HINT hint = topic.startsWith(MQTT_TOPIC_KEY_FORMAT)  ? MSG::HINT::KEYS : 
-                       topic.startsWith(MQTT_TOPIC_FREQ)        ? MSG::HINT::CONFIG :
-                       topic.startsWith(MQTT_TOPIC_MGA)         ? MSG::HINT::UBX : 
-                                                                  MSG::HINT::SPARTN;
+      MSG::HINT hint = 
+            topic.startsWith(MQTT_TOPIC_KEY_FORMAT)  ? MSG::HINT::KEYS : 
+            topic.startsWith(MQTT_TOPIC_FREQ)        ? MSG::HINT::CONFIG :
+            topic.startsWith(MQTT_TOPIC_MGA)         ? MSG::HINT::UBX : 
+                                                       MSG::HINT::SPARTN;
       MSG msg(messageSize, MSG::SRC::WLAN, hint);
       if (msg) {
+        log_i("topic \"%s\" with %d bytes", topic.c_str(), msg.size); 
         msg.size = mqttClient.read(msg.data, msg.size);
         if (msg.size == messageSize) {
-          log_i("topic \"%s\" with %d bytes", topic.c_str(), msg.size); 
           if (hint == MSG::HINT::CONFIG) {
             Config.updateLbandFreqs(msg.data, msg.size);
             // do not send this message anywhere
           } else {
-            queueToCommTask.send(msg); // we do not have to delete msg.data here, this is done by receiving side of the queue 
             if (hint == MSG::HINT::KEYS) {
               Config.setValue(CONFIG_VALUE_KEY, msg.data, msg.size);
             }
+            queueToCommTask.sendParsed(msg); 
           }
         } else { 
           log_e("topic \"%s\" with %d bytes failed reading after %d", topic.c_str(), messageSize, msg.size); 
@@ -557,7 +558,7 @@ protected:
         msg.size = ntripWifiClient.read(msg.data, msg.size);
         if (msg.size == messageSize) {
           log_i("read %d bytes", messageSize);
-          queueToCommTask.send(msg);
+          queueToCommTask.sendParsed(msg); 
         } else {
           log_e("read %d bytes failed reading after %d", messageSize, msg.size); 
         }

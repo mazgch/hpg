@@ -35,7 +35,7 @@
 // Github Repository:  https://github.com/gilmaimon/ArduinoWebsockets
 
 // ArduinoJson by Benoit Blanchon, version 6.20.0
-// Library Manager:    http://librarymanager/All#ArduinoJson      
+// Library Manager:    http://librarymanager/All#ArduinoJson
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
 
 // WiFiManager by Tapzu, version 2.0.14-beta
@@ -64,8 +64,8 @@
 // Header files of this project
 //-----------------------------------
 #include "LOG.h"        // Comment this if you do not want a separate log level for this application 
-#include "IPC.h"
 #include "HW.h"
+#include "IPC.h"
 #include "UBXIO.h"
 #include "CONFIG.h"
 #include "SDCARD.h"
@@ -76,83 +76,6 @@
 #include "LTE.h"
 //#include "CANBUS.h"     // Comment this if not on vehicle using the CAN interface
 
-// ====================================================================================
-// MAIN setup / loop
-// ====================================================================================
-
-const int LOOP_TASK_PRIO     =           2;  //!< Loop Task task priority
-const int LOOP_TASK_RATE     =          50;  //!< 
-
-/** Main Arduino setup function, initilizes all functions which spins off various tasks
-*/
-void setup(void) {
-  // initialisation --------------------------------
-  // serial port
-  Serial.begin(115200);
-  while (!Serial);
-    /*nothing*/;
-  log_i("-------------------------------------------------------------------");
-  String hwName = Config.getDeviceName();
-  log_i("hpg.mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());  
-  espVersion();
-  Config.init();
-  Wlan.init();            // runs in a task
-  Lte.init();             // runs in a task
-  if (!Gnss.detect()) { 
-    log_w("GNSS ZED-F9 not detected, check wiring");
-  }
-  if (!LBand.detect()) {
-    log_w("LBAND NEO-D9 not detected, check wiring");
-  } 
-#ifdef __CANBUS_H__
-  Canbus.init();
-#endif
-
-  vTaskPrioritySet(NULL, LOOP_TASK_PRIO);
-}
-
-/** Main Arduino loop function is used to manage the GPS and LBAND communication 
-*/
-
-void loop(void) {
-#ifdef __BLUETOOTH_H__
-  Bluetooth.checkConfig();
-#endif
-  Websocket.checkClients();
-  Sdcard.checkCard();
-  LBand.poll();
-  Gnss.poll();
-  pipeWireToCommTask.flush();
-  
-  memUsage();
-  
-  MSG msg;
-  int32_t endMs = millis() + LOOP_TASK_RATE;
-  TickType_t ticks = pdMS_TO_TICKS(LOOP_TASK_RATE);
-  while (queueToCommTask.receive(msg, ticks)) {
-    // Any data from source Wire (this includes GNSS and LBAND data captured with setOutputPort) or SERIAL (RX / TX from LTE)
-    if ((msg.src == MSG::SRC::WIRE) || (msg.hint == MSG::HINT::AT)) { 
-      Sdcard.writeLogFiles(msg);
-      if (msg.src == MSG::SRC::WIRE) {
-#ifdef __BLUETOOTH_H__
-        Bluetooth.sendToClients(msg);
-#endif
-        Websocket.sendToClients(msg);
-      }
-    } else {
-      // text can only be sent to the websocket, anything else will go to the GNSS 
-      if (msg.hint != MSG::HINT::TEXT) { 
-        Gnss.sendToGnss(msg);
-      }
-      // don't forward the KEYS (to avoid leaking) or any data from (LBAND / PMP-QZSSL6 (is already in the WIRE data from GNSS) 
-      if ((msg.hint != MSG::HINT::KEYS) && (msg.src != MSG::SRC::LBAND)) {
-        Websocket.sendToClients(msg); // this may be useful to debug RTCM or SPARTN in the Monitor GUI
-      }
-    }
-    int32_t timeout = endMs - millis();
-    ticks = (timeout < 0) ? 0 : pdMS_TO_TICKS(timeout);
-  }
-}
 
 // ====================================================================================
 // Helpers
@@ -174,7 +97,23 @@ void espVersion(void) {
 }
 
 const int MEM_USAGE_INTERVAL = 10000; //!< Dump interval in ms, set to 0 to disable
-  
+
+TickType_t cpuLastTicks[10] = { 0,0,0,0,0, 0,0,0,0,0 };
+TickType_t cpuMaxTicks[10]  = { 0,0,0,0,0, 0,0,0,0,0 };
+
+#define CPU_MEASURE(ix, code) \
+    do { \
+      TickType_t _tickstart = xTaskGetTickCount(); \
+      code; \
+      TickType_t _tickdelta = xTaskGetTickCount() - _tickstart; \
+      if (cpuMaxTicks[ix] < _tickdelta) { \
+        cpuMaxTicks[ix] = _tickdelta; \
+      } \
+      if (cpuLastTicks[ix] < _tickdelta) { \
+        cpuLastTicks[ix] = _tickdelta; \
+      } \
+    } while (0)
+    
 /** Helper function to diagnose the health of this application dumping the free stacks and heap.
 */
 void memUsage(void) {
@@ -189,6 +128,7 @@ void memUsage(void) {
       pcTaskGetName(NULL), 
       WLAN_TASK_NAME, 
       LTE_TASK_NAME, 
+      "GNSSrx",
 #ifdef CAN_ESF_MEAS_SERIAL
       CAN_TASK_NAME, 
 #endif
@@ -201,6 +141,11 @@ void memUsage(void) {
         len += sprintf(&buf[len], " %s %u", tasks[i], stack);
       }
     }
+    len += sprintf(&buf[len], " ticks:");
+    for (int i = 0; i < 10; i ++) {
+      len += sprintf(&buf[len], " %u/%u", cpuLastTicks[i]/portTICK_RATE_MS, cpuMaxTicks[i]/portTICK_RATE_MS);
+    }
+    memset(cpuLastTicks,0,sizeof(cpuLastTicks));
     log_i("stacks:%s "
           "heap: min %d cur %d size %d "
           "queue: %d "
@@ -208,5 +153,128 @@ void memUsage(void) {
           ESP.getMinFreeHeap(), ESP.getFreeHeap(), ESP.getHeapSize(), 
           queueToCommTask.getMinFree(), 
           uxTaskGetNumberOfTasks());
+  }
+}
+    
+// ====================================================================================
+// MAIN setup / loop
+// ====================================================================================
+
+const int LOOP_TASK_PRIO     =           2;  //!< Loop Task task priority
+const int LOOP_TASK_RATE     =          50;  //!< 
+
+/** Main Arduino setup function, initilizes all functions which spins off various tasks
+*/
+void setup(void) {
+  // initialisation --------------------------------
+  // serial port
+  Serial.begin(115200*8);
+  while (!Serial);
+    /*nothing*/;
+  log_i("-------------------------------------------------------------------");
+  String hwName = Config.getDeviceName();
+  log_i("hpg.mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());  
+  espVersion();
+  Config.init();
+  vTaskPrioritySet(NULL, LOOP_TASK_PRIO);
+  Wlan.init();            // runs in a task
+  Lte.init();             // runs in a task
+
+#if 1
+  UBXGNSS gnss;
+  gnss.begin(UbxWire);
+  gnss.addReadTask(UBXGNSS::I2CADR::GNSS,  MSG::SRC::GNSS);
+  gnss.addReadTask(UBXGNSS::I2CADR::LBAND, MSG::SRC::LBAND);
+  TaskHandle_t h = xTaskGetHandle("GNSSrx");
+  while (!Serial.available()) {
+#ifdef __BLUETOOTH_H__
+    CPU_MEASURE(0, Bluetooth.checkConfig());
+#endif
+    CPU_MEASURE(1, Websocket.checkClients());
+    CPU_MEASURE(2, Sdcard.checkCard());
+  
+    memUsage();
+  
+    MSG msg;
+    int32_t endMs = millis() + LOOP_TASK_RATE;
+    TickType_t ticks = pdMS_TO_TICKS(LOOP_TASK_RATE);
+    while (queueToCommTask.receive(msg, ticks)) {
+      if (msg.hint == MSG::HINT::UNKNOWN) {
+        log_i("%d rx %s", uxTaskGetStackHighWaterMark(h), msg.dump().c_str());
+      }
+      if (msg.src == MSG::SRC::LBAND) {
+        if (msg.hint == MSG::HINT::UBX) {
+          gnss.write(UBXGNSS::I2CADR::GNSS, msg.data, msg.size);
+        }
+      }
+
+      if ((msg.src == MSG::SRC::LBAND) || (msg.src == MSG::SRC::GNSS)) {
+#ifdef __BLUETOOTH_H__
+        if (msg.hint == MSG::HINT::NMEA) {
+          CPU_MEASURE(6, Bluetooth.sendToClients(msg));
+        }
+#endif
+        CPU_MEASURE(7, Websocket.sendToClients(msg));
+        CPU_MEASURE(5, Sdcard.writeLogFiles(msg));
+      }
+      int32_t timeout = endMs - millis();
+      ticks = (timeout < 0) ? 0 : pdMS_TO_TICKS(timeout);
+    }
+  }
+  vTaskDelete(h);
+
+#endif
+  if (!Gnss.detect()) { 
+    log_w("GNSS ZED-F9 not detected, check wiring");
+  }
+  if (!LBand.detect()) {
+    log_w("LBAND NEO-D9 not detected, check wiring");
+  } 
+#ifdef __CANBUS_H__
+  Canbus.init();
+#endif
+
+}
+
+/** Main Arduino loop function is used to manage the GPS and LBAND communication 
+*/
+
+void loop(void) {
+#ifdef __BLUETOOTH_H__
+  CPU_MEASURE(0, Bluetooth.checkConfig());
+#endif
+  CPU_MEASURE(1, Websocket.checkClients());
+  CPU_MEASURE(2, Sdcard.checkCard());
+  CPU_MEASURE(3, LBand.poll());
+  CPU_MEASURE(4, Gnss.poll());
+  pipeWireToCommTask.flush();
+  
+  memUsage();
+  
+  MSG msg;
+  int32_t endMs = millis() + LOOP_TASK_RATE;
+  TickType_t ticks = pdMS_TO_TICKS(LOOP_TASK_RATE);
+  while (queueToCommTask.receive(msg, ticks)) {
+    // Any data from source Wire (this includes GNSS and LBAND data captured with setOutputPort) or SERIAL (RX / TX from LTE)
+    if ((msg.src == MSG::SRC::WIRE) || (msg.hint == MSG::HINT::AT)) { 
+      CPU_MEASURE(5, Sdcard.writeLogFiles(msg));
+      if (msg.src == MSG::SRC::WIRE) {
+#ifdef __BLUETOOTH_H__
+        CPU_MEASURE(6, Bluetooth.sendToClients(msg));
+#endif
+        CPU_MEASURE(7, Websocket.sendToClients(msg));
+      }
+    } else {
+      // text can only be sent to the websocket, anything else will go to the GNSS 
+      if (msg.hint != MSG::HINT::TEXT) { 
+        CPU_MEASURE(8, Gnss.sendToGnss(msg));
+      }
+      // don't forward the KEYS (to avoid leaking) or any data from (LBAND / PMP-QZSSL6 (is already in the WIRE data from GNSS) 
+      if ((msg.hint != MSG::HINT::KEYS) && (msg.src != MSG::SRC::LBAND)) {
+        CPU_MEASURE(7, Websocket.sendToClients(msg)); // this may be useful to debug RTCM or SPARTN in the Monitor GUI
+      }
+    }
+    int32_t timeout = endMs - millis();
+    ticks = (timeout < 0) ? 0 : pdMS_TO_TICKS(timeout);
   }
 }

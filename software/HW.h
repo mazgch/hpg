@@ -217,8 +217,7 @@ public:
       pattern = PATTERN::OFF;
       pinMode(LED, OUTPUT);
       hw_timer_t *timer = timerBegin(0, 80, true); // ESP.getCpuFreqMHz()
-      extern void IRAM_ATTR statusLedTimerIsr(void);
-      timerAttachInterrupt(timer, &statusLedTimerIsr, false);
+      timerAttachInterrupt(timer, statusLedTimerIsr, false);
       timerAlarmWrite(timer, (LED_CYCLE_PERIOD * 1000) / 32, true);
       timerAlarmEnable(timer);
     }
@@ -236,6 +235,7 @@ public:
   int bit;          //!< the current bit to output
 
 protected:  
+  static void statusLedTimerIsr(void);
 
   const int32_t LED_CYCLE_PERIOD = 4000;  //!< the default cycle time where the pattern repeats 
 };
@@ -244,7 +244,7 @@ STATUSLED StatusLed;
 
 /** interrupt handler for blinking led
  */
-void IRAM_ATTR statusLedTimerIsr(void){
+void IRAM_ATTR STATUSLED::statusLedTimerIsr(void){
   StatusLed.bit = (StatusLed.bit + 1) % 32;
   digitalWrite(LED, (((uint32_t)StatusLed.pattern >> StatusLed.bit) & 1) ? HIGH : LOW);
 }

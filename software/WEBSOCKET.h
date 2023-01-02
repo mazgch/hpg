@@ -91,10 +91,11 @@ public:
     }
     if (changed) {
       log_i("clients changed, total %d", wsClients.size());
-    } 
+    }
   }
   
   void sendToClients(MSG &msg) {
+    
     try {
       for (auto itClient = wsClients.begin(); (itClient != wsClients.end()); itClient = std::next(itClient)) {
         if (itClient->available()) {

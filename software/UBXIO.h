@@ -128,6 +128,7 @@ public:
     lenLo = 0;
     // i2c wire
 #endif
+    //setTimeOut(50);
     begin(I2C_SDA, I2C_SCL, UBXWIRE_FREQ);  // Start I2C
   }
   

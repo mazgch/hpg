@@ -136,16 +136,33 @@ function httpGet(resolve, reject) {
 
 const gnssLut = {
     GPS     : { flag:'us', ch:'G', sv:[1, 32], sbas:[33,64],
-				sig:[ ,'L1 C/A','L1 P(Y)','L1 M','L2 P(Y)','L2C-M','L2C-L','L5-I','L5-Q'] }, 
+				sig:{ '1':'L1 C/A',
+                      '5':'L2C-M',
+                      '6':'L2C-L',
+                      '7':'L5-I',
+                      '8':'L5-Q' } }, 
 	GLONASS : { flag:'ru', ch:'R', sv:[65,99], sbas:[33,64],
-				sig:[ ,'G1 C/A','G1 P','G2 C/A','GLONASS (M) G2 P'] }, 
+				sig:{ '1':'L1 OF',
+                      '3':'L2 OF' } }, 
 	Galileo : { flag:'eu', ch:'E', sv:[1, 36], sbas:[37,64],
-				sig:[ ,'E5a','E5b','E5a+b','E6-A','E6-BC','E1-A','E1-BC'] },
-	BeiDou  : { flag:'cn', ch:'B', 
-				sig:[ ,'B1I',,'B2I'] }, // to be confirmed 
+                sig:{ '1':'E5 a',
+                      '2':'E5 b',
+                      '7':'E1 BC' } },
+	BeiDou  : { flag:'cn', ch:'B', sv:[1, 63], // aka BDS 
+				sig:{ '1':'B1I',
+                      '3':'B1C',
+                      '5':'B2a',
+                      'B':'B2I' } }, // to be confirmed 
 	// regional systems
-	IRNSS   : { flag:'in', ch:'I', }, // Indian Regional Navigation Satellite System
-	QZSS    : { flag:'jp', ch:'Q', }, // Quasi-Zenith Satellite System  PRN 183, 184/196, 189/197, 185/200
+	IRNSS   : { flag:'in', ch:'I', sv:[1, 14], // Indian Regional Navigation Satellite System (aka NavIC)
+                sig:{ '1':'L5 A' } }, 
+	QZSS    : { flag:'jp', ch:'Q', sv:[1, 10], // Quasi-Zenith Satellite System  PRN 183, 184/196, 189/197, 185/200
+                sig:{ '1':'L1C/A',
+                      '4':'LIS',
+                      '5':'L2 CM',
+                      '6':'L2 CL',
+                      '7':'L5 I',
+                      '8':'L5 Q' } }, 
   //IMES    : { flag:'jp', ch:'Q', }, // Japanese Indoor Messaging System 
     // Augmentation systems
 	WAAS    : { flag:'us', ch:'S', }, // Wide Area Augmentation System
@@ -254,8 +271,10 @@ const mapNmeaOpMode = {
 	'M':'Manually set to 2D or 3D mode',
 	'A':'Automatic 2D or 3D mode',
 };
-const mapNmeaSystemId = [ undefined, 'GPS', 'GLONASS', 'Galileo', 'BeiDou' ];
-const mapNmeaTalker   = { GP:'GPS', GL:'GLONASS', GA:'Galileo', GB:'BeiDou',};
+
+const mapNmeaSignalId = {  1:'GPS',  2:'GLONASS',  3:'Galileo',  4:'BeiDou',  5:'QZSS',  6:'IRNSS', };
+const mapNmeaTalker   = { GP:'GPS', GL:'GLONASS', GA:'Galileo', GB:'BeiDou', GQ:'QZSS', GI:'IRNSS', GN:'GNSS', BD:'BeiDou', };
+
 // navStatus: V = Equipment is not providing navigational status information			
 
 const DB_LINES = 60+1;
@@ -1324,9 +1343,8 @@ function nmeaSvsExtract(fields, talker) {
 	}
 	// NMEA convert the System, SV, Talker to our internal representation
 	function _nmeaSvId(s,i,t) {
-		const mapS = {  1:'GPS',  2:'GLONASS',  3:'Galileo',  4:'BeiDou', };
-		const mapT = { GP:'GPS', GL:'GLONASS', GA:'Galileo', GB:'BeiDou', };
-		s = mapS[s] ? mapS[s] : mapT[t] ? mapT[t] : 'GPS';
+		s = (mapNmeaSignalId[s] !== undefined) ? mapNmeaSignalId[s] : 
+            (mapNmeaTalker[t]   !== undefined) ? mapNmeaTalker[t] : 'GNSS';
 		let nmea;
 		if (gnssLut[s]) {
 			nmea = i;
