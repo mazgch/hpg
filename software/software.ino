@@ -1,3 +1,5 @@
+#include <SPIFFS.h>
+
 
 /*
  * Copyright 2022 by Michael Ammann (@mazgch)
@@ -128,7 +130,7 @@ void memUsage(void) {
       pcTaskGetName(NULL), 
       WLAN_TASK_NAME, 
       LTE_TASK_NAME, 
-      "GNSSrx",
+//      "GNSSrx",
 #ifdef CAN_ESF_MEAS_SERIAL
       CAN_TASK_NAME, 
 #endif
@@ -168,7 +170,7 @@ const int LOOP_TASK_RATE     =          50;  //!<
 void setup(void) {
   // initialisation --------------------------------
   // serial port
-  Serial.begin(115200*8);
+  Serial.begin(115200);
   while (!Serial);
     /*nothing*/;
   log_i("-------------------------------------------------------------------");
@@ -176,11 +178,11 @@ void setup(void) {
   log_i("hpg.mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());  
   espVersion();
   Config.init();
-  vTaskPrioritySet(NULL, LOOP_TASK_PRIO);
   Wlan.init();            // runs in a task
   Lte.init();             // runs in a task
 
-#if 1
+#if 0
+  vTaskPrioritySet(NULL, LOOP_TASK_PRIO);
   gnss.begin(UbxWire);
   gnss.addReadTask(UBXGNSS::I2CADR::GNSS,  MSG::SRC::GNSS);
   gnss.addReadTask(UBXGNSS::I2CADR::LBAND, MSG::SRC::LBAND);
@@ -232,7 +234,7 @@ void setup(void) {
 #ifdef __CANBUS_H__
   Canbus.init();
 #endif
-
+  vTaskPrioritySet(NULL, LOOP_TASK_PRIO);
 }
 
 /** Main Arduino loop function is used to manage the GPS and LBAND communication 

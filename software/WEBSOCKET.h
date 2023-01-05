@@ -40,7 +40,6 @@ public:
    *  \param size  the size of the cicular buffer
    */
   WEBSOCKET()  {
-    mutex = xSemaphoreCreateMutex();
   }
 
   /** attach the the websocket to the manager and start listening
@@ -96,23 +95,20 @@ public:
   }
   
   void sendToClients(MSG &msg) {
-    for (auto itClient = wsClients.begin(); (itClient != wsClients.end()); itClient = std::next(itClient)) {
-      if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-        try {
-          if (itClient->available()) {
-            if (msg.hint == MSG::HINT::TEXT) {
-              itClient->send((const char*)msg.data, msg.size);
-            } else {
-              itClient->sendBinary((const char*)msg.data, msg.size);
-            }
+    try {
+      for (auto itClient = wsClients.begin(); (itClient != wsClients.end()); itClient = std::next(itClient)) {
+        if (itClient->available()) {
+          if (msg.hint == MSG::HINT::TEXT) {
+            itClient->send((const char*)msg.data, msg.size);
+          } else {
+            itClient->sendBinary((const char*)msg.data, msg.size);
           }
-        } catch (std::bad_alloc & exception) {
-          log_e("dropped %s", msg.dump().c_str());
-        } 
-        xSemaphoreGive(mutex);
+        }
         taskYIELD(); // allow wlan/websocket to send the stuff
-      } 
-    }   
+      }
+    } catch (std::bad_alloc & exception) {
+      log_e("dropped %s", msg.dump().c_str());
+    } 
   }
   
 protected:
@@ -160,8 +156,7 @@ protected:
   std::vector<WebsocketsClient> wsClients;  //!< list websocket clients connected
   WebsocketsServer wsServer;                //!< websocket server listens for incoming connections 
   WiFiManager* pManager;                    //!< the wifi manager with its captive portal
-  SemaphoreHandle_t mutex;
-
+  
   static const char HTML[];   //!< the content of served file monitor.html
   static const char CSS[];    //!< the content of served file monitor.css
   static const char JS[];     //!< the content of served file monitor.js

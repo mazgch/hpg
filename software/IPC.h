@@ -1018,10 +1018,11 @@ protected:
 };
 
 // Websocket is a low priority task make sure we can hold enough messages
-QUEUE queueToCommTask(60); //!< queue into Comm Task
+QUEUE queueToCommTask(10); //!< queue into Comm Task
 PIPE pipeSerialToCommTask(queueToCommTask,  MSG::SRC::LTE,  MSG::HINT::AT);   //!< Stream interface from Serial used by Lte
 PIPE pipeWireToCommTask(queueToCommTask,    MSG::SRC::WIRE, MSG::HINT::UBX);  //!< Stream interface from Wire used by GNSS, LBAND
 
+#if 0
 #include <vector>
 #include <Wire.h>
 
@@ -1229,5 +1230,6 @@ protected:
 };
 
 UBXGNSS gnss;
-  
+#endif
+
 #endif // __IPC_H__

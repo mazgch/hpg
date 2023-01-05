@@ -454,7 +454,7 @@ protected:
             if (hint == MSG::HINT::KEYS) {
               Config.setValue(CONFIG_VALUE_KEY, msg.data, msg.size);
             }
-            queueToCommTask.sendParsed(msg);
+            queueToCommTask.send(msg);
           }
         } else { 
           log_e("topic \"%s\" with %d bytes failed reading after %d", topic.c_str(), messageSize, msg.size); 
@@ -558,26 +558,7 @@ protected:
         msg.size = ntripWifiClient.read(msg.data, msg.size);
         if (msg.size == messageSize) {
           log_i("read %d bytes", messageSize);
-#if 0
-          queueToCommTask.sendParsed(msg); 
-#else
-          const uint8_t *ptr = msg.data;
-          size_t size = msg.size;
-          while (0 < size) {
-            MSG::HINT hint = MSG::HINT::NONE;
-            size_t len = PROTOCOL::parse(ptr, size, hint);
-            if ((len == PROTOCOL::WAIT) || (len == PROTOCOL::NOTFOUND)) {
-              break;
-            }
-            gnss.write(UBXGNSS::I2CADR::GNSS, ptr, len);
-            ptr += len;
-            size -= len;
-          }
-          if (0 < size) {
-            gnss.write(UBXGNSS::I2CADR::GNSS, ptr, size);
-          }
-          Websocket.sendToClients(msg);
-#endif          
+          queueToCommTask.send(msg); 
         } else {
           log_e("read %d bytes failed reading after %d", messageSize, msg.size); 
         }
