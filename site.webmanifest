@@ -1,0 +1,14 @@
+{
+    "name": "Michael Ammann @mazgch",
+    "short_name": "mazg.ch",
+    "icons": [
+        {
+          "src": "/favicon.svg",
+          "type": "image/svg+xml",
+          "sizes": "512x512"
+        }
+    ], 
+    "theme_color": "#ffffff",
+    "background_color": "#ffffff",
+    "display": "standalone"
+}
