@@ -1,4 +1,4 @@
-# <img src="./monitor/img/favicon.svg" height="48" width="48"/> mazg.ch - HPG Solution
+# <img src="./favicon.svg" height="48" width="48"/> mazg.ch - HPG Solution
 
 > **Note** This is a private project from [@mazgch](https://github.com/mazgch) <br>The code and hardware was developped during my free time. u-blox recently decided to launch a simliar product under the name [XPLR-HPG-2](https://www.u-blox.com/en/product/xplr-hpg-2) along with production grade software. The software of this project can be compiled for the XPLR-HPG-2 by adjusting the defines in the `software\HW.h` file.
 
