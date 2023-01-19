@@ -17,8 +17,6 @@
 #ifndef __LBAND_H__
 #define __LBAND_H__
 
-#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
-
 #include "GNSS.h" // required vor version, defines or macros
 
 const int LBAND_I2C_ADR           =        0x43;  //!< NEO-D9S I2C address
@@ -56,30 +54,33 @@ public:
       String fwver = GNSS::version("LBAND", &rx);
       qzss = fwver.startsWith("QZS");
       GNSS_CHECK_INIT;
-      GNSS_CHECK(1) = rx.setVal32(UBLOX_CFG_UART2_BAUDRATE,         38400, VAL_LAYER_RAM);
+      GNSS_CHECK(0) = rx.newCfgValset(VAL_LAYER_RAM);
+      GNSS_CHECK(1) = rx.addCfgValset(UBLOX_CFG_UART2_BAUDRATE,             38400);
       if (qzss) { // NEO-D9C
         curPower = region.equals("jp");
         rx.setRXMQZSSL6messageCallbackPtr(onRXMQZSSL6);
         // prepare the UART 2
-        GNSS_CHECK(2) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1, VAL_LAYER_RAM);
+        GNSS_CHECK(2) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1);
         // prepare I2C
-        GNSS_CHECK(3) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1, VAL_LAYER_RAM);  
+        GNSS_CHECK(3) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1);  
       } else { // NEO-D9S
         curPower = (0 < curFreq);
         rx.setRXMPMPmessageCallbackPtr(onRXMPMP);
         // prepare the UART 2
-        GNSS_CHECK(4) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2,     1, VAL_LAYER_RAM);
+        GNSS_CHECK(4) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2,     1);
         // prepare I2C
-        GNSS_CHECK(5) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,       1, VAL_LAYER_RAM);
-        GNSS_CHECK(6) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_MON_PMP_I2C,       1, VAL_LAYER_RAM);
+        GNSS_CHECK(5) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,       1);
+        GNSS_CHECK(6) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_MON_PMP_I2C,       1);
         // contact support@thingstream.io to get NEO-D9S configuration parameters for PointPerfect LBAND satellite augmentation service in EU / US
         // https://developer.thingstream.io/guides/location-services/pointperfect-getting-started/pointperfect-l-band-configuration
-        GNSS_CHECK(7) = rx.setVal8(0x10b10016,                            0, VAL_LAYER_RAM);
-        GNSS_CHECK(8) = rx.setVal16(0x30b10015,                      0x6959, VAL_LAYER_RAM);
+        GNSS_CHECK(7) = rx.addCfgValset(UBLOX_CFG_PMP_USE_SERVICE_ID,           0);
+        GNSS_CHECK(8) = rx.addCfgValset(UBLOX_CFG_PMP_SERVICE_ID,          0x5555);
+        GNSS_CHECK(9) = rx.addCfgValset(UBLOX_CFG_PMP_DESCRAMBLER_INIT,    0x6959);
         if (curFreq) {
-          GNSS_CHECK(9)= rx.setVal32(UBLOX_CFG_PMP_CENTER_FREQUENCY,curFreq, VAL_LAYER_RAM);
+          GNSS_CHECK(10)= rx.addCfgValset(UBLOX_CFG_PMP_CENTER_FREQUENCY, curFreq);
         }
       }
+      GNSS_CHECK(11)= rx.sendCfgValset();
       online = ok = GNSS_CHECK_OK;
       GNSS_CHECK_EVAL("configuration");
       if (ok) {
@@ -202,20 +203,15 @@ protected:
   
   bool configPower(bool enable) {
     GNSS_CHECK_INIT;
-#if 1
     rx.softwareEnableGNSS(enable);
-#else
-    // alternative code if softwareEnableGNSS function is not yet available
-    uint8_t gnssStop[]  = { 0xB5, 0x62, 0x06, 0x04, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x16, 0x74 };
-    uint8_t gnssStart[] = { 0xB5, 0x62, 0x06, 0x04, 0x04, 0x00, 0x00, 0x00, 0x09, 0x00, 0x17, 0x76 };
-    rx.pushRawData(enable ? gnssStart : gnssStop, enable ? sizeof(gnssStart) : sizeof(gnssStop));
-#endif
+    GNSS_CHECK(0) = rx.newCfgValset(VAL_LAYER_RAM);
     if (qzss) {
-      GNSS_CHECK(1) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,  enable?1:0, VAL_LAYER_RAM);
+      GNSS_CHECK(1) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,  enable?1:0);
     } else {
-      GNSS_CHECK(2) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,     enable?1:0, VAL_LAYER_RAM);
-      GNSS_CHECK(3) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_MON_PMP_I2C,     enable?1:0, VAL_LAYER_RAM);
+      GNSS_CHECK(2) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,     enable?1:0);
+      GNSS_CHECK(3) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_MON_PMP_I2C,     enable?1:0);
     } 
+    GNSS_CHECK(4)= rx.sendCfgValset();
     GNSS_CHECK_EVAL("enable");
     return GNSS_CHECK_OK;
   }      

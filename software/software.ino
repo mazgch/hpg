@@ -1,6 +1,3 @@
-#include <SPIFFS.h>
-
-
 /*
  * Copyright 2022 by Michael Ammann (@mazgch)
  *
@@ -55,9 +52,9 @@
 // Sparkfun libraries
 //-----------------------------------
 
-// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.21
-// Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
-// Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
+// SparkFun u-blox GNSS Arduino Library - v3 by Sparkfun Electronics, version 3.0.0
+// Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_v3
+// Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_v3
 
 // SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.5
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_SARA-R5_Arduino_Library

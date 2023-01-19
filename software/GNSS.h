@@ -17,7 +17,7 @@
 #ifndef __GNSS_H__
 #define __GNSS_H__
 
-#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
+#include <SparkFun_u-blox_GNSS_v3.h>
 
 /** Configure the dynamic model of the receiver
  *  possible choice is between AUTOMOTIVE, SCOOTER, MOWER, PORTABLE (=no DR), UNKNOWN (= no change)
@@ -107,29 +107,30 @@ public:
         log_e("firmware \"%s\" is old, please update firmware to release \"HPS 1.30\"", fwver.c_str());
       } 
       GNSS_CHECK_INIT;
+      GNSS_CHECK(0) = rx.newCfgValset(VAL_LAYER_RAM);
       GNSS_CHECK(1) = rx.setAutoPVTcallbackPtr(onPVT);
-      GNSS_CHECK(2) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,        1, VAL_LAYER_RAM); // required for this app and the monitor web page
+      GNSS_CHECK(2) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,        1); // required for this app and the monitor web page
       // add some usefull messages to store in the logfile
-      GNSS_CHECK(3) = rx.setVal(UBLOX_CFG_NMEA_HIGHPREC,                 1, VAL_LAYER_RAM); // make sure we enable extended accuracy in NMEA protocol
-      GNSS_CHECK(4) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,        1, VAL_LAYER_RAM); 
-      GNSS_CHECK(5) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C,   1, VAL_LAYER_RAM);
-      GNSS_CHECK(6) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,        1, VAL_LAYER_RAM);
+      GNSS_CHECK(3) = rx.addCfgValset(UBLOX_CFG_NMEA_HIGHPREC,                 1); // make sure we enable extended accuracy in NMEA protocol
+      GNSS_CHECK(4) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,        1); 
+      GNSS_CHECK(5) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C,   1);
+      GNSS_CHECK(6) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,        1);
       if ((fwver.substring(4).toDouble() > 1.30) || fwver.substring(4).equals("1.30")) {
-        GNSS_CHECK(7) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,       1, VAL_LAYER_RAM);
+        GNSS_CHECK(7) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,       1);
       }
       if (fwver.startsWith("HPS ")) {
-        GNSS_CHECK(8) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C,   1, VAL_LAYER_RAM);
+        GNSS_CHECK(8) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_ESF_STATUS_I2C,   1);
         if (GNSS_DYNAMIC_MODEL != DYN_MODEL_UNKNOWN) {
-          GNSS_CHECK(9) = rx.setVal(UBLOX_CFG_NAVSPG_DYNMODEL, GNSS_DYNAMIC_MODEL, VAL_LAYER_RAM);
+          GNSS_CHECK(9) = rx.addCfgValset(UBLOX_CFG_NAVSPG_DYNMODEL, GNSS_DYNAMIC_MODEL);
           if (GNSS_DYNAMIC_MODEL == DYN_MODEL_PORTABLE) {
             log_i("dynModel PORTABLE, disable DR/SF modes");
             // disable sensor fusion mode in case we use a portable dynamic model
-            GNSS_CHECK(10) = rx.setVal(UBLOX_CFG_SFCORE_USE_SF,           0, VAL_LAYER_RAM);
+            GNSS_CHECK(10) = rx.addCfgValset(UBLOX_CFG_SFCORE_USE_SF,           0);
           } else if (GNSS_DYNAMIC_MODEL == DYN_MODEL_MOWER) {
             log_i("dynModel MOWER");
-            GNSS_CHECK(11) = rx.setVal32(UBLOX_CFG_SFODO_FACTOR, GNSS_ODO_FACTOR, VAL_LAYER_RAM);
-            GNSS_CHECK(12) = rx.setVal(UBLOX_CFG_SFODO_COMBINE_TICKS,     1, VAL_LAYER_RAM);
-            GNSS_CHECK(13) = rx.setVal(UBLOX_CFG_SFODO_DIS_AUTODIRPINPOL, 1, VAL_LAYER_RAM);
+            GNSS_CHECK(11) = rx.addCfgValset(UBLOX_CFG_SFODO_FACTOR, GNSS_ODO_FACTOR);
+            GNSS_CHECK(12) = rx.addCfgValset(UBLOX_CFG_SFODO_COMBINE_TICKS,     1);
+            GNSS_CHECK(13) = rx.addCfgValset(UBLOX_CFG_SFODO_DIS_AUTODIRPINPOL, 1);
           } else if (GNSS_DYNAMIC_MODEL == DYN_MODEL_ESCOOTER) {
             log_i("dynModel ESCOOTER");
             // do whateever you need to do
@@ -141,12 +142,13 @@ public:
              *  
              *  You can use the canEmu.ino to create a test setup for can injecton. 
              */
-            GNSS_CHECK(14) = rx.setVal(UBLOX_CFG_SFODO_DIS_AUTOSW,        0, VAL_LAYER_RAM); // enable it
+            GNSS_CHECK(14) = rx.addCfgValset(UBLOX_CFG_SFODO_DIS_AUTOSW,        0); // enable it
           } else {
             log_i("dynModel %d", GNSS_DYNAMIC_MODEL);
           }
         } 
       }
+      GNSS_CHECK(10)= rx.sendCfgValset();
       online = ok = GNSS_CHECK_OK;
       GNSS_CHECK_EVAL("configuration");
       if (ok) {
@@ -213,8 +215,12 @@ protected:
       if (spartnUseSource != newUseSource) { // source would change
         if ((hint == MSG::HINT::SPARTN) || (0 >= (ttagSpartn - now))) { // stick with spartn SPARTN, unless we did not get a message since a while 
           // we are not switching to an error here, sometimes this command is not acknowledged, so we will just retry next time. 
-          bool ok/*online*/ = rx.setVal8(UBLOX_CFG_SPARTN_USE_SOURCE, newUseSource, VAL_LAYER_RAM);
-          if (ok) {
+          GNSS_CHECK_INIT;
+          GNSS_CHECK(0) = rx.newCfgValset(VAL_LAYER_RAM);
+          GNSS_CHECK(1) = rx.addCfgValset(UBLOX_CFG_SPARTN_USE_SOURCE, newUseSource);
+          GNSS_CHECK(2)= rx.sendCfgValset();
+          GNSS_CHECK_EVAL("set useSource");
+          if (GNSS_CHECK_OK) {
             log_i("spartnUseSource %d from source %s with hint %s", newUseSource, MSG::text(src), MSG::text(hint));
             spartnUseSource = newUseSource;
           } else {
