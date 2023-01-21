@@ -46,17 +46,14 @@ const int CAN_MESSAGE_ID          =         416;  //!< message ID used
 
 #define CAN_ESF_MEAS_SIZE(num)     (16+4*(num))
 
-//#define CAN_ESF_MEAS_SERIAL             Serial2   //!< Serial port to use, comment this if you like the IPC and Wire
-
-#ifdef CAN_ESF_MEAS_SERIAL
-const int CAN_ESF_MEAS_BAUDRATE   =       38400;  //!< Baudrate used, ZED default is 38400 
-#define CAN_ESF_MEAS_TXO                LTE_DTR   //!< Make a connection from this pin to ZED-RXI
-
 const char* CAN_TASK_NAME         =       "Can";  //!< Can task name
 const int CAN_STACK_SIZE          =      1*1024;  //!< Can task stack size
 const int CAN_TASK_PRIO           =           4;  //!< Can task priority
 const int CAN_TASK_CORE           =           1;  //!< Can task MCU code
-#endif
+
+//#define CAN_ESF_MEAS_SERIAL            Serial2  //!< Serial port to send message instead of Wire
+const int CAN_ESF_MEAS_BAUDRATE   =       38400;  //!< Baudrate used, ZED default is 38400 
+#define CAN_ESF_MEAS_TXO                 LTE_DTR  //!< Make a connection from this pin to ZED-RXI
 
 extern class CANBUS Canbus;                       //!< Forward declaration of class
 
@@ -69,8 +66,9 @@ public:
   /** initialize the object, this configures the peripherial and spins of a worker task. 
    */
   void init(void) {
+    queue = xQueueCreate(2, sizeof(ESF_QUEUE_STRUCT));
+    xTaskCreatePinnedToCore(task, CAN_TASK_NAME, CAN_STACK_SIZE, this, CAN_TASK_PRIO, NULL, CAN_TASK_CORE);
 #ifdef CAN_ESF_MEAS_SERIAL
-    queue = NULL;
     CAN_ESF_MEAS_SERIAL.begin(CAN_ESF_MEAS_BAUDRATE, SERIAL_8N1, -1/*no input*/, CAN_ESF_MEAS_TXO);
 #endif
     CAN.setPins(CAN_RX, CAN_TX);
@@ -78,10 +76,6 @@ public:
       log_w("freq %d, failed", CAN_FREQ);
     } else {
       log_i("freq %d", CAN_FREQ);
-#ifdef CAN_ESF_MEAS_SERIAL
-      queue = xQueueCreate(2, sizeof(ESF_QUEUE_STRUCT));
-      xTaskCreatePinnedToCore(task, CAN_TASK_NAME, CAN_STACK_SIZE, this, CAN_TASK_PRIO, NULL, CAN_TASK_CORE);
-#endif
       CAN.observe(); // make sure we never write
       CAN.onReceive(onPushESFMeasFromISR);
     }
@@ -89,7 +83,6 @@ public:
 
 protected:
 
-#ifdef CAN_ESF_MEAS_SERIAL
   //! We need a simple struct to communicate the measuement and a ttag to the 
   typedef struct { 
     uint32_t ttag;    //!< time of can frame reception, sampled millis() 
@@ -110,14 +103,17 @@ protected:
     while (true) {
       ESF_QUEUE_STRUCT meas;
       if( xQueueReceive(queue,&meas,portMAX_DELAY) == pdPASS ) {
-        uint8_t msg[CAN_ESF_MEAS_SIZE(1)];
-        esfMeas(msg, meas.ttag, &meas.data, 1);
-        CAN_ESF_MEAS_SERIAL.write(msg, sizeof(msg));
+        MSG msg(CAN_ESF_MEAS_SIZE(1), MSG::SRC::CANBUS, MSG::HINT::ESFMEAS);
+        esfMeas(msg.data, meas.ttag, &meas.data, 1);
+#ifdef CAN_ESF_MEAS_SERIAL
+        CAN_ESF_MEAS_SERIAL.write(msg.data, msg.size);
+#else
+        Gnss.sendToGnss(msg);
+#endif
         log_v("esfMeas %d %08X", meas.ttag, meas.data);
       }
     }
   }
-#endif
 
   /* ISR callback extracts the nedeed CAN frame and its measuremnts 
    * \note This callback is executed from an ISR only do essential things, so no log_x calls please.
@@ -137,7 +133,6 @@ protected:
 
       speed = reverse ? -speed : speed;
       uint32_t data = (11/*SPEED*/ << 24) | (speed & 0xFFFFFF);
-#ifdef USE CAN_ESF_MEAS_SERIAL
       ESF_QUEUE_STRUCT msg = { ttag, data };
       // add it to a queue so that a task can take care. 
       BaseType_t xHigherPriorityTaskWoken;
@@ -146,14 +141,6 @@ protected:
           portYIELD_FROM_ISR();
         }
       }
-#else   
-      // alloc a message buffer
-      MSG msg(CAN_ESF_MEAS_SIZE(1), MSG::SRC::CANBUS, MSG::HINT::ESFMEAS);
-      // create the UBX-ESF-MEAS message 
-      esfMeas(msg.data, ttag, &data, 1);
-      // and sent it to the front of the queue so that the have a very low delay into the receiver
-      queueToCommTask.sendFrontIsr(msg);
-#endif
     }
   }
 

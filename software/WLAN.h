@@ -692,9 +692,9 @@ protected:
       if (0 >= (ttagNextTry - now)) {
         ttagNextTry = now + WLAN_1S_RETRY;
         CONFIG::USE_SOURCE useSrc = Config.getUseSource();
-        bool useWlan   = (useSrc & CONFIG::USE_SOURCE::USE_WLAN) && onlineWlan;
-        bool useNtrip = useWlan && (useSrc & CONFIG::USE_SOURCE::USE_NTRIP);
-        bool useMqtt  = useWlan && (useSrc & CONFIG::USE_SOURCE::USE_POINTPERFECT);
+        bool useWlan  = onlineWlan && (useSrc & CONFIG::USE_SOURCE::USE_WLAN);
+        bool useNtrip = useWlan    && (useSrc & CONFIG::USE_SOURCE::USE_NTRIP);
+        bool useMqtt  = useWlan    && (useSrc & CONFIG::USE_SOURCE::USE_POINTPERFECT);
         switch (state) {
           case STATE::INIT:
             ttagNextTry = now + WLAN_INIT_RETRY;

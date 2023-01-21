@@ -894,10 +894,10 @@ protected:
         ttagNextTry = now + LTE_1S_RETRY;
         CONFIG::USE_SOURCE useSrc = Config.getUseSource();
         bool onlineWlan = WiFi.status() == WL_CONNECTED;
-        bool useWlan   = (useSrc & CONFIG::USE_SOURCE::USE_WLAN) && onlineWlan;
-        bool useLte    = (useSrc & CONFIG::USE_SOURCE::USE_LTE)  && !useWlan;
-        bool useNtrip = useLte && (useSrc & CONFIG::USE_SOURCE::USE_NTRIP);
-        bool useMqtt  = useLte && (useSrc & CONFIG::USE_SOURCE::USE_POINTPERFECT);
+        bool useWlan  = onlineWlan && (useSrc & CONFIG::USE_SOURCE::USE_WLAN);
+        bool useLte   = !useWlan   && (useSrc & CONFIG::USE_SOURCE::USE_LTE);
+        bool useNtrip = useLte     && (useSrc & CONFIG::USE_SOURCE::USE_NTRIP);
+        bool useMqtt  = useLte     && (useSrc & CONFIG::USE_SOURCE::USE_POINTPERFECT);
         switch (state) {
           case STATE::INIT:
             ttagNextTry = now + LTE_DETECT_RETRY;

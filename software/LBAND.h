@@ -48,39 +48,39 @@ public:
     bool ok = rx.begin(UbxWire, LBAND_I2C_ADR);
     if (ok) {
       log_i("receiver detected");
+      if (rx.getModuleInfo()) {
+        log_i("receiver detected module \"%s\" firmware \"%s\" version %d.%d protocol %d.%d", 
+              rx.getModuleName(), rx.getFirmwareType(),
+              rx.getFirmwareVersionHigh(), rx.getFirmwareVersionLow(),
+              rx.getProtocolVersionHigh(), rx.getProtocolVersionLow());
+      }
       String region;
       curFreq = 0;
       Config.getLbandCfg(region, curFreq);
-      String fwver = GNSS::version("LBAND", &rx);
+      String fwver = rx.version("LBAND");
       qzss = fwver.startsWith("QZS");
       GNSS_CHECK_INIT;
       GNSS_CHECK(0) = rx.newCfgValset(VAL_LAYER_RAM);
-      GNSS_CHECK(1) = rx.addCfgValset(UBLOX_CFG_UART2_BAUDRATE,             38400);
       if (qzss) { // NEO-D9C
         curPower = region.equals("jp");
         rx.setRXMQZSSL6messageCallbackPtr(onRXMQZSSL6);
-        // prepare the UART 2
-        GNSS_CHECK(2) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_UART2,  1);
         // prepare I2C
-        GNSS_CHECK(3) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1);  
+        GNSS_CHECK(1) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_QZSSL6_I2C,    1);  
       } else { // NEO-D9S
         curPower = (0 < curFreq);
         rx.setRXMPMPmessageCallbackPtr(onRXMPMP);
-        // prepare the UART 2
-        GNSS_CHECK(4) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_UART2,     1);
         // prepare I2C
-        GNSS_CHECK(5) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,       1);
-        GNSS_CHECK(6) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_MON_PMP_I2C,       1);
+        GNSS_CHECK(2) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_PMP_I2C,       1);
+        GNSS_CHECK(3) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_MON_PMP_I2C,       1);
         // contact support@thingstream.io to get NEO-D9S configuration parameters for PointPerfect LBAND satellite augmentation service in EU / US
         // https://developer.thingstream.io/guides/location-services/pointperfect-getting-started/pointperfect-l-band-configuration
-        GNSS_CHECK(7) = rx.addCfgValset(UBLOX_CFG_PMP_USE_SERVICE_ID,           0);
-        GNSS_CHECK(8) = rx.addCfgValset(UBLOX_CFG_PMP_SERVICE_ID,          0x5555);
-        GNSS_CHECK(9) = rx.addCfgValset(UBLOX_CFG_PMP_DESCRAMBLER_INIT,    0x6959);
+        GNSS_CHECK(4) = rx.addCfgValset(UBLOX_CFG_PMP_SERVICE_ID,          0x5555);
+        GNSS_CHECK(5) = rx.addCfgValset(UBLOX_CFG_PMP_DESCRAMBLER_INIT,    0x6959);
         if (curFreq) {
-          GNSS_CHECK(10)= rx.addCfgValset(UBLOX_CFG_PMP_CENTER_FREQUENCY, curFreq);
+          GNSS_CHECK(6)= rx.addCfgValset(UBLOX_CFG_PMP_CENTER_FREQUENCY, curFreq);
         }
       }
-      GNSS_CHECK(11)= rx.sendCfgValset();
+      GNSS_CHECK(7)= rx.sendCfgValset();
       online = ok = GNSS_CHECK_OK;
       GNSS_CHECK_EVAL("configuration");
       if (ok) {
@@ -132,7 +132,8 @@ protected:
         memcpy(msg.data, &pmpData->sync1, size + 6);
         memcpy(msg.data + size + 6, &pmpData->checksumA, 2);
         log_i("received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X", msg.size, ebn0, serviceId);
-        queueToCommTask.send(msg); // Push the sync chars, class, ID, length and payload
+        //queueToCommTask.send(msg); // Push the sync chars, class, ID, length and payload
+        Gnss.sendToGnss(msg);
       } else {
         log_e("received RXM-PMP with %d bytes Eb/N0 %.1f dB id 0x%04X, no memory", msg.size, ebn0, serviceId);
       }
@@ -153,7 +154,8 @@ protected:
         memcpy(msg.data, &qzssData->sync1, size + 6);
         memcpy(msg.data + size + 6, &qzssData->checksumA, 2);
         log_i("received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB", msg.size, svid, cno);
-        queueToCommTask.send(msg); // Push the sync chars, class, ID, length and payload
+        //queueToCommTask.send(msg); // Push the sync chars, class, ID, length and payload
+        Gnss.sendToGnss(msg);
       } else {
         log_e("received RXM-QZSSL6 with %d bytes prn %d C/N0 %.1f dB, no memory", msg.size, svid, cno);
       }
@@ -218,7 +220,7 @@ protected:
 
   bool online;            //!< flag that indicates if the receiver is connected
   int32_t ttagNextTry;    //!< time tag when to call the state machine again
-  SFE_UBLOX_GNSS rx;      //!< the receiver object
+  SFE_UBLOX_GNSS_ex rx;      //!< the receiver object
   uint32_t curFreq;       //!< the current configured frequency
   bool curPower;          //!< the current power mode
   bool qzss;              //!<true if the receiver is a NEO-D9C 

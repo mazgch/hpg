@@ -68,13 +68,12 @@
 #include "UBXIO.h"
 #include "CONFIG.h"
 #include "SDCARD.h"
-#include "BLUETOOTH.h"  // Comment this to save memory if not needed, choose the flash size 4MB and suitable partition, see line 22 above
-#include "WLAN.h"
 #include "GNSS.h"
 #include "LBAND.h"
+#include "CANBUS.h"     // Comment this if not on vehicle using the CAN interface
+#include "BLUETOOTH.h"  // Comment this to save memory if not needed, choose the flash size 4MB and suitable partition, see line 22 above
+#include "WLAN.h"
 #include "LTE.h"
-//#include "CANBUS.h"     // Comment this if not on vehicle using the CAN interface
-
 
 // ====================================================================================
 // Helpers
@@ -127,10 +126,7 @@ void memUsage(void) {
       pcTaskGetName(NULL), 
       WLAN_TASK_NAME, 
       LTE_TASK_NAME, 
-//      "GNSSrx",
-#ifdef CAN_ESF_MEAS_SERIAL
       CAN_TASK_NAME, 
-#endif
     };
     for (int i = 0; i < sizeof(tasks)/sizeof(*tasks); i ++) {
       const char *name = tasks[i];
@@ -178,50 +174,6 @@ void setup(void) {
   Wlan.init();            // runs in a task
   Lte.init();             // runs in a task
 
-#if 0
-  vTaskPrioritySet(NULL, LOOP_TASK_PRIO);
-  gnss.begin(UbxWire);
-  gnss.addReadTask(UBXGNSS::I2CADR::GNSS,  MSG::SRC::GNSS);
-  gnss.addReadTask(UBXGNSS::I2CADR::LBAND, MSG::SRC::LBAND);
-  TaskHandle_t h = xTaskGetHandle("GNSSrx");
-  while (!Serial.available()) {
-#ifdef __BLUETOOTH_H__
-    CPU_MEASURE(0, Bluetooth.checkConfig());
-#endif
-    CPU_MEASURE(1, Websocket.checkClients());
-    CPU_MEASURE(2, Sdcard.checkCard());
-  
-    memUsage();
-  
-    MSG msg;
-    int32_t endMs = millis() + LOOP_TASK_RATE;
-    TickType_t ticks = pdMS_TO_TICKS(LOOP_TASK_RATE);
-    while (queueToCommTask.receive(msg, ticks)) {
-      if (msg.hint == MSG::HINT::UNKNOWN) {
-        log_i("%d rx %s", uxTaskGetStackHighWaterMark(h), msg.dump().c_str());
-      }
-      if (msg.src == MSG::SRC::LBAND) {
-        if (msg.hint == MSG::HINT::UBX) {
-          gnss.write(UBXGNSS::I2CADR::GNSS, msg.data, msg.size);
-        }
-      }
-
-      if ((msg.src == MSG::SRC::LBAND) || (msg.src == MSG::SRC::GNSS)) {
-#ifdef __BLUETOOTH_H__
-        if (msg.hint == MSG::HINT::NMEA) {
-          CPU_MEASURE(6, Bluetooth.sendToClients(msg));
-        }
-#endif
-        CPU_MEASURE(7, Websocket.sendToClients(msg));
-        CPU_MEASURE(5, Sdcard.writeLogFiles(msg));
-      }
-      int32_t timeout = endMs - millis();
-      ticks = (timeout < 0) ? 0 : pdMS_TO_TICKS(timeout);
-    }
-  }
-  vTaskDelete(h);
-
-#endif
   if (!Gnss.detect()) { 
     log_w("GNSS ZED-F9 not detected, check wiring");
   }
@@ -253,23 +205,24 @@ void loop(void) {
   int32_t endMs = millis() + LOOP_TASK_RATE;
   TickType_t ticks = pdMS_TO_TICKS(LOOP_TASK_RATE);
   while (queueToCommTask.receive(msg, ticks)) {
+    //log_i("comm %s", msg.dump().c_str());
     // Any data from source Wire (this includes GNSS and LBAND data captured with setOutputPort) or SERIAL (RX / TX from LTE)
     if ((msg.src == MSG::SRC::WIRE) || (msg.hint == MSG::HINT::AT)) { 
-      CPU_MEASURE(5, Sdcard.writeLogFiles(msg));
       if (msg.src == MSG::SRC::WIRE) {
 #ifdef __BLUETOOTH_H__
-        CPU_MEASURE(6, Bluetooth.sendToClients(msg));
+        CPU_MEASURE(5, Bluetooth.sendToClients(msg));
 #endif
-        CPU_MEASURE(7, Websocket.sendToClients(msg));
+        CPU_MEASURE(6, Websocket.sendToClients(msg));
       }
+      CPU_MEASURE(7, Sdcard.writeLogFiles(msg));
     } else {
       // text can only be sent to the websocket, anything else will go to the GNSS 
       if (msg.hint != MSG::HINT::TEXT) { 
-        CPU_MEASURE(8, Gnss.sendToGnss(msg));
+        CPU_MEASURE(8, Gnss.sendToGnssParsed(msg));
       }
       // don't forward the KEYS (to avoid leaking) or any data from (LBAND / PMP-QZSSL6 (is already in the WIRE data from GNSS) 
-      if ((msg.hint != MSG::HINT::KEYS) && (msg.src != MSG::SRC::LBAND)) {
-        CPU_MEASURE(7, Websocket.sendToClients(msg)); // this may be useful to debug RTCM or SPARTN in the Monitor GUI
+      if (msg.hint != MSG::HINT::KEYS) {
+        CPU_MEASURE(6, Websocket.sendToClients(msg)); // this may be useful to debug RTCM or SPARTN in the Monitor GUI
       }
     }
     int32_t timeout = endMs - millis();

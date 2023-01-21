@@ -826,7 +826,7 @@ protected:
   uint8_t minFree;      //!< the min number of queue elements
 };
 
-//#define PIPE_PRINT //!< enable this to remove the Stream read interface
+#define PIPE_PRINT //!< enable this to remove the Stream read interface
 
 /** You can attach a PIPE to a QUEUE and this allos you to read and write like a buffered loopback stream 
  *  only one task should write and read this stream.
@@ -1004,7 +1004,7 @@ public:
   
 protected: 
   
-  const size_t minAllocSize = 3072;   //!< min size to alloc when writing small bits of data
+  const size_t minAllocSize = 4096;   //!< min size to alloc when writing small bits of data
   QUEUE* pQueue;                      //!< pointer to the attache queue
   MSG wr;                             //!< the write message object
   size_t wrIndex;                     //!< the written index in the buffer of the write object

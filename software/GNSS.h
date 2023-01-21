@@ -19,6 +19,47 @@
 
 #include <SparkFun_u-blox_GNSS_v3.h>
 
+class SFE_UBLOX_GNSS_ex : public SFE_UBLOX_GNSS {
+
+public:
+  /** get, decode and dump the version
+   *  \param tag  the receiver tag as this function is reused by LBAND
+   *  \param pRx  handle to the receiver
+   *  \return     the extracted firmware version string
+   */
+  String version(const char* tag) {
+    String fwver; 
+    struct { char sw[30]; char hw[10]; char ext[10][30]; } info;
+    ubxPacket cfg = { UBX_CLASS_MON, UBX_MON_VER, 0, 0, 0, (uint8_t*)&info, 0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
+    setPacketCfgPayloadSize(sizeof(info)+8);
+    if (sendCommand(&cfg, 300) == SFE_UBLOX_STATUS_DATA_RECEIVED) {
+      char ext[10*34+6] = "";
+      char* p = ext;
+      for (int i = 0; cfg.len > (30 * i + 40); i ++) {
+        if (*info.ext[i]) {
+          p += sprintf(p, "%s \"%s\"", (p==ext) ? " ext" : ",", info.ext[i]);
+          if (0 == strncmp(info.ext[i], "FWVER=",6)) {
+            fwver = info.ext[i] + 6;
+          }
+        }
+      }
+      log_i("receiver %s hw %s sw \"%s\"%s", tag, info.hw, info.sw, ext);
+    }
+    return fwver;
+  } 
+
+protected: 
+  bool lock(void) override { 
+    return pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY); 
+  }
+  void unlock(void) override {
+    xSemaphoreGive(mutex);
+  }
+  static SemaphoreHandle_t mutex;
+};
+
+SemaphoreHandle_t SFE_UBLOX_GNSS_ex::mutex = xSemaphoreCreateMutex();
+
 /** Configure the dynamic model of the receiver
  *  possible choice is between AUTOMOTIVE, SCOOTER, MOWER, PORTABLE (=no DR), UNKNOWN (= no change)
  */
@@ -64,32 +105,6 @@ public:
     ttagSpartn = ttagNextTry;
   }
 
-  /** get, decode and dump the version
-   *  \param tag  the receiver tag as this function is reused by LBAND
-   *  \param pRx  handle to the receiver
-   *  \return     the extracted firmware version string
-   */
-  static String version(const char* tag, SFE_UBLOX_GNSS* pRx) {
-    String fwver; 
-    struct { char sw[30]; char hw[10]; char ext[10][30]; } info;
-    ubxPacket cfg = { UBX_CLASS_MON, UBX_MON_VER, 0, 0, 0, (uint8_t*)&info, 0, 0, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED, SFE_UBLOX_PACKET_VALIDITY_NOT_DEFINED};
-    pRx->setPacketCfgPayloadSize(sizeof(info)+8);
-    if (pRx->sendCommand(&cfg, 300) == SFE_UBLOX_STATUS_DATA_RECEIVED) {
-      char ext[10*34+6] = "";
-      char* p = ext;
-      for (int i = 0; cfg.len > (30 * i + 40); i ++) {
-        if (*info.ext[i]) {
-          p += sprintf(p, "%s \"%s\"", (p==ext) ? " ext" : ",", info.ext[i]);
-          if (0 == strncmp(info.ext[i], "FWVER=",6)) {
-            fwver = info.ext[i] + 6;
-          }
-        }
-      }
-      log_i("receiver %s hw %s sw \"%s\"%s", tag, info.hw, info.sw, ext);
-    }
-    return fwver;
-  } 
-  
   /** detect and configure the receiver, inject saved keys
    *  \return  true if receiver is sucessfully detected, false if not
    */
@@ -100,8 +115,13 @@ public:
     bool ok = rx.begin(UbxWire, GNSS_I2C_ADR); //Connect to the Ublox module using Wire port
     if (ok) {
       log_i("receiver detected");
-
-      String fwver = version("GNSS", &rx);
+      if (rx.getModuleInfo()) {
+        log_i("receiver detected module \"%s\" firmware \"%s\" version %d.%d protocol %d.%d", 
+              rx.getModuleName(), rx.getFirmwareType(),
+              rx.getFirmwareVersionHigh(), rx.getFirmwareVersionLow(),
+              rx.getProtocolVersionHigh(), rx.getProtocolVersionLow());
+      }
+      String fwver = rx.version("GNSS");
       if ((fwver.substring(4).toDouble() <= 1.30) && !fwver.substring(4).equals("1.30")) { 
         // ZED-F9R/P old release firmware, no Spartan 2.0 support
         log_e("firmware \"%s\" is old, please update firmware to release \"HPS 1.30\"", fwver.c_str());
@@ -181,6 +201,30 @@ public:
     }
   }
 
+  void sendToGnssParsed(MSG &msg) {
+    checkSpartanUseSourceCfg(msg.src, msg.hint);
+    uint8_t *p = msg.data;
+    size_t size = msg.size; 
+    while ((0 < size) && online) {
+      MSG::HINT hint = MSG::HINT::NONE;
+      size_t len = PROTOCOL::parse(p, size, hint);
+      if ((len == PROTOCOL::WAIT) || (len == PROTOCOL::NOTFOUND)) {
+        break;
+      }
+      online = rx.pushRawData(p, len);
+      p += len;
+      size -= len;
+    }
+    if ((0 < size) && online) {
+      online = rx.pushRawData(p, size);
+    }
+    if (online) {
+      log_d("%d bytes from %s source", msg.size, MSG::text(msg.src));
+    } else {
+      log_e("%d/%d bytes from %s source failed", msg.size-size, msg.size, MSG::text(msg.src));
+    }
+  }
+
   void sendToGnss(MSG &msg) {
     checkSpartanUseSourceCfg(msg.src, msg.hint);
     online = rx.pushRawData(msg.data, msg.size);
@@ -218,7 +262,7 @@ protected:
           GNSS_CHECK_INIT;
           GNSS_CHECK(0) = rx.newCfgValset(VAL_LAYER_RAM);
           GNSS_CHECK(1) = rx.addCfgValset(UBLOX_CFG_SPARTN_USE_SOURCE, newUseSource);
-          GNSS_CHECK(2)= rx.sendCfgValset();
+          GNSS_CHECK(2) = rx.sendCfgValset();
           GNSS_CHECK_EVAL("set useSource");
           if (GNSS_CHECK_OK) {
             log_i("spartnUseSource %d from source %s with hint %s", newUseSource, MSG::text(src), MSG::text(hint));
@@ -321,7 +365,7 @@ protected:
   
   bool online;            //!< flag that indicates if the receiver is connected
   int32_t ttagNextTry;    //!< time tag when to call the state machine again
-  SFE_UBLOX_GNSS rx;      //!< the receiver object
+  SFE_UBLOX_GNSS_ex rx;      //!< the receiver object
 };
 
 GNSS Gnss; //!< The global GNSS peripherial object
