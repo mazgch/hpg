@@ -33,7 +33,7 @@
 // Library Manager:    http://librarymanager/All#ArduinoWebsockets   
 // Github Repository:  https://github.com/gilmaimon/ArduinoWebsockets
 
-// ArduinoJson by Benoit Blanchon, version 6.20.0
+// ArduinoJson by Benoit Blanchon, version 6.20.1
 // Library Manager:    http://librarymanager/All#ArduinoJson
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
 
@@ -70,7 +70,9 @@
 #include "SDCARD.h"
 #include "GNSS.h"
 #include "LBAND.h"
-#include "CANBUS.h"     // Comment this if not on vehicle using the CAN interface
+#if (CAN_RX != PIN_INVALID) || (CAN_TX != PIN_INVALID)
+ #include "CANBUS.h"     // Comment this if not on vehicle using the CAN interface
+#endif
 #include "BLUETOOTH.h"  // Comment this to save memory if not needed, choose the flash size 4MB and suitable partition, see line 22 above
 #include "WLAN.h"
 #include "LTE.h"
@@ -126,7 +128,9 @@ void memUsage(void) {
       pcTaskGetName(NULL), 
       WLAN_TASK_NAME, 
       LTE_TASK_NAME, 
+#ifdef __CANBUS_H__
       CAN_TASK_NAME, 
+#endif
     };
     for (int i = 0; i < sizeof(tasks)/sizeof(*tasks); i ++) {
       const char *name = tasks[i];
