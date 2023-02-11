@@ -388,7 +388,6 @@ protected:
 
   typedef enum                        {  UNKNOWN,   REMOVED,   INSERTED,   MOUNTED, NUM } STATE;  //!< Card state
   const char* STATE_LUT[STATE::NUM] = { "unknown", "removed", "inserted", "mounted",    };        //!< Card state text conversion helper 
-  const int MICROSD_DET_REMOVED     = (HW_TARGET == MAZGCH_HPG_MODULAR_V01) ? LOW : HIGH;         //!< true if card is removed  
 
   /** get the state of the SD card using the holder detect pin
    */
