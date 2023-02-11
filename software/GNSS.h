@@ -116,7 +116,7 @@ public:
     if (ok) {
       log_i("receiver detected");
       if (rx.getModuleInfo()) {
-        log_i("receiver detected module \"%s\" firmware \"%s\" version %d.%d protocol %d.%d", 
+        log_i("receiver detected module \"%s\" firmware \"%s\" version %d.%02d protocol %d.%02d", 
               rx.getModuleName(), rx.getFirmwareType(),
               rx.getFirmwareVersionHigh(), rx.getFirmwareVersionLow(),
               rx.getProtocolVersionHigh(), rx.getProtocolVersionLow());
@@ -132,9 +132,9 @@ public:
       GNSS_CHECK(2) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,        1); // required for this app and the monitor web page
       // add some usefull messages to store in the logfile
       GNSS_CHECK(3) = rx.addCfgValset(UBLOX_CFG_NMEA_HIGHPREC,                 1); // make sure we enable extended accuracy in NMEA protocol
-      GNSS_CHECK(4) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,        1); 
-      GNSS_CHECK(5) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C,   1);
-      GNSS_CHECK(6) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,        1);
+      //GNSS_CHECK(4) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_NAV_SAT_I2C,        1); 
+      //GNSS_CHECK(5) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_NAV_HPPOSLLH_I2C,   1);
+      //GNSS_CHECK(6) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_RXM_COR_I2C,        1);
       if ((fwver.substring(4).toDouble() > 1.30) || fwver.substring(4).equals("1.30")) {
         GNSS_CHECK(7) = rx.addCfgValset(UBLOX_CFG_MSGOUT_UBX_NAV_PL_I2C,       1);
       }

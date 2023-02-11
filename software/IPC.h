@@ -1004,7 +1004,7 @@ public:
   
 protected: 
   
-  const size_t minAllocSize = 4096;   //!< min size to alloc when writing small bits of data
+  const size_t minAllocSize = 2048;   //!< min size to alloc when writing small bits of data
   QUEUE* pQueue;                      //!< pointer to the attache queue
   MSG wr;                             //!< the write message object
   size_t wrIndex;                     //!< the written index in the buffer of the write object

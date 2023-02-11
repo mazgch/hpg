@@ -49,7 +49,7 @@ public:
     if (ok) {
       log_i("receiver detected");
       if (rx.getModuleInfo()) {
-        log_i("receiver detected module \"%s\" firmware \"%s\" version %d.%d protocol %d.%d", 
+        log_i("receiver detected module \"%s\" firmware \"%s\" version %d.%02d protocol %d.%02d", 
               rx.getModuleName(), rx.getFirmwareType(),
               rx.getFirmwareVersionHigh(), rx.getFirmwareVersionLow(),
               rx.getProtocolVersionHigh(), rx.getProtocolVersionLow());
