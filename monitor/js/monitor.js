@@ -348,7 +348,8 @@ let dbUpdateReq = false; // if true Publish will Update the GUI
 let epoch = { ids:{}, index:0, data:'', numMsg:0, }; // a database with all messages from the current epoch
 
 let dbInt = { // a database with values values to capture and report
-	time:    new dbY( { name: 'Local Time',                         unit:'hh:mm:ss.sss',       } ),
+	time:    new dbY( { name: 'Local time',                         unit:'hh:mm:ss.sss',       } ),
+	uptime:  new dbY( { name: 'Connect duration',                   unit:'hh:mm:ss.sss',       } ),
 	msgRx:   new dbY( { name: 'Messages received',                  unit:'Messages/s', prec:0, } ),
 	bytesRx: new dbY( { name: 'Bytes received',                     unit:'Bytes/s',    prec:0, } ),
 	msgTx:   new dbY( { name: 'Messages transmitted',               unit:'Messages/s', prec:0, } ),
@@ -603,7 +604,14 @@ function dbInit(){
     }
     setInterval( function _oneSecondInterval() {
         // a one second maintainance timer
-        dbInt.time.set(formatTime(new Date()));
+        let date = new Date();
+        dbInt.time.set(formatTime(date));
+        if (USTART.timeConnected !== undefined) {
+            let diff = date - USTART.timeConnected;
+            diff += date.getTimezoneOffset() * 60000;
+            diff = new Date(diff);
+            dbInt.uptime.set(formatTime(diff));
+        }
         dbInt.bytesTx.set(intStats.bytesTx);
         dbInt.msgTx.set(intStats.msgTx);
         dbInt.bytesRx.set(intStats.bytesRx + intStats.bytesPend);
