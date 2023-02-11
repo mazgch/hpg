@@ -1328,9 +1328,13 @@ function nmeaSvsSet(sys, sv, sig, cno, az, elv, used, nmeaSv) {
 function nmeaSvsExtract(fields, talker) {
 	if (fields.sv) {
 		for (let s = 0; s < fields.sv.length; s ++) {
-			const ret = _nmeaSvId(fields.systemId, fields.sv[s], talker);
-			const sv = ret[0];
-			if (-1 === nmeaSvUsed.indexOf(sv)) nmeaSvUsed.push(sv);
+            if (fields.sv[s] !== undefined) {
+                const ret = _nmeaSvId(fields.systemId, fields.sv[s], talker);
+                const sv = ret[0];
+                if (-1 === nmeaSvUsed.indexOf(sv)) {
+                    nmeaSvUsed.push(sv);
+                }
+            }
 		}
         nmeaSvDb.dirty = true;
 	} else if (fields.svs) {
