@@ -1248,7 +1248,7 @@ double X = m_pStorageX->GetValue();
                 }
             } else if (message.name === 'INF-NOTICE') {
                 infTextExtract(fields.infTxt);
-            } if (message.name === 'MON-PMP') {
+            } else if (message.name === 'MON-PMP') {
                 for (let i = 0; i <fields.entries; i ++) {
                     let freq = fields.entry[i].centerFreq;
                     const cn0 = fields.entry[i].cn0 + fields.entry[0].cn0Frac;
@@ -1270,13 +1270,17 @@ double X = m_pStorageX->GetValue();
                         nmeaSvDb.dirty = true;
                     }
                 }   
-            } if (message.name === 'RXM-QZSSL6') {
+            } else if (message.name === 'RXM-QZSSL6') {
                 const sys = 'QZSS';
                 const sig = 'L6';
                 const id = gnssLut[sys].ch + fields.svId;
                 nmeaSvsSet(sys, id, sig, fields.cno);
                 nmeaSvDb.dirty = true;
-            } if (message.name === 'RXM-COR') {
+            } else if (message.name === 'RXM-PMP') {
+                if (fields.ebn0 > 0)
+                    db.lBebn0.set(fields.ebn0);
+                nmeaSvDb.dirty = true;
+            } else if (message.name === 'RXM-COR') {
                 if (fields.ebn0 > 0)
                     db.lBebn0.set(fields.ebn0);
             } 
