@@ -23,7 +23,7 @@
  //#define HW_TARGET     MAZGCH_HPG_SOLUTION_C214_revA
  #define HW_TARGET     MAZGCH_HPG_SOLUTION_V09
 #elif defined(ARDUINO_UBLOX_NORA_W10)
- #define HW_TARGET     MAZGCH_HPG_MODULAR_V01
+ #define HW_TARGET     MAZGCH_HPG_MODULAR_C213_revA
 #elif defined(ARDUINO_ESP32_MICROMOD)
  #define HW_TARGET     SPARKFUN_MICROMOD_MAINBOARD
 #else
@@ -34,7 +34,8 @@
 #define MAZGCH_HPG_SOLUTION_V09              1 //!< Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
 #define MAZGCH_HPG_SOLUTION_C214_revA        2 //!< Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
 
-#define MAZGCH_HPG_MODULAR_V01              10 //!< Select ESP32 Arduino / u-blox NORA-W10 series (ESP32-S3), LTE in slot 1
+#define MAZGCH_HPG_MODULAR_C213_revA        10 //!< Select ESP32 Arduino / u-blox NORA-W10 series (ESP32-S3), LTE in slot 1
+#define MAZGCH_HPG_MODULAR_C213_revB        11 //!< Select ESP32 Arduino / u-blox NORA-W10 series (ESP32-S3), LTE in slot 1
 
 #define SPARKFUN_MICROMOD_MAINBOARD_PT      20 //!< Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod - with prototype LTE function
 #define SPARKFUN_MICROMOD_MAINBOARD         21 //!< Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod
@@ -49,8 +50,12 @@ enum HW_PINS {
     // Standard pins
     BOOT        =  0, 
     CDC_RX      = RX,  CDC_TX         = TX,
-#if (HW_TARGET == MAZGCH_HPG_MODULAR_V01)
+#if (HW_TARGET == MAZGCH_HPG_MODULAR_C213_revA)
     LED         =  8,
+    CAN_RX      = -1,  CAN_TX         = -1,
+    I2C_SDA     = 18,  I2C_SCL        = 17,
+#elif (HW_TARGET == MAZGCH_HPG_MODULAR_C213_revB)
+    LED         =  2,
     CAN_RX      = -1,  CAN_TX         = -1,
     I2C_SDA     = 18,  I2C_SCL        = 17,
 #else
@@ -73,7 +78,8 @@ enum HW_PINS {
     // Micro SD card - MISO / MOSI will be swapped to allow use of default pins 
     MICROSD_SCK = 18,  MICROSD_SDI    = 23,  MICROSD_SDO = 19,   
     MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
-    
+    MICROSD_DET_REMOVED = HIGH,
+
 #elif (HW_TARGET == MAZGCH_HPG_SOLUTION_V09)
     // LTE (DCE)
     LTE_RESET   = 13,  LTE_PWR_ON     = 12,  LTE_ON      = 37,  LTE_INT = -1,
@@ -86,7 +92,8 @@ enum HW_PINS {
     // Micro SD card
     MICROSD_SCK = 18,  MICROSD_SDI    = 19,  MICROSD_SDO = 23,   
     MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
-    
+    MICROSD_DET_REMOVED = HIGH,
+
 #elif (HW_TARGET == MAZGCH_HPG_SOLUTION_C214_revA)
     // LTE (DCE)
     LTE_RESET   = 33,  LTE_PWR_ON     = 26,  LTE_ON      = 37,  LTE_INT = -1,
@@ -99,8 +106,9 @@ enum HW_PINS {
     // Micro SD card
     MICROSD_SCK = 18,  MICROSD_SDI    = 19,  MICROSD_SDO = 23,   
     MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
-    
-#elif (HW_TARGET == MAZGCH_HPG_MODULAR_V01)
+    MICROSD_DET_REMOVED = HIGH,
+
+#elif (HW_TARGET == MAZGCH_HPG_MODULAR_C213_revA)
     // LTE (DCE)
     LTE_RESET   = -1,  LTE_PWR_ON     =  9,  LTE_ON      = -1,  LTE_INT = -1,
     LTE_TXI     = 46,  LTE_RXO        =  2,  LTE_RTS     = 38,  LTE_CTS =  4, 
@@ -112,7 +120,22 @@ enum HW_PINS {
     // Micro SD card
     MICROSD_SCK = 36,  MICROSD_SDI    = 37,  MICROSD_SDO = 35,   
     MICROSD_CS  = 34,  MICROSD_PWR_EN = -1,  MICROSD_DET = 34,
+    MICROSD_DET_REMOVED = LOW,
+
+#elif (HW_TARGET == MAZGCH_HPG_MODULAR_C213_revB)
+    // LTE (DCE)
+    LTE_RESET   = -1,  LTE_PWR_ON     =  9,  LTE_ON      = -1,  LTE_INT = -1,
+    LTE_TXI     = 46,  LTE_RXO        =  3,  LTE_RTS     = 38,  LTE_CTS =  4, 
+    LTE_RI      =  7,  LTE_DSR        = -1,  LTE_DCD     = -1,  LTE_DTR = -1,
+
+    // Power supply
+    VIN         = -1,  V33_EN         = -1,
     
+    // Micro SD card
+    MICROSD_SCK = 36,  MICROSD_SDI    = 37,  MICROSD_SDO = 35,   
+    MICROSD_CS  = 34,  MICROSD_PWR_EN = -1,  MICROSD_DET = 34,
+    MICROSD_DET_REMOVED = LOW,
+
 #elif (HW_TARGET == SPARKFUN_MICROMOD_ASSET_TRACKER)
     // LTE (DCE)
     LTE_RESET   = -1,  LTE_PWR_ON     = G2,  LTE_ON      = G6,  LTE_INT = G5, 
@@ -126,6 +149,7 @@ enum HW_PINS {
     MICROSD_SCK = SCK, MICROSD_SDI  = MISO, MICROSD_SDO = MOSI, 
     MICROSD_DET = -1,  MICROSD_PWR_EN = G1,  
     MICROSD_CS  = G0,
+    MICROSD_DET_REMOVED = HIGH,
 
 #elif ((HW_TARGET == SPARKFUN_MICROMOD_MAINBOARD_PT) || (HW_TARGET == SPARKFUN_MICROMOD_MAINBOARD_DOUBLE_PT)) // using ESP 32 MicroMod MCU
     // LTE (DCE)   // assignable D0,A0,G0 (G4 G5 can't be used as duplicated on ESP32)
@@ -144,6 +168,7 @@ enum HW_PINS {
 # else
     MICROSD_CS  = G4,
 # endif
+    MICROSD_DET_REMOVED = HIGH,
 
 #else // using ESP 32 MicroMod MCU
     // LTE (DCE)   // assignable D0,A0,G0 (G3/G4 can't be used as duplicated with TX1/RX1 on ESP32)
@@ -162,6 +187,7 @@ enum HW_PINS {
 # else
     MICROSD_CS  = G4,
 # endif
+    MICROSD_DET_REMOVED = HIGH,
 
 #endif
     PIN_INVALID = -1
