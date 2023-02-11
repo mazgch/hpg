@@ -110,18 +110,24 @@ function atRegExp(c, m) {
 function deviceInit(ip) {
     const match = document.cookie.match(/device=([^;]+)/);
 	const json = JSON.parse(((match != undefined) ? (match.length == 2) : false) ? match[1] : '{}');
+    const proto = (window.location.protocol == 'https') ? 'wss://': 'ws://';
     device.status = 'disconnected';
     if (ip !== undefined) { // from url argument
         device.name = 'unknown';
-        device.ip = ip;
+        const m = ip.match(/^([^:]*)(:[0-9]+)?$/);
+        if (m != undefined) {
+          device.ip = ip;
+          device.ws = proto + ip + ((m[2] !== undefined) ? '/ws' : ':8080');
+        }    
     } else if (json.ip !== undefined) { // from cookie argument
         device.name = json.name;
         device.ip = json.ip;
+        device.ws = json.ws;
     } else {
         device.name = 'unknown';
         device.ip = window.location.hostname;
+        device.ws = proto + device.ip + '8080';
     }
-    device.ws = (window.location.protocol == 'https' ? 'wss://': 'ws://')  + device.ip + ':8080';
     USTART.statusLed('error');
     USTART.tableEntry('dev_name', device.name);
     USTART.tableEntry('dev_ip', device.ip);
