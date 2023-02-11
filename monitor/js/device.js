@@ -418,6 +418,7 @@ function onSocketConnect(e) {
 /*REMOVE*/ //console.log('onSocketConnect '+this.io.uri);
     device.ws = e.currentTarget.url;
     Console.debug('event', 'SOCKET', 'connected ' + device.ws);
+    USTART.timeConnected = new Date();    
     device.status = 'connected';
     // update the cookie 
     let date = new Date();
@@ -432,6 +433,7 @@ function onSocketConnect(e) {
 function onSocketDisconnect(evt) {
 /*REMOVE*/ //console.log('onSocketDisconnect');
     Console.debug('event', 'SOCKET', 'disconnected');
+    USTART.timeConnected = undefined; 
     device.status = 'disconnected';
     device.waitPong = undefined;
     USTART.statusLed('error');
@@ -447,6 +449,7 @@ function onSocketError(evt) {
     if ( device.status == 'connected') {
         Console.debug('event', 'SOCKET', (evt && evt.type) ? evt.type : 'timeout');
         device.status = 'disconnected';
+        USTART.timeConnected = undefined;
         device.waitPong = undefined;
         USTART.statusLed('error');
         deviceStatusUpdate();
