@@ -116,6 +116,7 @@ protected:
       "info", 
       "sep", 
       "restart", 
+      "update", 
       "exit" 
     };
     manager.setMenu(menu);
