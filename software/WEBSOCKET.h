@@ -303,8 +303,8 @@ const char WEBSOCKET::JS[] = R"js(
     ws.addEventListener('message', ({ data }) => {
       if (typeof(data) == 'string') {
         log(`${data}`)
-        //                     time        src  fix  car acc       lat          lon
-        const m = data.match(/^\d+:\d+:\d+ \w+ (\S+) \w+ \d+\.\d+ (-?\d+\.\d+) (-?\d+\.\d+)/)
+        //                     time        src     fix  car acc       lat          lon
+        const m = data.match(/^\d+:\d+:\d+ [\w-]+ (\S+) \w+ \d+\.\d+ (-?\d+\.\d+) (-?\d+\.\d+)/)
         if (map && track && m) {
           if (m[1] != "No") {
             let pos = ol.proj.fromLonLat([Number(m[3]), Number(m[2])])
