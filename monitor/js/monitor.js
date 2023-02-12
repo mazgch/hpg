@@ -322,13 +322,15 @@ let db = { // a database with values values to capture an report
     eDop:   new dbY( { name: 'Easting DOP',                                            prec:2, } ),
     tDop:   new dbY( { name: 'Time DOP',                                               prec:2, } ),
     // Portection Level
-    plPos1: new dbY( { name: 'Position Protection Level 1',         unit:'m',          prec:3, } ),
-    plPos2: new dbY( { name: 'Position Protection Level 2',         unit:'m',          prec:3, } ),
-    plPos3: new dbY( { name: 'Position Protection Level 3',         unit:'m',          prec:3, } ),
-  //plVel1: new dbY( { name: 'Velocity Protection Level 1',         unit:'m/s',          prec:3, } ),
-  //plVel2: new dbY( { name: 'Velocity Protection Level 2',         unit:'m/s',          prec:3, } ),
-  //plVel3: new dbY( { name: 'Velocity Protection Level 3',         unit:'m/s',          prec:3, } ),
-    // status
+    plPos1: new dbY( { name: 'Position protection level major',     unit:'m',          prec:3, } ),
+    plPos2: new dbY( { name: 'Position protection level minor',     unit:'m',          prec:3, } ),
+    plPos3: new dbY( { name: 'Position protection level vertical',  unit:'m',          prec:3, } ),
+    plPosHorOr: new dbY( { name: 'Position protection level orientation', unit:'degrees', prec:1, } ),
+  //plVel1: new dbY( { name: 'Velocity protection level major',     unit:'m/s',        prec:3, } ),
+  //plVel2: new dbY( { name: 'Velocity protection level minor',     unit:'m/s',        prec:3, } ),
+  //plVel3: new dbY( { name: 'Velocity protection level vertical'   unit:'m/s',        prec:3, } ),
+  //plVelHorOr: new dbY( { name: 'Velocity protection level orientation', unit:'degrees', prec:1, } ),
+      // status
 	status: new dbY( { name: 'NMEA valid status',                   map:mapNmeaStatus,		   } ),
     posMode:new dbY( { name: 'NMEA position mode',	                map:mapNmeaPosMode,	       } ),
     opMode: new dbY( { name: 'NMEA operation status',               map:mapNmeaOpMode, 		   } ),
@@ -989,7 +991,7 @@ function dbOnPublish(el) {
 function dbPublish() {
     // now publish to the gui
     if (db.long.dirty && db.lat.dirty)
-        centerMap(db.long.val, db.lat.val);
+        centerMap(db.long.val, db.lat.val, db.plPos1.val, db.plPos2.val, db.plPosHorOr.val);
     if (nmeaSvDb.dirty) {
         nmeaSvDb.dirty = false;
         // Merge the new values with the old ones avoid flickering, every epoch we will replace the old with new
@@ -1731,10 +1733,24 @@ function chartSvs(svdb) {
 var map;
 var point;
 var track;
+var ellipse;
 var user;
 const MAP_POINTS = 10000;
 
-function centerMap(lon, lat) {
+function makeEllipse(position, lat, major, minor, angle) {
+    let coords = [];
+    if (major !== undefined || minor !== undefined || angle !== undefined) {
+        const radius = major * Math.cos( lat * Math.PI / 180.0 );
+        const circle = new ol.geom.Circle( position, radius);
+        const polygon = ol.geom.Polygon.fromCircle(circle, 64);
+        polygon.scale(minor/major, 1); 
+        polygon.rotate(-(angle * Math.PI) / 180.0, circle.getCenter());
+        coords = polygon.getCoordinates();
+    }
+    return coords;
+}
+
+function centerMap(lon, lat, major, minor, angle) {
     var el = document.getElementById('map');
     if (el && (ol !== undefined) && !isNaN(lon) && !isNaN(lat)) {
         el.removeAttribute('hidden');
@@ -1749,16 +1765,25 @@ function centerMap(lon, lat) {
             point = new ol.Feature(new ol.geom.Point(position));
             let svg = feather.icons.crosshair.toSvg({ color: 'white', 'stroke-width': 3, width: 96, height: 96, });
             let icon    = new ol.style.Icon({ color:'#ff6e59', scale: 0.25, opacity: 1, src: 'data:image/svg+xml;utf8,' + svg,
-											   anchor: [0.5, 0.5], anchorXUnits: 'fraction', anchorYUnits: 'fraction', });
+											  anchor: [0.5, 0.5], anchorXUnits: 'fraction', anchorYUnits: 'fraction', });
             point.setStyle( new ol.style.Style( { image: icon } ) );
+			// ellispe
+            ellipse = new ol.Feature({ geometry: new ol.geom.Polygon( makeEllipse(position, lat, major, minor, angle) ) });
+            ellipse.setStyle( new ol.style.Style( { 
+                stroke: new ol.style.Stroke({width: 3, color: 'rgba(0,0,255,0.3)', lineCap:'round' }),
+                fill: new ol.style.Fill({ color: 'rgba(0, 0, 255, 0.1)', }),
+            } ) );
 			// user
             user  = new ol.Feature(null);
             let iconUsr = new ol.style.Icon({ color:'#4664b4', opacity: 1, src: 'data:image/svg+xml;utf8,' + svg,
 											   anchor: [0.5, 0.5], anchorXUnits: 'fraction', anchorYUnits: 'fraction', });
             user.setStyle( new ol.style.Style( { image: iconUsr } ) );
             // put things together 
-			let tile = new ol.layer.Tile({ source: new ol.source.OSM() });
-            let vect = new ol.layer.Vector({ source: new ol.source.Vector({ features: [user, point, track] }) });
+			let tile = new ol.layer.Tile({ projection: 'EPSG:4326', source: new ol.source.OSM() });
+            let vect = new ol.layer.Vector({ 
+                            projection: 'EPSG:4326',
+                            source: new ol.source.Vector({ features: [user, point, track, ellipse] }) 
+            });
             let intr = ol.interaction.defaults({ doubleClickZoom: true, dragAndDrop: true, dragPan: true, keyboardPan: true,
                                                  keyboardZoom: true, mouseWheelZoom: false, pointer: true, select: true });
             let ctrl = ol.control.defaults({ attribution: false, zoom: true, rotate: true, });
@@ -1807,6 +1832,11 @@ function centerMap(lon, lat) {
 			if (coords.length > MAP_POINTS) coords.length = MAP_POINTS;
 			geo.setCoordinates(coords);
             point.getGeometry().setCoordinates(position);
+
+            // error ellipse
+            const ellGeo = ellipse.getGeometry();
+            coords = makeEllipse(position, lat, major, minor, angle);
+            ellGeo.setCoordinates(coords);
         }
     }
 }
