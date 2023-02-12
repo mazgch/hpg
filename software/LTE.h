@@ -930,7 +930,6 @@ protected:
               } else if (useSrc & CONFIG::USE_SOURCE::USE_ZTPTOKEN) {
                 ttagNextTry = now + LTE_PROVISION_RETRY;
                 mqttProvision();      // callback will advance the state
-                setState(STATE::NTRIP);
               }
             } else if (useNtrip) {
               if (useSrc & CONFIG::USE_SOURCE::USE_NTRIP_SERVER) {
