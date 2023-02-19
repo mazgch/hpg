@@ -440,16 +440,18 @@ td dt {
     width: 1.375em;
     line-height: .4em;
     border: none;
-    border-radius: 2px;
+    border-radius: 0px;
 } 
 
-.overlay_button:first-child {
-    border-bottom-left-radius: 0px;
-    border-bottom-right-radius: 0px;
-}
-.overlay_button:last-child {
-    border-top-left-radius: 0px;
-    border-top-right-radius: 0px;
+.overlay_button:first-child, 
+.ol-control button:first-child {
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+ }
+.overlay_button:last-child, 
+.ol-control button:last-child {
+    border-bottom-left-radius: 2px;
+    border-bottom-right-radius: 2px;
 }
 
 .overlay_button svg {
@@ -501,6 +503,9 @@ td dt {
     left: auto;
     right: 2px;
     top: 2px;
+}
+.ol-overviewmap button{
+    border-radius: 2px;
 }
 
 /* ---- json pretty print ---- */
