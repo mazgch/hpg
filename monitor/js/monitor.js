@@ -1815,9 +1815,9 @@ function centerMap(lon, lat, cogt, gSpeed, plPos, plVel) {
             let vectPt  = new ol.layer.Vector({ source: new ol.source.Vector({ features: [point] }) });
             let vectTrk = new ol.layer.Vector({ source: new ol.source.Vector({ features: [track, dots] }) });
             let vectEll = new ol.layer.Vector({ source: new ol.source.Vector({ features: [ellipse, ellipseV, vector] }) });
-            let intr = ol.interaction.defaults({ doubleClickZoom: true, dragAndDrop: true, dragPan: true, keyboardPan: true,
+            let intr = ol.interaction.defaults.defaults({ doubleClickZoom: true, altShiftDragRotate:true, dragAndDrop: true, dragPan: true, keyboardPan: true,
                                                  keyboardZoom: true, mouseWheelZoom: false, pointer: true, select: true });
-            let ctrl = ol.control.defaults({ attribution: false, zoom: true, rotate: true, });
+            let ctrl = ol.control.defaults.defaults({ attribution: false, zoom: true, rotate: true, });
             class mapToolbar extends ol.control.Control {
                 constructor(opt_options) {
                     const options = opt_options || {};
@@ -1848,17 +1848,22 @@ function centerMap(lon, lat, cogt, gSpeed, plPos, plVel) {
                 showHideLayers(layer) { layer.setOpacity( (layer.getOpacity() == 0) ? 1 : 0 ); }
             }
             const overviewMap = new ol.control.OverviewMap({
-                collapseLabel: '\u00BB',
+                collapseLabel: '\u00AB',
+                layers: [ new ol.layer.Tile(  { source: new ol.source.OSM() } )],
                 expandFactor: 4,
-                label: '\u00AB',
+                label: '\u00BB',
                 collapsed: true,
                 rotation: Math.PI / 6,
-    
             });
             const scaleLine = new ol.control.ScaleLine({ units: 'metric', minWidth: 100, /*bar: true, steps: 4, text: true,*/ })
-            ctrl.extend([ new mapToolbar(), scaleLine, overviewMap ]);
+            ctrl.extend([ new mapToolbar(), scaleLine, overviewMap, new ol.control.FullScreen() ]);
             let view = new ol.View( {  center:position, zoom: 15, maxZoom: 27, });
-            let opt = { layers: [ tile, vectEll, vectTrk, vectPt ], target: 'map', interactions: intr, controls: ctrl, view: view };
+            let opt = { 
+                controls: ctrl, 
+                interactions: intr, 
+                layers: [ tile, vectEll, vectTrk, vectPt ], 
+                target: 'map', 
+                view: view };
 			map = new ol.Map(opt);
             map.getView().on('change:resolution', function _onZoomed(event){
                 var zLevel = this.getZoom();     
@@ -2029,8 +2034,8 @@ function editorInit(id) {
         editor = (el && (ace !== undefined)) ? ace.edit(view) : undefined;
     } catch (e) {}
     if (editor) {
-        //editor.setTheme('ace/theme/xcode');
-        //editor.session.setMode('ace/mode/python');
+        editor.setTheme('ace/theme/xcode');
+        editor.session.setMode('ace/mode/javascript');
         editor.setOptions({fontSize: '12pt'});
         const Http = new XMLHttpRequest();
         Http.onreadystatechange = function _loadOptions(e){

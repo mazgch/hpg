@@ -404,7 +404,8 @@ td dt {
 
 /* ---- map ---- */
 
-.overlay_ctrl {
+.overlay_ctrl,
+.ol-control {
     position: absolute;
     background-color: rgba(255,255,255,.4);
     border-radius: 4px;
@@ -463,20 +464,32 @@ td dt {
     background-color:rgba(128,128,128,0.4);
     color: #fff;
 }
+.ol-scale-line-inner {
+    color: #fff;
+    border-color: #fff;
+    font-size: 1em;
+    font-weight: bold;
+}
+.ol-scale-line {
+    right:0.5em;
+    left:auto;
+}
 
 #scan-devices,
 .overlay_button:hover,
 .ol-control button:hover {
     background-color: var(--hero);
 	outline-color: transparent; 
+    color: #fff;
 }
 #scan-devices:active,
 .overlay_button:active,
 .ol-control button:active {
     background-color: var(--herolt);
 	outline-color: transparent; 
+    color: #fff;
 }
-
+ 
 .ol-rotate {
     top:10.1em;
     left:0.5em;
@@ -488,21 +501,17 @@ td dt {
     left:0.5em;
 }
 
-.ol-scale-line-inner {
-    font-size: 1em;
-    font-weight: bold;
-}
 .ol-overviewmap {
-    bottom: auto;
-    left: auto;
-    right: 0.5em;
-    top: 0.5em;
+    bottom: 0.5em;
+    left: 0.5em;;
+    right: auto;
+    top: auto;
 }
 .ol-overviewmap:not(.ol-collapsed) button{
-    bottom: auto;
-    left: auto;
-    right: 2px;
-    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    right: auto;
+    top: auto;
 }
 .ol-overviewmap button{
     border-radius: 2px;
