@@ -1754,8 +1754,7 @@ function centerMap(lon, lat, major, minor, angle) {
     var el = document.getElementById('map');
     if (el && (ol !== undefined) && !isNaN(lon) && !isNaN(lat)) {
         el.removeAttribute('hidden');
-		let position = ol.proj.transform([Number(lon), Number(lat)], 'EPSG:4326', 'EPSG:3857');
-        position = ol.proj.fromLonLat([Number(lon), Number(lat)]);
+        let position = ol.proj.fromLonLat([Number(lon), Number(lat)]);
         if (!map && el.clientWidth && el.clientHeight) {
 			// track
             track = new ol.Feature({ geometry: new ol.geom.LineString([]) });
@@ -1769,24 +1768,55 @@ function centerMap(lon, lat, major, minor, angle) {
             point.setStyle( new ol.style.Style( { image: icon } ) );
 			// ellispe
             ellipse = new ol.Feature({ geometry: new ol.geom.Polygon( makeEllipse(position, lat, major, minor, angle) ) });
-            ellipse.setStyle( new ol.style.Style( { 
-                stroke: new ol.style.Stroke({width: 3, color: 'rgba(0,0,255,0.3)', lineCap:'round' }),
-                fill: new ol.style.Fill({ color: 'rgba(0, 0, 255, 0.1)', }),
-            } ) );
-			// user
-            user  = new ol.Feature(null);
-            let iconUsr = new ol.style.Icon({ color:'#4664b4', opacity: 1, src: 'data:image/svg+xml;utf8,' + svg,
-											   anchor: [0.5, 0.5], anchorXUnits: 'fraction', anchorYUnits: 'fraction', });
-            user.setStyle( new ol.style.Style( { image: iconUsr } ) );
-            // put things together 
-			let tile = new ol.layer.Tile({ projection: 'EPSG:4326', source: new ol.source.OSM() });
-            let vect = new ol.layer.Vector({ 
-                            projection: 'EPSG:4326',
-                            source: new ol.source.Vector({ features: [user, point, track, ellipse] }) 
-            });
+            const ellStyle = new ol.style.Style( { 
+                stroke: new ol.style.Stroke({ color: 'rgba(0,0,255,0.4)', width: 3, lineCap:'round' }),
+                fill:   new ol.style.Fill(  { color: 'rgba(0,0,255,0.1)', }),
+            } );
+            ellipse.setStyle( ellStyle );
+			// put things together 
+            let tile    = new ol.layer.Tile(  { source: new ol.source.OSM() });
+            let vectPt  = new ol.layer.Vector({ source: new ol.source.Vector({ features: [point] }) });
+            let vectTrk = new ol.layer.Vector({ source: new ol.source.Vector({ features: [track] }) });
+            let vectEll = new ol.layer.Vector({ source: new ol.source.Vector({ features: [ellipse] }) });
             let intr = ol.interaction.defaults({ doubleClickZoom: true, dragAndDrop: true, dragPan: true, keyboardPan: true,
                                                  keyboardZoom: true, mouseWheelZoom: false, pointer: true, select: true });
             let ctrl = ol.control.defaults({ attribution: false, zoom: true, rotate: true, });
+            class mapToolbar extends ol.control.Control {
+                constructor(opt_options) {
+                    const options = opt_options || {};
+                    // useful unicode icons ◌◯☉⌖⬭⬬⬮⬯
+                    const btnPoint = document.createElement('div');
+                    btnPoint.className = 'overlay_button'
+                    btnPoint.innerHTML = feather.icons.crosshair.toSvg();
+                    btnPoint.title = "Current location marker";
+                    const btnTrack = document.createElement('button');
+                     btnTrack.innerHTML = '☡';
+                    btnTrack.title = "Ground track";
+                    const btnError = document.createElement('button');
+                    btnError.innerHTML = '<i>⬭</i>';
+                    btnError.title = "Protection level ellipse";
+                    const btnTrash = document.createElement('div');
+                    btnTrash.className = 'overlay_button'
+                    btnTrash.innerHTML = feather.icons.trash.toSvg();
+                    btnTrash.title = "Delete track";
+                    const element = document.createElement('div');
+                    element.className = 'overlay_ctrl ol-options ol-control';
+                    element.appendChild(btnPoint);
+                    element.appendChild(btnError);
+                    element.appendChild(btnTrack);
+                    element.appendChild(btnTrash);
+                    super({
+                        element: element,
+                        target: options.target,
+                    });
+                    btnPoint.addEventListener('click', this.showHideLayers.bind(this, vectPt), false);
+                    btnTrack.addEventListener('click', this.showHideLayers.bind(this, vectTrk), false);
+                    btnError.addEventListener('click', this.showHideLayers.bind(this, vectEll), false);
+                    btnTrash.addEventListener('click', this.clearTrack.bind(this), false);
+                }
+                showHideLayers(layer) { layer.setOpacity( (layer.getOpacity() == 0) ? 1 : 0 ); }
+                clearTrack()          { track.getGeometry().setCoordinates([]); }
+            }
             const overviewMap = new ol.control.OverviewMap({
                 collapseLabel: '\u00BB',
                 expandFactor: 4,
@@ -1796,9 +1826,9 @@ function centerMap(lon, lat, major, minor, angle) {
     
             });
             const scaleLine = new ol.control.ScaleLine({ units: 'metric', minWidth: 100, /*bar: true, steps: 4, text: true,*/ })
-            ctrl.extend([ scaleLine, overviewMap ]);
+            ctrl.extend([ new mapToolbar(), scaleLine, overviewMap ]);
             let view = new ol.View( {  center:position, zoom: 15, maxZoom: 27, });
-            let opt = { layers: [ tile , vect ], target: 'map', interactions: intr, controls: ctrl, view: view };
+            let opt = { layers: [ tile , vectPt, vectTrk, vectEll ], target: 'map', interactions: intr, controls: ctrl, view: view };
 			map = new ol.Map(opt);
             map.getView().on('change:resolution', function _onZoomed(event){
                 var zLevel = this.getZoom();     
@@ -1808,24 +1838,13 @@ function centerMap(lon, lat, major, minor, angle) {
                     overviewMap.setCollapsed(true);
                 } 
             });
-				
-			/*let geoloc = new ol.Geolocation( { tracking:true, trackingOptions: { enableHighAccuracy: true }, projection: view.getProjection() });
-			if (geoloc) {
-				geoloc.setTracking(true);
-				_updateUserPos();
-				geoloc.on('change:position', _updateUserPos );
-				function _updateUserPos() {
-					const position = geoloc.getPosition()
-					user.setGeometry( position ? new ol.geom.Point(position) : null);
-				}
-			}*/
-        }
-        else if (map) {
+		} else if (map) {
             const extent = map.getView().calculateExtent(map.getSize());
             if (!(extent && extent[0]<=position[0] && extent[2]>=position[0] &&
                             extent[1]<=position[1] && extent[3]>=position[1])) {
                map.getView().setCenter(position);
 			}
+
             const geo = track.getGeometry();
 			let coords = geo.getCoordinates(); // get coordinate array
 			coords.unshift(position);

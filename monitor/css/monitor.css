@@ -15,8 +15,8 @@
  */
  
  :root {
-    --hero:   rgb(255, 76, 0);        /*rgb(255, 110,  89);*/
-    --herolt: rgb(255, 112, 51);    /*rgb(255, 168, 155);*/
+    --hero:   rgb(255, 76, 0);    /*rgb(255, 110,  89);*/
+    --herolt: rgb(255, 112, 51);  /*rgb(255, 168, 155);*/
     --black:  rgb( 26,  26,  26); 
     --white:  rgb(255, 255, 255); 
     --error:  rgb(255, 187, 186);
@@ -462,6 +462,17 @@ td dt {
 .ol-control button:active {
     background-color: var(--herolt);
 	outline-color: transparent; 
+}
+
+.ol-rotate {
+    top:11.9em;
+    left:0.5em;
+    right:auto;
+}
+
+.ol-options {
+    top:4.5em;
+    left:0.5em;
 }
 
 .ol-scale-line-inner {
