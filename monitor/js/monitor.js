@@ -811,6 +811,7 @@ function dbClear(e) {
         db[name].clear();
     for (let name in dbInt)
         dbInt[name].clear();
+    clearMapTrack(e);
 }
 
 function dbOnClear() {
@@ -931,7 +932,7 @@ function dbOnPublish(el) {
     function _makeChart(e, width) {
         if (e.cat || (0<=e.prec)) {
             const col = COL_HERO;
-            const bkg = "rgba(255, 110, 89, 0.5)";
+            const bkg = toRGBa(col, 0.5);
             const spec =  {
                 type: 'line',
                 data: { 
@@ -1572,8 +1573,7 @@ let dataAzEl = { labels:svAzElLabel, datasets: [ { fill: false, pointRadius: 0, 
 
 function chartSvs(svdb) {
 	const col = [ COL_BLUE, COL_GREEN ];
-	// convert with Chart.helpers.color(COL_xxx).alpha(0.5).rgbString()
-	const bkg = [ 'rgba(70, 100, 180, 0.5)', 'rgba(60, 180, 110, 0.5)' ];
+	const bkg = col.map( v => toRGBa(v, 0.5) );
 	svLabels.length = 0;
 	svAzEl[0].length = 0;
     svAzEl[1].length = 0;
@@ -1733,13 +1733,14 @@ function chartSvs(svdb) {
 var map;
 var point;
 var track;
+var dots;
 var ellipse;
 var user;
 const MAP_POINTS = 10000;
 
 function makeEllipse(position, lat, major, minor, angle) {
     let coords = [];
-    if (major !== undefined || minor !== undefined || angle !== undefined) {
+    if (major !== undefined || minor !== undefined || angle !== undefined && (major < 10000)) {
         const radius = major * Math.cos( lat * Math.PI / 180.0 );
         const circle = new ol.geom.Circle( position, radius);
         const polygon = ol.geom.Polygon.fromCircle(circle, 64);
@@ -1750,43 +1751,74 @@ function makeEllipse(position, lat, major, minor, angle) {
     return coords;
 }
 
+function clearMapTrack(e) {
+    if (track) track.getGeometry().setCoordinates([]);
+    if (dots) dots.getGeometry().setCoordinates([]);
+}
+
 function centerMap(lon, lat, major, minor, angle) {
     var el = document.getElementById('map');
     if (el && (ol !== undefined) && !isNaN(lon) && !isNaN(lat)) {
         el.removeAttribute('hidden');
-		let position = ol.proj.transform([Number(lon), Number(lat)], 'EPSG:4326', 'EPSG:3857');
-        position = ol.proj.fromLonLat([Number(lon), Number(lat)]);
+        let position = ol.proj.fromLonLat([Number(lon), Number(lat)]);
         if (!map && el.clientWidth && el.clientHeight) {
 			// track
-            track = new ol.Feature({ geometry: new ol.geom.LineString([]) });
-            let stroke = new ol.style.Stroke({width: 3, color: 'rgba(255,110,89,0.8)', lineCap:'round' }) 
-            track.setStyle( new ol.style.Style( { stroke: stroke } ) );
-			// point
+            track = new ol.Feature({ geometry: new ol.geom.LineString( [ position ] ) });
+            let stroke = new ol.style.Stroke({width: 2, color: toRGBa(COL_HERO, 0.8), lineCap:'round' });
+            track.setStyle( new ol.style.Style({ stroke: stroke }) );
+            dots = new ol.Feature({ geometry: new ol.geom.MultiPoint([ position ]) });
+            let vertices = new ol.style.Circle({ radius: 2, fill: new ol.style.Fill({ color: COL_HERO }), });
+            dots.setStyle( new ol.style.Style({ image: vertices }) );
+            // point
             point = new ol.Feature(new ol.geom.Point(position));
-            let svg = feather.icons.crosshair.toSvg({ color: 'white', 'stroke-width': 3, width: 96, height: 96, });
-            let icon    = new ol.style.Icon({ color:'#ff6e59', scale: 0.25, opacity: 1, src: 'data:image/svg+xml;utf8,' + svg,
+            let svg = feather.icons.crosshair.toSvg({ color: 'white', 'stroke-width': 2, width: 96, height: 96, });
+            let icon    = new ol.style.Icon({ color: COL_BLUE, scale: 0.25, src: 'data:image/svg+xml;utf8,' + svg,
 											  anchor: [0.5, 0.5], anchorXUnits: 'fraction', anchorYUnits: 'fraction', });
             point.setStyle( new ol.style.Style( { image: icon } ) );
 			// ellispe
             ellipse = new ol.Feature({ geometry: new ol.geom.Polygon( makeEllipse(position, lat, major, minor, angle) ) });
-            ellipse.setStyle( new ol.style.Style( { 
-                stroke: new ol.style.Stroke({width: 3, color: 'rgba(0,0,255,0.3)', lineCap:'round' }),
-                fill: new ol.style.Fill({ color: 'rgba(0, 0, 255, 0.1)', }),
-            } ) );
-			// user
-            user  = new ol.Feature(null);
-            let iconUsr = new ol.style.Icon({ color:'#4664b4', opacity: 1, src: 'data:image/svg+xml;utf8,' + svg,
-											   anchor: [0.5, 0.5], anchorXUnits: 'fraction', anchorYUnits: 'fraction', });
-            user.setStyle( new ol.style.Style( { image: iconUsr } ) );
-            // put things together 
-			let tile = new ol.layer.Tile({ projection: 'EPSG:4326', source: new ol.source.OSM() });
-            let vect = new ol.layer.Vector({ 
-                            projection: 'EPSG:4326',
-                            source: new ol.source.Vector({ features: [user, point, track, ellipse] }) 
-            });
+            const ellStyle = new ol.style.Style( { 
+                stroke: new ol.style.Stroke({ color: COL_RED, width:1, lineCap:'round' }),
+                fill:   new ol.style.Fill(  { color: toRGBa(COL_RED, 0.3), }),
+            } );
+            ellipse.setStyle( ellStyle );
+			// put things together 
+            let tile    = new ol.layer.Tile(  { source: new ol.source.OSM() });
+            let vectPt  = new ol.layer.Vector({ source: new ol.source.Vector({ features: [point] }) });
+            let vectTrk = new ol.layer.Vector({ source: new ol.source.Vector({ features: [track, dots] }) });
+            let vectEll = new ol.layer.Vector({ source: new ol.source.Vector({ features: [ellipse] }) });
             let intr = ol.interaction.defaults({ doubleClickZoom: true, dragAndDrop: true, dragPan: true, keyboardPan: true,
                                                  keyboardZoom: true, mouseWheelZoom: false, pointer: true, select: true });
             let ctrl = ol.control.defaults({ attribution: false, zoom: true, rotate: true, });
+            class mapToolbar extends ol.control.Control {
+                constructor(opt_options) {
+                    const options = opt_options || {};
+                    // useful unicode icons ◌◯☉⌖⬭⬬⬮⬯
+                    const btnPoint = document.createElement('div');
+                    btnPoint.className = 'overlay_button'
+                    btnPoint.innerHTML = feather.icons.crosshair.toSvg();
+                    btnPoint.title = "Current location marker";
+                    const btnError = document.createElement('button');
+                    btnError.innerHTML = '<i>⬭</i>';
+                    btnError.title = "Protection level ellipse";
+                    const btnTrack = document.createElement('button');
+                     btnTrack.innerHTML = '☡';
+                    btnTrack.title = "Ground track";
+                    const element = document.createElement('div');
+                    element.className = 'overlay_ctrl ol-options ol-control';
+                    element.appendChild(btnPoint);
+                    element.appendChild(btnError);
+                    element.appendChild(btnTrack);
+                    super({
+                        element: element,
+                        target: options.target,
+                    });
+                    btnPoint.addEventListener('click', this.showHideLayers.bind(this, vectPt), false);
+                    btnTrack.addEventListener('click', this.showHideLayers.bind(this, vectTrk), false);
+                    btnError.addEventListener('click', this.showHideLayers.bind(this, vectEll), false);
+                }
+                showHideLayers(layer) { layer.setOpacity( (layer.getOpacity() == 0) ? 1 : 0 ); }
+            }
             const overviewMap = new ol.control.OverviewMap({
                 collapseLabel: '\u00BB',
                 expandFactor: 4,
@@ -1796,9 +1828,9 @@ function centerMap(lon, lat, major, minor, angle) {
     
             });
             const scaleLine = new ol.control.ScaleLine({ units: 'metric', minWidth: 100, /*bar: true, steps: 4, text: true,*/ })
-            ctrl.extend([ scaleLine, overviewMap ]);
+            ctrl.extend([ new mapToolbar(), scaleLine, overviewMap ]);
             let view = new ol.View( {  center:position, zoom: 15, maxZoom: 27, });
-            let opt = { layers: [ tile , vect ], target: 'map', interactions: intr, controls: ctrl, view: view };
+            let opt = { layers: [ tile, vectEll, vectTrk, vectPt ], target: 'map', interactions: intr, controls: ctrl, view: view };
 			map = new ol.Map(opt);
             map.getView().on('change:resolution', function _onZoomed(event){
                 var zLevel = this.getZoom();     
@@ -1808,29 +1840,18 @@ function centerMap(lon, lat, major, minor, angle) {
                     overviewMap.setCollapsed(true);
                 } 
             });
-				
-			/*let geoloc = new ol.Geolocation( { tracking:true, trackingOptions: { enableHighAccuracy: true }, projection: view.getProjection() });
-			if (geoloc) {
-				geoloc.setTracking(true);
-				_updateUserPos();
-				geoloc.on('change:position', _updateUserPos );
-				function _updateUserPos() {
-					const position = geoloc.getPosition()
-					user.setGeometry( position ? new ol.geom.Point(position) : null);
-				}
-			}*/
-        }
-        else if (map) {
+		} else if (map) {
             const extent = map.getView().calculateExtent(map.getSize());
             if (!(extent && extent[0]<=position[0] && extent[2]>=position[0] &&
                             extent[1]<=position[1] && extent[3]>=position[1])) {
                map.getView().setCenter(position);
 			}
-            const geo = track.getGeometry();
-			let coords = geo.getCoordinates(); // get coordinate array
-			coords.unshift(position);
+
+            let coords = track.getGeometry().getCoordinates(); // get coordinate array
+			coords.unshift( position );
 			if (coords.length > MAP_POINTS) coords.length = MAP_POINTS;
-			geo.setCoordinates(coords);
+			track.getGeometry().setCoordinates(coords);
+            dots.getGeometry().setCoordinates(coords);
             point.getGeometry().setCoordinates(position);
 
             // error ellipse
@@ -1960,6 +1981,16 @@ const COL_HERO  = COL_PPT.hero;
 const COL_BLUE  = COL_PPT.blue;
 const COL_GREEN = COL_PPT.green;
 const COL_RED   = COL_PPT.red;
+function toRGBa(hex, alpha) {
+    var r = parseInt(hex.slice(1, 3), 16),
+        g = parseInt(hex.slice(3, 5), 16),
+        b = parseInt(hex.slice(5, 7), 16);
+    if (alpha) {
+        return "rgba(" + r + ", " + g + ", " + b + ", " + alpha + ")";
+    } else {
+        return "rgb(" + r + ", " + g + ", " + b + ")";
+    }
+}
 
 // Editor
 // ------------------------------------------------------------------------------------

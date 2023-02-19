@@ -15,8 +15,8 @@
  */
  
  :root {
-    --hero:   rgb(255, 76, 0);        /*rgb(255, 110,  89);*/
-    --herolt: rgb(255, 112, 51);    /*rgb(255, 168, 155);*/
+    --hero:   rgb(255, 76, 0);    /*rgb(255, 110,  89);*/
+    --herolt: rgb(255, 112, 51);  /*rgb(255, 168, 155);*/
     --black:  rgb( 26,  26,  26); 
     --white:  rgb(255, 255, 255); 
     --error:  rgb(255, 187, 186);
@@ -426,19 +426,30 @@ td dt {
     font-weight: bold;
 } 
 
-.overlay_button {
-    border-radius: 2px;
-    width: 1.6rem;
-    height: 1.6rem;
+.overlay_button, 
+.ol-control button {
     margin: 1px;
+    padding: 3px;
+    color: #fff;
+    font-size: 1.14em;
+    font-weight: 700;
+    text-decoration: none;
+    vertical-align: middle;
+    text-align: center;
+    height: 1.375em;
+    width: 1.375em;
+    line-height: .4em;
+    border: none;
+    border-radius: 2px;
 } 
-.overlay_button:first-of-type {
-    border-top-left-radius: 2px;
-    border-top-right-radius: 2px;
+
+.overlay_button:first-child {
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
 }
-.overlay_button:last-of-type {
-    border-bottom-left-radius: 2px;
-    border-bottom-right-radius: 2px;
+.overlay_button:last-child {
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
 }
 
 .overlay_button svg {
@@ -462,6 +473,17 @@ td dt {
 .ol-control button:active {
     background-color: var(--herolt);
 	outline-color: transparent; 
+}
+
+.ol-rotate {
+    top:10.1em;
+    left:0.5em;
+    right:auto;
+}
+
+.ol-options {
+    top:4.5em;
+    left:0.5em;
 }
 
 .ol-scale-line-inner {
