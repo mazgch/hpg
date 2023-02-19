@@ -322,14 +322,16 @@ let db = { // a database with values values to capture an report
     eDop:   new dbY( { name: 'Easting DOP',                                            prec:2, } ),
     tDop:   new dbY( { name: 'Time DOP',                                               prec:2, } ),
     // Portection Level
-    plPos1: new dbY( { name: 'Position protection level major',     unit:'m',          prec:3, } ),
-    plPos2: new dbY( { name: 'Position protection level minor',     unit:'m',          prec:3, } ),
-    plPos3: new dbY( { name: 'Position protection level vertical',  unit:'m',          prec:3, } ),
+    plPosValid: new dbY( { name: 'Position protection level valid',       hide:true } ), // assuming frame PL 3
+    plPos1: new dbY( { name: 'Position protection level major',           unit:'m',       prec:3, } ),
+    plPos2: new dbY( { name: 'Position protection level minor',           unit:'m',       prec:3, } ),
+    plPos3: new dbY( { name: 'Position protection level vertical',        unit:'m',       prec:3, } ),
     plPosHorOr: new dbY( { name: 'Position protection level orientation', unit:'degrees', prec:1, } ),
-  //plVel1: new dbY( { name: 'Velocity protection level major',     unit:'m/s',        prec:3, } ),
-  //plVel2: new dbY( { name: 'Velocity protection level minor',     unit:'m/s',        prec:3, } ),
-  //plVel3: new dbY( { name: 'Velocity protection level vertical'   unit:'m/s',        prec:3, } ),
-  //plVelHorOr: new dbY( { name: 'Velocity protection level orientation', unit:'degrees', prec:1, } ),
+    plVelValid: new dbY( { name: 'Velocity protection level valid',       hide:true } ), // assuming frame PL 3
+    plVel1: new dbY( { name: 'Velocity protection level major',           unit:'m/s',     prec:3, hide:true } ),
+    plVel2: new dbY( { name: 'Velocity protection level minor',           unit:'m/s',     prec:3, hide:true } ),
+    plVel3: new dbY( { name: 'Velocity protection level vertical',        unit:'m/s',     prec:3, hide:true } ),
+    plVelHorOr: new dbY( { name: 'Velocity protection level orientation', unit:'degrees', prec:1, hide:true } ),
       // status
 	status: new dbY( { name: 'NMEA valid status',                   map:mapNmeaStatus,		   } ),
     posMode:new dbY( { name: 'NMEA position mode',	                map:mapNmeaPosMode,	       } ),
@@ -596,12 +598,16 @@ function dbInit(){
     if (el) el.addEventListener('click', dbSaveKml);
     for (let name in db) {
         db[name].timebase = db.time.carray;
-        db[name].onpublish = dbOnPublish;
+        if (db[name].hide !== true) {
+            db[name].onpublish = dbOnPublish;
+        }
         db[name].onclear = dbOnClear;
     }
     for (let name in dbInt) {
         dbInt[name].timebase = dbInt.time.carray;
-        dbInt[name].onpublish = dbOnPublish
+        if (dbInt[name].hide !== true) {
+            dbInt[name].onpublish = dbOnPublish
+        } 
         dbInt[name].onclear = dbOnClear;
     }
     setInterval( function _oneSecondInterval() {
@@ -992,7 +998,9 @@ function dbOnPublish(el) {
 function dbPublish() {
     // now publish to the gui
     if (db.long.dirty && db.lat.dirty)
-        centerMap(db.long.val, db.lat.val, db.plPos1.val, db.plPos2.val, db.plPosHorOr.val);
+        centerMap(db.long.val, db.lat.val, db.cogt.val, db.gSpeed.val,  
+                  (db.plPosValid.val ? { major:db.plPos1.val, minor:db.plPos2.val, vert:db.plPos3.val, angle:db.plPosHorOr.val } : undefined),
+                  (db.plVelValid.val ? { major:db.plVel1.val, minor:db.plVel2.val, vert:db.plVel3.val, angle:db.plVelHorOr.val } : undefined) );
     if (nmeaSvDb.dirty) {
         nmeaSvDb.dirty = false;
         // Merge the new values with the old ones avoid flickering, every epoch we will replace the old with new
@@ -1735,16 +1743,16 @@ var point;
 var track;
 var dots;
 var ellipse;
-var user;
+var ellipseV;
+var vector;
 const MAP_POINTS = 10000;
 
-function makeEllipse(position, lat, major, minor, angle) {
+function makeEllipse(position, major, minor, angle) {
     let coords = [];
-    if (major !== undefined || minor !== undefined || angle !== undefined && (major < 10000)) {
-        const radius = major * Math.cos( lat * Math.PI / 180.0 );
-        const circle = new ol.geom.Circle( position, radius);
+    if ((position !== undefined) && (major !== undefined) && (minor !== undefined) && (angle !== undefined) && (major < 100000) && (major > 0)) {
+        const circle = new ol.geom.Circle( position, 1.0);
         const polygon = ol.geom.Polygon.fromCircle(circle, 64);
-        polygon.scale(minor/major, 1); 
+        polygon.scale(minor, major); 
         polygon.rotate(-(angle * Math.PI) / 180.0, circle.getCenter());
         coords = polygon.getCoordinates();
     }
@@ -1756,11 +1764,27 @@ function clearMapTrack(e) {
     if (dots) dots.getGeometry().setCoordinates([]);
 }
 
-function centerMap(lon, lat, major, minor, angle) {
+function centerMap(lon, lat, cogt, gSpeed, plPos, plVel) {
     var el = document.getElementById('map');
     if (el && (ol !== undefined) && !isNaN(lon) && !isNaN(lat)) {
         el.removeAttribute('hidden');
+        let scale = Math.cos(lat * Math.PI / 180.0 );
         let position = ol.proj.fromLonLat([Number(lon), Number(lat)]);
+        plPos.major *= scale; 
+        plPos.minor *= scale;
+        const posEll = plPos ? makeEllipse(position, plPos.major, plPos.minor, plPos.angle) : [];
+        const velEll = [];
+        const velVect = [];
+        if (!isNaN(cogt) && !isNaN(gSpeed) && plVel) {
+            plVel.major *= scale; 
+            plVel.minorV *= scale;
+            plVel.gSpeed *= scale;
+            cogt *= Math.PI / 180.0;
+            const positionV = [ position[0] + Math.sin(cogt) * gSpeed, 
+                                position[1] + Math.cos(cogt) * gSpeed];
+            velEll = makeEllipse(positionV, plVel.major, plVel.minor, plVel.angle);
+            velVect = [ position, positionV ];
+        }
         if (!map && el.clientWidth && el.clientHeight) {
 			// track
             track = new ol.Feature({ geometry: new ol.geom.LineString( [ position ] ) });
@@ -1776,17 +1800,21 @@ function centerMap(lon, lat, major, minor, angle) {
 											  anchor: [0.5, 0.5], anchorXUnits: 'fraction', anchorYUnits: 'fraction', });
             point.setStyle( new ol.style.Style( { image: icon } ) );
 			// ellispe
-            ellipse = new ol.Feature({ geometry: new ol.geom.Polygon( makeEllipse(position, lat, major, minor, angle) ) });
+            ellipse  = new ol.Feature({ geometry: new ol.geom.Polygon( posEll ) });
+            ellipseV = new ol.Feature({ geometry: new ol.geom.Polygon( velEll ) });
+            vector   = new ol.Feature({ geometry: new ol.geom.LineString( velVect ) });
             const ellStyle = new ol.style.Style( { 
                 stroke: new ol.style.Stroke({ color: COL_RED, width:1, lineCap:'round' }),
                 fill:   new ol.style.Fill(  { color: toRGBa(COL_RED, 0.3), }),
             } );
             ellipse.setStyle( ellStyle );
+			ellipseV.setStyle( ellStyle );
+			vector.setStyle( ellStyle );
 			// put things together 
             let tile    = new ol.layer.Tile(  { source: new ol.source.OSM() });
             let vectPt  = new ol.layer.Vector({ source: new ol.source.Vector({ features: [point] }) });
             let vectTrk = new ol.layer.Vector({ source: new ol.source.Vector({ features: [track, dots] }) });
-            let vectEll = new ol.layer.Vector({ source: new ol.source.Vector({ features: [ellipse] }) });
+            let vectEll = new ol.layer.Vector({ source: new ol.source.Vector({ features: [ellipse, ellipseV, vector] }) });
             let intr = ol.interaction.defaults({ doubleClickZoom: true, dragAndDrop: true, dragPan: true, keyboardPan: true,
                                                  keyboardZoom: true, mouseWheelZoom: false, pointer: true, select: true });
             let ctrl = ol.control.defaults({ attribution: false, zoom: true, rotate: true, });
@@ -1846,18 +1874,17 @@ function centerMap(lon, lat, major, minor, angle) {
                             extent[1]<=position[1] && extent[3]>=position[1])) {
                map.getView().setCenter(position);
 			}
-
-            let coords = track.getGeometry().getCoordinates(); // get coordinate array
-			coords.unshift( position );
-			if (coords.length > MAP_POINTS) coords.length = MAP_POINTS;
-			track.getGeometry().setCoordinates(coords);
-            dots.getGeometry().setCoordinates(coords);
+            let coordsTrk = track.getGeometry().getCoordinates(); // get coordinate array
+            if ((coordsTrk.length == 0) || (coordsTrk[0][0] != position[0]) || (coordsTrk[0][1] != position[1]) ) {
+                coordsTrk.unshift( position );
+                if (coordsTrk.length > MAP_POINTS) coordsTrk.length = MAP_POINTS;
+                track.getGeometry().setCoordinates(coordsTrk);
+                dots.getGeometry().setCoordinates(coordsTrk);
+            }
             point.getGeometry().setCoordinates(position);
-
-            // error ellipse
-            const ellGeo = ellipse.getGeometry();
-            coords = makeEllipse(position, lat, major, minor, angle);
-            ellGeo.setCoordinates(coords);
+            ellipse.getGeometry().setCoordinates( posEll );
+            ellipseV.getGeometry().setCoordinates( velEll );
+            vector.getGeometry().setCoordinates( velVect );
         }
     }
 }
