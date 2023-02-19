@@ -126,7 +126,7 @@ function deviceInit(ip) {
     } else {
         device.name = 'unknown';
         device.ip = window.location.hostname;
-        device.ws = proto + device.ip + '8080';
+        device.ws = proto + device.ip + ':8080';
     }
     USTART.statusLed('error');
     USTART.tableEntry('dev_name', device.name);
