@@ -415,18 +415,7 @@ td dt {
     z-index: 49;
 }
 
-#scan-devices, 
-.overlay_button {
-    vertical-align: middle;
-    -webkit-box-sizing: border-box;
-    box-sizing:border-box;
-    border: 2px solid rgba(128,128,128,0);
-    background-color:rgba(128,128,128,0.4);
-    border-radius: 0px;
-    color: white;
-    font-weight: bold;
-} 
-
+#scan-devices,
 .overlay_button, 
 .ol-control button {
     margin: 1px;
@@ -440,8 +429,10 @@ td dt {
     height: 1.375em;
     width: 1.375em;
     line-height: .4em;
+    box-sizing:border-box;
     border: none;
     border-radius: 0px;
+    background-color:rgba(128,128,128,0.4);
 } 
 
 .overlay_button:first-child, 

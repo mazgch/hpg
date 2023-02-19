@@ -1815,8 +1815,7 @@ function centerMap(lon, lat, cogt, gSpeed, plPos, plVel) {
             let vectPt  = new ol.layer.Vector({ source: new ol.source.Vector({ features: [point] }) });
             let vectTrk = new ol.layer.Vector({ source: new ol.source.Vector({ features: [track, dots] }) });
             let vectEll = new ol.layer.Vector({ source: new ol.source.Vector({ features: [ellipse, ellipseV, vector] }) });
-            let intr = ol.interaction.defaults.defaults({ doubleClickZoom: true, altShiftDragRotate:true, dragAndDrop: true, dragPan: true, keyboardPan: true,
-                                                 keyboardZoom: true, mouseWheelZoom: false, pointer: true, select: true });
+            let intr = ol.interaction.defaults.defaults({ onFocusOnly: true, mouseWheelZoom: false });
             let ctrl = ol.control.defaults.defaults({ attribution: false, zoom: true, rotate: true, });
             class mapToolbar extends ol.control.Control {
                 constructor(opt_options) {
