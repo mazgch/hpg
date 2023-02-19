@@ -426,19 +426,30 @@ td dt {
     font-weight: bold;
 } 
 
-.overlay_button {
-    border-radius: 2px;
-    width: 1.6rem;
-    height: 1.6rem;
+.overlay_button, 
+.ol-control button {
     margin: 1px;
+    padding: 3px;
+    color: #fff;
+    font-size: 1.14em;
+    font-weight: 700;
+    text-decoration: none;
+    vertical-align: middle;
+    text-align: center;
+    height: 1.375em;
+    width: 1.375em;
+    line-height: .4em;
+    border: none;
+    border-radius: 2px;
 } 
-.overlay_button:first-of-type {
-    border-top-left-radius: 2px;
-    border-top-right-radius: 2px;
+
+.overlay_button:first-child {
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
 }
-.overlay_button:last-of-type {
-    border-bottom-left-radius: 2px;
-    border-bottom-right-radius: 2px;
+.overlay_button:last-child {
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
 }
 
 .overlay_button svg {
@@ -465,7 +476,7 @@ td dt {
 }
 
 .ol-rotate {
-    top:11.9em;
+    top:10.1em;
     left:0.5em;
     right:auto;
 }
