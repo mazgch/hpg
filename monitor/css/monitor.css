@@ -44,7 +44,7 @@ html, input, button, select {
     background: var(--white);
 }
 @media (max-width: 1024px) {
-    html, input {
+    html, input, button, select {
         font-size: 11pt; 
     }
     table {
@@ -52,7 +52,7 @@ html, input, button, select {
     }
 }
 @media (max-width: 986px) {
-    html, input {
+    html, input, button, select {
         font-size: 10pt; 
     }
     table {
@@ -60,7 +60,7 @@ html, input, button, select {
     }
 }
 @media (max-width: 768px) {
-    html, input {
+    html, input, button, select {
         font-size: 9pt; 
     }
     table {
@@ -415,9 +415,15 @@ td dt {
     z-index: 49;
 }
 
-#scan-devices,
+#scan-devices {
+    font-weight: 700;
+    border: none;
+    outline-color: transparent; 
+}
+
 .overlay_button, 
 .ol-control button {
+    display: block;
     margin: 1px;
     padding: 3px;
     color: #fff;
