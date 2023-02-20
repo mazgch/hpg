@@ -1825,12 +1825,16 @@ function centerMap(lon, lat, cogt, gSpeed, plPos, plVel) {
                     btnPoint.className = 'overlay_button'
                     btnPoint.innerHTML = feather.icons.crosshair.toSvg();
                     btnPoint.title = "Current location marker";
+                    btnPoint.type = "button";
                     const btnError = document.createElement('button');
-                    btnError.innerHTML = '<i>⬭</i>';
+                    btnError.innerHTML = 'O';
+                    btnError.style.fontStyle = 'italic';
+                    btnError.style.fontWeight = '400';
                     btnError.title = "Protection level ellipse";
                     const btnTrack = document.createElement('button');
-                     btnTrack.innerHTML = '☡';
+                    btnTrack.innerHTML = '☡';
                     btnTrack.title = "Ground track";
+                    btnTrack.type = "button";
                     const element = document.createElement('div');
                     element.className = 'overlay_ctrl ol-options ol-control';
                     element.appendChild(btnPoint);

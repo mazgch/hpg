@@ -421,19 +421,23 @@ td dt {
     outline-color: transparent; 
 }
 
+.ol-overviewmap-box {
+    border-width: 2px;
+}
+
 .overlay_button, 
+.ol-touch .ol-control button,
 .ol-control button {
     display: block;
     margin: 1px;
     padding: 3px;
     color: #fff;
-    font-size: 1.14em;
+    font-size: 14pt;
     font-weight: 700;
     text-decoration: none;
-    vertical-align: middle;
     text-align: center;
-    height: 1.375em;
-    width: 1.375em;
+    height: 24px;
+    width: 24px;
     line-height: .4em;
     box-sizing:border-box;
     border: none;
@@ -456,7 +460,6 @@ td dt {
     color:white;
 }
 
-.ol-control button,
 .ol-scale-line {
     background-color:rgba(128,128,128,0.4);
     color: #fff;
@@ -486,15 +489,15 @@ td dt {
 	outline-color: transparent; 
     color: #fff;
 }
- 
+
 .ol-rotate {
-    top:10.1em;
+    top:calc(1.5em + 5*24px + 4*4px );
     left:0.5em;
     right:auto;
 }
 
 .ol-options {
-    top:4.5em;
+    top:calc(1em + 2*24px + 2*4px);
     left:0.5em;
 }
 
