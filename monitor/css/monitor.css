@@ -421,7 +421,12 @@ td dt {
     outline-color: transparent; 
 }
 
+.ol-overviewmap-box {
+    border-width: 2px;
+}
+
 .overlay_button, 
+.ol-touch .ol-control button,
 .ol-control button {
     display: block;
     margin: 1px;
@@ -456,7 +461,6 @@ td dt {
     color:white;
 }
 
-.ol-control button,
 .ol-scale-line {
     background-color:rgba(128,128,128,0.4);
     color: #fff;
