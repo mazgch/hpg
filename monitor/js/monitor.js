@@ -1826,7 +1826,9 @@ function centerMap(lon, lat, cogt, gSpeed, plPos, plVel) {
                     btnPoint.innerHTML = feather.icons.crosshair.toSvg();
                     btnPoint.title = "Current location marker";
                     const btnError = document.createElement('button');
-                    btnError.innerHTML = '<i>⬭</i>';
+                    btnError.innerHTML = 'O';
+                    btnError.style.fontStyle = 'italic';
+                    btnError.style.fontWeight = '400';
                     btnError.title = "Protection level ellipse";
                     const btnTrack = document.createElement('button');
                      btnTrack.innerHTML = '☡';
