@@ -280,6 +280,8 @@
 <wire x1="55.88" y1="38.1" x2="55.88" y2="102.87" width="0.2032" layer="21"/>
 <wire x1="55.88" y1="102.87" x2="2.54" y2="102.87" width="0.2032" layer="21"/>
 <wire x1="2.54" y1="102.87" x2="2.54" y2="36.83" width="0.2032" layer="21"/>
+<text x="38.6715" y="8.636" size="1.6129" layer="21" font="vector" ratio="15">+     -</text>
+<text x="43.6245" y="3.683" size="1.6129" layer="22" font="vector" ratio="15" rot="MR0">- +</text>
 </plain>
 <libraries>
 <library name="SparkFun-Aesthetics">
@@ -567,6 +569,66 @@ FRAME_LETTER</description>
 </package>
 </packages>
 </library>
+<library name="SparkFun-Connectors">
+<description>&lt;h3&gt;SparkFun Connectors&lt;/h3&gt;
+This library contains electrically-functional connectors. 
+&lt;br&gt;
+&lt;br&gt;
+We've spent an enormous amount of time creating and checking these footprints and parts, but it is &lt;b&gt; the end user's responsibility&lt;/b&gt; to ensure correctness and suitablity for a given componet or application. 
+&lt;br&gt;
+&lt;br&gt;If you enjoy using this library, please buy one of our products at &lt;a href=" www.sparkfun.com"&gt;SparkFun.com&lt;/a&gt;.
+&lt;br&gt;
+&lt;br&gt;
+&lt;b&gt;Licensing:&lt;/b&gt; Creative Commons ShareAlike 4.0 International - https://creativecommons.org/licenses/by-sa/4.0/ 
+&lt;br&gt;
+&lt;br&gt;
+You are welcome to use this library for commercial purposes. For attribution, we ask that when you begin to sell your device using our footprint, you email us with a link to the product being sold. We want bragging rights that we helped (in a very small part) to create your 8th world wonder. We would like the opportunity to feature your device on our homepage.</description>
+<packages>
+<package name="JST-2-SMD">
+<description>&lt;h3&gt;JST-Right Angle Male Header SMT&lt;/h3&gt;
+&lt;p&gt;Specifications:
+&lt;ul&gt;&lt;li&gt;Pin count: 2&lt;/li&gt;
+&lt;li&gt;Pin pitch: 2mm&lt;/li&gt;
+&lt;/ul&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a href=”http://www.4uconnector.com/online/object/4udrawing/20404.pdf”&gt;Datasheet referenced for footprint&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;Example device(s):
+&lt;ul&gt;&lt;li&gt;CONN_02&lt;/li&gt;
+&lt;li&gt;JST_2MM_MALE&lt;/li&gt;
+&lt;/ul&gt;&lt;/p&gt;</description>
+<wire x1="-4" y1="-1" x2="-4" y2="-4.5" width="0.2032" layer="21"/>
+<wire x1="-4" y1="-4.5" x2="-3.2" y2="-4.5" width="0.2032" layer="21"/>
+<wire x1="-3.2" y1="-4.5" x2="-3.2" y2="-2" width="0.2032" layer="21"/>
+<wire x1="-3.2" y1="-2" x2="-2" y2="-2" width="0.2032" layer="21"/>
+<wire x1="2" y1="-2" x2="3.2" y2="-2" width="0.2032" layer="21"/>
+<wire x1="3.2" y1="-2" x2="3.2" y2="-4.5" width="0.2032" layer="21"/>
+<wire x1="3.2" y1="-4.5" x2="4" y2="-4.5" width="0.2032" layer="21"/>
+<wire x1="4" y1="-4.5" x2="4" y2="-1" width="0.2032" layer="21"/>
+<wire x1="2" y1="3" x2="-2" y2="3" width="0.2032" layer="21"/>
+<smd name="1" x="-1" y="-3.7" dx="1" dy="4.6" layer="1"/>
+<smd name="2" x="1" y="-3.7" dx="1" dy="4.6" layer="1"/>
+<smd name="NC1" x="-3.4" y="1.5" dx="3.4" dy="1.6" layer="1" rot="R90"/>
+<smd name="NC2" x="3.4" y="1.5" dx="3.4" dy="1.6" layer="1" rot="R90"/>
+<text x="-1.397" y="1.778" size="0.6096" layer="25" font="vector" ratio="20">&gt;NAME</text>
+<text x="-1.651" y="0.635" size="0.6096" layer="27" font="vector" ratio="20">&gt;VALUE</text>
+</package>
+<package name="1X02_NO_SILK">
+<description>&lt;h3&gt;Plated Through Hole - No Silk Outline&lt;/h3&gt;
+&lt;p&gt;Specifications:
+&lt;ul&gt;&lt;li&gt;Pin count:2&lt;/li&gt;
+&lt;li&gt;Pin pitch:0.1"&lt;/li&gt;
+&lt;/ul&gt;&lt;/p&gt;
+&lt;p&gt;Example device(s):
+&lt;ul&gt;&lt;li&gt;CONN_02&lt;/li&gt;
+&lt;/ul&gt;&lt;/p&gt;</description>
+<pad name="1" x="0" y="0" drill="1.016" diameter="1.8796" rot="R90"/>
+<pad name="2" x="2.54" y="0" drill="1.016" diameter="1.8796" rot="R90"/>
+<rectangle x1="2.286" y1="-0.254" x2="2.794" y2="0.254" layer="51"/>
+<rectangle x1="-0.254" y1="-0.254" x2="0.254" y2="0.254" layer="51"/>
+<text x="-1.27" y="1.397" size="0.6096" layer="25" font="vector" ratio="20">&gt;NAME</text>
+<text x="-1.27" y="-2.032" size="0.6096" layer="27" font="vector" ratio="20">&gt;VALUE</text>
+</package>
+</packages>
+</library>
 </libraries>
 <attributes>
 </attributes>
@@ -815,6 +877,16 @@ design rules under a new name.</description>
 <attribute name="NAME" x="5.08" y="90.551" size="0.6096" layer="25" font="vector" ratio="20" align="bottom-center"/>
 <attribute name="VALUE" x="5.08" y="87.249" size="0.6096" layer="27" font="vector" ratio="20" align="top-center"/>
 </element>
+<element name="J7" library="SparkFun-Connectors" package="JST-2-SMD" value="" x="41.91" y="3.81" smashed="yes" rot="R180">
+<attribute name="NAME" x="43.307" y="2.032" size="0.6096" layer="25" font="vector" ratio="20" rot="R180"/>
+<attribute name="PROD_ID" value="CONN-11443" x="50.8" y="-6.35" size="1.778" layer="27" rot="R180" display="off"/>
+<attribute name="SF_ID" value="PRT-08612" x="50.8" y="-6.35" size="1.778" layer="27" rot="R180" display="off"/>
+<attribute name="VALUE" x="43.561" y="3.175" size="0.6096" layer="27" font="vector" ratio="20" rot="R180"/>
+</element>
+<element name="J8" library="SparkFun-Connectors" package="1X02_NO_SILK" value="" x="40.64" y="2.54" smashed="yes" rot="MR180">
+<attribute name="NAME" x="39.37" y="1.143" size="0.6096" layer="26" font="vector" ratio="20" rot="MR180"/>
+<attribute name="VALUE" x="39.37" y="4.572" size="0.6096" layer="28" font="vector" ratio="20" rot="MR180"/>
+</element>
 </elements>
 <signals>
 <signal name="SPI_SDI">
@@ -960,6 +1032,8 @@ design rules under a new name.</description>
 <via x="49.022" y="81.788" extent="1-16" drill="0.35"/>
 <via x="54.991" y="96.774" extent="1-16" drill="0.35"/>
 <via x="55.372" y="93.345" extent="1-16" drill="0.35"/>
+<contactref element="J7" pad="1"/>
+<contactref element="J8" pad="2"/>
 <wire x1="1.27" y1="87.63" x2="5.08" y2="74.93" width="0" layer="19" extent="1-1"/>
 <wire x1="5.08" y1="39.37" x2="12.7" y2="35.56" width="0" layer="19" extent="1-1"/>
 </signal>
@@ -1072,8 +1146,17 @@ design rules under a new name.</description>
 <signal name="VIN">
 <contactref element="M1" pad="VIN"/>
 </signal>
-<signal name="5V">
+<signal name="5V" class="1">
 <contactref element="M1" pad="5V"/>
+<contactref element="J7" pad="2"/>
+<contactref element="J8" pad="1"/>
+<wire x1="5.08" y1="64.77" x2="19.05" y2="50.8" width="0.8128" layer="1"/>
+<wire x1="19.05" y1="50.8" x2="19.05" y2="31.75" width="0.8128" layer="1"/>
+<wire x1="40.91" y1="7.51" x2="40.91" y2="6.35" width="0.8128" layer="1"/>
+<wire x1="40.91" y1="6.35" x2="40.91" y2="2.81" width="0.8128" layer="1"/>
+<wire x1="40.91" y1="2.81" x2="40.64" y2="2.54" width="0.8128" layer="1"/>
+<wire x1="40.91" y1="9.89" x2="40.91" y2="7.51" width="0.8128" layer="1"/>
+<wire x1="19.05" y1="31.75" x2="40.91" y2="9.89" width="0.8128" layer="1"/>
 </signal>
 <signal name="3V">
 <contactref element="M1" pad="3V"/>

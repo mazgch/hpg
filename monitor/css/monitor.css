@@ -491,13 +491,13 @@ td dt {
 }
 
 .ol-rotate {
-    top:calc(1.5em + 5*24px + 4*4px );
+    top:calc(1.5em + 5*24px + 4*4px + 3px);
     left:0.5em;
     right:auto;
 }
 
 .ol-options {
-    top:calc(1em + 2*24px + 2*4px);
+    top:calc(1.0em + 2*24px + 2*4px + 1px);
     left:0.5em;
 }
 

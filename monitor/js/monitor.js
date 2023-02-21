@@ -998,7 +998,7 @@ function dbOnPublish(el) {
 function dbPublish() {
     // now publish to the gui
     if (db.long.dirty && db.lat.dirty)
-        centerMap(db.long.val, db.lat.val, db.cogt.val, db.gSpeed.val,  
+        centerMap(db.long.val, db.lat.val, db.cogt.val, db.gSpeed.val, db.hAcc.val,
                   (db.plPosValid.val ? { major:db.plPos1.val, minor:db.plPos2.val, vert:db.plPos3.val, angle:db.plPosHorOr.val } : undefined),
                   (db.plVelValid.val ? { major:db.plVel1.val, minor:db.plVel2.val, vert:db.plVel3.val, angle:db.plVelHorOr.val } : undefined) );
     if (nmeaSvDb.dirty) {
@@ -1742,9 +1742,10 @@ var map;
 var point;
 var track;
 var dots;
-var ellipse;
-var ellipseV;
-var vector;
+var horizAcc;
+var plPosEll;
+var plVelEll;
+var speedVec;
 const MAP_POINTS = 10000;
 
 function makeEllipse(position, major, minor, angle) {
@@ -1764,25 +1765,26 @@ function clearMapTrack(e) {
     if (dots) dots.getGeometry().setCoordinates([]);
 }
 
-function centerMap(lon, lat, cogt, gSpeed, plPos, plVel) {
+function centerMap(lon, lat, cogt, gSpeed, hAcc, plPos, plVel) {
     var el = document.getElementById('map');
     if (el && (ol !== undefined) && !isNaN(lon) && !isNaN(lat)) {
         el.removeAttribute('hidden');
         let scale = Math.cos(lat * Math.PI / 180.0 );
         let position = ol.proj.fromLonLat([Number(lon), Number(lat)]);
+        let radius = !isNaN(hAcc) ? scale * hAcc : 0;
         plPos.major *= scale; 
         plPos.minor *= scale;
-        const posEll = plPos ? makeEllipse(position, plPos.major, plPos.minor, plPos.angle) : [];
-        const velEll = [];
-        const velVect = [];
-        if (!isNaN(cogt) && !isNaN(gSpeed) && plVel) {
+        let posEll = plPos ? makeEllipse(position, plPos.major, plPos.minor, plPos.angle) : [];
+        let velEll = [];
+        let velVect = [];
+        if (!isNaN(cogt) && !isNaN(gSpeed)) {
             plVel.major *= scale; 
             plVel.minorV *= scale;
             plVel.gSpeed *= scale;
             cogt *= Math.PI / 180.0;
             const positionV = [ position[0] + Math.sin(cogt) * gSpeed, 
                                 position[1] + Math.cos(cogt) * gSpeed];
-            velEll = makeEllipse(positionV, plVel.major, plVel.minor, plVel.angle);
+            velEll = plVel ? makeEllipse(positionV, plVel.major, plVel.minor, plVel.angle) : [];
             velVect = [ position, positionV ];
         }
         if (!map && el.clientWidth && el.clientHeight) {
@@ -1800,21 +1802,19 @@ function centerMap(lon, lat, cogt, gSpeed, plPos, plVel) {
 											  anchor: [0.5, 0.5], anchorXUnits: 'fraction', anchorYUnits: 'fraction', });
             point.setStyle( new ol.style.Style( { image: icon } ) );
 			// ellispe
-            ellipse  = new ol.Feature({ geometry: new ol.geom.Polygon( posEll ) });
-            ellipseV = new ol.Feature({ geometry: new ol.geom.Polygon( velEll ) });
-            vector   = new ol.Feature({ geometry: new ol.geom.LineString( velVect ) });
             const ellStyle = new ol.style.Style( { 
                 stroke: new ol.style.Stroke({ color: COL_RED, width:1, lineCap:'round' }),
                 fill:   new ol.style.Fill(  { color: toRGBa(COL_RED, 0.3), }),
             } );
-            ellipse.setStyle( ellStyle );
-			ellipseV.setStyle( ellStyle );
-			vector.setStyle( ellStyle );
-			// put things together 
+            horizAcc = new ol.Feature({ geometry: new ol.geom.Circle( position, radius)});
+            plPosEll = new ol.Feature({ geometry: new ol.geom.Polygon( posEll ) });
+            plVelEll = new ol.Feature({ geometry: new ol.geom.Polygon( velEll ) });
+            speedVec = new ol.Feature({ geometry: new ol.geom.LineString( velVect ) });
+            // put things together 
             let tile    = new ol.layer.Tile(  { source: new ol.source.OSM() });
-            let vectPt  = new ol.layer.Vector({ source: new ol.source.Vector({ features: [point] }) });
-            let vectTrk = new ol.layer.Vector({ source: new ol.source.Vector({ features: [track, dots] }) });
-            let vectEll = new ol.layer.Vector({ source: new ol.source.Vector({ features: [ellipse, ellipseV, vector] }) });
+            let vectPt  = new ol.layer.Vector({ source: new ol.source.Vector({ features: [ point ] }) });
+            let vectTrk = new ol.layer.Vector({ source: new ol.source.Vector({ features: [ track, dots ] }) });
+            let vectEll = new ol.layer.Vector({ source: new ol.source.Vector({ features: [ horizAcc, plPosEll, plVelEll, speedVec ] }), style: ellStyle });
             let intr = ol.interaction.defaults.defaults({ onFocusOnly: true, mouseWheelZoom: false });
             let ctrl = ol.control.defaults.defaults({ attribution: false, zoom: true, rotate: true, });
             class mapToolbar extends ol.control.Control {
@@ -1830,7 +1830,7 @@ function centerMap(lon, lat, cogt, gSpeed, plPos, plVel) {
                     btnError.innerHTML = 'O';
                     btnError.style.fontStyle = 'italic';
                     btnError.style.fontWeight = '400';
-                    btnError.title = "Protection level ellipse";
+                    btnError.title = "Horizontal accuracy estimate\nand protection level ellipse";
                     const btnTrack = document.createElement('button');
                     btnTrack.innerHTML = '☡';
                     btnTrack.title = "Ground track";
@@ -1890,9 +1890,11 @@ function centerMap(lon, lat, cogt, gSpeed, plPos, plVel) {
                 dots.getGeometry().setCoordinates(coordsTrk);
             }
             point.getGeometry().setCoordinates(position);
-            ellipse.getGeometry().setCoordinates( posEll );
-            ellipseV.getGeometry().setCoordinates( velEll );
-            vector.getGeometry().setCoordinates( velVect );
+            horizAcc.getGeometry().setRadius(radius);
+            horizAcc.getGeometry().setCenter(position);
+            plPosEll.getGeometry().setCoordinates( posEll );
+            plVelEll.getGeometry().setCoordinates( velEll );
+            speedVec.getGeometry().setCoordinates( velVect );
         }
     }
 }
