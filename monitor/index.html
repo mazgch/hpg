@@ -16,24 +16,24 @@
 -->  
 <html lang="en">
   <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <link rel="profile" href="http://www.w3.org/1999/xhtml/vocab" />
-    <meta name="MobileOptimized"  content="width" />
-    <meta name="HandheldFriendly" content="true" />
-    <meta name="viewport"         content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <link rel="profile" href="http://www.w3.org/1999/xhtml/vocab">
+    <meta name="MobileOptimized"  content="width">
+    <meta name="HandheldFriendly" content="true">
+    <meta name="viewport"         content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>mazg.ch - HPG Monitor</title>
-    <meta property="og:site_name" content="mazgch" />
-    <meta property="og:type"      content="website" />
-    <meta property="og:title"     content="HPG Monitor" />
-    <meta property="og:url"       content="http://hpg.mazg.ch" />
-    <meta name="twitter:card"     content="summary" />
-    <meta name="twitter:site"     content="@mazgch" />
-    <meta name="twitter:creator"  content="@mazgch" />
-    <meta name="twitter:title"    content="HPG Monitor" />
-    <meta name="twitter:url"      content="http://hpg.mazg.ch" />
-    <meta name="theme-color"      content="#ffffff" />
-    <link rel="canonical"         href="http://hpg.mazg.ch" />
-    <link rel="shortlink"         href="http://hpg.mazg.ch" />
+    <meta property="og:site_name" content="mazgch">
+    <meta property="og:type"      content="website">
+    <meta property="og:title"     content="HPG Monitor">
+    <meta property="og:url"       content="http://hpg.mazg.ch">
+    <meta name="twitter:card"     content="summary">
+    <meta name="twitter:site"     content="@mazgch">
+    <meta name="twitter:creator"  content="@mazgch">
+    <meta name="twitter:title"    content="HPG Monitor">
+    <meta name="twitter:url"      content="http://hpg.mazg.ch">
+    <meta name="theme-color"      content="#ffffff">
+    <link rel="canonical"         href="http://hpg.mazg.ch">
+    <link rel="shortlink"         href="http://hpg.mazg.ch">
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
@@ -42,17 +42,17 @@
 <!-- https://cdn.jsdelivr.net/combine/gh/mazgch/hpg/docs/js/console.min.js,gh/mazgch/hpg/docs/js/monitor.min.js,gh/mazgch/hpg/docs/js/device.min.js,gh/mazgch/hpg/docs/js/device.min.js,npm/feather-icons@4.29.0/dist/feather.min.js,npm/chart.js@3.7.1/dist/chart.min.js,npm/openlayers@4.6.5/dist/ol.js,npm/ace-builds@1.4.12/src-min-noconflict/ace.js
      https://cdn.jsdelivr.net/combine/gh/mazgch/hpg/docs/css/monitor.min.css,/npm/openlayers@4.6.5/dist/ol.css -->
     <!-- Third party js & css -->
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.29.0/dist/feather.min.js"     type="text/javascript"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"         type="text/javascript"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.15.2/src-min-noconflict/ace.js"  type="text/javascript"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ol@7.2.2/dist/ol.min.js"                      type="text/javascript"></script>
-    <link  href="https://cdn.jsdelivr.net/npm/ol@7.2.2/ol.min.css"                          type="text/css" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.29.0/dist/feather.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.15.2/src-min-noconflict/ace.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ol@7.2.2/dist/ol.min.js"></script>
+    <link  href="https://cdn.jsdelivr.net/npm/ol@7.2.2/ol.min.css"  type="text/css" rel="stylesheet">
     <!-- My own js & css -->
-    <script src="js/console.js"   type="text/javascript"></script>
-    <script src="js/monitor.js"   type="text/javascript"></script>
-    <script src="js/device.js"    type="text/javascript"></script>
-    <script src="js/engine.js"    type="text/javascript"></script>
-    <link  href="css/monitor.css" type="text/css" rel="stylesheet" media="all" />
+    <script src="js/console.js"></script>
+    <script src="js/monitor.js"></script>
+    <script src="js/device.js"></script>
+    <script src="js/engine.js"></script>
+    <link  href="css/monitor.css" type="text/css" rel="stylesheet" media="all">
   </head>
   <body>
     <div id="crash-message"></div>
@@ -62,7 +62,7 @@
           <defs>
               <g id="sv">
                   <path id="sb" stroke="#eb0000" d="m50,300c0,-138.12156 111.87845,-250 250,-250"/>
-                  <circle id="sv" fill="#eb0000" cx="300" cy="50" r="25"/>
+                  <circle id="sc" fill="#eb0000" cx="300" cy="50" r="25"/>
               </g>
           </defs>
           <title>mazgch</title>
@@ -105,12 +105,12 @@
                 <input type="radio" id="ios"     name="scan-ips" value="172.20.10.0 - 15"><label for="ios"> <b>iOS Personal Hotspot:</b>172.20.10.0 - 15</label><br>
                 <input type="radio" id="android" name="scan-ips" value="192.168.42.2 - 254"><label for="android"> <b>Android Hotspot or Tethering:</b>192.168.42.2 - 254</label><br>
                 <input type="radio" id="windows" name="scan-ips" value="192.168.137.2 - 254"><label for="windows"> <b>Windows Mobile Hotspot:</b>192.168.137.2 - 254</label><br>
-                <input type="radio" id="local"   name="scan-ips" value="scan-range" checked><label for="local"> <b>Local IP range:</b>
-                  <input id="scan-range" width="300px" type="text" value="192.168.0.2 - 254" pattern="\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s*(-\s*\d{1,3})?(:\d{1,5})?(\/ws)?"
-                          placeholder="192.168.0.from[-to]:port/ws" oninput="if (typeof this.reportValidity === 'function') {this.reportValidity();}" ></input></label><br>
+                <input type="radio" id="local"   name="scan-ips" value="scan-range" checked><label for="local"> <b>Local IP range:</b></label>
+                <input id="scan-range" type="text" value="192.168.0.2 - 254" pattern="\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s*(-\s*\d{1,3})?(:\d{1,5})?(\/ws)?"
+                          placeholder="192.168.0.from[-to]:port/ws" oninput="if (typeof this.reportValidity === 'function') {this.reportValidity();}" ><br>
               </fieldset>
               <p style="text-align: center;"><button id="scan-devices" >Start discovery scan</button></p>
-              <p><table class="table"><tr hidden id='scan-results'><th>Device</th><th>IP</th><th>&nbsp;</th><th>&nbsp;</th></tr></table></p>
+              <table class="table"><tr hidden id='scan-results'><th>Device</th><th>IP</th><th>&nbsp;</th><th>&nbsp;</th></tr></table>
               <p>If your device in undiscoverable, contact your network administrator or connect the USB port of the to device to a computer.
               You can observe the assigned IP using a serial terminal application on the console output of the device (serial port: CP210x USB to UART Bridge, baud rate: 115'200). </p>
             </div>
@@ -182,7 +182,7 @@
 AT   to filter only AT messages
 /UBX|NMEA/   to filter for any NMEA or UBX messages.
 /^(?!.*(RTCM|UNKNOWN))/   messages containing not RTCM and UNKNOWN">*</span> using <a target="_blank" href="https://developer.mozilla.org/docs/Web/JavaScript/Guide/Regular_Expressions">regular expressions</a></label>
-          <input id="console_filter" type="text" size="512" maxlength="512" class="preformated" />
+          <input id="console_filter" type="text" size="512" maxlength="512" class="preformated">
         </div>
         <div class="section">
           <div class="framed console" id="console_data" style="height:30em;"></div>
@@ -212,7 +212,7 @@ to the payload.
 
 Pressing enter in this field will send any message.">*</span></label>
           <input id="console_send" type="text" size="512" maxlength="512" class="preformated" 
-                autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+                autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         </div>
       </div>
 
@@ -255,7 +255,7 @@ Pressing enter in this field will send any message.">*</span></label>
       <div hidden id="tile_satellite">
         <h2>Satellite Information</h2>
         <p>Many positioning devices such as GPS/GNSS receivers use satellites to determine location of the antenna of the device. In this section you can explore the status of the different signals received and perform a restart of the positioning function. In case your device does not receive any signals make sure you have the antenna connected and placed outdoors in a location with good visibility to the sky.</p>
-        <div class="section framed" style="display:flex;justify-content:center;"">
+        <div class="section framed" style="display:flex;justify-content:center;">
           <canvas id="svs2" style="height:30em;max-height:30em"></canvas>
         </div>
         <div class="section framed">
