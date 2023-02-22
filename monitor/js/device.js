@@ -20,8 +20,8 @@
 // ------------------------------------------------------------------------------------
 const Device = (function () {
 
-const BUFFER_FORMAT  = 'timedraw';
-const LOCAL_HOST = 'localhost';
+const WEBSOCK_EXT    = ':8080'; // set to '/ws' 
+const WEBSOCK_REGEXP = /^Connected to (hpg-[a-z0-9]{6})/;
 
 // Interface
 // -----------------------------------------------------------------------------------
@@ -114,10 +114,10 @@ function deviceInit(ip) {
     device.status = 'disconnected';
     if (ip !== undefined) { // from url argument
         device.name = 'unknown';
-        const m = ip.match(/^([^:]*)(:[0-9]+)?$/);
+        const m = ip.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?)(\/.+)?$/);
         if (m != undefined) {
-          device.ip = ip;
-          device.ws = proto + ip + ((m[2] !== undefined) ? '/ws' : ':8080');
+          device.ip =         m[1];
+          device.ws = proto + m[1] + ((m[3] !== undefined) ? m[3] : WEBSOCK_EXT);
         }    
     } else if (json.ip !== undefined) { // from cookie argument
         device.name = json.name;
@@ -126,7 +126,7 @@ function deviceInit(ip) {
     } else {
         device.name = 'unknown';
         device.ip = window.location.hostname;
-        device.ws = proto + device.ip + ':8080';
+        device.ws = proto + device.ip + WEBSOCK_EXT;
     }
     USTART.statusLed('error');
     USTART.tableEntry('dev_name', device.name);
@@ -198,7 +198,7 @@ function deviceDiscovery() {
 
 let scaning = {};
 function testNet() {
-    let format = /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.)(\d{1,3})\s*(-\s*(\d{1,3}))?$/;
+    let format = /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.)(\d{1,3})\s*(-\s*(\d{1,3}))?(:\d{1,5})?(\/.+)?$/;
     let radios = document.getElementsByName("scan-ips");
     for (var i = 0, length = radios.length; i < length; i++) {
         if (radios[i].checked) {
@@ -210,21 +210,27 @@ function testNet() {
                 }
             }
             let m = value.match(format)
-            if ((m != undefined) && ((m.length == 3) || (m.length == 5))) {
+            if ((m != undefined) && (m[4] !== undefined)) {
                 let ip = m[1]
-                let from = Number(m[2]) & 0xFF
-                let to = (m.length == 5) ? Number(m[4]) & 0xFF : from
+                let from = Math.max(2, Math.min(254, Number(m[2])));
+                let to = Math.max(2, Math.min(254, Number(m[4])));
                 if (to <= from) to = from;
                 for (let i = from; i < to; i ++) {
-                    testIp(ip + i)
+                    testIp(ip + i, m[5], m[6])
                 }
             }
         }
     }
 
-    function testIp(ip) {
+    function testIp(ip,port,ext) {
         if ((scaning[ip] == undefined) || (scaning[ip] == 'found')) {
-            let ws = new WebSocket((window.location.protocol == 'https') ? 'wss://' : 'ws://' + ip + ':8080')
+            let url = ip + (((port !== undefined)  && (ext !== undefined)) ? port + ext :
+                             (port !== undefined)                          ? port :
+                                                      (ext !== undefined)  ? ext :
+                                                                             WEBSOCK_EXT);
+            if (port === undefined) port = '';
+            if (ext === undefined) ext = '';
+            let ws = new WebSocket((window.location.protocol == 'https') ? 'wss://' : 'ws://' + url)
             if (ws != undefined) {
                 scaning[ip] = 0;
                 ws.addEventListener('open',_onOpen)
@@ -247,8 +253,8 @@ function testNet() {
                     let config = '';
                     if (host != undefined) {
                         name = host;
-                        open = '<a href="' + window.location.origin + '?ip=' + ip + '"><b>open</b></a>'
-                        config = '<a target="_blank" href="' + window.location.protocol + '//'+ ip + '">configure</a>'
+                        open = '<a href="' + window.location.origin + '?ip=' + ip + port + ext + '"><b>open</b></a>'
+                        config = '<a target="_blank" href="' + window.location.protocol + '//'+ ip + port + '">configure</a>'
                     } 
                     tr.innerHTML = '<td>'+host+'</td><td>'+ip+'</td><td>' + open + '</td><td>' + config + '</td>'
                     th.parentNode.appendChild(tr);
@@ -273,7 +279,7 @@ function testNet() {
                 function _onMessage(msg) {
                     scaning[ip] ++;
                     if (typeof(msg.data) == 'string') {
-                        const m = msg.data.match(/^Connected to (hpg-[a-z0-9]{6})/)
+                        const m = msg.data.match(WEBSOCK_REGEXP)
                         if ((m != undefined) && (m.length == 2)) {
                             _report(ip, m[1])
                             _onDone();
