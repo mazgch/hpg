@@ -1772,19 +1772,15 @@ function centerMap(lon, lat, cogt, gSpeed, hAcc, plPos, plVel) {
         let scale = Math.cos(lat * Math.PI / 180.0 );
         let position = ol.proj.fromLonLat([Number(lon), Number(lat)]);
         let radius = !isNaN(hAcc) ? scale * hAcc : 0;
-        plPos.major *= scale; 
-        plPos.minor *= scale;
-        let posEll = plPos ? makeEllipse(position, plPos.major, plPos.minor, plPos.angle) : [];
+        let posEll = plPos ? makeEllipse(position, plPos.major * scale, plPos.minor * scale, plPos.angle) : [];
         let velEll = [];
         let velVect = [];
         if (!isNaN(cogt) && !isNaN(gSpeed)) {
-            plVel.major *= scale; 
-            plVel.minorV *= scale;
-            plVel.gSpeed *= scale;
+            gSpeed *= scale;
             cogt *= Math.PI / 180.0;
             const positionV = [ position[0] + Math.sin(cogt) * gSpeed, 
                                 position[1] + Math.cos(cogt) * gSpeed];
-            velEll = plVel ? makeEllipse(positionV, plVel.major, plVel.minor, plVel.angle) : [];
+            velEll = plVel ? makeEllipse(positionV, plVel.major * scale, plVel.minor * scale, plVel.angle) : [];
             velVect = [ position, positionV ];
         }
         if (!map && el.clientWidth && el.clientHeight) {
