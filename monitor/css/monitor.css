@@ -484,7 +484,8 @@ td dt {
 }
 #scan-devices:active,
 .overlay_button:active,
-.ol-control button:active {
+.ol-control button:active,
+.ol-control button:focus {
     background-color: var(--herolt);
 	outline-color: transparent; 
     color: #fff;
