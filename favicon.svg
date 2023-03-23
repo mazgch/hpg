@@ -2,7 +2,7 @@
   <defs>
       <g id="sv">
           <path id="sb" stroke="#eb0000" d="m50,300c0,-138.12156 111.87845,-250 250,-250"/>
-          <circle id="sv" fill="#eb0000" cx="300" cy="50" r="25"/>
+          <circle id="sc" fill="#eb0000" cx="300" cy="50" r="25"/>
       </g>
   </defs>
   <title>mazgch</title>

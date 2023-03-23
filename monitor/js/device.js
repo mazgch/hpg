@@ -108,16 +108,16 @@ function atRegExp(c, m) {
 // ------------------------------------------------------------------------------------
 
 function deviceInit(ip) {
+    const matchIp = (ip !== undefined) ? ip.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?)(\/.+)?$/) : undefined;
     const match = document.cookie.match(/device=([^;]+)/);
 	const json = JSON.parse(((match != undefined) ? (match.length == 2) : false) ? match[1] : '{}');
     const proto = (window.location.protocol == 'https') ? 'wss://': 'ws://';
     device.status = 'disconnected';
-    if (ip !== undefined) { // from url argument
+    if (matchIp != undefined) { // from url argument
         device.name = 'unknown';
-        const m = ip.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?)(\/.+)?$/);
         if (m != undefined) {
-          device.ip =         m[1];
-          device.ws = proto + m[1] + ((m[3] !== undefined) ? m[3] : WEBSOCK_EXT);
+          device.ip =         matchIp[1];
+          device.ws = proto + matchIp[1] + ((matchIp[3] !== undefined) ? matchIp[3] : WEBSOCK_EXT);
         }    
     } else if (json.ip !== undefined) { // from cookie argument
         device.name = json.name;
@@ -131,7 +131,7 @@ function deviceInit(ip) {
     USTART.statusLed('error');
     USTART.tableEntry('dev_name', device.name);
     USTART.tableEntry('dev_ip', device.ip);
-    if (window.WebSocket) {
+    if (window.WebSocket && (device.ws !== undefined) && (device.ws != '')) {
         socketOpen(device.ws);
     }
     deviceStatusUpdate();
@@ -452,7 +452,7 @@ function onSocketDisconnect(evt) {
 
 function onSocketError(evt) {
 /*REMOVE*/ //console.log('onSocketDisconnect');
-    if ( device.status == 'connected') {
+    if (device.status == 'connected') {
         Console.debug('event', 'SOCKET', (evt && evt.type) ? evt.type : 'timeout');
         device.status = 'disconnected';
         USTART.timeConnected = undefined;
@@ -475,7 +475,7 @@ function onSocketError(evt) {
         device.socket.close() // we are done
         device.socket = undefined;
     }
-    if (device.ws) {
+    if ((device.ws !== undefined) && (device.ws != '')) {
         Console.debug('event', 'SOCKET', 'reconnecting ' + device.ws);
         socketOpen(device.ws); // try to repoen 
         deviceStatusUpdate();
