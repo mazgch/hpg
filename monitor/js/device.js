@@ -115,10 +115,8 @@ function deviceInit(ip) {
     device.status = 'disconnected';
     if (matchIp != undefined) { // from url argument
         device.name = 'unknown';
-        if (m != undefined) {
-          device.ip =         matchIp[1];
-          device.ws = proto + matchIp[1] + ((matchIp[3] !== undefined) ? matchIp[3] : WEBSOCK_EXT);
-        }    
+        device.ip =         matchIp[1];
+        device.ws = proto + matchIp[1] + ((matchIp[3] !== undefined) ? matchIp[3] : WEBSOCK_EXT);
     } else if (json.ip !== undefined) { // from cookie argument
         device.name = json.name;
         device.ip = json.ip;
