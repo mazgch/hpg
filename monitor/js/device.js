@@ -251,7 +251,7 @@ function testNet() {
                     let config = '';
                     if (host != undefined) {
                         name = host;
-                        open = '<a href="' + window.location.origin + '?ip=' + ip + port + ext + '"><b>open</b></a>'
+                        open = '<a href="' + window.location.origin + window.location.pathname + '?ip=' + ip + port + ext + '"><b>open</b></a>'
                         config = '<a target="_blank" href="' + window.location.protocol + '//'+ ip + port + '">configure</a>'
                     } 
                     tr.innerHTML = '<td>'+host+'</td><td>'+ip+'</td><td>' + open + '</td><td>' + config + '</td>'
