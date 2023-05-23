@@ -20,29 +20,33 @@
 /** The target is used to enable conditional code thoughout this application 
  */
 #if defined(ARDUINO_UBLOX_NINA_W10)
- //#define HW_TARGET     MAZGCH_HPG_SOLUTION_C214_revA
+ //#define HW_TARGET     UBLOX_XPLR_HPG2_C214   //!< enable this when using https://www.u-blox.com/en/product/xplr-hpg-2
  #define HW_TARGET     MAZGCH_HPG_SOLUTION_V09
 #elif defined(ARDUINO_UBLOX_NORA_W10)
- #define HW_TARGET     MAZGCH_HPG_MODULAR_C213_revA
+ #define HW_TARGET     UBLOX_XPLR_HPG1_C213
 #elif defined(ARDUINO_ESP32_MICROMOD)
  #define HW_TARGET     SPARKFUN_MICROMOD_MAINBOARD
 #else
  #error unknown board target 
 #endif
 
-#define MAZGCH_HPG_SOLUTION_V08              0 //!< Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
-#define MAZGCH_HPG_SOLUTION_V09              1 //!< Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
-#define MAZGCH_HPG_SOLUTION_C214_revA        2 //!< Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
+// https://github.com/mazgch/hpg/tree/main/hardware
+#define MAZGCH_HPG_SOLUTION_V08              1 //!< Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
+#define MAZGCH_HPG_SOLUTION_V09              2 //!< Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
 
-#define MAZGCH_HPG_MODULAR_C213_revA        10 //!< Select ESP32 Arduino / u-blox NORA-W10 series (ESP32-S3), LTE in slot 1
-#define MAZGCH_HPG_MODULAR_C213_revB        11 //!< Select ESP32 Arduino / u-blox NORA-W10 series (ESP32-S3), LTE in slot 1
+// https://www.u-blox.com/en/product/xplr-hpg-2
+#define UBLOX_XPLR_HPG2_C214                 3 //!< Select ESP32 Arduino / u-blox NINA-W10 series (ESP32), PCB rev A/B 
 
-#define SPARKFUN_MICROMOD_MAINBOARD_PT      20 //!< Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod - with prototype LTE function
-#define SPARKFUN_MICROMOD_MAINBOARD         21 //!< Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod
+// https://www.u-blox.com/en/product/xplr-hpg-1
+#define UBLOX_XPLR_HPG1_C213_revA           11 //!< Select ESP32 Arduino / u-blox NORA-W10 series (ESP32-S3), LTE in slot 1, PCB rev A
+#define UBLOX_XPLR_HPG1_C213                12 //!< Select ESP32 Arduino / u-blox NORA-W10 series (ESP32-S3), LTE in slot 1, PCB rev B/C 
 
-#define SPARKFUN_MICROMOD_MAINBOARD_DOUBLE  30 //!< Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod 
+#define SPARKFUN_MICROMOD_MAINBOARD_PT      21 //!< Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod - with prototype LTE function
+#define SPARKFUN_MICROMOD_MAINBOARD         22 //!< Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod
 
-#define SPARKFUN_MICROMOD_ASSET_TRACKER     40 //!< Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod
+#define SPARKFUN_MICROMOD_MAINBOARD_DOUBLE  31 //!< Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod 
+
+#define SPARKFUN_MICROMOD_ASSET_TRACKER     41 //!< Choose Spakfun ESP32 Arduino / Sparkfun ESP32 MicroMod
 
 /** the pins are defined here for each hardware target 
  */
@@ -50,11 +54,11 @@ enum HW_PINS {
     // Standard pins
     BOOT        =  0, 
     CDC_RX      = RX,  CDC_TX         = TX,
-#if (HW_TARGET == MAZGCH_HPG_MODULAR_C213_revA)
+#if (HW_TARGET == UBLOX_XPLR_HPG1_C213_revA)
     LED         =  8,
     CAN_RX      = -1,  CAN_TX         = -1,
     I2C_SDA     = 18,  I2C_SCL        = 17,
-#elif (HW_TARGET == MAZGCH_HPG_MODULAR_C213_revB)
+#elif (HW_TARGET == UBLOX_XPLR_HPG1_C213)
     LED         =  2,
     CAN_RX      = -1,  CAN_TX         = -1,
     I2C_SDA     = 18,  I2C_SCL        = 17,
@@ -94,7 +98,7 @@ enum HW_PINS {
     MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
     MICROSD_DET_REMOVED = HIGH,
 
-#elif (HW_TARGET == MAZGCH_HPG_SOLUTION_C214_revA)
+#elif (HW_TARGET == UBLOX_XPLR_HPG2_C214)
     // LTE (DCE)
     LTE_RESET   = 33,  LTE_PWR_ON     = 26,  LTE_ON      = 37,  LTE_INT = -1,
     LTE_TXI     = 25,  LTE_RXO        = 34,  LTE_RTS     = 27,  LTE_CTS = 36, 
@@ -108,7 +112,8 @@ enum HW_PINS {
     MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
     MICROSD_DET_REMOVED = HIGH,
 
-#elif (HW_TARGET == MAZGCH_HPG_MODULAR_C213_revA)
+#elif (HW_TARGET == UBLOX_XPLR_HPG1_C213_revA)
+ #warning using UBLOX_XPLR_HPG1_C213_revA
     // LTE (DCE)
     LTE_RESET   = -1,  LTE_PWR_ON     =  9,  LTE_ON      = -1,  LTE_INT = -1,
     LTE_TXI     = 46,  LTE_RXO        =  2,  LTE_RTS     = 38,  LTE_CTS =  4, 
@@ -122,7 +127,7 @@ enum HW_PINS {
     MICROSD_CS  = 34,  MICROSD_PWR_EN = -1,  MICROSD_DET = 34,
     MICROSD_DET_REMOVED = LOW,
 
-#elif (HW_TARGET == MAZGCH_HPG_MODULAR_C213_revB)
+#elif (HW_TARGET == UBLOX_XPLR_HPG1_C213)
     // LTE (DCE)
     LTE_RESET   = -1,  LTE_PWR_ON     =  9,  LTE_ON      = -1,  LTE_INT = -1,
     LTE_TXI     = 46,  LTE_RXO        =  3,  LTE_RTS     = 38,  LTE_CTS =  4, 

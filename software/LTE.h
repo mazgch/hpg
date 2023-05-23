@@ -256,7 +256,7 @@ protected:
         // The MQTT API does not allow getting the size before actually reading the data. So we 
         // have to allocate a big enough buffer. PointPerfect may send upto 9kB on the MGA topic.
         uint8_t *buf = new uint8_t[MQTT_MAX_MSG_SIZE];
-        if (buf) {
+        if (buf != NULL) {
           String topic;
           int len = -1;
           int qos = -1;
@@ -591,7 +591,7 @@ protected:
       else if ((version.toDouble() < 2.00) && module.startsWith("LENA-R8")) {
         log_e("LENA-R8 firmware %s has limitations, please update firmware", version.c_str());
       }
-#if ((HW_TARGET == MAZGCH_HPG_SOLUTION_C214_revA) || (HW_TARGET == MAZGCH_HPG_SOLUTION_V09))
+#if ((HW_TARGET == UBLOX_XPLR_HPG2_C214) || (HW_TARGET == MAZGCH_HPG_SOLUTION_V09))
       // enableSIMDetectAndHotswap();
 #endif
       // wait for the SIM to get ready ... this can take a while (<4s)

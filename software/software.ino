@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2022 by Michael Ammann (@mazgch)
  *
