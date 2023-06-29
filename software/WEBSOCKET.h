@@ -443,7 +443,7 @@ const char WEBSOCKET::JS[] = R"js(
       if (typeof(data) == 'string') {
         log(`${data}`)
         //                     time        src  fix  car acc       lat          lon
-        const m = data.match(/^\d+:\d+:\d+ \w+ (\S+) \w+ \d+\.\d+ (-?\d+\.\d+) (-?\d+\.\d+)/)
+        const m = data.match(/^\d+:\d+:\d+ [\w-]+ (\S+) \w+ \d+\.\d+ (-?\d+\.\d+) (-?\d+\.\d+)/)
         if (map && track && m) {
           if (m[1] != "No") {
             let pos = ol.proj.fromLonLat([Number(m[3]), Number(m[2])])

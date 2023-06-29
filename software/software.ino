@@ -25,7 +25,7 @@
 // Third parties libraries
 //-----------------------------------
 
-// ArduinoMqttClient by Arduino, version 0.1.5
+// ArduinoMqttClient by Arduino, version 0.1.7
 // Library Manager:    http://librarymanager/All#ArduinoMqttClient   
 // Github Repository:  https://github.com/arduino-libraries/ArduinoMqttClient 
 
@@ -33,11 +33,11 @@
 // Library Manager:    http://librarymanager/All#ArduinoWebsockets   
 // Github Repository:  https://github.com/gilmaimon/ArduinoWebsockets
 
-// ArduinoJson by Benoit Blanchon, version 6.19.4
+// ArduinoJson by Benoit Blanchon, version 6.21.2
 // Library Manager:    http://librarymanager/All#ArduinoJson      
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
 
-// WiFiManager by Tapzu, version 2.0.14-beta
+// WiFiManager by Tzapu/Tablatronix, version 2.0.16-rc.2
 // Library Manager:    http://librarymanager/All#tzapu,WiFiManager  
 // Github Repository:  https://github.com/tzapu/WiFiManager
 
@@ -52,11 +52,11 @@
 // Sparkfun libraries
 //-----------------------------------
 
-// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.20
+// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.24
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
 
-// SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.5
+// SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.6
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_SARA-R5_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_SARA-R5_Arduino_Library
 
