@@ -19,6 +19,7 @@
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
 // Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
 // After that select Board u-blox NINA-W10 series and configure the target CPU: 240MHz, Flash: 80MHz, 4MB, Minimal SPIFFS
+// For the SparkFun RTK Control: select the "ESP32 Wrover Module" and the "Huge APP" partition scheme
 // Board Manager URL:    https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 // Github Repository:    https://github.com/espressif/arduino-esp32 
 
@@ -159,7 +160,10 @@ void memUsage(void) {
     const char* tasks[] = { pcTaskGetName(NULL), "Lte", "Wlan", "Bluetooth", "UbxSd", "Led", "Can" };
     for (int i = 0; i < sizeof(tasks)/sizeof(*tasks); i ++) {
       const char *name = tasks[i];
-      TaskHandle_t h = xTaskGetHandle(name);
+      TaskHandle_t h = 0;
+#if (ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(2, 0, 5))
+      h = xTaskGetHandle(name);
+#endif
       if (h) {
         uint32_t stack = uxTaskGetStackHighWaterMark(h);
         len += sprintf(&buf[len], " %s %u", tasks[i], stack);

@@ -978,12 +978,12 @@ protected:
       pinMode(LTE_RESET, OUTPUT);
       digitalWrite(LTE_RESET, HIGH);
     }
-    // The LTE_PWR_ON pin is active HIGH, LOW = idle, HIGH timings see table above
+    // The LTE_PWR_ON pin is active HIGH, LOW = idle, unless LTE_PWR_ON_INVERTED == 1, HIGH timings see table above
     // The LTE_PWR_ON pin has a external pull low resistor on the board. 
     if (PIN_INVALID != LTE_PWR_ON) {
-      digitalWrite(LTE_PWR_ON, LOW);
+      digitalWrite(LTE_PWR_ON, LTE_PWR_ON_INVERTED ? HIGH : LOW);
       pinMode(LTE_PWR_ON, OUTPUT);
-      digitalWrite(LTE_PWR_ON, LOW);
+      digitalWrite(LTE_PWR_ON, LTE_PWR_ON_INVERTED ? HIGH : LOW);
     }
     if (PIN_INVALID != LTE_TXI) {
       digitalWrite(LTE_TXI, HIGH);
@@ -1021,7 +1021,7 @@ protected:
     if (PIN_INVALID != LTE_PWR_ON) {
       if ((PIN_INVALID != LTE_ON) ? LOW != digitalRead(LTE_ON) : true) {
         log_i("LTE power on");
-        digitalWrite(LTE_PWR_ON, HIGH);
+        digitalWrite(LTE_PWR_ON, LTE_PWR_ON_INVERTED ? LOW : HIGH);
         pwrOnTime = LTE_POWER_ON_PULSE / DETECT_DELAY;
       }
     }
@@ -1032,7 +1032,7 @@ protected:
     for (int i = 0; i < LTE_POWER_ON_WAITTIME_MAX / DETECT_DELAY; i ++) { 
       ready = (pwrOnTime < 0);
       if (i == pwrOnTime) {
-        digitalWrite(LTE_PWR_ON, LOW);
+        digitalWrite(LTE_PWR_ON, LTE_PWR_ON_INVERTED ? HIGH : LOW);
         log_d("LTE pin PWR_ON LOW(idle)"); 
         pwrOnTime = -1; // no more
         i = 0; // restart timer
