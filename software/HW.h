@@ -87,11 +87,13 @@ enum HW_PINS {
 
     // Power supply
     VIN         = 35,  V33_EN         = 33,
+    V33_EN_INVERTED = 0,
     
     // Micro SD card - MISO / MOSI will be swapped to allow use of default pins 
     MICROSD_SCK = 18,  MICROSD_SDI    = 23,  MICROSD_SDO = 19,   
     MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
     MICROSD_DET_REMOVED = HIGH,
+    MICROSD_PWR_EN_INVERTED = 0,
 
 #elif (HW_TARGET == MAZGCH_HPG_SOLUTION_V09)
     // LTE (DCE)
@@ -102,11 +104,13 @@ enum HW_PINS {
 
     // Power supply
     VIN         = 35,  V33_EN         = 33,
+    V33_EN_INVERTED = 0,
     
     // Micro SD card
     MICROSD_SCK = 18,  MICROSD_SDI    = 19,  MICROSD_SDO = 23,   
     MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
     MICROSD_DET_REMOVED = HIGH,
+    MICROSD_PWR_EN_INVERTED = 0,
 
 #elif (HW_TARGET == UBLOX_XPLR_HPG2_C214)
     // LTE (DCE)
@@ -117,11 +121,13 @@ enum HW_PINS {
 
     // Power supply
     VIN         = 35,  V33_EN         = -1,
+    V33_EN_INVERTED = 0,
     
     // Micro SD card
     MICROSD_SCK = 18,  MICROSD_SDI    = 19,  MICROSD_SDO = 23,   
     MICROSD_CS  = 32,  MICROSD_PWR_EN = -1,  MICROSD_DET = 38,
     MICROSD_DET_REMOVED = HIGH,
+    MICROSD_PWR_EN_INVERTED = 0,
 
 #elif (HW_TARGET == UBLOX_XPLR_HPG1_C213_revA)
  #warning using UBLOX_XPLR_HPG1_C213_revA
@@ -133,11 +139,13 @@ enum HW_PINS {
 
     // Power supply
     VIN         = -1,  V33_EN         = -1,
+    V33_EN_INVERTED = 0,
     
     // Micro SD card
     MICROSD_SCK = 36,  MICROSD_SDI    = 37,  MICROSD_SDO = 35,   
     MICROSD_CS  = 34,  MICROSD_PWR_EN = -1,  MICROSD_DET = 34,
     MICROSD_DET_REMOVED = LOW,
+    MICROSD_PWR_EN_INVERTED = 0,
 
 #elif (HW_TARGET == UBLOX_XPLR_HPG1_C213)
     // LTE (DCE)
@@ -148,11 +156,13 @@ enum HW_PINS {
 
     // Power supply
     VIN         = -1,  V33_EN         = -1,
+    V33_EN_INVERTED = 0,
     
     // Micro SD card
     MICROSD_SCK = 36,  MICROSD_SDI    = 37,  MICROSD_SDO = 35,   
     MICROSD_CS  = 34,  MICROSD_PWR_EN = -1,  MICROSD_DET = 34,
     MICROSD_DET_REMOVED = LOW,
+    MICROSD_PWR_EN_INVERTED = 0,
 
 #elif (HW_TARGET == SPARKFUN_MICROMOD_ASSET_TRACKER)
     // LTE (DCE)
@@ -163,12 +173,14 @@ enum HW_PINS {
    
     // Power supply
     VIN         = 39,  V33_EN         = -1,
+    V33_EN_INVERTED = 0,
     
     // Micro SD card
     MICROSD_SCK = SCK, MICROSD_SDI  = MISO, MICROSD_SDO = MOSI, 
     MICROSD_DET = -1,  MICROSD_PWR_EN = G1,  
     MICROSD_CS  = G0,
     MICROSD_DET_REMOVED = HIGH,
+    MICROSD_PWR_EN_INVERTED = 0,
 
 #elif ((HW_TARGET == SPARKFUN_MICROMOD_MAINBOARD_PT) || (HW_TARGET == SPARKFUN_MICROMOD_MAINBOARD_DOUBLE_PT)) // using ESP 32 MicroMod MCU
     // LTE (DCE)   // assignable D0,A0,G0 (G4 G5 can't be used as duplicated on ESP32)
@@ -180,6 +192,7 @@ enum HW_PINS {
 
     // Power supply
     VIN         = 39,  V33_EN         = -1,
+    V33_EN_INVERTED = 0,
     
     // Micro SD card
     MICROSD_SCK = SCK, MICROSD_SDI  = MISO, MICROSD_SDO = MOSI, 
@@ -190,22 +203,25 @@ enum HW_PINS {
     MICROSD_CS  = G4,
 # endif
     MICROSD_DET_REMOVED = HIGH,
+    MICROSD_PWR_EN_INVERTED = 0,
 
 #elif (HW_TARGET == SPARKFUN_RTK_CONTROL)
     // LTE (DCE)
     LTE_RESET   = -1,  LTE_PWR_ON     = 26,  LTE_ON      = -1,  LTE_INT = -1, 
     LTE_TXI     = 13,  LTE_RXO        = 14,  LTE_RTS     = -1,  LTE_CTS = -1, 
     LTE_RI      = -1,  LTE_DSR        = -1,  LTE_DCD     = -1,  LTE_DTR = -1,
-    LTE_PWR_ON_INVERTED = 1,
+    LTE_PWR_ON_INVERTED = 0,
    
     // Power supply
     VIN         = -1,  V33_EN         = 32,
+    V33_EN_INVERTED = 0,
     
     // Micro SD card
     MICROSD_SCK = SCK, MICROSD_SDI  = MISO, MICROSD_SDO = MOSI, 
     MICROSD_DET = 36,  MICROSD_PWR_EN = -1,  
     MICROSD_CS  = 4,
     MICROSD_DET_REMOVED = LOW,
+    MICROSD_PWR_EN_INVERTED = 0,
 
 #else // using ESP 32 MicroMod MCU
     // LTE (DCE)   // assignable D0,A0,G0 (G3/G4 can't be used as duplicated with TX1/RX1 on ESP32)
@@ -217,6 +233,7 @@ enum HW_PINS {
 
     // Power supply
     VIN         = 39,  V33_EN         = -1,
+    V33_EN_INVERTED = 0,
     
     // Micro SD card
     MICROSD_SCK = SCK, MICROSD_SDI  = MISO, MICROSD_SDO = MOSI, 
@@ -227,6 +244,7 @@ enum HW_PINS {
     MICROSD_CS  = G4,
 # endif
     MICROSD_DET_REMOVED = HIGH,
+    MICROSD_PWR_EN_INVERTED = 0,
 
 #endif
     PIN_INVALID = -1
@@ -238,5 +256,29 @@ enum HW_PINS {
 #define HW_DBG_PIN(pin,level) if (PIN_INVALID != pin) pinMode(pin, OUTPUT), digitalWrite(pin,level)
 #define HW_DBG_HI(pin)        HW_DBG_PIN(pin,HIGH)  //!< put the at the start of the code to profile
 #define HW_DBG_LO(pin)        HW_DBG_PIN(pin,LOW)   //!< put the at the end of the code to profile
+
+class HW {
+  
+public:
+
+  /** constructor
+   */
+  HW(){
+    hwInit();
+  }
+
+  void hwInit(void) {
+    // Do any top-level hardware initialization here. E.g. turn on a 3.3V regulator
+    if (PIN_INVALID != V33_EN) {
+      digitalWrite(V33_EN, V33_EN_INVERTED ? LOW : HIGH);
+      pinMode(V33_EN, OUTPUT);
+      digitalWrite(V33_EN, V33_EN_INVERTED ? LOW : HIGH);
+    }
+    log_i("Hardware initialized");
+  }
+
+};
+
+HW Hardware; //!< The global HW object
 
 #endif // __HW_H__
