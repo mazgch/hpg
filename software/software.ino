@@ -19,7 +19,7 @@
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
 // Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
 // After that select Board u-blox NINA-W10 series and configure the target CPU: 240MHz, Flash: 80MHz, 4MB, Minimal SPIFFS
-// For the SparkFun RTK Control: select the "ESP32 Wrover Module" and the "Huge APP" partition scheme
+// For the SparkFun RTK Everywhere: select the "ESP32 Wrover Module" and the "Huge APP" partition scheme
 // Board Manager URL:    https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 // Github Repository:    https://github.com/espressif/arduino-esp32 
 

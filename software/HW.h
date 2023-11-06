@@ -27,7 +27,7 @@
 #elif defined(ARDUINO_ESP32_MICROMOD)
  #define HW_TARGET     SPARKFUN_MICROMOD_MAINBOARD
 #elif defined(ARDUINO_ESP32_DEV)
- #define HW_TARGET     SPARKFUN_RTK_CONTROL
+ #define HW_TARGET     SPARKFUN_RTK_EVERYWHERE
 #else
  #error unknown board target 
 #endif
@@ -50,7 +50,7 @@
 
 #define SPARKFUN_MICROMOD_ASSET_TRACKER     41 //!< Choose Sparkfun ESP32 Arduino / Sparkfun ESP32 MicroMod
 
-#define SPARKFUN_RTK_CONTROL                51 //!< Select ESP32 / ESP32 Wrover Module
+#define SPARKFUN_RTK_EVERYWHERE             51 //!< Select ESP32 / ESP32 Wrover Module
 
 /** the pins are defined here for each hardware target 
  */
@@ -66,7 +66,7 @@ enum HW_PINS {
     LED         =  2,
     CAN_RX      = -1,  CAN_TX         = -1,
     I2C_SDA     = 18,  I2C_SCL        = 17,
-#elif (HW_TARGET == SPARKFUN_RTK_CONTROL)
+#elif (HW_TARGET == SPARKFUN_RTK_EVERYWHERE)
     LED         =  2,
     CAN_RX      = -1,  CAN_TX         = -1,
     I2C_SDA     = 21,  I2C_SCL        = 22,
@@ -205,7 +205,7 @@ enum HW_PINS {
 
     REQUIRED_GPIO_PIN = -1, REQUIRED_GPIO_PIN_ACTIVE = HIGH,
 
-#elif (HW_TARGET == SPARKFUN_RTK_CONTROL)
+#elif (HW_TARGET == SPARKFUN_RTK_EVERYWHERE)
     // LTE (DCE)
     LTE_RESET   = -1,  LTE_PWR_ON     = 26,  LTE_ON      =  5,  LTE_INT = -1, 
     LTE_TXI     = 13,  LTE_RXO        = 14,  LTE_RTS     = -1,  LTE_CTS = -1, 
@@ -222,7 +222,7 @@ enum HW_PINS {
     MICROSD_CS  = 4,
     MICROSD_DET_REMOVED = LOW, MICROSD_PWR_EN_ACTIVE = LOW,
 
-    // Required GPIO pin - on SPARKFUN_RTK_CONTROL this is the WizNet W5500 CS
+    // Required GPIO pin - on SPARKFUN_RTK_EVERYWHERE this is the WizNet W5500 CS
     REQUIRED_GPIO_PIN = 27, REQUIRED_GPIO_PIN_ACTIVE = HIGH,
 
 #else // using ESP 32 MicroMod MCU
