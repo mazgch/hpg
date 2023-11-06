@@ -863,7 +863,7 @@ protected:
     while(true) {
       if ((PIN_INVALID != LTE_ON) && (state != INIT)) {
         // detect if LTE was turned off
-        if (HIGH == digitalRead(LTE_ON)) {
+        if (LTE_ON_ACTIVE != digitalRead(LTE_ON)) {
           UbxSerial.end();
           setState(INIT, LTE_DETECT_RETRY);
         }
@@ -978,12 +978,12 @@ protected:
       pinMode(LTE_RESET, OUTPUT);
       digitalWrite(LTE_RESET, HIGH);
     }
-    // The LTE_PWR_ON pin is active HIGH, LOW = idle, HIGH timings see table above
+    // The LTE_PWR_ON pin is usually active HIGH, LOW = idle, defined by LTE_PWR_ON_ACTIVE, active timings see table above
     // The LTE_PWR_ON pin has a external pull low resistor on the board. 
     if (PIN_INVALID != LTE_PWR_ON) {
-      digitalWrite(LTE_PWR_ON, LOW);
+      digitalWrite(LTE_PWR_ON, !LTE_PWR_ON_ACTIVE);
       pinMode(LTE_PWR_ON, OUTPUT);
-      digitalWrite(LTE_PWR_ON, LOW);
+      digitalWrite(LTE_PWR_ON, !LTE_PWR_ON_ACTIVE);
     }
     if (PIN_INVALID != LTE_TXI) {
       digitalWrite(LTE_TXI, HIGH);
@@ -1019,9 +1019,9 @@ protected:
     #define DETECT_DELAY 100
     int pwrOnTime = -1; // will never trigger
     if (PIN_INVALID != LTE_PWR_ON) {
-      if ((PIN_INVALID != LTE_ON) ? LOW != digitalRead(LTE_ON) : true) {
+      if ((PIN_INVALID != LTE_ON) ? LTE_ON_ACTIVE != digitalRead(LTE_ON) : true) {
         log_i("LTE power on");
-        digitalWrite(LTE_PWR_ON, HIGH);
+        digitalWrite(LTE_PWR_ON, LTE_PWR_ON_ACTIVE);
         pwrOnTime = LTE_POWER_ON_PULSE / DETECT_DELAY;
       }
     }
@@ -1032,8 +1032,8 @@ protected:
     for (int i = 0; i < LTE_POWER_ON_WAITTIME_MAX / DETECT_DELAY; i ++) { 
       ready = (pwrOnTime < 0);
       if (i == pwrOnTime) {
-        digitalWrite(LTE_PWR_ON, LOW);
-        log_d("LTE pin PWR_ON LOW(idle)"); 
+        digitalWrite(LTE_PWR_ON, !LTE_PWR_ON_ACTIVE);
+        log_d("LTE pin PWR_ON off(idle)"); 
         pwrOnTime = -1; // no more
         i = 0; // restart timer
       }
@@ -1048,10 +1048,10 @@ protected:
       if (PIN_INVALID != LTE_ON) {
         char on = digitalRead(LTE_ON);
         if (on != lastOn) {
-          log_d("LTE pin ON %s", (on == LOW) ? "LOW(on)" : "HIGH(off)"); 
+          log_d("LTE pin ON %s", (on == LTE_ON_ACTIVE) ? "on(active)" : "off(idle)"); 
           lastOn = on;
         }
-        ready = ready && (on == LOW);
+        ready = ready && (on == LTE_ON_ACTIVE);
       }
       if (PIN_INVALID != LTE_CTS) {
         char cts = digitalRead(LTE_CTS);
