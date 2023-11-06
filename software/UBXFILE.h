@@ -369,9 +369,9 @@ public:
    */
   UBXSD() {
     if (MICROSD_PWR_EN != PIN_INVALID) {
-      digitalWrite(MICROSD_PWR_EN, MICROSD_PWR_EN_INVERTED ? HIGH : LOW);
+      digitalWrite(MICROSD_PWR_EN, MICROSD_PWR_EN_ACTIVE);
       pinMode(MICROSD_PWR_EN, OUTPUT);
-      digitalWrite(MICROSD_PWR_EN, MICROSD_PWR_EN_INVERTED ? HIGH : LOW);
+      digitalWrite(MICROSD_PWR_EN, MICROSD_PWR_EN_ACTIVE);
     }
     if (MICROSD_DET != PIN_INVALID) {
       pinMode(MICROSD_DET, INPUT);
