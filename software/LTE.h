@@ -358,7 +358,7 @@ protected:
             log_e("unsubscribe result %d but no topic", result);
           } else {
             std::vector<String>::iterator pos = std::find(topics.begin(), topics.end(), unsubTopic);
-            if (pos == topics.end()) {
+            if (pos != topics.end()) {
               topics.erase(pos);
               log_i("unsubscribe result %d topic \"%s\"", result, unsubTopic.c_str());
               unsubTopic = "";
