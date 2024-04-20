@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// ESP32 libraries, version 2.0.5
+// ESP32 libraries, version 2.0.9 (2.0.10 and higher crashes)
 //-----------------------------------
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
 // Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
@@ -26,7 +26,7 @@
 // Third parties libraries
 //-----------------------------------
 
-// ArduinoMqttClient by Arduino, version 0.1.7
+// ArduinoMqttClient by Arduino, version 0.1.8
 // Library Manager:    http://librarymanager/All#ArduinoMqttClient   
 // Github Repository:  https://github.com/arduino-libraries/ArduinoMqttClient 
 
@@ -34,11 +34,11 @@
 // Library Manager:    http://librarymanager/All#ArduinoWebsockets   
 // Github Repository:  https://github.com/gilmaimon/ArduinoWebsockets
 
-// ArduinoJson by Benoit Blanchon, version 6.21.2
+// ArduinoJson by Benoit Blanchon, version 7.0.4
 // Library Manager:    http://librarymanager/All#ArduinoJson      
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
 
-// WiFiManager by Tzapu/Tablatronix, version 2.0.16-rc.2
+// WiFiManager by Tzapu/Tablatronix, version 2.0.17
 // Library Manager:    http://librarymanager/All#tzapu,WiFiManager  
 // Github Repository:  https://github.com/tzapu/WiFiManager
 
@@ -53,11 +53,11 @@
 // Sparkfun libraries
 //-----------------------------------
 
-// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.24
+// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.25
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
 
-// SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.6
+// SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.10
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_SARA-R5_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_SARA-R5_Arduino_Library
 
@@ -89,7 +89,10 @@ void setup(void) {
   log_i("-------------------------------------------------------------------");
   Config.init();
   String hwName = Config.getDeviceName();
-  log_i("mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());  
+  log_i("mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());
+  //              NINA-VCC / ADC-BITS * (R30  + R31)  / R31 * ADC-reading
+  log_i("VIN: %.2fV", (3.3 / 4095.0   * (22e3 + 33e3) / 33e3) * analogRead(VIN));
+  
   espVersion();
   // SD card 
   UbxSd.init(); // handling SD card and files runs in a task
@@ -132,6 +135,10 @@ void loop(void) {
 
 #ifndef ESP_ARDUINO_VERSION
   #include <core_version.h>
+#endif
+#if defined(ARDUINO_UBLOX_NINA_W10) && defined(ESP_ARDUINO_VERSION) && (ESP_ARDUINO_VERSION > ESP_ARDUINO_VERSION_VAL(2, 0, 9))
+ #error "Please downgrade your Arduino-esp32 to version 2.0.9"
+ // for some reason 2.0.10 and later crashes on NINA-W10 after boot with a flash CRC error
 #endif
 
 /** Print the version number of the Arduino and ESP core. 

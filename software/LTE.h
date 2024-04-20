@@ -40,8 +40,9 @@ const int LTE_POWER_ON_WAITSIMREADY =      4000;  //!< It usually takes a few se
 
 const int LTE_PSD_PROFILE         =           0;  //!< The packet switched data profile used
 const int LTE_HTTP_PROFILE        =           0;  //!< The HTTP profile used duing provisioning
-const int LTE_SEC_PROFILE_HTTP    =           1;  //!< The security profile used for the HTTP connections druing provisioning
 const int LTE_SEC_PROFILE_MQTT    =           0;  //!< The security profile used for the MQTT connections
+const int LTE_SEC_PROFILE_HTTP    =           1;  //!< The security profile used for the HTTP connections druing provisioning
+const int LTE_SEC_PROFILE_NTRIP   =           2;  //!< The security profile used for the NTRIP connection
 const char* FILE_REQUEST          =  "req.json";  //!< Temporarly file name used for the request during HTTP GET transations (ZTP)  
 const char* FILE_RESP             = "resp.json";  //!< Temporarly file name used for the response during HTTP POST and GET transations (AWS/ZTP)
 const char* SEC_ROOT_CA           ="aws-rootCA";  //!< Temporarly file name used when injecting the ROOT CA
@@ -472,8 +473,16 @@ protected:
                 "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
                 "%s\r\n", mntpnt.c_str(), authHead.c_str());
       LTE_CHECK_INIT;
-      LTE_CHECK(1) = socketConnect(ntripSocket, server.c_str(), port);
-      LTE_CHECK(2) = socketWrite(ntripSocket, buf, len);
+#if 0
+      LTE_CHECK(1) = LTE_IGNORE_LENA( resetSecurityProfile(LTE_SEC_PROFILE_NTRIP) );
+      LTE_CHECK(2) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL, SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_NO); // no certificate and url/sni check
+      LTE_CHECK(3) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,        SARA_R5_SEC_PROFILE_TLS_OPCODE_VER1_2);
+      LTE_CHECK(4) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,   SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
+      LTE_CHECK(5) = configSecurityProfileString(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_SNI,      server.c_str());
+      LTE_CHECK(6) = socketSetSecure(ntripSocket, true, LTE_SEC_PROFILE_NTRIP);
+#endif
+      LTE_CHECK(7) = socketConnect(ntripSocket, server.c_str(), port);
+      LTE_CHECK(8) = socketWrite(ntripSocket, buf, len);
       int avail = 0;
       const char* expectedReply = 0 == mntpnt.length() ? NTRIP_RESPONSE_SOURCETABLE : NTRIP_RESPONSE_ICY;
       len = strlen(expectedReply);
