@@ -473,13 +473,14 @@ protected:
                 "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
                 "%s\r\n", mntpnt.c_str(), authHead.c_str());
       LTE_CHECK_INIT;
-#if 0
+#if 0 // requires latest Sparkfun SARA-R5 socketSetSecure API 
       LTE_CHECK(1) = LTE_IGNORE_LENA( resetSecurityProfile(LTE_SEC_PROFILE_NTRIP) );
       LTE_CHECK(2) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL, SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_NO); // no certificate and url/sni check
-      LTE_CHECK(3) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,        SARA_R5_SEC_PROFILE_TLS_OPCODE_VER1_2);
+      LTE_CHECK(3) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,        SARA_R5_SEC_PROFILE_TLS_OPCODE_ANYVER);
       LTE_CHECK(4) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,   SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
       LTE_CHECK(5) = configSecurityProfileString(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_SNI,      server.c_str());
-      LTE_CHECK(6) = socketSetSecure(ntripSocket, true, LTE_SEC_PROFILE_NTRIP);
+      bool isSecure = server.equalsIgnoreCase("ppntrip.services.u-blox.com") && (2102 == port); // we try to autodetect the secure thingstream server 
+      LTE_CHECK(6) = socketSetSecure(ntripSocket, isSecure, LTE_SEC_PROFILE_NTRIP);
 #endif
       LTE_CHECK(7) = socketConnect(ntripSocket, server.c_str(), port);
       LTE_CHECK(8) = socketWrite(ntripSocket, buf, len);
