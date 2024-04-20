@@ -133,7 +133,7 @@ public:
 
   /** constructor
    */
-  CONFIG() : json(CONFIG_JSON_MAXSIZE) {
+  CONFIG() {
     mutex = xSemaphoreCreateMutex();
     ffsOk = false;
     // create a unique name from the mac 
@@ -272,7 +272,6 @@ public:
       changed = !old.equals(value);
       if (changed) {
         json[String(key)] = value;
-        json.garbageCollect();
       }
       xSemaphoreGive(mutex); 
     }
@@ -294,7 +293,6 @@ public:
       changed = json.containsKey(key);
       if (changed) {
         json.remove(key);
-        json.garbageCollect();
       }
       xSemaphoreGive(mutex); 
     }
@@ -393,7 +391,7 @@ public:
    *  \param size the size of the json buffer
    */
   void setLbandFreqs(const uint8_t *buf, size_t size) {
-    DynamicJsonDocument json(512);
+    JsonDocument json;
     DeserializationError error = deserializeJson(json, buf, size);
     if (DeserializationError::Ok != error) {
       log_e("deserializeJson failed with error %d", error);
@@ -452,8 +450,6 @@ public:
             changed = true;
         }
       }
-      if (changed) 
-        json.garbageCollect();
       xSemaphoreGive(mutex); 
     }
     if (changed) {
@@ -472,7 +468,6 @@ public:
       json.remove(CONFIG_VALUE_CLIENTCERT);
       json.remove(CONFIG_VALUE_CLIENTKEY);
       json.remove(CONFIG_VALUE_CLIENTID);
-      json.garbageCollect();
       xSemaphoreGive(mutex); 
     }
     log_i("ZTP deleted");
@@ -485,13 +480,13 @@ public:
    */
   String setZtp(String &ztp, String &rootCa) {
     String id;
-    StaticJsonDocument<200> filter;
+    JsonDocument filter;
     filter["clientId"] = true;
     filter["certificate"] = true;
     filter["privateKey"] = true;
     filter["brokerHost"] = true;
     filter["supportsLband"] = true;
-    DynamicJsonDocument jsonZtp(4*1024);
+    JsonDocument jsonZtp;
     DeserializationError error = deserializeJson(jsonZtp, ztp.c_str(), DeserializationOption::Filter(filter));
     if (DeserializationError::Ok != error) {
       log_e("deserializeJson failed with error %d", error);
@@ -510,7 +505,6 @@ public:
           json[CONFIG_VALUE_CLIENTCERT] = cert;
           json[CONFIG_VALUE_CLIENTKEY]  = key;
           json[CONFIG_VALUE_CLIENTID]   = id;
-          json.garbageCollect();
           xSemaphoreGive(mutex); 
         }
         save();
@@ -532,7 +526,7 @@ public:
     }
     String str;
     if (token.length()) {
-      DynamicJsonDocument json(256);
+      JsonDocument json;
       json["tags"][0] = "ztp";
       json["token"]   = token.c_str();
       json["hardwareId"] = getDeviceName();
@@ -565,7 +559,7 @@ protected:
     return ffsOk;
   }    
 
-  DynamicJsonDocument json;   //!< a local copy of the json buffer
+  JsonDocument json;   //!< a local copy of the json buffer
   SemaphoreHandle_t mutex;    //!< protects json and FFS
   bool ffsOk;                 //!< flag if the FFS is ok
   String title;               //!< the title of the device
