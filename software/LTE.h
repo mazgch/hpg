@@ -60,6 +60,7 @@ const int LTE_TASK_CORE           =           1;  //!< Lte task MCU code
 
 // helper macros to handle the AT interface errors  
 #define LTE_CHECK_INIT            int _step = 0; SARA_R5_error_t _err = SARA_R5_SUCCESS   //!< init variable
+#define LTE_CHECK_REINIT          _step = 0; _err = SARA_R5_SUCCESS                       //!< reinit variables
 #define LTE_CHECK_OK              (SARA_R5_SUCCESS == _err)                               //!< record the return result
 #define LTE_CHECK(x)              if (SARA_R5_SUCCESS == _err) _step = x, _err            //!< interim evaluate
 #define LTE_CHECK_EVAL(txt)       if (SARA_R5_SUCCESS != _err) log_e(txt ", AT sequence failed at step %d with error %d", _step, _err) //!< final verdict and log_e report
@@ -448,8 +449,8 @@ protected:
   SARA_R5_error_t socketSetSecure(int profile, bool secure, int secprofile = -1)
   {
     char command[64];
-    sprintf(command, ((secprofile == -1) || !secure) ? "%s=%d,%d" : "%s=%d,%d,%d", 
-            SARA_R5_SECURE_SOCKET, profile, secure, secprofile);
+    const char *format = ((secprofile == -1) || !secure) ? "%s=%d,%d" : "%s=%d,%d,%d"; 
+    sprintf(command, format, SARA_R5_SECURE_SOCKET, profile, secure, secprofile);
     return sendCommandWithResponse(command, SARA_R5_RESPONSE_OK_OR_ERROR, nullptr,
             SARA_R5_STANDARD_RESPONSE_TIMEOUT);
   }
@@ -469,32 +470,43 @@ protected:
     if ((0 == server.length()) || (0 == mntpnt.length())) return false;
     String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
     String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
-    //setSocketReadCallbackPlus(&onSocketData);
-    //setSocketCloseCallback(&onSocketClose); 
+    String authEnc;
+    String authHead;
+    if (0 < user.length() && 0 < pwd.length()) {
+      authEnc = base64::encode(user + ":" + pwd);
+      authHead = "Authorization: Basic ";
+      authHead += authEnc + "\r\n";
+    }                    
+    log_i("server \"%s:%d\" GET \"/%s\" auth \"%s\"", server.c_str(), port, mntpnt.c_str(), authEnc.c_str());
+    char buf[256];
+    int len = sprintf(buf, "GET /%s HTTP/1.0\r\n"
+              "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
+              "%s\r\n", mntpnt.c_str(), authHead.c_str());
+    LTE_CHECK_INIT;
+    LTE_CHECK(1) = LTE_IGNORE_LENA( resetSecurityProfile(LTE_SEC_PROFILE_NTRIP) );
+    LTE_CHECK(2) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL, SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_NO); // no certificate and url/sni check
+    LTE_CHECK(3) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,        SARA_R5_SEC_PROFILE_TLS_OPCODE_ANYVER);
+    LTE_CHECK(4) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,   SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
+    LTE_CHECK(5) = configSecurityProfileString(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_SNI,      server.c_str());
     ntripSocket = socketOpen(SARA_R5_TCP);
+    bool isSecure = true;
     if (0 <= ntripSocket) {
-      String authEnc;
-      String authHead;
-      if (0 < user.length() && 0 < pwd.length()) {
-        authEnc = base64::encode(user + ":" + pwd);
-        authHead = "Authorization: Basic ";
-        authHead += authEnc + "\r\n";
-      }                    
-      log_i("server \"%s:%d\" GET \"/%s\" auth \"%s\"", server.c_str(), port, mntpnt.c_str(), authEnc.c_str());
-      char buf[256];
-      int len = sprintf(buf, "GET /%s HTTP/1.0\r\n"
-                "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
-                "%s\r\n", mntpnt.c_str(), authHead.c_str());
-      LTE_CHECK_INIT;
-      LTE_CHECK(1) = LTE_IGNORE_LENA( resetSecurityProfile(LTE_SEC_PROFILE_NTRIP) );
-      LTE_CHECK(2) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL, SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_NO); // no certificate and url/sni check
-      LTE_CHECK(3) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,        SARA_R5_SEC_PROFILE_TLS_OPCODE_ANYVER);
-      LTE_CHECK(4) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,   SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
-      LTE_CHECK(5) = configSecurityProfileString(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_SNI,      server.c_str());
-      bool isSecure = server.equalsIgnoreCase("ppntrip.services.u-blox.com") && (2102 == port); // we try to autodetect the secure thingstream server 
+      // connect using TLS secured socket
       LTE_CHECK(6) = socketSetSecure(ntripSocket, isSecure, LTE_SEC_PROFILE_NTRIP);
       LTE_CHECK(7) = socketConnect(ntripSocket, server.c_str(), port);
-      LTE_CHECK(8) = socketWrite(ntripSocket, buf, len);
+      if (!LTE_CHECK_OK) {
+        // cleanup socket
+        socketClose(ntripSocket);
+        // retry using plain socket (no TLS)
+        isSecure = false;
+        ntripSocket = socketOpen(SARA_R5_TCP);
+        if (0 <= ntripSocket) {
+          LTE_CHECK_REINIT; // reset step and errors 
+          LTE_CHECK(8) = socketSetSecure(ntripSocket, isSecure, LTE_SEC_PROFILE_NTRIP);
+          LTE_CHECK(9) = socketConnect(ntripSocket, server.c_str(), port);
+        }
+      }
+      LTE_CHECK(10) = socketWrite(ntripSocket, buf, len);
       int avail = 0;
       const char* expectedReply = 0 == mntpnt.length() ? NTRIP_RESPONSE_SOURCETABLE : NTRIP_RESPONSE_ICY;
       len = strlen(expectedReply);
@@ -502,7 +514,7 @@ protected:
       int32_t now;
       do {
         vTaskDelay(10);
-        LTE_CHECK(3) = socketReadAvailable(ntripSocket, &avail);
+        LTE_CHECK(11) = socketReadAvailable(ntripSocket, &avail);
         now = millis();
       } while (LTE_CHECK_OK && (0 < (start + NTRIP_CONNECT_TIMEOUT - now)) && (avail < len));
       if (avail >= len) {
@@ -510,7 +522,7 @@ protected:
       }
       if (avail > 0) {
         memset(&buf, 0, len+1);
-        LTE_CHECK(4) = socketRead(ntripSocket, avail, buf, &avail);
+        LTE_CHECK(12) = socketRead(ntripSocket, avail, buf, &avail);
       }
       LTE_CHECK_EVAL("connect");
       if (LTE_CHECK_OK) {

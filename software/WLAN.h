@@ -498,6 +498,7 @@ protected:
       secureClient->setInsecure(); // when using WiFiClientSecure
       if (!secureClient->connect(server.c_str(), port)) {
         delete secureClient;
+        secureClient = NULL;
       } else {
         ntripWifiClient = secureClient;
       }
@@ -508,6 +509,7 @@ protected:
       if (NULL != client) {
         if (!client->connect(server.c_str(), port)) {
           delete client;
+          client = NULL;
         } else {
           ntripWifiClient = client;
         }
