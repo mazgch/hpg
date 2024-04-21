@@ -132,9 +132,9 @@ protected:
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_LTEAPN, "APN", Config.getValue(CONFIG_VALUE_LTEAPN).c_str(), 64);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_SIMPIN, "SIM pin", Config.getValue(CONFIG_VALUE_SIMPIN).c_str(), 8, " type=\"password\"");
     new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">NTRIP configuration</p>"
-             "<p>To use NTRIP you need to set Correction Source to one of the NTRIP options.</p>");
+             "<p>To use NTRIP you need to set Correction Source to one of the NTRIP options.</p><datalist id=\"_o\"></datalist>");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_SERVER, "NTRIP correction service", Config.getValue(CONFIG_VALUE_NTRIP_SERVER).c_str(), 64, 
-             " placeholder=\"server.com:2101/MountPoint\" pattern=\"^([0-9a-zA-Z_\\-]+\\.)+([0-9a-zA-Z_\\-]{2,})(:[0-9]+)?\\/[0-9a-zA-Z_\\-]+$\"");
+             " list=\"_o\" oninput=\"_m(this.value)\" placeholder=\"server.com:2101/MountPoint\" pattern=\"^([0-9a-zA-Z_\\-]+\\.)+([0-9a-zA-Z_\\-]{2,})(:[0-9]+)?\\/[0-9a-zA-Z_\\-]+$\"");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_USERNAME, "Username", Config.getValue(CONFIG_VALUE_NTRIP_USERNAME).c_str(), 64);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_PASSWORD, "Password", Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD).c_str(), 64, " type=\"password\"");
     for (int i = 0; i < p; i ++) {
@@ -896,6 +896,44 @@ const char WLAN::PORTAL_HTML[] = R"html(
   button,input[type='button'],input[type='submit']{background-color:rgb(255,76,0);}
 </style>
 <script>
+  function _m(v) {
+    try {
+      const p = (0 < v.search(/(:433|:2102)/)) ? "https://" : "http://";
+      const u = new URL(p + v);
+      if (!u.port.length) u.port = "2101";
+      let xhr = new XMLHttpRequest();
+      function _h(s) { return s && (s.length > 0) ? s : null; } 
+      const usr = _h(document.getElementById('ntripUsername').value);
+      const pwd = _h(document.getElementById('ntripPassword').value);
+      xhr.open('GET', u.origin, true, usr, pwd);
+      xhr.setRequestHeader('Ntrip-Version', 'Ntrip/2.0');
+      xhr.onreadystatechange = _ck;
+      xhr.send();
+      function _ck(data) {
+        if (this.readyState == XMLHttpRequest.DONE) {
+          const s = this.response.split('\r\n').map( c => c.split(';') );
+          if (s[s.length-1] == "ENDSOURCETABLE") {
+            const dl = document.getElementById('_o');
+            s.forEach(o => {
+              if (o[1]) {
+                const nv = u.hostname + ':' + u.port + "/" + o[1];
+                let x = false;
+                for (let i = 0; i < dl.options.length && !x; i++) {
+                  x = (dl.options[i].value == nv)
+                }
+                if (!x) {
+                  const el = document.createElement('option');
+                  el.value = nv;
+                  dl.appendChild(el);
+                }
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+    }
+  }
   function _l(_i){
     var _r = new FileReader();
     function _s(_n,_v,_h){
