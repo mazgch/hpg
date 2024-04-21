@@ -442,6 +442,19 @@ protected:
   int32_t ntripGgaMs;  //!< time tag (millis()) of next GGA to be sent
   int ntripSocket;     //!< the socket handle 
 
+#if 1 
+  // override until this API is natively avialable in Sparkfun SARA-R5 library 
+  // https://github.com/sparkfun/SparkFun_u-blox_SARA-R5_Arduino_Library/pull/43
+  SARA_R5_error_t socketSetSecure(int profile, bool secure, int secprofile = -1)
+  {
+    char command[64];
+    sprintf(command, ((secprofile == -1) || !secure) ? "%s=%d,%d" : "%s=%d,%d,%d", 
+            SARA_R5_SECURE_SOCKET, profile, secure, secprofile);
+    return sendCommandWithResponse(command, SARA_R5_RESPONSE_OK_OR_ERROR, nullptr,
+            SARA_R5_STANDARD_RESPONSE_TIMEOUT);
+  }
+#endif
+
   /** Connect to a NTRIP server
    *  \param ntrip  the server:port/mountpoint to connect to
    *  \return       connection success
@@ -473,7 +486,6 @@ protected:
                 "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
                 "%s\r\n", mntpnt.c_str(), authHead.c_str());
       LTE_CHECK_INIT;
-#if 0 // requires latest Sparkfun SARA-R5 socketSetSecure API 
       LTE_CHECK(1) = LTE_IGNORE_LENA( resetSecurityProfile(LTE_SEC_PROFILE_NTRIP) );
       LTE_CHECK(2) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL, SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_NO); // no certificate and url/sni check
       LTE_CHECK(3) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,        SARA_R5_SEC_PROFILE_TLS_OPCODE_ANYVER);
@@ -481,7 +493,6 @@ protected:
       LTE_CHECK(5) = configSecurityProfileString(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_SNI,      server.c_str());
       bool isSecure = server.equalsIgnoreCase("ppntrip.services.u-blox.com") && (2102 == port); // we try to autodetect the secure thingstream server 
       LTE_CHECK(6) = socketSetSecure(ntripSocket, isSecure, LTE_SEC_PROFILE_NTRIP);
-#endif
       LTE_CHECK(7) = socketConnect(ntripSocket, server.c_str(), port);
       LTE_CHECK(8) = socketWrite(ntripSocket, buf, len);
       int avail = 0;
