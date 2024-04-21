@@ -132,7 +132,7 @@ protected:
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_LTEAPN, "APN", Config.getValue(CONFIG_VALUE_LTEAPN).c_str(), 64);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_SIMPIN, "SIM pin", Config.getValue(CONFIG_VALUE_SIMPIN).c_str(), 8, " type=\"password\"");
     new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">NTRIP configuration</p>"
-             "<p>To use NTRIP you need to set Correction Source to one of the NTRIP options.</p><datalist id=\"_o\"></datalist>");
+             "<p>To use NTRIP you need to set correction source to one of the NTRIP options.</p><datalist id=\"_o\"></datalist>");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_SERVER, "NTRIP correction service", Config.getValue(CONFIG_VALUE_NTRIP_SERVER).c_str(), 64, 
              " list=\"_o\" oninput=\"_m(this.value)\" placeholder=\"hostname:2101/MountPoint\" pattern=\"^([0-9a-zA-Z_\\-]+\\.)+([0-9a-zA-Z_\\-]{2,})(:[0-9]+)?\\/[0-9a-zA-Z_\\-]+$\"");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_USERNAME, "Username", Config.getValue(CONFIG_VALUE_NTRIP_USERNAME).c_str(), 64);
@@ -229,7 +229,7 @@ protected:
     len += sprintf(&bufParam[len], "<label for=\"%s\">Client Id</label><br>"
                                      "<input id=\"%s\" value=\"%s\" readonly>", 
                                       CONFIG_VALUE_CLIENTID, CONFIG_VALUE_CLIENTID, clientId.c_str());
-    len += sprintf(&bufParam[len], "<p style=\"font-weight:Bold;\">Correction Source</p>"
+    len += sprintf(&bufParam[len], "<p style=\"font-weight:Bold;\">Correction source</p>"
                                    "<label for=\"%s\">Service type and interface</label><br>"
                                    "<select id=\"%s\" name=\"%s\">", CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE);
     const char* NTRIP = "NTRIP";
