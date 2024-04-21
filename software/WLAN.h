@@ -134,7 +134,7 @@ protected:
     new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">NTRIP configuration</p>"
              "<p>To use NTRIP you need to set Correction Source to one of the NTRIP options.</p><datalist id=\"_o\"></datalist>");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_SERVER, "NTRIP correction service", Config.getValue(CONFIG_VALUE_NTRIP_SERVER).c_str(), 64, 
-             " list=\"_o\" oninput=\"_m(this.value)\" placeholder=\"server.com:2101/MountPoint\" pattern=\"^([0-9a-zA-Z_\\-]+\\.)+([0-9a-zA-Z_\\-]{2,})(:[0-9]+)?\\/[0-9a-zA-Z_\\-]+$\"");
+             " list=\"_o\" oninput=\"_m(this.value)\" placeholder=\"hostname:2101/MountPoint\" pattern=\"^([0-9a-zA-Z_\\-]+\\.)+([0-9a-zA-Z_\\-]{2,})(:[0-9]+)?\\/[0-9a-zA-Z_\\-]+$\"");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_USERNAME, "Username", Config.getValue(CONFIG_VALUE_NTRIP_USERNAME).c_str(), 64);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_PASSWORD, "Password", Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD).c_str(), 64, " type=\"password\"");
     for (int i = 0; i < p; i ++) {
@@ -896,6 +896,7 @@ const char WLAN::PORTAL_HTML[] = R"html(
   button,input[type='button'],input[type='submit']{background-color:rgb(255,76,0);}
 </style>
 <script>
+  window.onload = function _ld() { _m('ppntrip.services.u-blox.com'); }
   function _m(v) {
     try {
       const p = (0 < v.search(/(:433|:2102)/)) ? "https://" : "http://";
