@@ -443,19 +443,6 @@ protected:
   int32_t ntripGgaMs;  //!< time tag (millis()) of next GGA to be sent
   int ntripSocket;     //!< the socket handle 
 
-#if 1 
-  // override until this API is natively avialable in Sparkfun SARA-R5 library 
-  // https://github.com/sparkfun/SparkFun_u-blox_SARA-R5_Arduino_Library/pull/43
-  SARA_R5_error_t socketSetSecure(int profile, bool secure, int secprofile = -1)
-  {
-    char command[64];
-    const char *format = ((secprofile == -1) || !secure) ? "%s=%d,%d" : "%s=%d,%d,%d"; 
-    sprintf(command, format, SARA_R5_SECURE_SOCKET, profile, secure, secprofile);
-    return sendCommandWithResponse(command, SARA_R5_RESPONSE_OK_OR_ERROR, nullptr,
-            SARA_R5_STANDARD_RESPONSE_TIMEOUT);
-  }
-#endif
-
   /** Connect to a NTRIP server
    *  \param ntrip  the server:port/mountpoint to connect to
    *  \return       connection success
