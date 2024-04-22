@@ -441,59 +441,76 @@ protected:
   // -----------------------------------------------------------------------
 
   int32_t ntripGgaMs;  //!< time tag (millis()) of next GGA to be sent
-  int ntripSocket;     //!< the socket handle 
+  int ntripSocket = -1;     //!< the socket handle 
 
   /** Connect to a NTRIP server
    *  \param ntrip  the server:port/mountpoint to connect to
    *  \return       connection success
    */
   bool ntripConnect(String ntrip) {
-    int pos1 = ntrip.indexOf(':');
-    int pos2 = ntrip.indexOf('/');
-    pos1 = (-1 == pos1) ? pos2 : pos1;
-    String server = (-1   == pos1) ? ""                : ntrip.substring(0,pos1);
-    uint16_t port = (pos1 == pos2) ? NTRIP_SERVER_PORT : ntrip.substring(pos1+1,pos2).toInt();
-    String mntpnt = (-1   == pos2) ? ""                : ntrip.substring(pos2+1);
+    // parse the ntrip url
+    int pos = 0;
+    int toPos = ntrip.indexOf("://", pos);
+    String proto = (toPos > pos) ? ntrip.substring(pos,toPos) : "";
+    pos = (toPos > pos) ? toPos + 3 : pos; 
+    toPos = ntrip.indexOf(':', pos);
+    if(toPos < 0) toPos = ntrip.indexOf('/', pos);
+    String server = (toPos > pos) ? ntrip.substring(pos,toPos) : "";
+    pos = (toPos > pos) ? toPos + 1 : pos; 
+    toPos = ntrip.indexOf('/', pos);
+    uint16_t port = (toPos > pos) ? ntrip.substring(pos,toPos).toInt() : NTRIP_SERVER_PORT;
+    pos = (toPos > pos) ? toPos + 1 : pos; 
+    String mntpnt = ntrip.substring(pos);
     if ((0 == server.length()) || (0 == mntpnt.length())) return false;
-    String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
-    String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
-    String authEnc;
-    String authHead;
-    if (0 < user.length() && 0 < pwd.length()) {
-      authEnc = base64::encode(user + ":" + pwd);
-      authHead = "Authorization: Basic ";
-      authHead += authEnc + "\r\n";
-    }                    
-    log_i("server \"%s:%d\" GET \"/%s\" auth \"%s\"", server.c_str(), port, mntpnt.c_str(), authEnc.c_str());
-    char buf[256];
-    int len = sprintf(buf, "GET /%s HTTP/1.0\r\n"
-              "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
-              "%s\r\n", mntpnt.c_str(), authHead.c_str());
+    // close the socket just in case
+    if (0 > ntripSocket) {
+      socketClose(ntripSocket);
+      ntripSocket = -1;
+    }
+    // setup security context
     LTE_CHECK_INIT;
     LTE_CHECK(1) = LTE_IGNORE_LENA( resetSecurityProfile(LTE_SEC_PROFILE_NTRIP) );
     LTE_CHECK(2) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_CERT_VAL_LEVEL, SARA_R5_SEC_PROFILE_CERTVAL_OPCODE_NO); // no certificate and url/sni check
     LTE_CHECK(3) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_TLS_VER,        SARA_R5_SEC_PROFILE_TLS_OPCODE_ANYVER);
     LTE_CHECK(4) = configSecurityProfile(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_CYPHER_SUITE,   SARA_R5_SEC_PROFILE_SUITE_OPCODE_PROPOSEDDEFAULT);
     LTE_CHECK(5) = configSecurityProfileString(LTE_SEC_PROFILE_NTRIP, SARA_R5_SEC_PROFILE_PARAM_SNI,      server.c_str());
-    ntripSocket = socketOpen(SARA_R5_TCP);
-    bool isSecure = true;
-    if (0 <= ntripSocket) {
-      // connect using TLS secured socket
-      LTE_CHECK(6) = socketSetSecure(ntripSocket, isSecure, LTE_SEC_PROFILE_NTRIP);
-      LTE_CHECK(7) = socketConnect(ntripSocket, server.c_str(), port);
-      if (!LTE_CHECK_OK) {
-        // cleanup socket
-        socketClose(ntripSocket);
-        // retry using plain socket (no TLS)
-        isSecure = false;
-        ntripSocket = socketOpen(SARA_R5_TCP);
-        if (0 <= ntripSocket) {
-          LTE_CHECK_REINIT; // reset step and errors 
-          LTE_CHECK(8) = socketSetSecure(ntripSocket, isSecure, LTE_SEC_PROFILE_NTRIP);
-          LTE_CHECK(9) = socketConnect(ntripSocket, server.c_str(), port);
+    LTE_CHECK_EVAL("security");
+    // try to connect plain or secured
+    bool isSecure = !proto.equalsIgnoreCase("http"); // default to secure 
+    for (int t = 0; LTE_CHECK_OK && (2 > t) && (0 > ntripSocket); t ++) {
+      ntripSocket = socketOpen(SARA_R5_TCP);
+      if (0 <= ntripSocket) {
+        log_d("server \"%s:%d\" %s", server.c_str(), port, isSecure ? "secure" : "plain");
+        LTE_CHECK_REINIT;
+        LTE_CHECK(6 + 2*t) = socketSetSecure(ntripSocket, isSecure, LTE_SEC_PROFILE_NTRIP);
+        LTE_CHECK_EVAL("connect");
+        LTE_CHECK(7 + 2*t) = socketConnect(ntripSocket, server.c_str(), port);
+        if (!LTE_CHECK_OK) {
+          socketClose(ntripSocket);
+          ntripSocket = -1;
+          isSecure = !isSecure;
         }
       }
-      LTE_CHECK(10) = socketWrite(ntripSocket, buf, len);
+    }
+    if (!LTE_CHECK_OK || (0 > ntripSocket)) {
+      log_e("server \"%s:%d\" failed", server.c_str(), port);
+    } else {
+      // we are connected, make a GET request
+      String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
+      String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
+      String authEnc;
+      String authHead;
+      if (0 < user.length() && 0 < pwd.length()) {
+        authEnc = base64::encode(user + ":" + pwd);
+        authHead = "Authorization: Basic " + authEnc + "\r\n";
+      }                    
+      char buf[256];
+      log_i("server \"%s://%s:%d\" GET \"/%s\" user=\"%s\" pwd=\"%s\" auth=\"%s\"", isSecure ? "https" : "http", 
+                server.c_str(), port, mntpnt.c_str(), user.c_str(), pwd.c_str(), authEnc.c_str());
+      int len = sprintf(buf, "GET /%s HTTP/1.0\r\n" NTRIP_REQUEST_HEADER "%s\r\n", mntpnt.c_str(), authHead.c_str());
+      LTE_CHECK_INIT;
+      LTE_CHECK(1) = socketWrite(ntripSocket, buf, len);
+      // now get the response
       int avail = 0;
       const char* expectedReply = 0 == mntpnt.length() ? NTRIP_RESPONSE_SOURCETABLE : NTRIP_RESPONSE_ICY;
       len = strlen(expectedReply);
@@ -501,7 +518,7 @@ protected:
       int32_t now;
       do {
         vTaskDelay(10);
-        LTE_CHECK(11) = socketReadAvailable(ntripSocket, &avail);
+        LTE_CHECK(2) = socketReadAvailable(ntripSocket, &avail);
         now = millis();
       } while (LTE_CHECK_OK && (0 < (start + NTRIP_CONNECT_TIMEOUT - now)) && (avail < len));
       if (avail >= len) {
@@ -509,23 +526,27 @@ protected:
       }
       if (avail > 0) {
         memset(&buf, 0, len+1);
-        LTE_CHECK(12) = socketRead(ntripSocket, avail, buf, &avail);
+        LTE_CHECK(3) = socketRead(ntripSocket, avail, buf, &avail);
       }
-      LTE_CHECK_EVAL("connect");
+      LTE_CHECK_EVAL("reply");
       if (LTE_CHECK_OK) {
+        // evaluate the response
         buf[avail] = 0;
         if ((avail == len) && (0 == strncmp(buf, expectedReply, len))) {
-          log_i("got expected reply \"%.*s\\r\\n\"", len-2, expectedReply);
-          ntripGgaMs = now;
+          if (expectedReply == NTRIP_RESPONSE_ICY) {
+            log_i("connected");
+            ntripGgaMs = millis();
+            return true;
+          } else {
+            log_i("got source table, please provide a mountpoint");
+          }
         } else {
           log_e("expected reply \"%.*s\\r\\n\" failed after %d ms, got \"%s\"", len-2, expectedReply, now - start, buf);
-          ntripStop();
         }
-      } else {
-        ntripStop();
       }
     }
-    return 0 <= ntripSocket;
+    ntripStop();
+    return false;
   }
 
   /** Disconnect and cleanup the NTRIP connection close the socket

@@ -87,6 +87,9 @@ const int NTRIP_CONNECT_TIMEOUT           =              5000;  //!< initial res
 const unsigned short NTRIP_SERVER_PORT    =              2101;  //!< NTRIP default port
 const char* NTRIP_RESPONSE_ICY            =  "ICY 200 OK\r\n";  //!< correction data response 
 const char* NTRIP_RESPONSE_SOURCETABLE    = "SOURCETABLE 200 OK\r\n";  //!< source table response
+const char* NTRIP_RESPONSE_ENDSOURCETABLE = "ENDSOURCETABLE";   //!< end of source table
+#define NTRIP_REQUEST_HEADER                "User-Agent: " CONFIG_DEVICE_TITLE "\r\n" \
+                                          //"Ntrip-Version: Ntrip/2.0\r\n"                           
 
 // -----------------------------------------------------------------------
 // CONFIGURATION keys

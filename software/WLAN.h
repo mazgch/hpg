@@ -134,7 +134,7 @@ protected:
     new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">NTRIP configuration</p>"
              "<p>To use NTRIP you need to set correction source to one of the NTRIP options.</p><datalist id=\"_o\"></datalist>");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_SERVER, "NTRIP correction service", Config.getValue(CONFIG_VALUE_NTRIP_SERVER).c_str(), 64, 
-             " list=\"_o\" oninput=\"_m(this.value)\" placeholder=\"hostname:2101/MountPoint\" pattern=\"^([0-9a-zA-Z_\\-]+\\.)+([0-9a-zA-Z_\\-]{2,})(:[0-9]+)?\\/[0-9a-zA-Z_\\-]+$\"");
+             " list=\"_o\" oninput=\"_m(this.value)\" placeholder=\"hostname:2101/MountPoint\" pattern=\"^(https?://)?([0-9a-zA-Z_\\-]+\\.)+([0-9a-zA-Z_\\-]{2,})(:[0-9]+)?\\/[0-9a-zA-Z_\\-]+$\"");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_USERNAME, "Username", Config.getValue(CONFIG_VALUE_NTRIP_USERNAME).c_str(), 64);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_PASSWORD, "Password", Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD).c_str(), 64, " type=\"password\"");
     for (int i = 0; i < p; i ++) {
@@ -476,61 +476,74 @@ protected:
   int32_t ntripGgaMs;                 //!< time tag (millis()) of next GGA to be sent
   WiFiClient* ntripWifiClient = NULL; //!< the wifi client used for ntrip
 
+  WiFiClient* ntripConnectClient(const char *server, uint16_t port, bool isSecure) {
+    if (isSecure) {
+      WiFiClientSecure* client = new WiFiClientSecure();
+      if(NULL != client) {
+        client->setInsecure();
+        if (client->connect(server, port))
+          return client;
+        delete client;
+      }
+    } else {
+      WiFiClient* client = new WiFiClient();
+      if (NULL != client) {
+        if (client->connect(server, port))
+          return client;
+        delete client;
+      }
+    }
+    return NULL;
+  }
+
   /** Connect to a NTRIP server
    *  \param ntrip  the server:port/mountpoint to connect
    *  \return       connection success
    */
   bool ntripConnect(String ntrip) {
-    int pos1 = ntrip.indexOf(':');
-    int pos2 = ntrip.indexOf('/');
-    pos1 = (-1 == pos1) ? pos2 : pos1;
-    String server = (-1   == pos1) ? ""                : ntrip.substring(0,pos1);
-    uint16_t port = (pos1 == pos2) ? NTRIP_SERVER_PORT : ntrip.substring(pos1+1,pos2).toInt();
-    String mntpnt = (-1   == pos2) ? ""                : ntrip.substring(pos2+1);
+    // parse the ntrip url
+    int pos = 0;
+    int toPos = ntrip.indexOf("://", pos);
+    String proto = (toPos > pos) ? ntrip.substring(pos,toPos) : "";
+    pos = (toPos > pos) ? toPos + 3 : pos; 
+    toPos = ntrip.indexOf(':', pos);
+    if(toPos < 0) toPos = ntrip.indexOf('/', pos);
+    String server = (toPos > pos) ? ntrip.substring(pos,toPos) : "";
+    pos = (toPos > pos) ? toPos + 1 : pos; 
+    toPos = ntrip.indexOf('/', pos);
+    uint16_t port = (toPos > pos) ? ntrip.substring(pos,toPos).toInt() : NTRIP_SERVER_PORT;
+    pos = (toPos > pos) ? toPos + 1 : pos; 
+    String mntpnt = ntrip.substring(pos);
     if ((0 == server.length()) || (0 == mntpnt.length())) return false;
+    // close the client just in case
     if (NULL != ntripWifiClient) {
-      delete ntripWifiClient;
+      delete ntripWifiClient; 
       ntripWifiClient = NULL;
     }
-    // try to establish an SSL connection 
-    WiFiClientSecure* secureClient = new WiFiClientSecure();
-    if(NULL != secureClient) {
-      secureClient->setInsecure(); // when using WiFiClientSecure
-      if (!secureClient->connect(server.c_str(), port)) {
-        delete secureClient;
-        secureClient = NULL;
-      } else {
-        ntripWifiClient = secureClient;
-      }
-    }
-    if (NULL == ntripWifiClient) {
-      // if failed, fallback plain text connection 
-      WiFiClient* client = new WiFiClient();
-      if (NULL != client) {
-        if (!client->connect(server.c_str(), port)) {
-          delete client;
-          client = NULL;
-        } else {
-          ntripWifiClient = client;
-        }
+    // try to connect plain or secured
+    bool isSecure = !proto.equalsIgnoreCase("http"); // default to secure 
+    for (int t = 0; (2 > t) && (NULL == ntripWifiClient); t ++) {
+      log_d("server \"%s:%d\" %s", server.c_str(), port, isSecure ? "secure" : "plain");
+      ntripWifiClient = ntripConnectClient(server.c_str(), port, isSecure);
+      if(NULL == ntripWifiClient) {
+        isSecure = !isSecure;
       }
     }
     if (NULL == ntripWifiClient) {
       log_e("server \"%s:%d\" failed", server.c_str(), port);
     } else {
+      // we are connected, make a GET request
       String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
       String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
       String authEnc;
       String authHead;
       if (0 < user.length() && 0 < pwd.length()) {
         authEnc = base64::encode(user + ":" + pwd);
-        authHead = "Authorization: Basic ";
-        authHead += authEnc + "\r\n";
+        authHead = "Authorization: Basic " + authEnc + "\r\n";
       }                    
-      log_i("server \"%s:%d\" GET \"/%s\" auth \"%s\"", server.c_str(), port, mntpnt.c_str(), authEnc.c_str());
-      ntripWifiClient->printf("GET /%s HTTP/1.0\r\n"
-                "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
-                "%s\r\n", mntpnt.c_str(), authHead.c_str());
+      log_i("server \"%s://%s:%d\" GET \"/%s\" user=\"%s\" pwd=\"%s\" auth=\"%s\"",isSecure ? "https" : "http", 
+                server.c_str(), port, mntpnt.c_str(), user.c_str(), pwd.c_str(), authEnc.c_str());
+      ntripWifiClient->printf("GET /%s HTTP/1.0\r\n" NTRIP_REQUEST_HEADER "%s\r\n", mntpnt.c_str(), authHead.c_str());
       // now get the response
       int ixSrc = 0;
       int ixIcy = 0;
@@ -543,8 +556,10 @@ protected:
         } else { 
           vTaskDelay(1);
         }
-      } while ( (NTRIP_RESPONSE_SOURCETABLE[ixSrc] != '\0') && (NTRIP_RESPONSE_ICY[ixIcy] != '\0') && 
-                ntripWifiClient->connected() && (0 < (start + NTRIP_CONNECT_TIMEOUT - millis())) );
+      } while ( (NTRIP_RESPONSE_SOURCETABLE[ixSrc] != '\0') && 
+                (NTRIP_RESPONSE_ICY[ixIcy] != '\0') && 
+                (0 < (start + NTRIP_CONNECT_TIMEOUT - millis())) && 
+                ntripWifiClient->connected());
       // evaluate the response
       if (NTRIP_RESPONSE_ICY[ixIcy] == '\0') { 
         log_i("connected");
@@ -552,11 +567,10 @@ protected:
         return true;
       } else if (NTRIP_RESPONSE_SOURCETABLE[ixSrc] == '\0') {
         log_i("got source table, please provide a mountpoint");
-        String str = ntripWifiClient->readStringUntil('\n');
       } else {
         log_e("protocol failure after %d ms ix %d %d", millis() - start, ixSrc, ixIcy);
       }
-      ntripWifiClient->stop();
+      ntripStop();
     }
     return false;
   }
@@ -569,9 +583,9 @@ protected:
       if (ntripWifiClient->connected()) {
         log_i("disconnect");
         ntripWifiClient->stop();
-        delete ntripWifiClient;
-        ntripWifiClient = NULL;
       }
+      delete ntripWifiClient;
+      ntripWifiClient = NULL;
     }
   } 
   
@@ -899,36 +913,39 @@ const char WLAN::PORTAL_HTML[] = R"html(
   window.onload = function _ld() { _m('ppntrip.services.u-blox.com'); }
   function _m(v) {
     try {
-      const p = (0 < v.search(/(:433|:2102)/)) ? "https://" : "http://";
-      const u = new URL(p + v);
-      if (!u.port.length) u.port = "2101";
-      let xhr = new XMLHttpRequest();
-      function _h(s) { return s && (s.length > 0) ? s : null; } 
-      const usr = _h(document.getElementById('ntripUsername').value);
-      const pwd = _h(document.getElementById('ntripPassword').value);
-      xhr.open('GET', u.origin, true, usr, pwd);
-      xhr.setRequestHeader('Ntrip-Version', 'Ntrip/2.0');
-      xhr.onreadystatechange = _ck;
-      xhr.send();
-      function _ck(data) {
-        if (this.readyState == XMLHttpRequest.DONE) {
-          const s = this.response.split('\r\n').map( c => c.split(';') );
-          if (s[s.length-1] == "ENDSOURCETABLE") {
-            const dl = document.getElementById('_o');
-            s.forEach(o => {
-              if (o[1]) {
-                const nv = u.hostname + ':' + u.port + "/" + o[1];
-                let x = false;
-                for (let i = 0; i < dl.options.length && !x; i++) {
-                  x = (dl.options[i].value == nv)
+      let m = v.match(/^(https?:\/\/)?(([0-9a-zA-Z_\-]+\.)+[0-9a-zA-Z_\-]{2,})(:[0-9]+)?(\/[0-9a-zA-Z_\-]+)?$/);
+      if (!m[4]) m[4] = ":2101";
+      _hr("http://"  + m[2] + m[4]);
+      _hr("https://" + m[2] + m[4]);
+      function _hr(u) {
+        let xhr = new XMLHttpRequest();
+        function _h(s) { return s && (s.length > 0) ? s : null; } 
+        const usr = _h(document.getElementById('ntripUsername').value);
+        const pwd = _h(document.getElementById('ntripPassword').value);
+        xhr.open('GET', u, true, usr, pwd);
+        xhr.setRequestHeader('Ntrip-Version', 'Ntrip/2.0');
+        xhr.onreadystatechange = _ck;
+        xhr.send();
+        function _ck(data) {
+          if (this.readyState == XMLHttpRequest.DONE) {
+            const s = this.response.split('\r\n').map( c => c.split(';') );
+            if (s[s.length-1] == "ENDSOURCETABLE") {
+              const dl = document.getElementById('_o');
+              s.forEach(o => {
+                if (o[1]) {
+                  const nv = u + "/" + o[1];
+                  let x = false;
+                  for (let i = 0; i < dl.options.length && !x; i++) {
+                    x = (dl.options[i].value == nv)
+                  }
+                  if (!x) {
+                    const el = document.createElement('option');
+                    el.value = nv;
+                    dl.appendChild(el);
+                  }
                 }
-                if (!x) {
-                  const el = document.createElement('option');
-                  el.value = nv;
-                  dl.appendChild(el);
-                }
-              }
-            });
+              });
+            }
           }
         }
       }
