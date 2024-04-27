@@ -337,7 +337,7 @@ protected:
       #define LIMIT_PREC(mins, prec) (mins >= 60.0-prec) ? (60.0 - prec) : (round(mins / prec) * prec);
       fLat = LIMIT_PREC(fLat, 0.1);
       fLon = LIMIT_PREC(fLon, 0.1);
-      //                        "$GPGGA,HHMMSS.ss,DDmm.mmm,N/S,DDmm.mmm,E/W,q,sat,dop,alt,M,und,M,age,dgps"
+      // "$GPGGA,HHMMSS.ss,DDmm.mmm,N/S,DDmm.mmm,E/W,q,sat,dop,alt,M,und,M,age,dgps"
       int len = snprintf(string, sizeof(string), "$GPGGA,%02d%02d%02d.00,%02d%06.3f,%c,%03d%06.3f,%c,%c,%d,%.2f,%.1f,M,%.1f,M,,",
             ubxDataStruct->hour, ubxDataStruct->min,ubxDataStruct->sec, dLat, fLat, chLat, dLon, fLon, chLon, 
             ((ubxDataStruct->fixType != 0) && (ubxDataStruct->flags.bits.gnssFixOK)) ? '1' : '0', ubxDataStruct->numSV, 
@@ -346,7 +346,7 @@ protected:
       for (int i = 1; i < len; i ++) {
         crc ^= string[i];
       }
-      len += sprintf(&string[len], "*%02X", crc);
+      len += sprintf(&string[len], "*%02X\r\n", crc);
       Config.setValue(CONFIG_VALUE_NTRIP_GGA, string);
     }
   } 

@@ -85,11 +85,10 @@ const char MQTT_TOPIC_MGA_BDS[]       = MQTT_TOPIC_MGA "/bds";  //!< Beidou (CN)
 const int NTRIP_GGA_RATE                  =             20000;  //!< rate at which we send GGA messages 
 const int NTRIP_CONNECT_TIMEOUT           =              5000;  //!< initial response timeout 
 const unsigned short NTRIP_SERVER_PORT    =              2101;  //!< NTRIP default port
-const char* NTRIP_RESPONSE_ICY            =  "ICY 200 OK\r\n";  //!< correction data response 
-const char* NTRIP_RESPONSE_SOURCETABLE    = "SOURCETABLE 200 OK\r\n";  //!< source table response
-const char* NTRIP_RESPONSE_ENDSOURCETABLE = "ENDSOURCETABLE";   //!< end of source table
-#define NTRIP_REQUEST_HEADER                "User-Agent: " CONFIG_DEVICE_TITLE "\r\n" \
-                                          //"Ntrip-Version: Ntrip/2.0\r\n"                           
+const char* NTRIP_VERSION_1               =       "Ntrip/1.0";  //!< NTRIP version 1
+const char* NTRIP_VERSION_2               =       "Ntrip/2.0";  //!< NTRIP version 2 
+const char* NTRIP_VERSION                 =   NTRIP_VERSION_2;  //!< the NTRIP version to use 
+#define NTRIP_USE_HTTP10                                false   //!< set true if HTTP 1.0 should be used
 
 // -----------------------------------------------------------------------
 // CONFIGURATION keys
@@ -147,6 +146,8 @@ public:
     title = str;
     sprintf(str, CONFIG_DEVICE_NAMEPREFIX "-%02x%02x%02x", p[3], p[4], p[5]);
     name = str;
+    wlanReconnect = false;
+    lteReconnect = false;
   }
 
   /** get a name of the device
@@ -540,6 +541,9 @@ public:
     }
     return str;
   }
+ 
+  bool wlanReconnect; //!< a change in configuration happened, this is used to notify WLAN FSM
+  bool lteReconnect;  //!< a change in configuration happened, this is used to notify LTE FSM
 
 protected:
   

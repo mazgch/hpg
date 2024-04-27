@@ -134,7 +134,7 @@ protected:
     new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">NTRIP configuration</p>"
              "<p>To use NTRIP you need to set correction source to one of the NTRIP options.</p><datalist id=\"_o\"></datalist>");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_SERVER, "NTRIP correction service", Config.getValue(CONFIG_VALUE_NTRIP_SERVER).c_str(), 64, 
-             " list=\"_o\" oninput=\"_m(this.value)\" placeholder=\"hostname:2101/MountPoint\" pattern=\"^(https?://)?([0-9a-zA-Z_\\-]+\\.)+([0-9a-zA-Z_\\-]{2,})(:[0-9]+)?\\/[0-9a-zA-Z_\\-]+$\"");
+             " list=\"_o\" oninput=\"_m(this.value)\" placeholder=\"http://hostname:2101/MountPoint\" pattern=\"^https?://([0-9a-zA-Z_\\-]+\\.)+[0-9a-zA-Z_\\-]{2,}:[0-9]+\\/[0-9a-zA-Z_\\-]+$\"");
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_USERNAME, "Username", Config.getValue(CONFIG_VALUE_NTRIP_USERNAME).c_str(), 64);
     new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_PASSWORD, "Password", Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD).c_str(), 64, " type=\"password\"");
     for (int i = 0; i < p; i ++) {
@@ -211,12 +211,8 @@ protected:
     if (save) {
       Config.save();
       updateManagerParameters();
-      // something has changed - we should issue a restart for the WIFI (and LTE) state machines  
-      if ((state == NTRIP) || (state== MQTT)) {
-        ntripStop();
-        mqttStop();
-        setState(ONLINE);
-      }
+      Config.wlanReconnect = true;
+      Config.lteReconnect = true;
     }
   }
 
@@ -224,7 +220,7 @@ protected:
    */
   void updateManagerParameters(void) {
     String name = Config.getDeviceName();
-    int len = sprintf(bufParam, "<label>Hardware Id</label><br><input maxlength=\"20\" value=\"%s\" readonly>", name.c_str());
+    int len = sprintf(bufParam, "<label>Hardware Id</label><br><input value=\"%s\" readonly>", name.c_str());
     String clientId = Config.getValue(CONFIG_VALUE_CLIENTID);
     len += sprintf(&bufParam[len], "<label for=\"%s\">Client Id</label><br>"
                                      "<input id=\"%s\" value=\"%s\" readonly>", 
@@ -474,118 +470,42 @@ protected:
   // -----------------------------------------------------------------------
   
   int32_t ntripGgaMs;                 //!< time tag (millis()) of next GGA to be sent
-  WiFiClient* ntripWifiClient = NULL; //!< the wifi client used for ntrip
-
-  WiFiClient* ntripConnectClient(const char *server, uint16_t port, bool isSecure) {
-    if (isSecure) {
-      WiFiClientSecure* client = new WiFiClientSecure();
-      if(NULL != client) {
-        client->setInsecure();
-        if (client->connect(server, port))
-          return client;
-        delete client;
-      }
-    } else {
-      WiFiClient* client = new WiFiClient();
-      if (NULL != client) {
-        if (client->connect(server, port))
-          return client;
-        delete client;
-      }
-    }
-    return NULL;
-  }
-
+  HTTPClient ntripHttpClient;
+    
   /** Connect to a NTRIP server
-   *  \param ntrip  the server:port/mountpoint to connect
-   *  \return       connection success
+   *  \param url  the server:port/mountpoint to connect
+   *  \param ver  the ntrip version to use 
+   *  \return     connection success
    */
-  bool ntripConnect(String ntrip) {
-    // parse the ntrip url
-    int pos = 0;
-    int toPos = ntrip.indexOf("://", pos);
-    String proto = (toPos > pos) ? ntrip.substring(pos,toPos) : "";
-    pos = (toPos > pos) ? toPos + 3 : pos; 
-    toPos = ntrip.indexOf(':', pos);
-    if(toPos < 0) toPos = ntrip.indexOf('/', pos);
-    String server = (toPos > pos) ? ntrip.substring(pos,toPos) : "";
-    pos = (toPos > pos) ? toPos + 1 : pos; 
-    toPos = ntrip.indexOf('/', pos);
-    uint16_t port = (toPos > pos) ? ntrip.substring(pos,toPos).toInt() : NTRIP_SERVER_PORT;
-    pos = (toPos > pos) ? toPos + 1 : pos; 
-    String mntpnt = ntrip.substring(pos);
-    if ((0 == server.length()) || (0 == mntpnt.length())) return false;
-    // close the client just in case
-    if (NULL != ntripWifiClient) {
-      delete ntripWifiClient; 
-      ntripWifiClient = NULL;
-    }
-    // try to connect plain or secured
-    bool isSecure = !proto.equalsIgnoreCase("http"); // default to secure 
-    for (int t = 0; (2 > t) && (NULL == ntripWifiClient); t ++) {
-      log_d("server \"%s:%d\" %s", server.c_str(), port, isSecure ? "secure" : "plain");
-      ntripWifiClient = ntripConnectClient(server.c_str(), port, isSecure);
-      if(NULL == ntripWifiClient) {
-        isSecure = !isSecure;
-      }
-    }
-    if (NULL == ntripWifiClient) {
-      log_e("server \"%s:%d\" failed", server.c_str(), port);
+  bool ntripConnect(String url, const char* ver) {
+    String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
+    String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
+    ntripHttpClient.begin(url);
+    ntripHttpClient.useHTTP10(NTRIP_USE_HTTP10);
+    ntripHttpClient.setAuthorization(user.c_str(), pwd.c_str());
+    ntripHttpClient.setUserAgent(CONFIG_DEVICE_TITLE);
+    ntripHttpClient.addHeader("Ntrip-Version", ver);
+    int httpCode = ntripHttpClient.GET();
+    if (httpCode == HTTP_CODE_OK) {
+      log_i("url \"%s\" user \"%s\" pwd \"%s\" ver \"%s\" connected", 
+            url.c_str(), user.c_str(), pwd.c_str(), ver);
+      ntripGgaMs = millis();
+      return true;
     } else {
-      // we are connected, make a GET request
-      String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
-      String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
-      String authEnc;
-      String authHead;
-      if (0 < user.length() && 0 < pwd.length()) {
-        authEnc = base64::encode(user + ":" + pwd);
-        authHead = "Authorization: Basic " + authEnc + "\r\n";
-      }                    
-      log_i("server \"%s://%s:%d\" GET \"/%s\" user=\"%s\" pwd=\"%s\" auth=\"%s\"",isSecure ? "https" : "http", 
-                server.c_str(), port, mntpnt.c_str(), user.c_str(), pwd.c_str(), authEnc.c_str());
-      ntripWifiClient->printf("GET /%s HTTP/1.0\r\n" NTRIP_REQUEST_HEADER "%s\r\n", mntpnt.c_str(), authHead.c_str());
-      // now get the response
-      int ixSrc = 0;
-      int ixIcy = 0;
-      int32_t start = millis();
-      do {
-        if (ntripWifiClient->available()) {
-          char ch = ntripWifiClient->read();
-          ixSrc = (NTRIP_RESPONSE_SOURCETABLE[ixSrc] == ch) ? ixSrc + 1 : 0;
-          ixIcy = (NTRIP_RESPONSE_ICY[ixIcy]         == ch) ? ixIcy + 1 : 0;
-        } else { 
-          vTaskDelay(1);
-        }
-      } while ( (NTRIP_RESPONSE_SOURCETABLE[ixSrc] != '\0') && 
-                (NTRIP_RESPONSE_ICY[ixIcy] != '\0') && 
-                (0 < (start + NTRIP_CONNECT_TIMEOUT - millis())) && 
-                ntripWifiClient->connected());
-      // evaluate the response
-      if (NTRIP_RESPONSE_ICY[ixIcy] == '\0') { 
-        log_i("connected");
-        ntripGgaMs = millis();
-        return true;
-      } else if (NTRIP_RESPONSE_SOURCETABLE[ixSrc] == '\0') {
-        log_i("got source table, please provide a mountpoint");
-      } else {
-        log_e("protocol failure after %d ms ix %d %d", millis() - start, ixSrc, ixIcy);
-      }
-      ntripStop();
+      log_e("url \"%s\" user \"%s\" pwd \"%s\" ver \"%s\" failed code %d(%s)", 
+            url.c_str(), user.c_str(), pwd.c_str(), ver, httpCode, HTTPClient::errorToString(httpCode));
+      ntripHttpClient.end();
+      return false;
     }
-    return false;
   }
   
   /** Stop and cleanup the NTRIP connection 
    */
   void ntripStop(void)
   {
-    if (NULL != ntripWifiClient) {
-      if (ntripWifiClient->connected()) {
-        log_i("disconnect");
-        ntripWifiClient->stop();
-      }
-      delete ntripWifiClient;
-      ntripWifiClient = NULL;
+    if (ntripHttpClient.connected()) {
+      log_i("disconnect");
+      ntripHttpClient.end();
     }
   } 
   
@@ -595,37 +515,37 @@ protected:
    */
   void ntripTask(void)
   {
-    if (NULL != ntripWifiClient) {
-      int messageSize = ntripWifiClient->available();
-      if (0 < messageSize) {
-        GNSS::MSG msg;
-        msg.data = new uint8_t[messageSize];
-        if (NULL != msg.data) {
-          msg.size = ntripWifiClient->read(msg.data, messageSize);
-          if (msg.size == messageSize) {
-            msg.source = GNSS::SOURCE::WLAN;
-            log_i("read %d bytes", messageSize);
-            Gnss.inject(msg);
-          } else {
-            log_e("read %d bytes failed reading after %d", messageSize, msg.size); 
-            delete [] msg.data;
-          }
+    Stream &stream = ntripHttpClient.getStream();
+    int messageSize = stream.available();
+    if (0 < messageSize) {
+      GNSS::MSG msg;
+      msg.data = new uint8_t[messageSize];
+      if (NULL != msg.data) {
+        msg.size = stream.readBytes(msg.data, messageSize);
+        if (msg.size == messageSize) {
+          msg.source = GNSS::SOURCE::WLAN;
+          log_i("read %d bytes", messageSize);
+          Gnss.inject(msg);
         } else {
-          log_e("read %d bytes failed, no memory",  messageSize);
+          log_e("read %d bytes failed reading after %d", messageSize, msg.size); 
+          delete [] msg.data;
         }
+      } else {
+        log_e("read %d bytes failed, no memory",  messageSize);
       }
-      long now = millis();
-      if (ntripGgaMs - now <= 0) {
-        ntripGgaMs = now + NTRIP_GGA_RATE;
-        String gga = Config.getValue(CONFIG_VALUE_NTRIP_GGA);
-        if (0 < gga.length()) {
-          const char* strGga = gga.c_str();
-          int wrote = ntripWifiClient->println(strGga);
-          if (wrote != gga.length())
-            log_i("println \"%s\" %d bytes", strGga, wrote);
-          else
-            log_e("println \"%s\" %d bytes, failed", strGga, wrote);
-        }
+    }
+    // send the GGA message
+    long now = millis();
+    if (ntripGgaMs - now <= 0) {
+      String gga = Config.getValue(CONFIG_VALUE_NTRIP_GGA);
+      int len = gga.length();
+      if (0 < len) {
+        int wrote = stream.print(gga);
+        if (wrote == len) {
+          log_i("print \"%.*s\\r\\n\" %d bytes", len-2, gga.c_str(), wrote);
+          ntripGgaMs = now + NTRIP_GGA_RATE;
+        } else
+          log_e("print \"%.*s\\r\\n\" %d bytes, failed", len-2, gga.c_str(), wrote);
       }
     }
   }
@@ -847,6 +767,7 @@ protected:
             }
             break;
           case ONLINE:
+            Config.wlanReconnect = false;
             if (useMqtt) {
               if (0 == id.length()) {
                 ttagNextTry = now + WLAN_PROVISION_RETRY;
@@ -862,14 +783,14 @@ protected:
             } else if (useNtrip) {
               if (0 < ntrip.length()) {
                 ttagNextTry = now + WLAN_CONNECT_RETRY;
-                if (ntripConnect(ntrip)) {
+                if (ntripConnect(ntrip, NTRIP_VERSION)) {
                   setState(NTRIP);
                 }
               }
             }
             break;
           case MQTT:
-            if (!useMqtt || (0 == id.length()) || !mqttClient.connected()) {
+            if (!useMqtt || (0 == id.length()) || !mqttClient.connected() || Config.wlanReconnect) {
               mqttStop();
               setState(ONLINE);
             } else {
@@ -877,7 +798,7 @@ protected:
             }
             break;
           case NTRIP: 
-            if (!useNtrip || (0 == ntrip.length()) || !ntripWifiClient->connected()) {
+            if (!useNtrip || (0 == ntrip.length()) || !ntripHttpClient.connected() || Config.wlanReconnect) {
               ntripStop();
               setState(ONLINE);
             } else {
@@ -910,13 +831,23 @@ const char WLAN::PORTAL_HTML[] = R"html(
   button,input[type='button'],input[type='submit']{background-color:rgb(255,76,0);}
 </style>
 <script>
-  window.onload = function _ld() { _m('ppntrip.services.u-blox.com'); }
+  window.onload = function _ld() { 
+    let v = document.getElementById('ntripServer').value;
+    if (!v) v = 'ppntrip.services.u-blox.com';
+    _m(v);
+  }
   function _m(v) {
     try {
       let m = v.match(/^(https?:\/\/)?(([0-9a-zA-Z_\-]+\.)+[0-9a-zA-Z_\-]{2,})(:[0-9]+)?(\/[0-9a-zA-Z_\-]+)?$/);
-      if (!m[4]) m[4] = ":2101";
-      _hr("http://"  + m[2] + m[4]);
-      _hr("https://" + m[2] + m[4]);
+      if(m[2]) {
+        if (!m[4]) m[4] = ":2101";
+        if (!m[1]) {
+          _hr("http://"  + m[2] + m[4]);
+          _hr("https://" + m[2] + m[4]);
+        } else {
+          _hr(m[1] + m[2] + m[4]);
+        }
+      }
       function _hr(u) {
         let xhr = new XMLHttpRequest();
         function _h(s) { return s && (s.length > 0) ? s : null; } 
@@ -929,23 +860,21 @@ const char WLAN::PORTAL_HTML[] = R"html(
         function _ck(data) {
           if (this.readyState == XMLHttpRequest.DONE) {
             const s = this.response.split('\r\n').map( c => c.split(';') );
-            if (s[s.length-1] == "ENDSOURCETABLE") {
-              const dl = document.getElementById('_o');
-              s.forEach(o => {
-                if (o[1]) {
-                  const nv = u + "/" + o[1];
-                  let x = false;
-                  for (let i = 0; i < dl.options.length && !x; i++) {
-                    x = (dl.options[i].value == nv)
-                  }
-                  if (!x) {
-                    const el = document.createElement('option');
-                    el.value = nv;
-                    dl.appendChild(el);
-                  }
+            const dl = document.getElementById('_o');
+            s.forEach(o => {
+              if ((o[0] == "STR") && o[1]) {
+                const nv = u + "/" + o[1];
+                let f = false;
+                for (let i = 0; i < dl.options.length && !f; i++) {
+                  f = (dl.options[i].value == nv)
                 }
-              });
-            }
+                if (!f) {
+                  const el = document.createElement('option');
+                  el.value = nv;
+                  dl.appendChild(el);
+                }
+              }
+            });
           }
         }
       }
