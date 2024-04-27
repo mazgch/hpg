@@ -54,7 +54,8 @@ struct { const char* region; short lon1; short lon2; short lat1; short lat2; lon
   { "au",  111,  160, -43, -9,          0 }, // Australia
   { "jp",  128,  147,  30, 47,          0 }, // Japan
   { "kr",  126,  130,  34, 39,          0 }, // Korea
-  { "sa",   34,   56,  15, 33,          0 }  // Saudi Arabia
+  { "sa",   34,   56,  15, 33,          0 }, // Saudi Arabia
+  { "br",  -73,  -34, -34,  3,          0 }  // Brazil
 };
 
 const unsigned short MQTT_BROKER_PORT     =              8883;  //!< MQTTS port
@@ -98,7 +99,6 @@ const char* NTRIP_VERSION                 =   NTRIP_VERSION_2;  //!< the NTRIP v
 #define    CONFIG_DEVICE_NAMEPREFIX                     "hpg"   //!< a hostname compatible prefix, only a-z, 0-9 and -
 
 const char CONFIG_FFS_FILE[]              =     "/config.ffs";  //!< the file in the FFS where we store the config json
-const int  CONFIG_JSON_MAXSIZE            =            7*1024;  //!< maximun size of config JSON file
 
 // PointPerfect configuration 
 const char CONFIG_VALUE_ZTPTOKEN[]        =        "ztpToken";  //!< config key for ZTP tocken
