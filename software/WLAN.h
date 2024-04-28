@@ -51,6 +51,14 @@ const int LED_TASK_CORE           =           1;  //!< led task MCU code
 
 extern class WLAN Wlan;  //!< Forward declaration of class
 
+class ConfigWiFiManagerParameter : public WiFiManagerParameter {
+public:
+  // helper to set the parameter
+  void setCustomHTML(const char* html) {
+    _customHTML = html;
+  }
+};
+
 /** This class encapsulates all WLAN functions. 
 */
 class WLAN {
@@ -81,16 +89,17 @@ protected:
   // -----------------------------------------------------------------------
 
   WiFiManager manager;                  //!< the wifi manager provides the captive portal
-  static const char PORTAL_HTML[];      //!< the additional HTML added to the header
-  WiFiManagerParameter parameters[10];  //!< list of configuration settings 
-  char bufParam[512*4];                 //!< buffer with the parameters. 
-  
+  static const char PORTAL_HTML[];      //!< the additional HTML styles added to the header
+  static const char PORTAL_PAGE[];      //!< the additional HTML js added to parameter page
+  ConfigWiFiManagerParameter configHtml; 
+  ConfigWiFiManagerParameter configParam; 
+  String conigParams;
+    
   /** initialize the portal and websocket 
    */
   void portalInit(void) {
     WiFi.mode(WIFI_STA);
     // consfigure and start wifi manager
-    int p = 0;
     String name = Config.getDeviceName();
     const char* nameStr = name.c_str();
     //manager.resetSettings();
@@ -121,25 +130,11 @@ protected:
     };
     manager.setMenu(menu);
     manager.setCustomHeadElement(PORTAL_HTML);
-    memset(parameters, 0, sizeof(parameters));
-    new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">PointPerfect configuration</p>"
-            "<p>Don't have a device profile or u-center-config.json? Visit the <a target=\"_blank\" href=\"https://portal.thingstream.io/app/location-services\">Thingstream Portal</a> to create one.</p>");
-    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_ZTPTOKEN, 
-            "Device Profile Token or load a <a href=\"#\" onclick=\"document.getElementById('file').click();\">JSON</a> file<input hidden accept=\".json,.csv\" type=\"file\" id=\"file\" onchange=\"_l(this);\"/>", 
-            Config.getValue(CONFIG_VALUE_ZTPTOKEN).c_str(), 36, " type=\"password\" placeholder=\"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxxx\" pattern=\"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\"");
-    updateManagerParameters();
-    new (&parameters[p++]) WiFiManagerParameter(bufParam);
-    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_LTEAPN, "APN", Config.getValue(CONFIG_VALUE_LTEAPN).c_str(), 64);
-    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_SIMPIN, "SIM pin", Config.getValue(CONFIG_VALUE_SIMPIN).c_str(), 8, " type=\"password\"");
-    new (&parameters[p++]) WiFiManagerParameter("<p style=\"font-weight:Bold;\">NTRIP configuration</p>"
-             "<p>To use NTRIP you need to set correction source to one of the NTRIP options.</p><datalist id=\"_o\"></datalist>");
-    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_SERVER, "NTRIP correction service", Config.getValue(CONFIG_VALUE_NTRIP_SERVER).c_str(), 64, 
-             " list=\"_o\" oninput=\"_m(this.value)\" placeholder=\"http://hostname:2101/MountPoint\" pattern=\"^https?://([0-9a-zA-Z_\\-]+\\.)+[0-9a-zA-Z_\\-]{2,}:[0-9]+\\/[0-9a-zA-Z_\\-]+$\"");
-    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_USERNAME, "Username", Config.getValue(CONFIG_VALUE_NTRIP_USERNAME).c_str(), 64);
-    new (&parameters[p++]) WiFiManagerParameter(CONFIG_VALUE_NTRIP_PASSWORD, "Password", Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD).c_str(), 64, " type=\"password\"");
-    for (int i = 0; i < p; i ++) {
-      manager.addParameter(&parameters[i]);
-    }
+    
+    configHtml.setCustomHTML(PORTAL_PAGE);
+    manager.addParameter( &configHtml );
+    updateConfigParams();  
+    manager.addParameter( &configParam );
     Websocket.setup(manager);
     manager.setWebServerCallback(std::bind(&WEBSOCKET::bind, &Websocket)); 
       
@@ -147,6 +142,38 @@ protected:
     manager.autoConnect(nameStr);
   } 
   
+  void updateConfigParams(void) {
+    conigParams = "<script>var params = {" CONFIG_VALUE_HARDWAREID ":\"";
+    conigParams += Config.getDeviceName();
+
+    conigParams += "\"," CONFIG_VALUE_ZTPTOKEN ":\"";
+    conigParams += Config.getValue(CONFIG_VALUE_ZTPTOKEN);
+    conigParams += "\"," CONFIG_VALUE_CLIENTID ":\"";
+    conigParams += Config.getValue(CONFIG_VALUE_CLIENTID);
+    
+    conigParams += "\"," CONFIG_VALUE_NTRIP_SERVER ":\"";
+    conigParams += Config.getValue(CONFIG_VALUE_NTRIP_SERVER);
+    conigParams += "\"," CONFIG_VALUE_NTRIP_USERNAME ":\"";
+    conigParams += Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
+    conigParams += "\"," CONFIG_VALUE_NTRIP_PASSWORD ":\"";
+    conigParams += Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
+    conigParams += "\"," CONFIG_VALUE_NTRIP_VERSION ":\"";
+    conigParams += Config.getValue(CONFIG_VALUE_NTRIP_VERSION);
+
+    conigParams += "\"," CONFIG_VALUE_USESOURCE ":\"";
+    conigParams += Config.getValue(CONFIG_VALUE_USESOURCE);
+
+    conigParams += "\"," CONFIG_VALUE_MNOPROF ":\"";
+    conigParams += Config.getValue(CONFIG_VALUE_MNOPROF);
+    conigParams += "\"," CONFIG_VALUE_LTEAPN ":\"";
+    conigParams += Config.getValue(CONFIG_VALUE_LTEAPN);
+    conigParams += "\"," CONFIG_VALUE_SIMPIN ":\"";
+    conigParams += Config.getValue(CONFIG_VALUE_SIMPIN);
+
+    conigParams += "\"};</script>";
+    configParam.setCustomHTML(conigParams.c_str());
+  }
+
   /** start the portal and report the IP
    */
   void portalStart() {
@@ -210,98 +237,12 @@ protected:
     }
     if (save) {
       Config.save();
-      updateManagerParameters();
+      updateConfigParams();
       Config.wlanReconnect = true;
       Config.lteReconnect = true;
     }
   }
 
-  /** Update the html buffer used for parameters of the configuration manager 
-   */
-  void updateManagerParameters(void) {
-    String name = Config.getDeviceName();
-    int len = sprintf(bufParam, "<label>Hardware Id</label><br><input value=\"%s\" readonly>", name.c_str());
-    String clientId = Config.getValue(CONFIG_VALUE_CLIENTID);
-    len += sprintf(&bufParam[len], "<label for=\"%s\">Client Id</label><br>"
-                                     "<input id=\"%s\" value=\"%s\" readonly>", 
-                                      CONFIG_VALUE_CLIENTID, CONFIG_VALUE_CLIENTID, clientId.c_str());
-    len += sprintf(&bufParam[len], "<p style=\"font-weight:Bold;\">Correction source</p>"
-                                   "<label for=\"%s\">Service type and interface</label><br>"
-                                   "<select id=\"%s\" name=\"%s\">", CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE, CONFIG_VALUE_USESOURCE);
-    const char* NTRIP = "NTRIP";
-    const char* POINTPERFECT = "PointPerfect";
-    const struct { const char* group; const char* str; } optSource[] = { 
-      { NULL,         "none"                },
-      //              ---- PointPerfect ---- 
-      { POINTPERFECT, "WLAN + LTE + LBAND", },
-      { POINTPERFECT, "WLAN + LBAND",       }, 
-      { POINTPERFECT, "WLAN + LTE",         },
-      { POINTPERFECT, "WLAN",               },
-      { POINTPERFECT, "LTE + LBAND",        }, 
-      { POINTPERFECT, "LTE",                },
-      { POINTPERFECT, "LBAND",              },
-      //              ---- NTRIP -----
-      { NTRIP,        "WLAN + LTE",         }, 
-      { NTRIP,        "WLAN",               },
-      { NTRIP,        "LTE",                }
-    };
-    String selected = Config.getValue(CONFIG_VALUE_USESOURCE); 
-    if (!selected.length()) {
-      selected = optSource[0].str; 
-      Config.setValue(CONFIG_VALUE_USESOURCE, selected);
-    }
-    const char* group = NULL;
-    for (int i = 0; i < sizeof(optSource)/sizeof(*optSource); i ++) {
-      String value = optSource[i].str;
-      if (optSource[i].group) {
-        value = String(optSource[i].group) + ": " + value;
-        if (group != optSource[i].group) {
-          len += sprintf(&bufParam[len], "<option disabled>---- %s ----</option>", optSource[i].group); 
-        }
-      }
-      group = optSource[i].group;
-      len += sprintf(&bufParam[len], "<option%s value=\"%s\">%s</option>", 
-              selected.equals(value) ? " selected" : "", value.c_str(), optSource[i].str);
-    }
-    
-    len += sprintf(&bufParam[len],  "</select>"
-                            "<p style=\"font-weight:bold;\">LTE configuration</p>"
-                            "<label for=\"%s\">MNO Profile</label><br>"
-                            "<select id=\"%s\" name=\"%s\">", CONFIG_VALUE_MNOPROF, CONFIG_VALUE_MNOPROF, CONFIG_VALUE_MNOPROF);
-    const struct { uint8_t val; const char* str; } optMno[] = {   
-      { MNO_SIM_ICCID,      "SIM ICCID"               },
-      { MNO_GLOBAL,         "Global"                  },
-      { MNO_STD_EUROPE,     "Standard Europe"         },
-      { MNO_STD_EU_NOEPCO,  "Standard Europe No-ePCO" },
-      { MNO_ATT,            "AT&T"                    },
-      { MNO_VERIZON ,       "Verizon"                 },
-      { MNO_TMO,            "T-Mobile US"             },
-      { MNO_US_CELLULAR,    "US Cellular"             },
-      { MNO_TELSTRA,        "Telstra"                 },
-      { MNO_SPRINT,         "Sprint"                  },
-      { MNO_VODAFONE,       "Vodaphone"               },
-      { MNO_DT,             "Deutsche Telekom"        },
-      { MNO_TELUS,          "Telus"                   },
-      { MNO_NTT_DOCOMO,     "NTT Docomo"              },
-      { MNO_SOFTBANK,       "Softbank"                },
-      { MNO_SKT,            "SKT"                     },
-      { MNO_CT,             "China Telecom"           },
-      { MNO_SW_DEFAULT,     "Undefined / regulatory"  }
-    };
-    uint8_t mno = MNO_GLOBAL;
-    selected = Config.getValue(CONFIG_VALUE_MNOPROF);
-    if (selected.length()) {
-      mno = (mobile_network_operator_t)selected.toInt();
-    } else {
-      mno = MNO_GLOBAL;
-      Config.setValue(CONFIG_VALUE_MNOPROF, String(mno));
-    }
-    for (int i = 0; i < sizeof(optMno)/sizeof(*optMno); i ++) {
-      len += sprintf(&bufParam[len], "<option%s value=\"%d\">%s</option>", (mno == optMno[i].val) ? " selected" : "", optMno[i].val, optMno[i].str);
-    } 
-    len += sprintf(&bufParam[len], "</select>");
-  }
-  
   // -----------------------------------------------------------------------
   // MQTT / PointPerfect
   // -----------------------------------------------------------------------
@@ -474,17 +415,17 @@ protected:
     
   /** Connect to a NTRIP server
    *  \param url  the server:port/mountpoint to connect
-   *  \param ver  the ntrip version to use 
    *  \return     connection success
    */
-  bool ntripConnect(String url, const char* ver) {
+  bool ntripConnect(String url) {
     String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
     String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
+    String ver = Config.getValue(CONFIG_VALUE_NTRIP_VERSION);
     ntripHttpClient.begin(url);
     ntripHttpClient.useHTTP10(NTRIP_USE_HTTP10);
     ntripHttpClient.setAuthorization(user.c_str(), pwd.c_str());
     ntripHttpClient.setUserAgent(CONFIG_DEVICE_TITLE);
-    ntripHttpClient.addHeader("Ntrip-Version", ver);
+    ntripHttpClient.addHeader("Ntrip-Version", ver.c_str());
     int httpCode = ntripHttpClient.GET();
     if (httpCode == HTTP_CODE_OK) {
       log_i("url \"%s\" user \"%s\" pwd \"%s\" ver \"%s\" connected", 
@@ -492,8 +433,9 @@ protected:
       ntripGgaMs = millis();
       return true;
     } else {
+      String err = HTTPClient::errorToString(httpCode);
       log_e("url \"%s\" user \"%s\" pwd \"%s\" ver \"%s\" failed code %d(%s)", 
-            url.c_str(), user.c_str(), pwd.c_str(), ver, httpCode, HTTPClient::errorToString(httpCode));
+            url.c_str(), user.c_str(), pwd.c_str(), ver, httpCode, err.c_str());
       ntripHttpClient.end();
       return false;
     }
@@ -783,7 +725,7 @@ protected:
             } else if (useNtrip) {
               if (0 < ntrip.length()) {
                 ttagNextTry = now + WLAN_CONNECT_RETRY;
-                if (ntripConnect(ntrip, NTRIP_VERSION)) {
+                if (ntripConnect(ntrip)) {
                   setState(NTRIP);
                 }
               }
@@ -820,7 +762,9 @@ WLAN Wlan; //!< The global WLAN peripherial object
 // Resources served
 // --------------------------------------------------------------------------------------
 
-//! the additional HTML added to the header
+//! the additional HTML styles added to the header
+
+
 const char WLAN::PORTAL_HTML[] = R"html(
 <style>
   .wrap{max-width:800px;}
@@ -830,93 +774,201 @@ const char WLAN::PORTAL_HTML[] = R"html(
   input[type='file']:focus,input:focus{border: 2px solid #555;}input[readonly]:focus{border: 2px solid #ccc;}
   button,input[type='button'],input[type='submit']{background-color:rgb(255,76,0);}
 </style>
+)html";
+
+const char WLAN::PORTAL_PAGE[] = R"(
+<p style="font-weight:Bold;">PointPerfect configuration</p>
+<p>Don't have a device profile token or u-center-config.json? Visit the <a href="https://portal.thingstream.io/app/location-services" target="_blank">Thingstream Portal</a> to create one.</p>
+
+<label for=")" CONFIG_VALUE_ZTPTOKEN R"(">Device profile token or load a
+  <a href="#" onclick="document.getElementById('selectFile').click();">JSON</a> file</label>
+<input id=")" CONFIG_VALUE_ZTPTOKEN R"(" name=")" CONFIG_VALUE_ZTPTOKEN R"("maxLength="36" type="password" 
+  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxxx" 
+  pattern="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}" />
+<input id="selectFile" type="file" hidden accept=".json,.csv" onchange="_jsonLoad(this);" />
+
+<label for=")" CONFIG_VALUE_HARDWAREID R"(">Hardware ID</label>
+<input id=")" CONFIG_VALUE_HARDWAREID R"(" readonly />
+
+<label for=")" CONFIG_VALUE_CLIENTID R"(">Client ID</label>
+<input id=")" CONFIG_VALUE_CLIENTID R"(" name=")" CONFIG_VALUE_CLIENTID R"(" maxLength="36" readonly
+  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxxx" />
+
+<p style="font-weight:Bold;">NTRIP configuration</p>
+
+<label for=")" CONFIG_VALUE_NTRIP_SERVER R"(">NTRIP server</label>
+<input id=")" CONFIG_VALUE_NTRIP_SERVER R"(" name=")" CONFIG_VALUE_NTRIP_SERVER R"(" maxLength="64" 
+  oninput="addMountpoints(this.value);" list="ntripMountpoints"  
+  placeholder="http://hostname:2101/MountPoint" 
+  pattern="^https?://([0-9a-zA-Z_\-]+\.)+[0-9a-zA-Z_\-]{2,}:[0-9]+\/[0-9a-zA-Z_\-]+$" />
+<datalist id="ntripMountpoints"></datalist>
+
+<label for=")" CONFIG_VALUE_NTRIP_USERNAME R"(">Username</label>
+<input id=")" CONFIG_VALUE_NTRIP_USERNAME R"(" name=")" CONFIG_VALUE_NTRIP_USERNAME R"(" maxLength="64"/>
+
+<label for=")" CONFIG_VALUE_NTRIP_PASSWORD R"(">Password</label>
+<input id=")" CONFIG_VALUE_NTRIP_PASSWORD R"(" name=")" CONFIG_VALUE_NTRIP_PASSWORD R"( maxLength="64" type="password"/>
+
+<label for=")" CONFIG_VALUE_NTRIP_VERSION R"(">Ntrip version</label>
+<select id=")" CONFIG_VALUE_NTRIP_VERSION R"(" name=")" CONFIG_VALUE_NTRIP_VERSION R"(">
+  <option value=")" NTRIP_VERSION_2 R"(">)" NTRIP_VERSION_2 R"(</option>
+  <option value=")" NTRIP_VERSION_1 R"(">)" NTRIP_VERSION_1 R"(</option>
+</select>
+
+<p style="font-weight:Bold;">Correction source</p>
+<label for=")" CONFIG_VALUE_USESOURCE R"(">Service type and interface</label>
+<select id=")" CONFIG_VALUE_USESOURCE R"(" name=")" CONFIG_VALUE_USESOURCE R"(">
+  <option value="none">none</option>
+  <option disabled>---- PointPerfect (MQTT) ----</option>
+  <option value="PointPerfect: WLAN + LTE + LBAND">WLAN + LTE + LBAND</option>
+  <option value="PointPerfect: WLAN + LBAND">WLAN + LBAND</option>
+  <option value="PointPerfect: WLAN + LTE">WLAN + LTE</option>
+  <option value="PointPerfect: WLAN">WLAN</option>
+  <option value="PointPerfect: LTE + LBAND">LTE + LBAND</option>
+  <option value="PointPerfect: LTE">LTE</option>
+  <option value="PointPerfect: LBAND">LBAND</option>
+  <option disabled>---- NTRIP ----</option>
+  <option value="NTRIP: WLAN + LTE">WLAN + LTE</option>
+  <option value="NTRIP: WLAN">WLAN</option>
+  <option value="NTRIP: LTE">LTE</option>
+</select>
+
+)" /* LTE CONFIG : this must match with the enum mobile_network_operator_t */ R"(
+<p style="font-weight:Bold;">LTE configuration</p>
+<label for=")" CONFIG_VALUE_LTEAPN R"(">APN</label>
+<input id=")" CONFIG_VALUE_LTEAPN R"(" name=")" CONFIG_VALUE_LTEAPN R"(" maxLength="64" />
+
+<label for=")" CONFIG_VALUE_SIMPIN R"(">SIM pin </label>
+<input id=")" CONFIG_VALUE_SIMPIN R"(" name=")" CONFIG_VALUE_SIMPIN R"(" maxLength="8" type="password" />
+
+<label for=")" CONFIG_VALUE_MNOPROF R"(">MNO profile</label>
+<select id=")" CONFIG_VALUE_MNOPROF R"(" name=")" CONFIG_VALUE_MNOPROF R"(">
+  <option value="1">SIM ICCID</option>
+  <option value="90">Global</option>
+  <option value="100">Standard Europe</option>
+  <option value="101">Standard Europe No-ePCO</option>
+  <option value="2">AT&amp;T</option>
+  <option value="3">Verizon</option>
+  <option value="5">T-Mobile US</option>
+  <option value="32">US Cellular</option>
+  <option value="4">Telstra</option>
+  <option value="8">Sprint</option>
+  <option value="19">Vodaphone</option>
+  <option value="31">Deutsche Telekom</option>
+  <option value="21">Telus</option>
+  <option value="20">NTT Docomo</option>
+  <option value="28">Softbank</option>
+  <option value="39">SKT</option>
+  <option value="6">China Telecom</option>
+  <option value="0">Undefined / regulatory</option>
+</select>
+  
 <script>
-  window.onload = function _ld() { 
-    let v = document.getElementById('ntripServer').value;
-    if (!v) v = 'ppntrip.services.u-blox.com';
-    _m(v);
-  }
-  function _m(v) {
-    try {
-      let m = v.match(/^(https?:\/\/)?(([0-9a-zA-Z_\-]+\.)+[0-9a-zA-Z_\-]{2,})(:[0-9]+)?(\/[0-9a-zA-Z_\-]+)?$/);
-      if(m[2]) {
-        if (!m[4]) m[4] = ":2101";
-        if (!m[1]) {
-          _hr("http://"  + m[2] + m[4]);
-          _hr("https://" + m[2] + m[4]);
-        } else {
-          _hr(m[1] + m[2] + m[4]);
-        }
+  function addMountpoints(url) {
+    let m = url.match(/^(https?:\/\/)?(([0-9a-zA-Z_\-]+\.)+[0-9a-zA-Z_\-]{2,})(:[0-9]+)?(\/[0-9a-zA-Z_\-]+)?$/);
+    if(m[2]) {
+      if (!m[4]) m[4] = ':2101';
+      if (!m[1]) {
+        ntripSourceTable('http://'  + m[2] + m[4]);
+        ntripSourceTable('https://' + m[2] + m[4]);
+      } else {
+        ntripSourceTable(m[1] + m[2] + m[4]);
       }
-      function _hr(u) {
-        let xhr = new XMLHttpRequest();
-        function _h(s) { return s && (s.length > 0) ? s : null; } 
-        const usr = _h(document.getElementById('ntripUsername').value);
-        const pwd = _h(document.getElementById('ntripPassword').value);
-        xhr.open('GET', u, true, usr, pwd);
-        xhr.setRequestHeader('Ntrip-Version', 'Ntrip/2.0');
-        xhr.onreadystatechange = _ck;
+    }
+    function ntripSourceTable(url) {
+      try {
+        const xhr = new XMLHttpRequest();
+        const usr = _getById(')" CONFIG_VALUE_NTRIP_USERNAME R"(');
+        const pwd = _getById(')" CONFIG_VALUE_NTRIP_PASSWORD R"(');
+        xhr.open('GET', url, true, usr, pwd);
+        xhr.setRequestHeader('Ntrip-Version', ')" NTRIP_VERSION_2 R"(');
+        xhr.onreadystatechange = _onReadyState;
         xhr.send();
-        function _ck(data) {
+        function _getById(id) { 
+          let el = document.getElementById(id);
+          return (el && el.value && (el.value != "")) ? el.value : null; 
+        } 
+        function _onReadyState(data) {
           if (this.readyState == XMLHttpRequest.DONE) {
-            const s = this.response.split('\r\n').map( c => c.split(';') );
-            const dl = document.getElementById('_o');
-            s.forEach(o => {
-              if ((o[0] == "STR") && o[1]) {
-                const nv = u + "/" + o[1];
-                let f = false;
-                for (let i = 0; i < dl.options.length && !f; i++) {
-                  f = (dl.options[i].value == nv)
+            const tbl = this.response.split('\r\n').map( c => c.split(';') );
+            const lst = document.getElementById('ntripMountpoints');
+            tbl.forEach(_insertMountpoint);
+            function _insertMountpoint(mp) {
+              if ((mp[0] == "STR") && mp[1]) {
+                const val = url + "/" + mp[1];
+                let found = false;
+                for (let i = 0; i < lst.options.length && !found; i++) {
+                  found = (lst.options[i].value == val)
                 }
-                if (!f) {
-                  const el = document.createElement('option');
-                  el.value = nv;
-                  dl.appendChild(el);
+                if (!found) {
+                  const el = document.createElement('OPTION');
+                  el.value = val;
+                  lst.appendChild(el);
                 }
               }
-            });
+            }
           }
         }
+      } catch (e) { 
+        // nothing
       }
-    } catch (e) {
     }
   }
-  function _l(_i){
-    var _r = new FileReader();
-    function _s(_n,_v,_h){
-      var _e=document.getElementById(_n);
-      if (!_e) {
-        _e=document.createElement('input');
-        if (_e) {
-          _e.id=_n;
-          _i.appendChild(_e);
-        }
-      }
-      if (_e) {
-        _e.name=_n;
-        _e.value=_v;
-      }
-      if (_e && (null != _h)) _h ? _e.setAttribute('hidden','') : _e.removeAttribute('hidden')
-    }
-    _r.onload = function _d(){
+  function _jsonLoad(lst){
+    const rd = new FileReader();
+    rd.onload = function _fileOnLoad(){
       try {
-        var _j = JSON.parse(_r.result);
-        var _c = _j.MQTT.Connectivity;
-        var _o = { };
-        _s('clientId', _c.ClientID);
-        _s('brokerHost', _c.ServerURI.match(/\s*:\/\/(.*):\d+/)[1]);
-        _c = _c.ClientCredentials;
-        _s('clientKey', _c.Key, true);
-        _s('clientCert', _c.Cert, true);
-        _s('rootCa', _c.RootCA, true);
-        _s('stream', _j.MQTT.Subscriptions.Key.KeyTopics[0].match(/.{2}$/)[0]);
-        _s('ztpToken', '');
-        _i.value = '';
+        const j = JSON.parse(rd.result);
+        let c = j.MQTT.Connectivity;
+        _addInput('clientId',c.ClientID, false);
+        _addInput('brokerHost',c.ServerURI.match(/\s*:\/\/(.*):\d+/)[1], true);
+        _addInput('stream',j.MQTT.Subscriptions.Key.KeyTopics[0].match(/.{2}$/)[0], true);
+        c = c.ClientCredentials;
+        _addInput('clientKey',c.Key,true);
+        _addInput('clientCert',c.Cert,true);
+        _addInput('rootCa',c.RootCA,true);
+        _addInput('ztpToken','');
+        lst.value = '';
+        function _addInput(id,val,hide){
+          var el = document.getElementById(id);
+          if (!el) {
+            el = document.createElement('INPUT');
+            if (el) {
+              el.id = id;
+              lst.insertAdjacentElement('afterend', el);
+            }
+          }
+          if (el) {
+            el.name = id;
+            el.value = val;
+          }
+          if (el && (null != hide)) hide ? el.setAttribute('hidden','') : el.removeAttribute('hidden')
+        }
       } catch(e) { alert('bad json content'); }
     };
-    if (_i.files[0]) _r.readAsText(_i.files[0]);
+    if (lst.files[0]) rd.readAsText(lst.files[0]);
   };
+  window.onload = function _winOnLoad() {
+    // initialize the input fields from. params
+    if (params) {
+      for (const [id, val] of Object.entries(params)) {
+        const el = document.getElementById(id);
+        if (el) {
+          if (el.tagName === 'INPUT') {
+              el.value = val;
+          } else if (el.tagName === 'SELECT') {
+            for (const opt of el.options) {
+              opt.selected = (opt.value === val);
+            }
+          }
+        } else { alert('cant set ' + id + ' ' + val); }
+      }
+    }
+    const el = document.getElementById(')" CONFIG_VALUE_NTRIP_SERVER R"(');
+    if (el) addMountpoints(el.value);
+    addMountpoints('ppntrip.services.u-blox.com');
+  }
 </script>
-)html";
+)";
 
 #endif // __WLAN_H__

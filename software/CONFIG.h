@@ -86,9 +86,8 @@ const char MQTT_TOPIC_MGA_BDS[]       = MQTT_TOPIC_MGA "/bds";  //!< Beidou (CN)
 const int NTRIP_GGA_RATE                  =             20000;  //!< rate at which we send GGA messages 
 const int NTRIP_CONNECT_TIMEOUT           =              5000;  //!< initial response timeout 
 const unsigned short NTRIP_SERVER_PORT    =              2101;  //!< NTRIP default port
-const char* NTRIP_VERSION_1               =       "Ntrip/1.0";  //!< NTRIP version 1
-const char* NTRIP_VERSION_2               =       "Ntrip/2.0";  //!< NTRIP version 2 
-const char* NTRIP_VERSION                 =   NTRIP_VERSION_2;  //!< the NTRIP version to use 
+#define NTRIP_VERSION_1                           "Ntrip/1.0"   //!< NTRIP version 1
+#define NTRIP_VERSION_2                           "Ntrip/2.0"   //!< NTRIP version 2 
 #define NTRIP_USE_HTTP10                                false   //!< set true if HTTP 1.0 should be used
 
 // -----------------------------------------------------------------------
@@ -100,32 +99,34 @@ const char* NTRIP_VERSION                 =   NTRIP_VERSION_2;  //!< the NTRIP v
 
 const char CONFIG_FFS_FILE[]              =     "/config.ffs";  //!< the file in the FFS where we store the config json
 
+#define CONFIG_VALUE_HARDWAREID                  "hardwareId" 
+
 // PointPerfect configuration 
-const char CONFIG_VALUE_ZTPTOKEN[]        =        "ztpToken";  //!< config key for ZTP tocken
-const char CONFIG_VALUE_BROKERHOST[]      =      "brokerHost";  //!< config key for brocker host
-const char CONFIG_VALUE_STREAM[]          =          "stream";  //!< config key for stream
-const char CONFIG_VALUE_ROOTCA[]          =          "rootCa";  //!< config key for root certificate
-const char CONFIG_VALUE_CLIENTCERT[]      =      "clientCert";  //!< config key for client certificate
-const char CONFIG_VALUE_CLIENTKEY[]       =       "clientKey";  //!< config key for client keys
-const char CONFIG_VALUE_CLIENTID[]        =        "clientId";  //!< config key for client id
+#define CONFIG_VALUE_CLIENTID                       "clientId"   //!< config key for client id
+#define CONFIG_VALUE_ZTPTOKEN                       "ztpToken"   //!< config key for ZTP tocken
+const char CONFIG_VALUE_STREAM[]          =           "stream";  //!< config key for stream (temprorary)
+const char CONFIG_VALUE_BROKERHOST[]      =       "brokerHost";  //!< config key for brocker host (json inject)
+const char CONFIG_VALUE_ROOTCA[]          =           "rootCa";  //!< config key for root certificate (json inject)
+const char CONFIG_VALUE_CLIENTCERT[]      =       "clientCert";  //!< config key for client certificate (json inject)
+const char CONFIG_VALUE_CLIENTKEY[]       =        "clientKey";  //!< config key for client keys (json inject)
 
 // NTRIP setting
-const char CONFIG_VALUE_NTRIP_SERVER[]    =     "ntripServer";  //!< config key for NTRIP server
-const char CONFIG_VALUE_NTRIP_MOUNTPT[]   = "ntripMountpoint";  //!< config key for NTRIP mount point
-const char CONFIG_VALUE_NTRIP_USERNAME[]  =   "ntripUsername";  //!< config key for NTRIP user name
-const char CONFIG_VALUE_NTRIP_PASSWORD[]  =   "ntripPassword";  //!< config key for NTRIP password
+#define CONFIG_VALUE_NTRIP_SERVER                "ntripServer"   //!< config key for NTRIP server
+#define CONFIG_VALUE_NTRIP_USERNAME            "ntripUsername"   //!< config key for NTRIP user name
+#define CONFIG_VALUE_NTRIP_PASSWORD            "ntripPassword"   //!< config key for NTRIP password
+#define CONFIG_VALUE_NTRIP_VERSION              "ntripVersion"   //!< config key for NTRIP version
 const char CONFIG_VALUE_NTRIP_GGA[]       =        "ntripGga";  //!< config key for current GGA sentence (temprorary)
 
 // temporary settings
 const char CONFIG_VALUE_REGION[]          =          "region";  //!< config key for current PointPerfect region (temprorary)        
 const char CONFIG_VALUE_FREQ[]            =            "freq";  //!< config key for current LBAND frequency (temprorary)
 const char CONFIG_VALUE_KEY[]             =           "ppKey";  //!< config key for current LBAND keys (temprorary)
-const char CONFIG_VALUE_USESOURCE[]       =       "useSource";  //!< config key for current correction source in use (temprorary)
+#define CONFIG_VALUE_USESOURCE                    "useSource"   //!< config key for current correction source in use (temprorary)
 
 // Modem setting
-const char CONFIG_VALUE_LTEAPN[]          =          "LteApn";  //!< config key for modem APN
-const char CONFIG_VALUE_SIMPIN[]          =          "simPin";  //!< config key for SIM PIN
-const char CONFIG_VALUE_MNOPROF[]         =      "mnoProfile";  //!< config key for modem MNO profile
+#define CONFIG_VALUE_LTEAPN                          "LteApn"   //!< config key for modem APN
+#define CONFIG_VALUE_SIMPIN                          "simPin"   //!< config key for SIM PIN
+#define CONFIG_VALUE_MNOPROF                     "mnoProfile"   //!< config key for modem MNO profile
                           
 /** This class encapsulates all WLAN functions. 
 */

@@ -449,10 +449,10 @@ protected:
    *  \param ver  the ntrip version to use 
    *  \return     connection success
    */
-  bool ntripConnect(String url, const char* ver) {
+  bool ntripConnect(String url) {
     int pos = 0;
     int toPos = url.indexOf("://", pos);
-    String proto = (toPos > pos) ? url.substring(pos,toPos) : "http";
+    String proto = (toPos > pos) ? url.substring(pos,toPos) : "";
     pos = (toPos > pos) ? toPos + 3 : pos; 
     toPos = url.indexOf(':', pos);
     if(toPos < 0) toPos = url.indexOf('/', pos);
@@ -462,7 +462,7 @@ protected:
     uint16_t port = (toPos > pos) ? url.substring(pos,toPos).toInt() : NTRIP_SERVER_PORT;
     pos = (toPos > pos) ? toPos + 1 : pos; 
     String mntpnt = url.substring(pos);
-    if ((0 == server.length()) || (0 == mntpnt.length())) return false;
+    if ((0 == proto.length()) || (0 == server.length()) || (0 == mntpnt.length())) return false;
     // close the socket just in case
     if (0 > ntripSocket) {
       socketClose(ntripSocket);
@@ -487,6 +487,7 @@ protected:
         // get request
         String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
         String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
+        String ver = Config.getValue(CONFIG_VALUE_NTRIP_VERSION);
         String authEnc;
         String authHead;
         if (0 < user.length() && 0 < pwd.length()) {
@@ -495,7 +496,7 @@ protected:
         }                    
         char buf[256];
         log_d("GET \"/%s\" user=\"%s\" pwd=\"%s\" auth=\"%s\" ver=\"%s\"", 
-              mntpnt.c_str(), user.c_str(), pwd.c_str(), authEnc.c_str(), ver);
+              mntpnt.c_str(), user.c_str(), pwd.c_str(), authEnc.c_str(), ver.c_str());
         int len = sprintf(buf, 
 #if NTRIP_USE_HTTP10
               "GET /%s HTTP/1.0\r\n"
@@ -504,12 +505,12 @@ protected:
 #endif
               "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
               "Ntrip-Version: %s\r\n" 
-              "%s\r\n", mntpnt.c_str(), ver, authHead.c_str());
+              "%s\r\n", mntpnt.c_str(), ver.c_str(), authHead.c_str());
         LTE_CHECK_INIT;
         LTE_CHECK(8) = socketWrite(ntripSocket, buf, len);
         // now get the response
         int avail = 0;
-        bool ntripV1 = 0 == strcmp(ver, NTRIP_VERSION_1);
+        bool ntripV1 = ver.equals(NTRIP_VERSION_1);
         len = ntripV1 ? 12 /* "ICY 200 OK\r\n" */: 17 /* "HTTP/x.x 200 OK\r\n" */;
         int32_t start = millis();
         int32_t now;
@@ -948,7 +949,7 @@ protected:
             if (useNtrip) {
               if (0 < ntrip.length()) {
                 ttagNextTry = now + LTE_CONNECT_RETRY;
-                if (ntripConnect(ntrip, NTRIP_VERSION)) {
+                if (ntripConnect(ntrip)) {
                   setState(NTRIP);
                 }
               } 
