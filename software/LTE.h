@@ -966,7 +966,7 @@ protected:
           case MQTT:
             if (!useMqtt || (0 == id.length()) || Config.lteReconnect) {
               if (mqttStop()) {
-                setState(ONLINE);
+                setState(ONLINE, LTE_1S_RETRY);
               }
             } else {
               mqttTask();
@@ -975,7 +975,7 @@ protected:
           case NTRIP: 
             if (!useNtrip || (0 == ntrip.length()) || Config.lteReconnect) {
               ntripStop();
-              setState(ONLINE);
+              setState(ONLINE, LTE_1S_RETRY);
             } else {
               ntripTask();
             }

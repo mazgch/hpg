@@ -734,7 +734,7 @@ protected:
           case MQTT:
             if (!useMqtt || (0 == id.length()) || !mqttClient.connected() || Config.wlanReconnect) {
               mqttStop();
-              setState(ONLINE);
+              setState(ONLINE, WLAN_1S_RETRY);
             } else {
               mqttTask();
             }
@@ -742,7 +742,7 @@ protected:
           case NTRIP: 
             if (!useNtrip || (0 == ntrip.length()) || !ntripHttpClient.connected() || Config.wlanReconnect) {
               ntripStop();
-              setState(ONLINE);
+              setState(ONLINE, WLAN_1S_RETRY);
             } else {
               ntripTask();
             }
