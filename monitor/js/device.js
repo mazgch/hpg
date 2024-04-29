@@ -111,7 +111,7 @@ function deviceInit(ip) {
     const matchIp = (ip !== undefined) ? ip.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?)(\/.+)?$/) : undefined;
     const match = document.cookie.match(/device=([^;]+)/);
 	const json = JSON.parse(((match != undefined) ? (match.length == 2) : false) ? match[1] : '{}');
-    const proto = (window.location.protocol == 'https') ? 'wss://': 'ws://';
+    const proto = (window.location.protocol === 'https:') ? 'wss://': 'ws://';
     device.status = 'disconnected';
     if (matchIp != undefined) { // from url argument
         device.name = 'unknown';

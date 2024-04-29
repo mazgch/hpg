@@ -35,8 +35,13 @@ window.clickLink = function _clickLink(link) {
 // Init
 // ------------------------------------------------------------------------------------
 window.onload = function _onload() {
-    if (window.location.protocol == 'https:') {
-        window.location.protocol = 'http:';
+    if (window.location.protocol === 'https:') {
+        const href = window.location.href.replace(/^https:/, 'http:');
+        if (confirm('This page does not work when loaded with secure https: protocol. ' + 
+                    'The insecure ws: websocket connection used to connect to the device would cause mixed content issues.'+
+                    '\n\nRedirect to ' + href)) {
+            window.location.assign(href);
+        }
     }
 
 	feather.replace();
