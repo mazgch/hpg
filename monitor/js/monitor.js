@@ -40,7 +40,7 @@ window.onload = function _onload() {
         if (confirm('This page does not work when loaded with secure https: protocol. ' + 
                     'The insecure ws: websocket connection used to connect to the device would cause mixed content issues.'+
                     '\n\nRedirect to ' + href)) {
-            window.location.assign(href);
+            window.open(link,'_self')
         }
     }
 
