@@ -421,11 +421,13 @@ protected:
     String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
     String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
     String ver = Config.getValue(CONFIG_VALUE_NTRIP_VERSION);
+    String gga = Config.getValue(CONFIG_VALUE_NTRIP_GGA);
     ntripHttpClient.begin(url);
     ntripHttpClient.useHTTP10(NTRIP_USE_HTTP10);
     ntripHttpClient.setAuthorization(user.c_str(), pwd.c_str());
     ntripHttpClient.setUserAgent(CONFIG_DEVICE_TITLE);
-    ntripHttpClient.addHeader("Ntrip-Version", ver.c_str());
+    if (0 < ver.length()) ntripHttpClient.addHeader(NTRIP_HEADER_VERSION, ver.c_str());
+    if (0 < gga.length()) ntripHttpClient.addHeader(NTRIP_HEADER_GGA, gga.c_str());
     int httpCode = ntripHttpClient.GET();
     if (httpCode == HTTP_CODE_OK) {
       log_i("url \"%s\" user \"%s\" pwd \"%s\" ver \"%s\" connected", 
@@ -482,12 +484,12 @@ protected:
       String gga = Config.getValue(CONFIG_VALUE_NTRIP_GGA);
       int len = gga.length();
       if (0 < len) {
-        int wrote = stream.print(gga);
-        if (wrote == len) {
-          log_i("print \"%.*s\\r\\n\" %d bytes", len-2, gga.c_str(), wrote);
+        int wrote = stream.print(gga + "\r\n");
+        if (wrote == len + 2) {
+          log_i("write \"%s\\r\\n\" %d bytes", gga.c_str(), wrote);
           ntripGgaMs = now + NTRIP_GGA_RATE;
         } else
-          log_e("print \"%.*s\\r\\n\" %d bytes, failed", len-2, gga.c_str(), wrote);
+          log_e("write \"%s\\r\\n\" %d bytes, failed", gga.c_str(), wrote);
       }
     }
   }
@@ -782,7 +784,7 @@ const char WLAN::PORTAL_PAGE[] = R"(
 
 <label for=")" CONFIG_VALUE_ZTPTOKEN R"(">Device profile token or load a
   <a href="#" onclick="document.getElementById('selectFile').click();">JSON</a> file</label>
-<input id=")" CONFIG_VALUE_ZTPTOKEN R"(" name=")" CONFIG_VALUE_ZTPTOKEN R"("maxLength="36" type="password" 
+<input id=")" CONFIG_VALUE_ZTPTOKEN R"(" name=")" CONFIG_VALUE_ZTPTOKEN R"(" maxLength="36" type="password" 
   placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxxx" 
   pattern="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}" />
 <input id="selectFile" type="file" hidden accept=".json,.csv" onchange="_jsonLoad(this);" />
@@ -804,20 +806,20 @@ const char WLAN::PORTAL_PAGE[] = R"(
 <datalist id="ntripMountpoints"></datalist>
 
 <label for=")" CONFIG_VALUE_NTRIP_USERNAME R"(">Username</label>
-<input id=")" CONFIG_VALUE_NTRIP_USERNAME R"(" name=")" CONFIG_VALUE_NTRIP_USERNAME R"(" maxLength="64"/>
+<input id=")" CONFIG_VALUE_NTRIP_USERNAME R"(" name=")" CONFIG_VALUE_NTRIP_USERNAME R"(" maxLength="64" />
 
 <label for=")" CONFIG_VALUE_NTRIP_PASSWORD R"(">Password</label>
-<input id=")" CONFIG_VALUE_NTRIP_PASSWORD R"(" name=")" CONFIG_VALUE_NTRIP_PASSWORD R"( maxLength="64" type="password"/>
+<input id=")" CONFIG_VALUE_NTRIP_PASSWORD R"(" name=")" CONFIG_VALUE_NTRIP_PASSWORD R"(" maxLength="64" type="password" />
 
 <label for=")" CONFIG_VALUE_NTRIP_VERSION R"(">Ntrip version</label>
-<select id=")" CONFIG_VALUE_NTRIP_VERSION R"(" name=")" CONFIG_VALUE_NTRIP_VERSION R"(">
+<select id=")" CONFIG_VALUE_NTRIP_VERSION R"(" name=")" CONFIG_VALUE_NTRIP_VERSION R"(" >
   <option value=")" NTRIP_VERSION_2 R"(">)" NTRIP_VERSION_2 R"(</option>
   <option value=")" NTRIP_VERSION_1 R"(">)" NTRIP_VERSION_1 R"(</option>
 </select>
 
 <p style="font-weight:Bold;">Correction source</p>
 <label for=")" CONFIG_VALUE_USESOURCE R"(">Service type and interface</label>
-<select id=")" CONFIG_VALUE_USESOURCE R"(" name=")" CONFIG_VALUE_USESOURCE R"(">
+<select id=")" CONFIG_VALUE_USESOURCE R"(" name=")" CONFIG_VALUE_USESOURCE R"(" >
   <option value="none">none</option>
   <option disabled>---- PointPerfect (MQTT) ----</option>
   <option value="PointPerfect: WLAN + LTE + LBAND">WLAN + LTE + LBAND</option>
@@ -842,7 +844,7 @@ const char WLAN::PORTAL_PAGE[] = R"(
 <input id=")" CONFIG_VALUE_SIMPIN R"(" name=")" CONFIG_VALUE_SIMPIN R"(" maxLength="8" type="password" />
 
 <label for=")" CONFIG_VALUE_MNOPROF R"(">MNO profile</label>
-<select id=")" CONFIG_VALUE_MNOPROF R"(" name=")" CONFIG_VALUE_MNOPROF R"(">
+<select id=")" CONFIG_VALUE_MNOPROF R"(" name=")" CONFIG_VALUE_MNOPROF R"(" >
   <option value="1">SIM ICCID</option>
   <option value="90">Global</option>
   <option value="100">Standard Europe</option>
@@ -881,7 +883,7 @@ const char WLAN::PORTAL_PAGE[] = R"(
         const usr = _getById(')" CONFIG_VALUE_NTRIP_USERNAME R"(');
         const pwd = _getById(')" CONFIG_VALUE_NTRIP_PASSWORD R"(');
         xhr.open('GET', url, true, usr, pwd);
-        xhr.setRequestHeader('Ntrip-Version', ')" NTRIP_VERSION_2 R"(');
+        xhr.setRequestHeader(')" NTRIP_HEADER_VERSION R"(', ')" NTRIP_VERSION_2 R"(');
         xhr.onreadystatechange = _onReadyState;
         xhr.send();
         function _getById(id) { 

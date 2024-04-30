@@ -488,30 +488,25 @@ protected:
         String user = Config.getValue(CONFIG_VALUE_NTRIP_USERNAME);
         String pwd = Config.getValue(CONFIG_VALUE_NTRIP_PASSWORD);
         String ver = Config.getValue(CONFIG_VALUE_NTRIP_VERSION);
-        String authEnc;
-        String authHead;
+        String gga = Config.getValue(CONFIG_VALUE_NTRIP_GGA);
+        String auth;
         if (0 < user.length() && 0 < pwd.length()) {
-          authEnc = base64::encode(user + ":" + pwd);
-          authHead = "Authorization: Basic " + authEnc + "\r\n";
+          auth = base64::encode(user + ":" + pwd);
         }                    
-        char buf[256];
         log_d("GET \"/%s\" user=\"%s\" pwd=\"%s\" auth=\"%s\" ver=\"%s\"", 
               mntpnt.c_str(), user.c_str(), pwd.c_str(), authEnc.c_str(), ver.c_str());
-        int len = sprintf(buf, 
-#if NTRIP_USE_HTTP10
-              "GET /%s HTTP/1.0\r\n"
-#else
-              "GET /%s HTTP/1.1\r\n"
-#endif
-              "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
-              "Ntrip-Version: %s\r\n" 
-              "%s\r\n", mntpnt.c_str(), ver.c_str(), authHead.c_str());
+        String req = "GET /" + mntpnt + (NTRIP_USE_HTTP10 ? " HTTP/1.0\r\n" : " HTTP/1.1\r\n");
+        // add headers
+        req += "User-Agent: " CONFIG_DEVICE_TITLE "\r\n";
+        if (0 < auth.length()) req += "Authorization: Basic " + auth + "\r\n";
+        if (0 < ver.length())  req += NTRIP_HEADER_VERSION ": " + ver + "\r\n";
+        if (0 < gga.length())  req += NTRIP_HEADER_GGA ": " + gga + "\r\n";
         LTE_CHECK_INIT;
-        LTE_CHECK(8) = socketWrite(ntripSocket, buf, len);
+        LTE_CHECK(8) = socketWrite(ntripSocket, req.c_str(), req.length());
         // now get the response
         int avail = 0;
         bool ntripV1 = ver.equals(NTRIP_VERSION_1);
-        len = ntripV1 ? 12 /* "ICY 200 OK\r\n" */: 17 /* "HTTP/x.x 200 OK\r\n" */;
+        int len = ntripV1 ? 12 /* "ICY 200 OK\r\n" */: 17 /* "HTTP/x.x 200 OK\r\n" */;
         int32_t start = millis();
         int32_t now;
         do {
@@ -520,6 +515,7 @@ protected:
           now = millis();
         } while (LTE_CHECK_OK && (0 < (start + NTRIP_CONNECT_TIMEOUT - now)) && (avail < len));
         if (avail >= len) {
+          char buf[len];
           LTE_CHECK(3) = socketRead(ntripSocket, len, buf, &avail);
           LTE_CHECK_EVAL("reply");
           if (LTE_CHECK_OK && (avail == len)) {
@@ -593,10 +589,10 @@ protected:
         int len = gga.length();
         if (0 < len) {
           LTE_CHECK_INIT;
-          LTE_CHECK(1) = socketWrite(ntripSocket, gga);
+          LTE_CHECK(1) = socketWrite(ntripSocket, gga + "\r\n");
           LTE_CHECK_EVAL("write");
           if (LTE_CHECK_OK) {
-            log_i("write \"%.*s\\r\\n\" %d bytes",len-2, gga.c_str(), len);
+            log_i("write \"%s\\r\\n\" %d bytes", gga.c_str(), len + 2);
             ntripGgaMs = now + NTRIP_GGA_RATE;
           }
         }

@@ -20,10 +20,10 @@
 // ------------------------------------------------------------------------------------
 const Console = (function () {
 
-const CONSOLE_INVISIBLE_PAGES  	= 5;
+const CONSOLE_INVISIBLE_PAGES   = 5;
 const CONSOLE_SCROLL_LINES      = 100000;
-const CONSOLE_SCROLL_TIMEOUT 	= 20000;
-const CONSOLE_SCROLL_ENDPOS  	= 0x7FFFFFF;
+const CONSOLE_SCROLL_TIMEOUT    = 20000;
+const CONSOLE_SCROLL_ENDPOS     = 0x7FFFFFF;
 
 function consoleInit() {
     if ((undefined !== OPT.lines) && !isNaN(OPT.lines)) list.maxMessages = Number(OPT.lines);
@@ -34,26 +34,26 @@ function consoleInit() {
         if (el) el.addEventListener('click', function _execute(e) {
             onConsoleExecute(this, editor.getSession().getValue());
         } );
-		el = document.getElementById('console_abort');
+        el = document.getElementById('console_abort');
         if (el) el.addEventListener('click', onConsoleAbort );
     }
     list.el = document.getElementById('console_data');
     if (list.el) {
-		onConsoleClear();
-		list.el.addEventListener('scroll', onConsoleScroll/*, {passive: true}*/);
+        onConsoleClear();
+        list.el.addEventListener('scroll', onConsoleScroll/*, {passive: true}*/);
         el = document.getElementById('console_filter');
-		if (el) {
-			el.value = OPT.filter ? OPT.filter : '';
+        if (el) {
+            el.value = OPT.filter ? OPT.filter : '';
             el.addEventListener('keyup', onConsoleFilter);
             consoleFilterUpdate(el.value);
             el.addEventListener('focusout', onConsoleFilterFocusLost);
         }
         el = document.getElementById('console_send');
-		if (el) {
-			consoleAutocomplete(el, Engine.makeSuggestions());
-			//el.addEventListener('keyup', onConsoleSend);
-		}
-		el = document.getElementById('console_down');
+        if (el) {
+            consoleAutocomplete(el, Engine.makeSuggestions());
+            //el.addEventListener('keyup', onConsoleSend);
+        }
+        el = document.getElementById('console_down');
         if (el) el.addEventListener('click', consoleScrollToEnd);
         el = document.getElementById('console_clear');
         if (el) el.addEventListener('click', onConsoleClear );
@@ -65,22 +65,22 @@ function consoleInit() {
 }
 
 function onConsoleSend(e) {
-	e.preventDefault();
-	if (e.keyCode === 0xD/* \r enter key*/) {
-		consoleSend(this);
+    e.preventDefault();
+    if (e.keyCode === 0xD/* \r enter key*/) {
+        consoleSend(this);
     }
 } 
 
 function consoleSend(el) {
-	let m;
-	if (OPT.dbg && (m = el.value.match(/^DEBUG\s+(.*)$/)))
-		Device.socketCommand(m[1]);
-	else if (m = el.value.match(/^TRACE\s+(.*)$/))
-		consoleTrace('TRACE', m[1], undefined, 'USER');
-	else {
-		Device.socketSend(Engine.makeFromText(el.value));
-		el.setSelectionRange(0,el.value.length);
-	}
+    let m;
+    if (OPT.dbg && (m = el.value.match(/^DEBUG\s+(.*)$/)))
+        Device.socketCommand(m[1]);
+    else if (m = el.value.match(/^TRACE\s+(.*)$/))
+        consoleTrace('TRACE', m[1], undefined, 'USER');
+    else {
+        Device.socketSend(Engine.makeFromText(el.value));
+        el.setSelectionRange(0,el.value.length);
+    }
 }
 
 function onConsoleFilter(e) {
@@ -106,14 +106,14 @@ function consoleFilterUpdate(filter) {
     if (filter === '')
         list.filter = undefined;
     else {
-		try {
-			let flags;
-			const m = filter.match(/^\/([^\/]*)\/([gimsuy]*)$/);
-			if (m) {
-				filter = m[1];
-				flags = m[2];
-			}
-			list.filter = new RegExp(filter, flags);
+        try {
+            let flags;
+            const m = filter.match(/^\/([^\/]*)\/([gimsuy]*)$/);
+            if (m) {
+                filter = m[1];
+                flags = m[2];
+            }
+            list.filter = new RegExp(filter, flags);
         } catch (e) { }
     }
     consoleScrollToEnd();
@@ -137,7 +137,7 @@ let list = {
 let actionTimeout = 0;
 
 function onConsoleScroll(e) {
-	e.preventDefault();
+    e.preventDefault();
     const scrollPos = this.scrollTop;
     const scrollHeight = this.scrollHeight;
     const clientHeight = this.clientHeight;
@@ -172,42 +172,42 @@ function consoleMessage(messages) {
     const doUpdate = (messages !== undefined);
     if (doUpdate) {
         if (!Array.isArray(messages)) messages = [ messages ];
-		if (messages.length) {
-			// special console for WEBIDE demo
-			if (window.location.pathname === '/edit.html') {
-				for (let m = 0; m < messages.length; m ++) {
-					const message = messages[m];
-					if (message.protocol === 'TEXT')
-						scriptOutput(message.data, true);
-				}
-			}
-			
-			// pop the pending item from the end of our array
-			let len = list.messages.length;
-			if (len && (list.messages[len-1].type === 'pending')) {
-				const pending = list.messages.pop()
-				if (list.nextIx === list.offsetIx + (len - 1)) {
-					list.nextIx --;
-					len --;
-				}
-				if (!messages[0].type.match(/output|pending/)) {
-					messages.push(pending);
-				}
-			}
-			// remove any messages we can't keep in the memory
-			const remove = len + messages.length - list.maxMessages;
-			if (remove > 0) {
-				list.messages = list.messages.slice(remove);
-				// keep track of discarded messages as offsetIx
-				list.offsetIx += remove;
-			}
-			// finally attach the new messages (including pushed saved pending element)
-			list.messages = list.messages.concat(messages);
+        if (messages.length) {
+            // special console for WEBIDE demo
+            if (window.location.pathname === '/edit.html') {
+                for (let m = 0; m < messages.length; m ++) {
+                    const message = messages[m];
+                    if (message.protocol === 'TEXT')
+                        scriptOutput(message.data, true);
+                }
+            }
+            
+            // pop the pending item from the end of our array
+            let len = list.messages.length;
+            if (len && (list.messages[len-1].type === 'pending')) {
+                const pending = list.messages.pop()
+                if (list.nextIx === list.offsetIx + (len - 1)) {
+                    list.nextIx --;
+                    len --;
+                }
+                if (!messages[0].type.match(/output|pending/)) {
+                    messages.push(pending);
+                }
+            }
+            // remove any messages we can't keep in the memory
+            const remove = len + messages.length - list.maxMessages;
+            if (remove > 0) {
+                list.messages = list.messages.slice(remove);
+                // keep track of discarded messages as offsetIx
+                list.offsetIx += remove;
+            }
+            // finally attach the new messages (including pushed saved pending element)
+            list.messages = list.messages.concat(messages);
         }
-	}
-	if (list.el) {
-		const el = list.el;
-		// determine if we need to do some scrolling at the end
+    }
+    if (list.el) {
+        const el = list.el;
+        // determine if we need to do some scrolling at the end
         const scrollTop = el.scrollTop;
         const clientHeight = el.clientHeight;
         const firstItem = el.firstChild;
@@ -216,11 +216,11 @@ function consoleMessage(messages) {
         const typicalItemHeight = firstItem.clientHeight; // scrollHeight
         let scrollHeight = Math.min(lastItem.offsetTop + headItemHeight, el.scrollHeight);
         let scrollPos = scrollTop;
-		const doScroll = ((scrollPos + 1) >= (scrollHeight - clientHeight)) ||
+        const doScroll = ((scrollPos + 1) >= (scrollHeight - clientHeight)) ||
                          (new Date().getTime() > actionTimeout);
         let numMsg = el.childElementCount - 2;
         
-	//	let dbg = {sr:0,sc:0,sa:0,ea:0,er:0,p:0};
+    //    let dbg = {sr:0,sc:0,sa:0,ea:0,er:0,p:0};
         let nextIx = list.nextIx;
         let startIx = list.startIx;
         const endIx = list.offsetIx + list.messages.length;
@@ -229,10 +229,10 @@ function consoleMessage(messages) {
         if (doUpdate) {
             
             if (numMsg) _removePending(); // eventually remove the pending item from the DOM list too
-			// Safari likes ho have _removeStart after _addEnd 
-			// Chrome is somehow scrolling the outer window for some reason  
+            // Safari likes ho have _removeStart after _addEnd 
+            // Chrome is somehow scrolling the outer window for some reason  
             _addEnd(); // no need to remove first we should have enough space at the end
-			_removeStart(); // messages that were discarded and are no longer in view
+            _removeStart(); // messages that were discarded and are no longer in view
         } else {
             _removeEnd();
             _removeStart();
@@ -249,9 +249,9 @@ function consoleMessage(messages) {
         // *** DONE ***
         // *** SCROLL *** this will cause a layout update
         if (scrollPos < 0) scrollPos = 0;
-		
-		el.scrollTop = doScroll ? CONSOLE_SCROLL_ENDPOS : scrollPos;
-	//	console.log('update '+doScroll+' msg ' + (messages ? messages.length : messages) + ' dbg: ' + JSON.stringify(dbg) + ' top ' + scrollPos +'/'+ scrollTop + ' height ' +scrollHeight +'/'+ clientHeight);
+        
+        el.scrollTop = doScroll ? CONSOLE_SCROLL_ENDPOS : scrollPos;
+    //    console.log('update '+doScroll+' msg ' + (messages ? messages.length : messages) + ' dbg: ' + JSON.stringify(dbg) + ' top ' + scrollPos +'/'+ scrollTop + ' height ' +scrollHeight +'/'+ clientHeight);
         
         // Helper for DOM manipulations
         function _removePending() {
@@ -280,15 +280,15 @@ function consoleMessage(messages) {
         }
         function _removeStart() {
             // remove items from start if not visible (need to remove from biggest to avoid layout recalc)
-			const startPos = scrollPos - invisibleHeight;
-			let item = firstItem.nextSibling;                            // causes a layout update
-			while ((numMsg > 0) && ((item.messageIx < list.offsetIx) || (item.nextSibling.offsetTop < startPos))) {
+            const startPos = scrollPos - invisibleHeight;
+            let item = firstItem.nextSibling;                            // causes a layout update
+            while ((numMsg > 0) && ((item.messageIx < list.offsetIx) || (item.nextSibling.offsetTop < startPos))) {
                 item = item.nextSibling;
                 numMsg --;
     //            dbg.sc--;
             }
             if (startIx < list.offsetIx)
-				startIx = list.offsetIx;
+                startIx = list.offsetIx;
             let itemRemove = item.previousSibling;
             if (itemRemove !== firstItem) {
                 // we will remove all but the head(first) item
@@ -386,9 +386,9 @@ function onConsoleUbxfile(e) {
         document.body.appendChild(tempLink);
         tempLink.click();
     }
-	function _checkMessage(m) { 
-		return m.type.match(/^input|output|pending$/) ? m.data : '';
-	}
+    function _checkMessage(m) { 
+        return m.type.match(/^input|output|pending$/) ? m.data : '';
+    }
 }
 
 function onConsoleLogfile(e) {
@@ -424,84 +424,84 @@ function consoleTrace(name,text,col,protocol) {
 }
 
 function consoleDebug(type, name, text, fields) {
-	if (OPT.dbg) {
-		let message = Engine.Message('DEBUG',text/*data*/,type,false);
-		message.name = name;
-		message.text = name + ': ' + text.replace(/\s+/gm, ' ');
-		message.fields = fields;
-		consoleMessage(message);
-	}
+    if (OPT.dbg) {
+        let message = Engine.Message('DEBUG',text/*data*/,type,false);
+        message.name = name;
+        message.text = name + ': ' + text.replace(/\s+/gm, ' ');
+        message.fields = fields;
+        consoleMessage(message);
+    }
 }
 
 // Console Automation
 // ------------------------------------------------------------------------------------
 
 function consoleAutocomplete(inp, arr) {
-	let currentFocus;
-	inp.addEventListener("input", function(e) {
-		removeAutoCompleteList();
-		if (!this.value) { return false;}
-		currentFocus = -1;
-		const el = document.createElement("DIV");
-		el.id = this.id + 'autocomplete-list';
-		el.className = 'autocomplete-list';
-		this.parentNode.appendChild(el);
+    let currentFocus;
+    inp.addEventListener("input", function(e) {
+        removeAutoCompleteList();
+        if (!this.value) { return false;}
+        currentFocus = -1;
+        const el = document.createElement("DIV");
+        el.id = this.id + 'autocomplete-list';
+        el.className = 'autocomplete-list';
+        this.parentNode.appendChild(el);
 
-		const regStr = this.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-		const regex = new RegExp(regStr, "i");
+        const regStr = this.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(regStr, "i");
 
-		for (let i = 0; i < arr.length; i++) {
-			const a = arr[i];
-			const descr = a.descr; 
-			if (regex.exec(a.data) || 
-				(descr && regex.exec(descr))) {
-				const eli = document.createElement("DIV");
-				eli.setAttribute("class", "autocomplete-item");
-				eli.innerHTML = '<div class="preformated">' + a.data.replace(regex, _strong) + '</div>'+
-				                (descr ? '<div style="font-size:0.8em;">' + descr.replace(regex, _strong) + '</div>' : '');
-				eli.messageDraft = a.data;
-				eli.messageHint = a.payload;
-				eli.addEventListener("click", function(e) {
-					inp.value = this.messageDraft;
-					removeAutoCompleteList();
-				});
-				eli.addEventListener("contextmenu", function(e) {
-					e.preventDefault();
-					inp.value = this.messageDraft+this.messageHint;
-					removeAutoCompleteList();
-					return false;
-				});
-				el.appendChild(eli);
-				function _strong(x) { return "<strong>" + x + "</strong>"; }
-			}
-		}
-	});
-	/*execute a function presses a key on the keyboard:*/
-	inp.addEventListener("keydown", function(e) {
-		var x = document.getElementById(this.id + "autocomplete-list");
-		if (x) x = x.getElementsByClassName("autocomplete-item");
-		if (x && (x.length > 0) && 
-		    (((e.keyCode === 40/*down*/) && (currentFocus < x.length-1)) || 
-			 ((e.keyCode === 38/*up*/)   && (currentFocus > 0)))) {
-			if (-1 !== currentFocus) 
-				x[currentFocus].classList.remove("autocomplete-active");
-			currentFocus += (e.keyCode == 40 ? 1 : -1);
-			x[currentFocus].classList.add("autocomplete-active");
-		} else if (e.keyCode == 13) {
-			e.preventDefault();
-			if (x && (currentFocus > -1)) {
-				x[currentFocus].click();
-			} else {
-				consoleSend(inp);
-				removeAutoCompleteList();
-			}
-		}
-	});
-	function removeAutoCompleteList(e) {
-		const el = document.getElementById(inp.id + "autocomplete-list");
-		if (el) el.parentNode.removeChild(el);
-	}
-	document.addEventListener("click", removeAutoCompleteList );
+        for (let i = 0; i < arr.length; i++) {
+            const a = arr[i];
+            const descr = a.descr; 
+            if (regex.exec(a.data) || 
+                (descr && regex.exec(descr))) {
+                const eli = document.createElement("DIV");
+                eli.setAttribute("class", "autocomplete-item");
+                eli.innerHTML = '<div class="preformated">' + a.data.replace(regex, _strong) + '</div>'+
+                                (descr ? '<div style="font-size:0.8em;">' + descr.replace(regex, _strong) + '</div>' : '');
+                eli.messageDraft = a.data;
+                eli.messageHint = a.payload;
+                eli.addEventListener("click", function(e) {
+                    inp.value = this.messageDraft;
+                    removeAutoCompleteList();
+                });
+                eli.addEventListener("contextmenu", function(e) {
+                    e.preventDefault();
+                    inp.value = this.messageDraft+this.messageHint;
+                    removeAutoCompleteList();
+                    return false;
+                });
+                el.appendChild(eli);
+                function _strong(x) { return "<strong>" + x + "</strong>"; }
+            }
+        }
+    });
+    /*execute a function presses a key on the keyboard:*/
+    inp.addEventListener("keydown", function(e) {
+        var x = document.getElementById(this.id + "autocomplete-list");
+        if (x) x = x.getElementsByClassName("autocomplete-item");
+        if (x && (x.length > 0) && 
+            (((e.keyCode === 40/*down*/) && (currentFocus < x.length-1)) || 
+             ((e.keyCode === 38/*up*/)   && (currentFocus > 0)))) {
+            if (-1 !== currentFocus) 
+                x[currentFocus].classList.remove("autocomplete-active");
+            currentFocus += (e.keyCode == 40 ? 1 : -1);
+            x[currentFocus].classList.add("autocomplete-active");
+        } else if (e.keyCode == 13) {
+            e.preventDefault();
+            if (x && (currentFocus > -1)) {
+                x[currentFocus].click();
+            } else {
+                consoleSend(inp);
+                removeAutoCompleteList();
+            }
+        }
+    });
+    function removeAutoCompleteList(e) {
+        const el = document.getElementById(inp.id + "autocomplete-list");
+        if (el) el.parentNode.removeChild(el);
+    }
+    document.addEventListener("click", removeAutoCompleteList );
 }
 
 // Console Automation
@@ -559,14 +559,14 @@ function close() { postMessage( { msg:"close" } ); }\
 }
 
 function onConsoleAbort(e) {
-	if (worker) {
+    if (worker) {
         removeEventListener('message', worker.handler);
-		worker.terminate();
-		worker = undefined;
-		consoleTrace('INFO', 'Script Terminated');
+        worker.terminate();
+        worker = undefined;
+        consoleTrace('INFO', 'Script Terminated');
         document.getElementById('console_abort').style.display = 'none';
         document.getElementById('console_execute').style.display = 'block';
-	}
+    }
 }
 
 return { init: consoleInit, reset:onConsoleClear, update:consoleMessage,

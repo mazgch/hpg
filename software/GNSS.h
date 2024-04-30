@@ -346,7 +346,7 @@ protected:
       for (int i = 1; i < len; i ++) {
         crc ^= string[i];
       }
-      len += sprintf(&string[len], "*%02X\r\n", crc);
+      len += sprintf(&string[len], "*%02X", crc);
       Config.setValue(CONFIG_VALUE_NTRIP_GGA, string);
     }
   } 

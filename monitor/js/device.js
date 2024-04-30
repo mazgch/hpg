@@ -70,30 +70,30 @@ function sendAtWait(data, match, timeout, onSuccess, onError) {
 }
 
 function waitMatch(match, timeout, onSuccess, onError) {
-	if (!timeout) timeout = 2000;
-	let data = '';
-	let timeoutId;
-	if (timeout > 0)
-		timeoutId = setTimeout(timeoutFunction, timeout);
-	addEventListener('message', waitForListener);
-	function timeoutFunction(){
-		removeEventListener('message', waitForListener);
-		if (onError) {
-			onError(new Error('timeout'));
-		}
-	}
-	function waitForListener(e) {
-		if (e.type == 'message' && e.data && e.data.data) {
-			data += e.data.data;
-			const matched = data.match(match);
-			if (matched) {
-				removeEventListener('message', waitForListener);
-				if (timeoutId !== undefined)
-					clearTimeout(timeoutId);
-				onSuccess(matched);
-			}
-		}
-	}
+    if (!timeout) timeout = 2000;
+    let data = '';
+    let timeoutId;
+    if (timeout > 0)
+        timeoutId = setTimeout(timeoutFunction, timeout);
+    addEventListener('message', waitForListener);
+    function timeoutFunction(){
+        removeEventListener('message', waitForListener);
+        if (onError) {
+            onError(new Error('timeout'));
+        }
+    }
+    function waitForListener(e) {
+        if (e.type == 'message' && e.data && e.data.data) {
+            data += e.data.data;
+            const matched = data.match(match);
+            if (matched) {
+                removeEventListener('message', waitForListener);
+                if (timeoutId !== undefined)
+                    clearTimeout(timeoutId);
+                onSuccess(matched);
+            }
+        }
+    }
 }
 
 const AT_ENDSEQ = '\r\n(OK|ERROR|ABORTED|\\+CME ERROR: .*)\r\n$';
@@ -110,7 +110,7 @@ function atRegExp(c, m) {
 function deviceInit(ip) {
     const matchIp = (ip !== undefined) ? ip.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?)(\/.+)?$/) : undefined;
     const match = document.cookie.match(/device=([^;]+)/);
-	const json = JSON.parse(((match != undefined) ? (match.length == 2) : false) ? match[1] : '{}');
+    const json = JSON.parse(((match != undefined) ? (match.length == 2) : false) ? match[1] : '{}');
     const proto = (window.location.protocol === 'https:') ? 'wss://': 'ws://';
     device.status = 'disconnected';
     if (matchIp != undefined) { // from url argument
@@ -145,8 +145,8 @@ function deviceStatusUpdate() {
     }
     USTART.tableEntry('dev_socket', device.ws  + '  -  ' + status + '');
     USTART.tableEntry('dev_status', device.status);
-	// show hide the window
-	const ok = device.socket && (device.socket.readyState == WebSocket.OPEN);
+    // show hide the window
+    const ok = device.socket && (device.socket.readyState == WebSocket.OPEN);
     if (ok) {
         // unhide all device elements
         let el = document.getElementById('tile_message');
@@ -178,8 +178,8 @@ function deviceConfigPortal() {
 
 function deviceDiscovery() {
     let modal = document.getElementById('discover');
-	if (modal) {
-		modal.removeAttribute('hidden');
+    if (modal) {
+        modal.removeAttribute('hidden');
         let el = document.getElementById("modal-close");
         el.onclick = function() { 
             modal.setAttribute('hidden','');
@@ -296,14 +296,14 @@ var lutAtIdent = [
         if (data[data.length-1] === 'OK') {
             if (data[1]) {
                 if (data[1].match(/(NINA|ODIN|ANNA)-/)) {
-					USTART.tableEntry('dev_tech', /*'\uE003 '+*/
-							'<a target="_blank" href="https://www.u-blox.com/en/short-range-radio-modules">Short Range Radio</a>', true);
+                    USTART.tableEntry('dev_tech', /*'\uE003 '+*/
+                            '<a target="_blank" href="https://www.u-blox.com/en/short-range-radio-modules">Short Range Radio</a>', true);
                     deviceSendCommands(lutAtIdentSho);
                 } else if (data[1].match(/^(LISA|LEON|LARA|TOBY|SARA|LUCY|ALEX)-/)) {
                     USTART.tableEntry('dev_tech', /*'\uE002 '+*/
-							'<a target="_blank" href="https://www.u-blox.com/en/cellular-modules>Cellular</a>', true);
+                            '<a target="_blank" href="https://www.u-blox.com/en/cellular-modules>Cellular</a>', true);
                     deviceSendCommands(lutAtIdentCel);
-				}
+                }
             }
         }
         return false;
@@ -354,13 +354,13 @@ var lutAtIdentCel = [
         if ((data[data.length-1] === 'OK') && (data.length === 3)) {
             if (data[1]) {
                 const arr = data[1].replace(/^\((.+(?=\)$))\)$/,'$1').split('),(');
-				let txt = '<table>'
+                let txt = '<table>'
                 for (let i = 0; i < arr.length; i ++) {
                     const m = arr[i].match(/(?:\d+),"([^"]*)","([^"]*)","(\d*)",(\d*)/);
                     if (m && (m.length === 5)) {
                         let _act = [ 'GSM', 'GSM compact', 'UTRAN', 'GSM + EDGE', 'UTRAN+HSDPA',
                                 'UTRAN+HSUPA', 'UTRAN+HSDPA+HSUPA', 'LTE', 'EC-GSM-IOT', 'E-UTRAN' ];
-						txt += '<tr><td>'+m[1]+'</td><td>'+m[2]+'</td><td>'+m[3]+'</td><td>'+_act[m[4]]+'</td></tr>';
+                        txt += '<tr><td>'+m[1]+'</td><td>'+m[2]+'</td><td>'+m[3]+'</td><td>'+_act[m[4]]+'</td></tr>';
                     }
                 }
                 txt += '</table>';
@@ -376,22 +376,22 @@ function deviceSendCommands(list) {
         // handle the first item
         let match = list[0].match;
         sendAtWait(list[0].send, match, list[0].timeout, 
-			function _onSuccess(data) { /* got error or ok */
-				  let next = true;
-				if (data[data.length-1] === 'OK') {
-					if (list[0].tab) {
-						for (let i = 0; (i < list[0].tab.length) && (i+2 < data.length); i ++)
-							USTART.tableEntry(list[0].tab[i], data[i+1]);
-					}
-					if (list[0].func)
-						next = list[0].func(data);
-				}
-				if (next)
-					deviceSendCommands(list.slice(1));
-			},
-			function _onError(error) { /* timeout -> continue */ deviceSendCommands(list.slice(1)) }
-		);
-	}
+            function _onSuccess(data) { /* got error or ok */
+                  let next = true;
+                if (data[data.length-1] === 'OK') {
+                    if (list[0].tab) {
+                        for (let i = 0; (i < list[0].tab.length) && (i+2 < data.length); i ++)
+                            USTART.tableEntry(list[0].tab[i], data[i+1]);
+                    }
+                    if (list[0].func)
+                        next = list[0].func(data);
+                }
+                if (next)
+                    deviceSendCommands(list.slice(1));
+            },
+            function _onError(error) { /* timeout -> continue */ deviceSendCommands(list.slice(1)) }
+        );
+    }
 }
 
 var device = { name:'', ip:'', ws:'', status:'', ports_net:[], ports_hw:[] };

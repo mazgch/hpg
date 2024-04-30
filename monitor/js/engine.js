@@ -20,41 +20,41 @@
 // ------------------------------------------------------------------------------------
 const WAIT = -1;
 const NOTFOUND = 0;
-const TYPE_INPUT = 'input'; 	// to device 
-const TYPE_OUTPUT = 'output'; 	// from device 
+const TYPE_INPUT = 'input';     // to device 
+const TYPE_OUTPUT = 'output';     // from device 
 const TYPE_PENDING = 'pending'; // from device 
 
 // Message
 // ------------------------------------------------------------------------------------
 /*
-    //                                              	Console  Details  Logfile  Ubxfile
-    protocol  UBX,NMEA,RTCM3,SPARTN,AT,TEXT,...  		yes      yes      yes
-    type      output,pending,input               		yes      yes      yes      yes
-    name      the name of the message               	yes      yes      yes
-    time      hh.mm.ss.sss                          	yes               yes
-    date      yyyy-mm-dd hh.mm.ss.sss               	         yes
-    text      some textual representation           	yes
-    color     color of the text                     	yes
-    data      the binary data (may be just text)   		         yes      yes      yes
-    binary    protocol is binary                        	              yes
+    //                                                  Console  Details  Logfile  Ubxfile
+    protocol  UBX,NMEA,RTCM3,SPARTN,AT,TEXT,...         yes      yes      yes
+    type      output,pending,input                      yes      yes      yes      yes
+    name      the name of the message                   yes      yes      yes
+    time      hh.mm.ss.sss                              yes               yes
+    date      yyyy-mm-dd hh.mm.ss.sss                            yes
+    text      some textual representation               yes
+    color     color of the text                         yes
+    data      the binary data (may be just text)                 yes      yes      yes
+    binary    protocol is binary                                          yes
     -- optional --
-    fields    decoded fields                            	     yes
-    spec      specification                             	     yes
+    fields    decoded fields                                     yes
+    spec      specification                                      yes
     id        protocol specific id
-	
-	Protocol  Name					Type
-	SCRIPT:   INFO, ERROR, TRACE 	command
-	USER:     TRACE					command
-	DEBUG:    AGENT(event), DEVICE(command,event)
+    
+    Protocol  Name                    Type
+    SCRIPT:   INFO, ERROR, TRACE      command
+    USER:     TRACE                   command
+    DEBUG:    AGENT(event), DEVICE(command,event)
 */
 function Message(protocol, data, type, binary) {
     const date = new Date();
     let message = { protocol:protocol, type:type, data:data, };
-	let timeString = _pad(date.getHours(),2) + ':' + _pad(date.getMinutes(),2) + ':' +
+    let timeString = _pad(date.getHours(),2) + ':' + _pad(date.getMinutes(),2) + ':' +
                      _pad(date.getSeconds(),2) + '.' + _pad(date.getMilliseconds(),3);
     message.time = timeString;
     message.date = date.getFullYear() + '-' + _pad(1+date.getMonth(),2) + '-' + 
-				   _pad(date.getDate(),2) + ' ' + timeString;
+                   _pad(date.getDate(),2) + ' ' + timeString;
     message.name = '?';
     message.text = '';
     message.data = data;
@@ -62,27 +62,27 @@ function Message(protocol, data, type, binary) {
     return message;
 }
 function messageLine(message, filter) {
-	const head = message.time + ' ' + message.protocol + ' ';
-	if ((filter === undefined) || filter.exec(head + message.text)) {
-		// create the message DOM
-		let div = document.createElement('div');
-		div.className = 'message ' + message.type;
-		div.message = message;
-		let span = document.createElement('div');
-		span.className = 'messagehead preformated';
-		span.textContent = head;
-		div.appendChild(span);
-		span = document.createElement('div');
-		span.className = 'messagetext preformated';
-		span.textContent = message.text;
-		if (message.color) span.style.color = message.color;
-		div.appendChild(span);
-		return div;
-	}
+    const head = message.time + ' ' + message.protocol + ' ';
+    if ((filter === undefined) || filter.exec(head + message.text)) {
+        // create the message DOM
+        let div = document.createElement('div');
+        div.className = 'message ' + message.type;
+        div.message = message;
+        let span = document.createElement('div');
+        span.className = 'messagehead preformated';
+        span.textContent = head;
+        div.appendChild(span);
+        span = document.createElement('div');
+        span.className = 'messagetext preformated';
+        span.textContent = message.text;
+        if (message.color) span.style.color = message.color;
+        div.appendChild(span);
+        return div;
+    }
 }
-	
+    
 function messageTable(message) {
-	let dump = '<table class="table">';
+    let dump = '<table class="table">';
     dump += '<tr><td><b>Protocol</b></td><td style="width:100%">' + message.protocol + '</td></tr>';
     dump += '<tr><td><b>Name</b></td><td>' + message.name + '</td></tr>';
     //if (message.id) dump += '<tr><td><b>Identifyer</b></td><td>' + message.id + '</td></tr>';
@@ -99,9 +99,9 @@ function messageTable(message) {
     dump += '<tr><td><b>Timestamp</b></td><td>' + message.date + '</td></tr>';
     dump += '</table>';
     let div = document.createElement('div');
-	div.className = 'messagehint';
-	div.innerHTML = dump;
-	return div;
+    div.className = 'messagehint';
+    div.innerHTML = dump;
+    return div;
 }
 
 function messageLogFile(message) {
@@ -158,7 +158,7 @@ function textDump(txt, binary) {
     if (binary === true)
         txt = txt.replace(/[\x00-\x1F\x7F-\xA0]+/gm, ELLIPSIS_CHAR);
     return txt.replace(/[\x00-\x20\x7F-\xA0]/g, _replaceChar);
-	function _replaceChar(c) { return charDump(c.charCodeAt(0)); }
+    function _replaceChar(c) { return charDump(c.charCodeAt(0)); }
 }
 
 function jsonDump(json) {
@@ -184,7 +184,7 @@ function jsonDump(json) {
                                 
 function hexDump(data, newLine = '</br>')
 {
-	let i;
+    let i;
     let line = '';
     let txt = ''
     for (i = 0; i < data.length; i ++) {
@@ -192,7 +192,7 @@ function hexDump(data, newLine = '</br>')
         const by = data.charCodeAt(i);
         line += ('0'+by.toString(16).toUpperCase()).slice(-2) + ' ';
         txt += charDump(by);
-		
+        
         if ((i&0xf)==15) {
             line += '  '+txt+newLine;
             txt = '';
@@ -208,60 +208,64 @@ function hexDump(data, newLine = '</br>')
 
 /* 
  Text Decoding, Comma separated, NMEA/AT
-   S		String
+   S        String
    Q        Quoted Sting
-   C		Char
-   I		Integer
-   U		Unsigned
-   R		Real/Float, 
-   L		Lat/Long
-   T		Time
-   D		Date, 
+   C        Char
+   I        Integer
+   U        Unsigned
+   R        Real/Float, 
+   L        Lat/Long
+   T        Time
+   D        Date, 
  
- Binary decoding, UBX
-   CH 		Char
-   S* 		String, zero terminated 
-   Sxx		Sting with max length xx, zero terminated 
+ Binary decoding, UBX, RTCM
+   CH       Char
+   S*       String, zero terminated 
+   Sxx      Sting with max length xx, zero terminated 
    I1,I2,I4 Signed Integer
    U1,U2,U4 Unsigned Integer
-   U1,U2,U4 Hex Value
-   R4,R8	Real/Float
+   X1,X2,X4 Hex Value
+   i1..iX   Signed bitfield
+   u1..uX   Unsigned bitfield
+   x1..xX   Hex bitfield
+   R4,R8    Real/Float
 
  Special 
- [yy]: 		add optional Array, with optional size yy
- *			Anything
+ [yy]:      add optional Array, with optional size yy
+ *          Anything
    
 */
-function processDecode(data, spec) {
+function processDecode(data, spec, littleEnd = true, ofsBit = 0) {
     const len = data.length;
     let ofs = 0;
-	let ix = 0;
+    let ix = 0;
     // create a binary data view
     let binary = new DataView(new ArrayBuffer(len), 0)
     for (let i=0; i < len; i++) {
-		const by = data.charCodeAt(i);
+        const by = data.charCodeAt(i);
         binary.setUint8(i, by);
-	}
+    }
     return _decodeItem(spec, {});
     // helper for recursion
     function _decodeItem(spec, fields) {
         if (spec.type) {
-            const match = spec.type.match(/^([*A-Z]+)(\d+)?(?:\[(\d*)\])?$/);
+            const match = spec.type.match(/^([*A-Za-z]+)(\d+)?(?:\[(\d*)\])?$/);
             if (!match) throw new Error('Invalid type in message spec');
             const type = match[1];
-			let size = match[2];
-			let num = match[3];
+            let size = match[2];
+            let num = match[3];
             if (type === '*') {
                 const elem = data.slice(ofs);
                 ofs = len;
+                ofsBit = 0
                 ix ++;
                 return elem;
             } else {
                 let elems = [];
                 const noArray = num === undefined;
-				num  = (num === undefined)  ? 1 : 
-					   (num !== '')         ? parseInt(num) : 0x7FFFFFFF;
-				size = (size !== undefined) ? parseInt(size)   : 0;
+                num  = (num === undefined)  ? 1 : 
+                       (num !== '')         ? parseInt(num) : 0x7FFFFFFF;
+                size = (size !== undefined) ? parseInt(size)   : 0;
                 for (let n = 0; (ofs < len) && (n < num); n ++) {
                     let elem;
                     if (size === 0) { // string types
@@ -316,46 +320,83 @@ function processDecode(data, spec) {
                             }
                             ofs = end + 1;
                         }
-					} else { // binary types
-						if (type === 'CH') {
-							elem = data.charAt(ofs++);
-						} else if (type === 'S*') {
-							const term = data.indexOf('\x00', ofs);
-							const end = (term >= 0) ? ofs + term : len;
-							elem = data.slice(ofs, end);
-							ofs = end + 1; // skip zero term 
-						} else if (ofs + size <= len) {
-							let v;
-							if (type === 'S') {
-								const str = data.slice(ofs, ofs+size);
-								// trim zero termination
-								const term = str.indexOf('\x00');
-								elem = (term >= 0) ? str.slice(0,term) : str; 
-							} else if (type === 'I') {
-								v = (size === 1) ? binary.getInt8(ofs, true) :
-									(size === 2) ? binary.getInt16(ofs, true) :
-									(size === 4) ? binary.getInt32(ofs, true) : undefined;
-							} else if ((type === 'U') || (type == 'X')) {
-								v = (size === 1) ? binary.getUint8(ofs, true) :
-									(size === 2) ? binary.getUint16(ofs, true) :
-									(size === 4) ? binary.getUint32(ofs, true) : undefined;
-							} else if (type === 'R') {
-								v = (size === 4) ? binary.getFloat32(ofs, true) :
-									(size === 8) ? binary.getFloat64(ofs, true) : undefined;
-							}
-							if (v !== undefined) {
-								if (type === 'X')    v = '0x'+_pad(v,2*size,16);
-								else if (spec.scale) v *= spec.scale;
-								elem = v;
-							}
-							ofs += size;
-						} else {
-							ofs = len;
-						}
-					}
+                        ofsBit = 0;
+                    } else if (type === 'u' || type === 'x' || type === 'i') { // bit types
+                        if (littleEnd) {
+                            // UBX bitfields
+                            let v = binary.getUint8(ofs) >> ofsBit;
+                            let o = 8;
+                            while (ofsBit + size > o) {
+                                v += binary.getUint8(++ofs) << (o - ofsBit);
+                                o += 8;
+                            }
+                            const neg = v & (1 << (size - 1));
+                            const adj = ((type === 'i') && neg) ? (1 << size) : 0;
+                            ofsBit = (ofsBit + size) % 8
+                            elem = v - adj;
+                        } else {
+                            // RTCM big endian format 
+                            let v = binary.getUint8(ofs);
+                            v &= (0xFF >> ofsBit);
+                            const neg = v & (1 << (8 - ofsBit - 1));
+                            const adj = ((type === 'i') && neg) ? (1 << size) : 0;
+                            while (ofsBit + size > 8) {
+                                size -= (8 - ofsBit); // - bits
+                                ofsBit = 0;
+                                v <<= 8;
+                                v += binary.getUint8(++ofs);
+                            }
+                            ofsBit += size;
+                            if (ofsBit == 8) {
+                                ofs ++;
+                                ofsBit = 0;
+                            } else if (ofsBit) {
+                                v >>= (8 - ofsBit);
+                            }
+                            elem = v - adj;
+                        }
+                    } else { // binary types
+                        if (type === 'CH') {
+                            elem = data.charAt(ofs++);
+                        } else if (type === 'S*') {
+                            const term = data.indexOf('\x00', ofs);
+                            const end = (term >= 0) ? ofs + term : len;
+                            elem = data.slice(ofs, end);
+                            ofs = end + 1; // skip zero term 
+                        } else if (ofs + size <= len) {
+                            let v;
+                            if (type === 'S') {
+                                const str = data.slice(ofs, ofs+size);
+                                // trim zero termination
+                                const term = str.indexOf('\x00');
+                                elem = (term >= 0) ? str.slice(0,term) : str; 
+                            } else if (type === 'I') {
+                                v = (size === 1) ? binary.getInt8(ofs) :
+                                    (size === 2) ? binary.getInt16(ofs, littleEnd) :
+                                    (size === 4) ? binary.getInt32(ofs, littleEnd) : undefined;
+                            } else if ((type === 'U') || (type == 'X')) {
+                                v = (size === 1) ? binary.getUint8(ofs) :
+                                    (size === 2) ? binary.getUint16(ofs, littleEnd) :
+                                    (size === 4) ? binary.getUint32(ofs, littleEnd) :
+                                    (size === 8) ? binary.getBigUint64(ofs, littleEnd) : undefined;
+                            } else if (type === 'R') {
+                                v = (size === 4) ? binary.getFloat32(ofs, littleEnd) :
+                                    (size === 8) ? binary.getFloat64(ofs, littleEnd) : undefined;
+                            }
+                            if (v !== undefined) {
+                                if (type === 'X')    v = '0x'+_pad(v,2*size,16);
+                                else if (spec.scale) v *= spec.scale;
+                                elem = v;
+                            }
+                            ofs += size;
+                        } else {
+                            ofs = len;
+                        }
+                        ofsBit = 0;
+                    }
                     if (!noArray || (elem !== undefined))
                         elems.push(elem);
-					ix ++;
+                    ix ++;
                 }
                 return noArray ? elems[0] : elems;
             }
@@ -392,8 +433,8 @@ function makeEncode(fields, spec) {
             let num = match[3];
             const noArray = num === undefined;
             let vals = !spec.name ? [] : 
-            		    noArray   ? [ fields[spec.name] ] : 
-            		    			fields[spec.name];
+                        noArray   ? [ fields[spec.name] ] : 
+                                    fields[spec.name];
             num  = (num === undefined)  ? 1 :
                    (num !== '')         ? parseInt(num) : vals.length;
             size = (size !== undefined) ? parseInt(size)   : 0;
@@ -420,7 +461,7 @@ function makeEncode(fields, spec) {
                             v = (type === 'R') ? parseFloat(v) : parseInt(v);
                             if (isNaN(v)) v = 0;
                             if (spec.scale) v /= spec.scale;
-                             if (type === 'I') {
+                            if (type === 'I') {
                                 if      (size === 1) binary.getInt8(0, v, true);
                                 else if (size === 2) binary.getInt16(0, v, true);
                                 else if (size === 4) binary.getInt32(0, v, true);
@@ -472,9 +513,9 @@ function lookup(list, txt) {
             }
         }
     } 
-	if ((num === undefined) && !isNaN(txt)) {
+    if ((num === undefined) && !isNaN(txt)) {
         num = Number(txt);
-		if (list && list[num])
+        if (list && list[num])
             txt = list[num];
         else
             txt = _pad(num,2,16);;
@@ -489,21 +530,21 @@ function _pad(v,l,b) {
 }
 
 function _repeat(s,f) {
-	if (s !== undefined) {
-		s = s.replace(/\b(?:min|max)\(/g, 'Math.$&'); // Math stuff
-		s = s.replace(/\b[a-zA-Z_]\w*\b/g, function _replace(s) { 
-			return (f[s] === undefined) ? s : f[s]; 
-		} );
-		try {
+    if (s !== undefined) {
+        s = s.replace(/\b(?:min|max)\(/g, 'Math.$&'); // Math stuff
+        s = s.replace(/\b[a-zA-Z_]\w*\b/g, function _replace(s) { 
+            return (f[s] === undefined) ? s : f[s]; 
+        } );
+        try {
             s = eval(s);
             s = parseInt(s);
-			if (isNaN(s)) s = undefined;
-		} catch (e) {
-			s = 0; // error parsing skip this just assume once
-			throw new Error('Invalid repetition in message/spec');			
-		}
-	}
-	return s;
+            if (isNaN(s)) s = undefined;
+        } catch (e) {
+            s = 0; // error parsing skip this just assume once
+            throw new Error('Invalid repetition in message/spec');            
+        }
+    }
+    return s;
 }
 
 // UBX protocol
@@ -559,14 +600,14 @@ const mapMsg = {
                    0x0F:'RETRIEVEPOSEXTRA',            0x10:'RETRIEVEBATCH',               0x11:'BATCH', },
     0x27/*SEC*/: { 0x01:'SIGN',      0x03:'UNIQID', },
     0x28/*HNR*/: { 0x00:'PVT',       0x02:'INS', },
-	0xF0/*NMEA*/:{ 0x00:'GGA', 		 0x01:'GLL',       0x02:'GSA',       0x03:'GSV',
-				   0x04:'RMC', 		 0x05:'VTG',       0x06:'GRS',       0x07:'GST',
-				   0x08:'ZDA', 		 0x09:'GBS',       0x0A:'DTM',       0x0D:'GNS',
-				   0x0F:'VLW', }, 
-	0xF1/*PUBX*/:{ 0x00:'PUBX,00',	 0x01:'PUBX,01',   0x03:'PUBX,03',   0x04:'PUBX,04',	},
-	0xF5/*RTCM*/:{ 0x05:'1005',      0x4A:'1074',      0x4D:'1077',      0x54:'1084',
-				   0x57:'1087', 	 0x5E:'1094',      0x61:'1097',      0x7C:'1124',
-				   0x7F:'1027', 	 0xE6:'1230',      0xFD:'4072.1',    0xFE:'4072.0', }, 
+    0xF0/*NMEA*/:{ 0x00:'GGA',       0x01:'GLL',       0x02:'GSA',       0x03:'GSV',
+                   0x04:'RMC',       0x05:'VTG',       0x06:'GRS',       0x07:'GST',
+                   0x08:'ZDA',       0x09:'GBS',       0x0A:'DTM',       0x0D:'GNS',
+                   0x0F:'VLW', }, 
+    0xF1/*PUBX*/:{ 0x00:'PUBX,00',   0x01:'PUBX,01',   0x03:'PUBX,03',   0x04:'PUBX,04',    },
+    0xF5/*RTCM*/:{ 0x05:'1005',      0x4A:'1074',      0x4D:'1077',      0x54:'1084',
+                   0x57:'1087',      0x5E:'1094',      0x61:'1097',      0x7C:'1124',
+                   0x7F:'1027',      0xE6:'1230',      0xFD:'4072.1',    0xFE:'4072.0', }, 
 };
 const mapPort     = { 0:'DDC',   1:'UART1',   2:'UART2',  3:'USB',  4:'SPI', };
 const mapProtocol = { 0:'UBX',   1:'NMEA',    2:'RTCM',   /* ... */ 5:'RTCM3', };
@@ -575,8 +616,8 @@ const mapCfgLayer = { 0:'RAM',   1:'BBR',     2:'FLASH',  /* ... */ 7:'DEFAULT',
 
 const spec = {
 // NAV ------------
-	'NAV-DOP':          { descr:'Dilution of precision',
-						  spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
+    'NAV-DOP':          { descr:'Dilution of precision',
+                          spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
                                  { name:'gDop',        type:'U2', scale:1e-2,            },
                                  { name:'pDop',        type:'U2', scale:1e-2,            },
                                  { name:'tDop',        type:'U2', scale:1e-2,            },
@@ -595,13 +636,13 @@ const spec = {
                                  { name:'lonHp',       type:'I1', scale:1e-9, unit:'deg' },
                                  { name:'latHP',       type:'I1', scale:1e-9, unit:'deg' }, ] },
     'NAV-POSECEF':      { descr:'Position Solution in ECEF',
-						  spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
+                          spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
                                  { name:'ecefX',       type:'I4', scale:1e-2, unit:'m'   },
                                  { name:'ecefY',       type:'I4', scale:1e-2, unit:'m'   },
                                  { name:'ecefZ',       type:'I4', scale:1e-2, unit:'m'   },
                                  { name:'pAcc',        type:'U4', scale:1e-2, unit:'m'   }, ] },
-	'NAV-POSLLH':       { descr:'Geodetic Position Solution',
-						  spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
+    'NAV-POSLLH':       { descr:'Geodetic Position Solution',
+                          spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
                                  { name:'lon',         type:'I4', scale:1e-7, unit:'deg' },
                                  { name:'lat',         type:'I4', scale:1e-7, unit:'deg' },
                                  { name:'height',      type:'I4', scale:1e-3, unit:'m'   },
@@ -619,7 +660,7 @@ const spec = {
                                  { name:'plTimeValid', type:'U1',                        },
                                  {                     type:'U1[4]'                      },
                                  { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
-								 { name:'plPos1',      type:'U4', scale:1e-3, unit:'m'   },
+                                 { name:'plPos1',      type:'U4', scale:1e-3, unit:'m'   },
                                  { name:'plPos2',      type:'U4', scale:1e-3, unit:'m'   },
                                  { name:'plPos3',      type:'U4', scale:1e-3, unit:'m'   },
                                  { name:'plVel1',      type:'U4', scale:1e-3, unit:'m/s' },
@@ -629,8 +670,8 @@ const spec = {
                                  { name:'plVelHorOr',  type:'U2', scale:1e-2, unit:'deg' },
                                  { name:'plTime',      type:'U4',                        }, ] },
     'NAV-PVT':          { descr:'Navigation Position Velocity Time Solution',
-						  spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
-								 { name:'year',        type:'U2',             unit:'y'   },
+                          spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
+                                 { name:'year',        type:'U2',             unit:'y'   },
                                  { name:'month',       type:'U1',             unit:'month' },
                                  { name:'day',         type:'U1',             unit:'d'   },
                                  { name:'hour',        type:'U1',             unit:'h'   },
@@ -660,8 +701,8 @@ const spec = {
                                  {                     type:'U1[6]'                      },
                                  { name:'headVeh',     type:'I4', scale:1e-5, unit:'deg' },
                                  {                     type:'U1[4]'                      }, ] },
-	'NAV-STATUS':       { descr:'Receiver Navigation Status',
-						  spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
+    'NAV-STATUS':       { descr:'Receiver Navigation Status',
+                          spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
                                  { name:'gpsFix',      type:'U1',                        }, // 0:no fix, 1:dead reckoning only, 2:2D-fix, 3:3D-fix, 4:GPS + dead reckoning combined, 5:Time only fix
                                  { name:'flags',       type:'X1',                        }, // bit0:gpsFix, bit1:diffSol, bit2:wknSet, bit3:towSet
                                  { name:'fixStat',     type:'X1',                        }, // bit0:dgpsIStat bit6/7:mapMatching
@@ -669,13 +710,13 @@ const spec = {
                                  { name:'ttff',        type:'U4', scale:1e-3, unit:'s'   },
                                  { name:'msss',        type:'U4', scale:1e-3, unit:'s'   }, ] },
     'NAV-VELECEF':      { descr:'Velocity Solution in ECEF',
-						  spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
+                          spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
                                  { name:'ecefVX',      type:'I4', scale:1e-2, unit:'m/s' },
                                  { name:'ecefVY',      type:'I4', scale:1e-2, unit:'m/s' },
                                  { name:'ecefVZ',      type:'I4', scale:1e-2, unit:'m/s' },
                                  { name:'sAcc',        type:'U4', scale:1e-2, unit:'m/s' }, ] },
-	'NAV-VELNED':       { descr:'Velocity Solution in NED',
-						  spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
+    'NAV-VELNED':       { descr:'Velocity Solution in NED',
+                          spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
                                  { name:'velN',        type:'I4', scale:1e-2, unit:'m/s' },
                                  { name:'velE',        type:'I4', scale:1e-2, unit:'m/s' },
                                  { name:'velD',        type:'I4', scale:1e-2, unit:'m/s' },
@@ -684,8 +725,8 @@ const spec = {
                                  { name:'headMot',     type:'I4', scale:1e-5, unit:'deg' },
                                  { name:'sAcc',        type:'U4', scale:1e-2, unit:'m/s' },
                                  { name:'cAcc',        type:'U4', scale:1e-5, unit:'deg' }, ] },
-	'NAV-SAT':          { descr:'Satellite Information',
-						  spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
+    'NAV-SAT':          { descr:'Satellite Information',
+                          spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
                                  { name:'version',     type:'U1'                         },
                                  { name:'numSvs',      type:'U1'                         },
                                  {                     type:'U1[2]'                      },
@@ -730,25 +771,25 @@ const spec = {
                                  { name:'msgBytes',    type:'U1[250]',                   } ] },
        // INF ------------
     'INF-ERROR':        { descr:'ASCII output with error contents',
-						  spec:[ { name:'infTxt',      type:'S*'     }, ] },
+                          spec:[ { name:'infTxt',      type:'S*'     }, ] },
     'INF-WARNING':      { descr:'ASCII output with warning contents',
-						  spec:[ { name:'infTxt',      type:'S*'     }, ] },
+                          spec:[ { name:'infTxt',      type:'S*'     }, ] },
     'INF-NOTICE':       { descr:'ASCII output with informational contents',
-						  spec:[ { name:'infTxt',      type:'S*'     }, ] },
+                          spec:[ { name:'infTxt',      type:'S*'     }, ] },
     'INF-TEST':         { descr:'ASCII output with test contents',
-						  spec:[ { name:'infTxt',      type:'S*'     }, ] },
+                          spec:[ { name:'infTxt',      type:'S*'     }, ] },
     'INF-DEBUG':        { descr:'ASCII output with debug contents',
-						  spec:[ { name:'infTxt',      type:'S*'     }, ] },
+                          spec:[ { name:'infTxt',      type:'S*'     }, ] },
 // ACK ------------
     'ACK-NAK':          { descr:'Message Not-Acknowledged',
-						  spec:[ { name:'clsID',       type:'U1'     },
+                          spec:[ { name:'clsID',       type:'U1'     },
                                  { name:'msgID',       type:'U1'     }, ] },
     'ACK-ACK':          { descr:'Message Acknowledged',
-						  spec:[ { name:'clsID',       type:'U1'     },
+                          spec:[ { name:'clsID',       type:'U1'     },
                                  { name:'msgID',       type:'U1'     }, ] },
 // CFG ------------
     'CFG-PRT':          { descr:'Port Configuration',
-						  spec:[ { name:'portID',      type:'U1'     }, // 0:DDC/I2C/UART0 1:UART1 2:UART2 3:USB 4:SPI
+                          spec:[ { name:'portID',      type:'U1'     }, // 0:DDC/I2C/UART0 1:UART1 2:UART2 3:USB 4:SPI
                                  {                     type:'X1'     },
                                  { name:'txReady',     type:'X2'     },
                                  { name:'mode',        type:'X4'     }, // 8N1:0x000008D0 SPI:0x00000100
@@ -757,48 +798,48 @@ const spec = {
                                  { name:'outProtoMask',type:'X2'     },
                                  { name:'flags',       type:'X4'     }, ] },
     'CFG-MSG':          { descr:'Set Message Rate',
-						  spec:[ { name:'clsID',       type:'U1'     },
+                          spec:[ { name:'clsID',       type:'U1'     },
                                  { name:'msgID',       type:'U1'     },
                                  { name:'rate',        type:'U1[]'   }, ] },
     'CFG-INF':          { descr:'Information message configuration',
-						  spec:[ { name:'protocolID',  type:'U1'     }, // 0:UBX, 1:NMEA
+                          spec:[ { name:'protocolID',  type:'U1'     }, // 0:UBX, 1:NMEA
                                  { /*name:'res1',*/    type:'U1[3]'  },
                                  { name:'infMsgMask',  type:'U1[]'   }, ] }, // bit0:ERROR, bit1:WARNING, bit2:NOTICE, bit3:TEST, bit4:DEBUG
     'CFG-RST':          { descr:'Reset Receiver / Clear Backup Data Structures',
-						  spec:[ { name:'navBbrMask',  type:'X2'     }, // 0x0000:Hotstart 0x0001:Warmstart 0xFFFF:Coldstart
+                          spec:[ { name:'navBbrMask',  type:'X2'     }, // 0x0000:Hotstart 0x0001:Warmstart 0xFFFF:Coldstart
                                  { name:'resetMode',   type:'U1'     }, // 0:WD 1:SW 2:GNSS only 4:HD+WD 8:stop 9:start
                                  {                     type:'X1'     }, ] },
     'CFG-CFG':          { descr:'Clear, Save and Load configurations',
-						  spec:[ { name:'clear',       type:'X4'     },
+                          spec:[ { name:'clear',       type:'X4'     },
                                  { name:'save',        type:'X4'     },
                                  { name:'load',        type:'X4'     },
                                  { name:'deviceMask',  type:'X1'     }, ] }, // bit0:BBR bit1:FLASH bit2:EEPROM bit4:SPI
     'CFG-VALSET':       { descr:'Sets values corresponding to provided key-value pairs',
-						  spec:[ { name:'version',     type:'U1'     }, // 0/1
+                          spec:[ { name:'version',     type:'U1'     }, // 0/1
                                  { name:'layer',       type:'U1'     }, // 0:RAM, 1:BBR, 2:FLASH, 7:DEFAULT
                                  { name:'transaction', type:'U1'     }, // if (version == 1): 0:Transactionless, 1:(Re)Start deletion transaction, 2: Deletion transaction ongoing, 3: Apply and end a deletion transaction
                                  { /*name:'res1',*/    type:'U1'     },
                                  { name:'cfgData',     type:'U1[]'   }, ] }, // key/value pairs U4 + x1|x2|x4|x8
     'CFG-VALGET':       { descr:'Get Configuration Items',
-						  spec:[ { name:'version',     type:'U1'     }, // set 1
+                          spec:[ { name:'version',     type:'U1'     }, // set 1
                                  { name:'layers',      type:'U1'     }, // bit0:RAM, bit1:BBR, bit2:FLASH
                                  { /*name:'res1',*/    type:'U1[2]'  },
                                  { name:'cfgData',     type:'U1[]'   }, ] }, // key/value pairs U4 + x1|x2|x4|x8
     'CFG-VALDEL':       { descr:'Deletes values corresponding to provided keys',
-						  spec:[ { name:'version',     type:'U1'     }, // set 0/1
+                          spec:[ { name:'version',     type:'U1'     }, // set 0/1
                                  { name:'layers',      type:'U1'     }, // bit1:BBR, bit2:FLASH
                                  { name:'transaction', type:'U1'     }, // if (version == 1): 0:Transactionless, 1:(Re)Start deletion transaction, 2: Deletion transaction ongoing, 3: Apply and end a deletion transaction
                                  { /*name:'res1',*/    type:'U1'     },
                                  { name:'keys',        type:'U4[]'   }, ] }, // keys
 // MON ------------
     'MON-VER':          { descr:'Receiver/Software Version',
-						  spec:[ { name:'swVer',       type:'S30'    },
-								 { name:'hwVer',       type:'S10'    },
-								 { name:'extVer',      type:'S30[]'  }, ] },
+                          spec:[ { name:'swVer',       type:'S30'    },
+                                 { name:'hwVer',       type:'S10'    },
+                                 { name:'extVer',      type:'S30[]'  }, ] },
     'MON-PMP':          { descr:'PMP monitoring data',
-						  spec:[ { name:'version',     type:'U1'     },
-								 { name:'entries',     type:'U1'   },
-								 { /*name:'res0',*/    type:'U1[2]'},
+                          spec:[ { name:'version',     type:'U1'     },
+                                 { name:'entries',     type:'U1'   },
+                                 { /*name:'res0',*/    type:'U1[2]'},
                                  { name:'entry',       repeat:'entries', spec: [
                                     { name:'timeTag',  type:'U4', unit:'ms' },
                                     { name:'status',   type:'X4'            }, // bit0:locked, bit1:frameSync
@@ -821,27 +862,27 @@ const spec = {
                                     { name:'freq',      type:'U1', unit:'Hz' }, 
                                     { name:'faults',    type:'X1'            }, ] }, ] }, // bit0:badMeas, bit1:badTtag, bit2:missingMeas, bit3:noisyMeas
     'MGA-GPS':          { descr:'GPS Assistance Date',
-						  spec:[ { name:'type',        type:'U1'     }, // 1:EPH, 2: ALM, 3:TIMEOFFSET, 4:HEALTH 5:UTC 6:IONO
+                          spec:[ { name:'type',        type:'U1'     }, // 1:EPH, 2: ALM, 3:TIMEOFFSET, 4:HEALTH 5:UTC 6:IONO
                                  { name:'version',     type:'U1'     },
                                  { name:'svid',        type:'U1'     },
                                  { name:'gnss',        type:'U1'     }, ] },
     'MGA-GAL':          { descr:'Galileo Assistance Date',
-						  spec:[ { name:'type',        type:'U1'     },
+                          spec:[ { name:'type',        type:'U1'     },
                                  { name:'version',     type:'U1'     },
                                  { name:'svid',        type:'U1'     },
                                  { name:'gnss',        type:'U1'     }, ] },
     'MGA-BDS':          { descr:'Beidou Assistance Date',
-						  spec:[ { name:'type',        type:'U1'     },
+                          spec:[ { name:'type',        type:'U1'     },
                                  { name:'version',     type:'U1'     },
                                  { name:'svid',        type:'U1'     },
                                  { name:'gnss',        type:'U1'     }, ] },
     'MGA-QZSS':         { descr:'QZSS Assistance Date',
-						  spec:[ { name:'type',        type:'U1'     },
+                          spec:[ { name:'type',        type:'U1'     },
                                  { name:'version',     type:'U1'     },
                                  { name:'svid',        type:'U1'     },
                                  { name:'gnss',        type:'U1'     }, ] },
     'MGA-GLO':          { descr:'Glonass Assistance Date',
-						  spec:[ { name:'type',        type:'U1'     },
+                          spec:[ { name:'type',        type:'U1'     },
                                  { name:'version',     type:'U1'     },
                                  { name:'svid',        type:'U1'     },
                                  { name:'gnss',        type:'U1'     }, ] },
@@ -872,21 +913,21 @@ function ubxClsMsgId(cls,msg) {
     let clsNum;
     let msgNum;
     let clsArr = lookup(mapCls, cls);
-	cls = clsArr[0];
-	clsNum = clsArr[1];
+    cls = clsArr[0];
+    clsNum = clsArr[1];
     if (clsNum === undefined || clsNum < 0 || clsNum > 255)
         throw new Error('UBX class ID parameter failed');
     let msgArr = lookup(mapMsg[clsNum], msg);
-	msg = msgArr[0];
-	msgNum = msgArr[1];
+    msg = msgArr[0];
+    msgNum = msgArr[1];
     if (msgNum === undefined || msgNum < 0 || msgNum > 255)
         throw new Error('UBX message ID parameter failed');
     return [ cls + '-' + msg, clsNum, msgNum ];
 }
 
 function parse(data, i) {
-	const len = data.length; 
-	if (i >= len) return WAIT;
+    const len = data.length; 
+    if (i >= len) return WAIT;
     let by = data.charCodeAt(i++);
     if (181 !== by) return NOTFOUND; // = µ, 0xB5
     if (i >= len) return WAIT;
@@ -924,31 +965,31 @@ function parse(data, i) {
 function process(data, type) {
     let message = Message('UBX', data, type, true);
     let arr = ubxClsMsgId(message.data.charCodeAt(2), message.data.charCodeAt(3));
-	message.id = arr[0];
-	message.ubxCls = arr[1];
-	message.ubxMsg = arr[2];
+    message.id = arr[0];
+    message.ubxCls = arr[1];
+    message.ubxMsg = arr[2];
     message.name = message.id;
     message.text = message.name;
     const msgSpec = spec[message.id];
-	if (msgSpec) {
-		message.descr = msgSpec.descr;
+    if (msgSpec) {
+        message.descr = msgSpec.descr;
         //message.spec = msgSpec.spec;
         if (msgSpec.spec && (message.data.length > 8)) {
             const payload = message.data.slice(6,-2);
             message.fields = processDecode(payload, msgSpec.spec);
-			if (message.ubxCls === 0x04 && message.fields.infTxt)
-				message.text += ' ' + message.fields.infTxt;
-		}
-	}
-	return message;
+            if (message.ubxCls === 0x04 && message.fields.infTxt)
+                message.text += ' ' + message.fields.infTxt;
+        }
+    }
+    return message;
 }
 
 function make(cls,id,data) {
     let msgId;
     let arr = ubxClsMsgId(cls, id);
     msgId = arr[0];
-	cls = arr[1];
-	id = arr[2];
+    cls = arr[1];
+    id = arr[2];
     // with the spec try to encode the message
     if (data && (data instanceof Object) && !(data instanceof Array) && !(data instanceof ArrayBuffer)) {
         let msgSpec = spec[msgId];
@@ -976,7 +1017,7 @@ function make(cls,id,data) {
     crc_a &= 0xFF;
     crc_b &= 0xFF;
     data = "\xB5\x62" + data + String.fromCharCode(crc_a) + String.fromCharCode(crc_b);
-	return process(data, TYPE_INPUT);
+    return process(data, TYPE_INPUT);
 }
 
 return { process: process, parse: parse, make: make, spec:spec };
@@ -994,7 +1035,7 @@ const ProtocolNMEA = (function () {
 // [xx]: Array, add optional size xx
 const spec = {
     DTM:{ suggest:false, 
-		  descr: 'GNSS Satellite Fault Detection',
+          descr: 'GNSS Satellite Fault Detection',
           spec:[ { name:'datum',       type:'S' },
                  { name:'subDatum',    type:'S' },
                  { name:'offsetLat',   type:'R', unit:'min' }, { name:'latI',        type:'C' }, // N/S
@@ -1002,7 +1043,7 @@ const spec = {
                  { name:'offsetAlt',   type:'R', unit:'m' },
                  { name:'refDatum',    type:'S' }, ] },
     GBS:{ suggest:false, 
-		  descr: 'GNSS Satellite Fault Detection',
+          descr: 'GNSS Satellite Fault Detection',
           spec:[ { name:'time',        type:'T' },
                  { name:'errLat',      type:'R', unit:'m' },
                  { name:'errLon',      type:'R', unit:'m' },
@@ -1014,29 +1055,29 @@ const spec = {
                  { name:'systemId',    type:'U' },
                  { name:'signalId',    type:'U' }, ] },
     GGA:{ suggest:false, 
-		  descr: 'Global positioning system fix data',
-          spec:[ { name:'time',    	   type:'T' },
-                 { name:'latN',    	   type:'L' }, { name:'latI', 	   type:'C' }, // N/S
-                 { name:'longN',   	   type:'L' }, { name:'longI',	   type:'C' }, // E/W
-                 { name:'quality', 	   type:'I' },
-                 { name:'numSV',   	   type:'U' },
-                 { name:'hDop',    	   type:'R' },
-                 { name:'msl',     	   type:'R', unit:'m' }, {/*name:'mslI',*/  type:'C' },
-                 { name:'sep',     	   type:'R', unit:'m' }, {/*name:'sepI',*/  type:'C' },
-                 { name:'diffAge', 	   type:'I', unit:'s' },
+          descr: 'Global positioning system fix data',
+          spec:[ { name:'time',        type:'T' },
+                 { name:'latN',        type:'L' }, { name:'latI',        type:'C' }, // N/S
+                 { name:'longN',       type:'L' }, { name:'longI',       type:'C' }, // E/W
+                 { name:'quality',     type:'I' },
+                 { name:'numSV',       type:'U' },
+                 { name:'hDop',        type:'R' },
+                 { name:'msl',         type:'R', unit:'m' }, {/*name:'mslI',*/  type:'C' },
+                 { name:'sep',         type:'R', unit:'m' }, {/*name:'sepI',*/  type:'C' },
+                 { name:'diffAge',     type:'I', unit:'s' },
                  { name:'diffStation', type:'S' }, ] },
     GLL:{ suggest:false, 
-		  descr: 'Latitude and longitude, with time of position fix and status',
+          descr: 'Latitude and longitude, with time of position fix and status',
           spec:[ { name:'latN',        type:'L' }, { name:'latI',     type:'C' },
                  { name:'longN',       type:'L' }, { name:'longI',    type:'C' },
                  { name:'time',        type:'T' },
                  { name:'status',      type:'S' },
                  { name:'posMode',     type:'S' }, ] },
     EIGNQ: { 
-	      descr: 'Poll a standard message',
+          descr: 'Poll a standard message',
           spec:[ { name:'msgId',       type:'S' }, ] },
     GNS:{ suggest:false, 
-		  descr: 'GNSS fix data' ,
+          descr: 'GNSS fix data' ,
           spec:[ { name:'time',        type:'T' },
                  { name:'latN',        type:'L' }, { name:'latI',        type:'C' },
                  { name:'longN',       type:'L' }, { name:'longI',       type:'C' },
@@ -1049,14 +1090,14 @@ const spec = {
                  { name:'diffStation', type:'S' },
                  { name:'navStatus',   type:'C' }, ] },
     GRS:{ suggest:false, 
-		  descr: 'GNSS Range Residuals',
+          descr: 'GNSS Range Residuals',
           spec:[ { name:'time',        type:'T' },
                  { name:'mode',        type:'U' },
                  { name:'residual',    type:'R[12]', unit:'m' },
                  { name:'systemId',    type:'U' },
                  { name:'signalId',    type:'U' }, ] },
     GSA:{ suggest:false, 
-		  descr: 'GNSS DOP and Active Satellites',
+          descr: 'GNSS DOP and Active Satellites',
           spec:[ { name:'opMode',      type:'S' },
                  { name:'navMode',     type:'U' },
                  { name:'sv',          type:'U[12]' },
@@ -1065,7 +1106,7 @@ const spec = {
                  { name:'vDop',        type:'R' },
                  { name:'systemId',    type:'U' }, ] },
     GST:{ suggest:false, 
-		  descr: 'GNSS Pseudo Range Error Statistics',
+          descr: 'GNSS Pseudo Range Error Statistics',
           spec:[ { name:'time',        type:'T' },
                  { name:'rangeRms',    type:'R', unit:'m' },
                  { name:'stdMajor',    type:'R', unit:'m' },
@@ -1075,21 +1116,21 @@ const spec = {
                  { name:'stdLong',     type:'R', unit:'m' },
                  { name:'stdAlt',      type:'R', unit:'m' }, ] },
     GSV:{ suggest:false, 
-		  descr: 'GNSS Satellites in View',
-          spec:[ { name:'numMsg', 	   type:'U' },
-                 { name:'msgNum', 	   type:'U' },
-                 { name:'numSV',  	   type:'U' },
-                 { name:'svs',    	   repeat:'min(numSV-(msgNum-1)*4,4)', spec: [
-                     { name:'sv', 	     type:'U' },
-					 { name:'elv', 	     type:'U', unit:'deg' },
-                     { name:'az', 	     type:'U', unit:'deg' },
-					 { name:'cno',       type:'U', unit:'dBHz' }, ] },
-                 { name:'signalId',	   type:'U' }, ] },
+          descr: 'GNSS Satellites in View',
+          spec:[ { name:'numMsg',      type:'U' },
+                 { name:'msgNum',      type:'U' },
+                 { name:'numSV',       type:'U' },
+                 { name:'svs',         repeat:'min(numSV-(msgNum-1)*4,4)', spec: [
+                   { name:'sv',        type:'U' },
+                   { name:'elv',       type:'U', unit:'deg' },
+                   { name:'az',        type:'U', unit:'deg' },
+                   { name:'cno',       type:'U', unit:'dBHz' }, ] },
+                 { name:'signalId',    type:'U' }, ] },
     RMC:{ suggest:false, 
-		  descr: 'Recommended Minimum data',
+          descr: 'Recommended Minimum data',
           spec:[ { name:'time',        type:'T' },
                  { name:'status',      type:'C' },
-                 { name:'latN',        type:'L' }, { name:'latI',        type:'C' },
+                 { name:'latN',        type:'L' }, { name:'latI',     type:'C' },
                  { name:'longN',       type:'L' }, { name:'longI',    type:'C' },
                  { name:'spdKn',       type:'R', unit:'knots' },
                  { name:'cogt',        type:'R', unit:'deg' },
@@ -1098,26 +1139,26 @@ const spec = {
                  { name:'posMode',     type:'S' },
                  { name:'navStatus',   type:'S' } ] },
     TXT:{ suggest:false, 
-		  descr: 'Text Transmission',
+          descr: 'Text Transmission',
           spec:[ { name:'msg',         type:'U' },
                  { name:'num',         type:'U' },
                  { name:'lvl',         type:'U' },
                  { name:'infTxt',      type:'*' }, ] },
     VLW:{ suggest:false, 
-		  descr: 'Dual ground/water distance',
+          descr: 'Dual ground/water distance',
           spec:[ { name:'twd',         type:'R', unit:'nm' }, {/*name:'twdUnit',*/ type:'C' },
                  { name:'wd',          type:'R', unit:'nm' }, {/*name:'wdUnit',*/  type:'C' },
                  { name:'tgd',         type:'R', unit:'nm' }, {/*name:'tgdUnit',*/ type:'C' },
                  { name:'gd',          type:'R', unit:'nm' }, {/*name:'gdUnit',*/  type:'C' }, ] },
     VTG:{ suggest:false, 
-		  descr: '',
+          descr: '',
           spec:[ { name:'cog',         type:'R', unit:'deg' }, {/*name:'cogI',*/ type:'C' },
                  { name:'cogm',        type:'R', unit:'deg' }, {/*name:'cogmI',*/ type:'C' },
                  { name:'spdKn',       type:'R', unit:'knots' }, {/*name:'spdKnI',*/type:'C' },
                  { name:'spdKm',       type:'R', unit:'km/h' }, {/*name:'spdKmI',*/type:'C' },
                  { name:'posMode',     type:'S' }, ] },
     ZDA:{ suggest:false, 
-		  descr: 'Time and Date',
+          descr: 'Time and Date',
           spec:[ { name:'time',        type:'T' },
                  { name:'day',         type:'U' },
                  { name:'month',       type:'U' },
@@ -1126,8 +1167,8 @@ const spec = {
     
     // Proprietary Sentences aka PUBX
     'PUBX,00':{ 
-	      suggest:false, 
-		  descr: 'Lat/Long Position Data',
+          suggest:false, 
+          descr: 'Lat/Long Position Data',
           spec:[ { name:'time',        type:'T' },
                  { name:'latN',        type:'L' }, { name:'latI',        type:'C' },
                  { name:'longN',       type:'L' }, { name:'longI',    type:'C' },
@@ -1149,19 +1190,19 @@ const spec = {
                  {                     type:'S' },
                  { name:'DRused',      type:'U' }, ] },
     'PUBX,03':{
-		  suggest:false, 
-		  descr: 'Satellite Status',
-          spec:[ { name:'numSV',         type:'U' },
-                 { name:'svs',           spec: [
-                     { name:'sv',          type:'U' },
-                     { name:'status',      type:'U' }, // U:Used, e:Ephemeris but not used, -:Not used
-                     { name:'az',          type:'U', unit:'deg' },
-                     { name:'elv',         type:'U', unit:'deg' },
-                     { name:'cno',         type:'U', unit:'dBHz' },
-                     { name:'lck',         type:'U', unit:'s' }, ] }, ] },
+          suggest:false, 
+          descr: 'Satellite Status',
+          spec:[ { name:'numSV',       type:'U' },
+                 { name:'svs',         spec: [
+                   { name:'sv',        type:'U' },
+                   { name:'status',    type:'U' }, // U:Used, e:Ephemeris but not used, -:Not used
+                   { name:'az',        type:'U', unit:'deg' },
+                   { name:'elv',       type:'U', unit:'deg' },
+                   { name:'cno',       type:'U', unit:'dBHz' },
+                   { name:'lck',       type:'U', unit:'s' }, ] }, ] },
     'PUBX,04':{ 
-	      suggest:false, 
-		  descr: 'Time of Day and Clock Information',
+          suggest:false, 
+          descr: 'Time of Day and Clock Information',
           spec:[ { name:'time',        type:'T', unit:'hhmmss.ss' },
                  { name:'date',        type:'D', unit:'ddmmyy' },
                  { name:'utcTow',      type:'R', unit:'s' },
@@ -1171,21 +1212,21 @@ const spec = {
                  { name:'clkDrift',    type:'R', unit:'ns/s' },
                  { name:'tpGran',      type:'R', unit:'ns' }, ] },
     'PUBX,40':{
-	      descr: 'Set NMEA message output rate',
-          spec:[ { name:'msgID',      type:'Q' },
-				 { name:'rate',       type:'U[6]' }, ] },
+          descr: 'Set NMEA message output rate',
+          spec:[ { name:'msgID',       type:'Q' },
+                 { name:'rate',        type:'U[6]' }, ] },
     'PUBX,41':{ 
-	      descr: 'Set Protocols and Baudrate',
-          spec:[ { name:'portId',       type:'U' },
-                 { name:'inProto',      type:'X' },
-                 { name:'outProto',     type:'X' },
-                 { name:'baudrate',     type:'U', unit:'bits/s' },
-                 { name:'autobauding',  type:'U' }, ] },
+          descr: 'Set Protocols and Baudrate',
+          spec:[ { name:'portId',      type:'U' },
+                 { name:'inProto',     type:'X' },
+                 { name:'outProto',    type:'X' },
+                 { name:'baudrate',    type:'U', unit:'bits/s' },
+                 { name:'autobauding', type:'U' }, ] },
 };
 
 function parse(data, i) {
     const len = data.length; 
-	const hex = '0123456789ABCDEF';
+    const hex = '0123456789ABCDEF';
     if (i >= len) return WAIT;
     let by = data.charCodeAt(i++);
     if (36 !== by) return NOTFOUND; // $
@@ -1213,7 +1254,7 @@ function parse(data, i) {
 
 function process(data, type) {
     let message = Message('NMEA', data, type, false);
-	let m;
+    let m;
     let msgSpec;
     let payload;
     if (m = message.data.match(/\$(G[ABLNPQ])([A-Z]{3}),(.*)\*[0-9A-F]{2}\r\n$/)) { // Standard Nav device
@@ -1235,12 +1276,12 @@ function process(data, type) {
         message.name = message.talker + message.id;
         msgSpec = spec['Q'];
     }
-	if (msgSpec) {
-		message.descr = msgSpec.descr;
+    if (msgSpec) {
+        message.descr = msgSpec.descr;
         //message.spec = msgSpec.spec;
         if (msgSpec.spec && (payload !== ''))
             message.fields = processDecode(payload, msgSpec.spec);
-	}
+    }
     message.text = message.data.replace(/[\r\n]/gm, '');
     return message;
 }
@@ -1253,8 +1294,8 @@ function make(data) {
         crc = crc ^ data.charCodeAt(i);
     crc &= 0xFF;
     crc = ('0'+crc.toString(16).toUpperCase()).slice(-2);
-	data = '$' + data + '*' + crc + "\r\n"
-	return process(data, TYPE_INPUT);
+    data = '$' + data + '*' + crc + "\r\n"
+    return process(data, TYPE_INPUT);
 }
     
 return { process: process, parse: parse, make:make, spec:spec };
@@ -1266,7 +1307,7 @@ return { process: process, parse: parse, make:make, spec:spec };
 const ProtocolRTCM3 = (function () {
 
 const spec = {
-	1001: { descr: 'L1-only GPS RTK observables', }, 
+    1001: { descr: 'L1-only GPS RTK observables', }, 
     1002: { descr: 'Extended L1-only GPS RTK observables', }, 
     1003: { descr: 'L1 & L2 GPS RTK observables', }, 
     1004: { descr: 'Extended L1 & L2 GPS RTK observables', }, 
@@ -1279,14 +1320,14 @@ const spec = {
     1012: { descr: 'Extended L1 & L2 GLONASS RTK observables', },
     1074: { descr: 'GPS MSM4', },
     1077: { descr: 'GPS MSM7', },
-	1084: { descr: 'GLONASS MSM4', },
+    1084: { descr: 'GLONASS MSM4', },
     1087: { descr: 'GLONASS MSM7', },
-	1094: { descr: 'Galileo MSM4', },
+    1094: { descr: 'Galileo MSM4', },
     1097: { descr: 'Galileo MSM7', },
     1124: { descr: 'BeiDou MSM4', },
     1127: { descr: 'BeiDou MSM7', },
     4072: { descr: 'u-blox proprietary message', },
-	'4072.0': { descr: 'u-blox sub-type 0: Reference station PVT', },
+    '4072.0': { descr: 'u-blox sub-type 0: Reference station PVT', },
     '4072.1': { descr: 'u-blox sub-type 1: Additional reference station information', },
     
     // not used by u-blox
@@ -1306,7 +1347,13 @@ const spec = {
     1025: { descr: 'Projection Parameters, Projection Types other than Lambert Conic Conformal', },
     1026: { descr: 'Projection Parameters, Projection Type LCC2SP (Lambert Conic Conformal', },
     1027: { descr: 'Projection Parameters, Projection Type OM (Oblique Mercator)', },
-    1029: { descr: 'Unicode Text String (used for human readable text)', },
+    1029: { descr: 'Unicode Text String (used for human readable text)', 
+            spec:[ { name:'refSta',     type:'u12' },     // bit 12..23: Ref Station Id
+                   { name:'mjdDay',     type:'u16' },     // bit 24..47: MJD - day of year
+                   { name:'mjdSec',     type:'u17' },     // bit 48..56: UTC - sec of day
+                   { name:'nUnicode',   type:'u7'  },     // bit 57..63: unicode Chars,
+                   { name:'nUtf8',      type:'U1'  },     // num chars in utf8 (N)
+                   { name:'txtUtf8',    type:'S*'  } ]},  // utf8(N)
     1030: { descr: 'GPS Network RTK Residual Message', },
     1031: { descr: 'GLONASS Network RTK Residual', },
     1032: { descr: 'Physical Reference Station Position', },
@@ -1333,7 +1380,7 @@ const spec = {
     1066: { descr: 'SSR Combined orbit and clock corrections to GLONASS Broadcast Ephemeris', },
     1067: { descr: 'SSR GLONASS User Range Accuracy (URA)', },
     1068: { descr: 'High-rate GLONASS clock corrections to Broadcast Ephemeris', },
-	/*
+    /*
     MSM1    DGNSS uses, Pseudorange, (conventional and advanced)
     MSM2    RTK uses, Pseudorange only
     MSM3    RTK uses, Pseudorange (i.e. Code) and PhaseRange (i.e. Carrier)
@@ -1376,23 +1423,22 @@ const spec = {
     1123: { descr: 'BeiDou MSM3', },
     1125: { descr: 'BeiDou MSM5', },
     1126: { descr: 'BeiDou MSM6', },
-	1230: { descr: 'GLONASS L1 and L2 Code-Phase Biases', },
+    1230: { descr: 'GLONASS L1 and L2 Code-Phase Biases', },
 };
 
 function parse(data, i) {
-	const len = data.length; 
-	if (i >= len) return WAIT;
-	let by = data.charCodeAt(i);
-	if (0xD3 !== by) return NOTFOUND;
-	if (i+1 >= len) return WAIT;
-	by = data.charCodeAt(i+1);
-	if ((0xFC & by) !== 0) return NOTFOUND;
-	let l = (by & 0x3) << 8;
-	if (i+2 >= len) return WAIT;
-	by = data.charCodeAt(i+2);
-	l += by + 6 + i;
-	if (l >= len) return WAIT;
-    let crc = 0;
+    const len = data.length; 
+    if (i >= len) return WAIT;
+    let by = data.charCodeAt(i);
+    if (0xD3 !== by) return NOTFOUND;
+    if (i+1 >= len) return WAIT;
+    by = data.charCodeAt(i+1);
+    if ((0xFC & by) !== 0) return NOTFOUND;
+    let l = (by & 0x3) << 8;
+    if (i+2 >= len) return WAIT;
+    by = data.charCodeAt(i+2);
+    l += by + 6 + i;
+    if (l > len) return WAIT;
     // CRC24Q check
     const _crc24qTable = [
         /* 00 */ 0x000000, 0x864cfb, 0x8ad50d, 0x0c99f6, 0x93e6e1, 0x15aa1a, 0x1933ec, 0x9f7f17,
@@ -1428,36 +1474,61 @@ function parse(data, i) {
         /* f0 */ 0xe37b16, 0x6537ed, 0x69ae1b, 0xefe2e0, 0x709df7, 0xf6d10c, 0xfa48fa, 0x7c0401,
         /* f8 */ 0x42fa2f, 0xc4b6d4, 0xc82f22, 0x4e63d9, 0xd11cce, 0x575035, 0x5bc9c3, 0xdd8538
     ];
+    let crc = 0x000000;
     while (i < l) {
-		by = data.charCodeAt(i++);
-		const ix = ((crc >> 16) & 0xff);
-        crc = ((crc << 8) | by) ^ _crc24qTable[ix];
-	}
-    if ((crc & 0xFFFFFF) != 0x000000) return NOTFOUND;
+        by = data.charCodeAt(i++);
+        const ix = (by ^ (crc >> 16));
+        crc = ((crc << 8) & 0xffffff) ^ _crc24qTable[ix];
+    }
+    if (crc != 0) return NOTFOUND;
     return l;
 }
 
 function process(data, type) {
     let message = Message('RTCM3', data, type, true);
-	message.id = (message.data.charCodeAt(4) >> 4) + (message.data.charCodeAt(3) << 4);
-	message.name = message.id.toString();
-	if (message.id === 4072) {
-		message.subtype = ((message.data.charCodeAt(4) & 0xF) << 8) + message.data.charCodeAt(5);
-		message.name += '.' + message.subtype.toString();
-	} 
+    message.id = (message.data.charCodeAt(4) >> 4) + 
+                 (message.data.charCodeAt(3) << 4);
+    message.name = message.id.toString();
+    if (message.id === 4072) {
+        message.subtype = ((message.data.charCodeAt(4) & 0xf) << 8) + 
+                            message.data.charCodeAt(5);
+        message.name += '.' + message.subtype.toString();
+    } 
     message.text = message.name;
     const msgSpec = spec[message.id];
     if (msgSpec) {
-        ///message.spec = msgSpec.spec;
+        message.spec = msgSpec.spec;
         message.descr = msgSpec.descr;
-        if (msgSpec.spec && (message.data.length > 6)) {
-            //let payload = message.data.slice(3, -3);
-            //message.fields = processDecode(payload, msgSpec.spec);
+        if (msgSpec.spec && (message.data.length > 8)) {
+            let payload = message.data.slice(
+                         (message.id === 4072) ? 6 : 4, -3); // 4.5 / 6 bytes header, -3 bytes CRC24q
+            let ofsBit = (message.id === 4072) ? 0 : 4;
+            message.fields = processDecode(payload, msgSpec.spec, false, ofsBit);
+            if ((message.id === 1029) && message.fields){
+                const strDate = mjdToString(message.fields.mjdDay, message.fields.mjdSec);
+                message.text += ' ' + message.fields.refSta + ' ' + strDate + ' Message: "' + message.fields.txtUtf8 + '"';
+            }
         }
     }
     return message;
 }
-	
+    
+function mjdToString(mjdDay, mjdSec) {
+    if(mjdDay && mjdSec) {
+        let d = new Date();
+        d = new Date(d.getUTCFullYear(), 0, 1);
+        d.setDate(d.getDate() + mjdDay);
+        d.setSeconds(d.getSeconds() + mjdSec);
+        let mt  = (d.getUTCMonth() + 1).toString();
+        let day =  d.getUTCDay().toString().padStart(2, '0');
+        let hr  =  d.getUTCHours().toString().padStart(2, '0');
+        let min =  d.getUTCMinutes().toString().padStart(2, '0');
+        let sec =  d.getUTCSeconds().toString().padStart(2, '0');
+        return mt + '-' + day + ' ' + hr + ':' + min + ':' + sec;
+    }
+    return '';
+}
+
 return { process: process, parse: parse };
 })();
 
@@ -1710,10 +1781,10 @@ function parse(data, i) {
     let crcBits = lenCrc * 8;
     const crcTable = _CrcTables[crcBits];
     const crcMask = [ 0xFF, 0xFFFF, 0xFFFFFF, 0xFFFFFFFF ];
-    let crc = 0;
     let l = i + lenData + lenHead + lenCrc;
     if (l >= len) return WAIT;
     i ++; // skip the 0x73
+    let crc = 0;
     while (i < l) {
         by = data.charCodeAt(i++);
         const ix = (by ^ (crc >> (crcBits - 8)));
@@ -1727,7 +1798,7 @@ function parse(data, i) {
 function process(data, type) {
     let message = Message('SPARTN', data, type, true);
     message.spartnType    = (message.data.charCodeAt(1) & 0xF7) >> 1;
-	message.spartnSubType = (message.data.charCodeAt(4) & 0xF0) >> 4;
+    message.spartnSubType = (message.data.charCodeAt(4) & 0xF0) >> 4;
     let msgSpec;
     if (mapType[message.spartnType] !== undefined) {
         message.id = mapType[message.spartnType];
@@ -1878,14 +1949,14 @@ const spec = {
     '+UMLA':        { descr: 'Local address',
                       spec: [ { name:'interface_id',          type:'U' },
                               { name:'address',               type:'Q' }, ] },
-	'+UMLA:':       { suggest:false, descr: 'Local address',
+    '+UMLA:':       { suggest:false, descr: 'Local address',
                       spec: [ { name:'address',               type:'Q' }, ] },
-	'+UMSTAT':      { descr: ' System status',
+    '+UMSTAT':      { descr: ' System status',
                       spec: [ { name:'status_id',             type:'U' }, ] },
-	'+UMSTAT:':     { suggest:false, descr: ' System status',
+    '+UMSTAT:':     { suggest:false, descr: ' System status',
                       spec: [ { name:'status_id',             type:'U' },
-							  { name:'status_val',            type:'U' }, ] },
-	// wifi commands
+                              { name:'status_val',            type:'U' }, ] },
+    // wifi commands
     '+UWSCAN':      { descr: 'Wifi Scan',
                       spec: [ { name:'ssid',                  type:'Q' }, ] },
     '+UWSCAN:':     { suggest:false, descr: 'Wifi Scan',
@@ -2033,13 +2104,13 @@ const ProtocolTEXT = (function () {
 
 function parse(data, i) {
     const len = data.length;
-	if (i >= len) return WAIT;
+    if (i >= len) return WAIT;
     let by = data.charCodeAt(i++);
     while ((32 <= by) && (126 >= by)) {
         if (i >= len) return WAIT;
         by = data.charCodeAt(i++);
     }
-    if (10 === by) return i; 		// \n
+    if (10 === by) return i;         // \n
     if (13 !== by) return NOTFOUND; // \r
     if (i >= len) return i;
     by = data.charCodeAt(i);
@@ -2116,7 +2187,7 @@ function makeFromText(data) {
             let obj;
             try {
                 data = data.replace(/([,{]\s*)(\w+)(\s*:)/mg, "$1\"$2\"$3"); // make sure field names are quoted
-				obj = JSON.parse(data);
+                obj = JSON.parse(data);
             } catch (e) { obj = data; }
             if (obj !== undefined) data = obj;
         }
@@ -2131,88 +2202,88 @@ function makeFromText(data) {
 }
 
 function makeSuggestions() {
-	let arr = []; 
-	_suggestions('AT',   ProtocolAT.spec,   atHint); 
-	_suggestions('$',    ProtocolNMEA.spec, nmeaHint); 
-	_suggestions('UBX ', ProtocolUBX.spec,  ubxHint); 
-	//_suggestions('$',   ProtocolNMEA.spec); 
-	return arr;
-	
-	function _suggestions(txt, spec, hint) {
-		let keys = Object.keys(spec);
-		keys.forEach( function _addAt(key) {
-			if (false === spec[key].suggest) {
-				/* skip */
-			} else {
-				const payload = spec[key].spec ? hint(spec[key].spec) : undefined;
-				arr.push( { data:txt+key, descr:spec[key].descr, payload:payload } );
-				
-				
-			}
-		} );
-	}
-	
-	function ubxHint(spec) {
-		let payload = _payloadHint(spec);
-		return ' ' + JSON.stringify(payload);
+    let arr = []; 
+    _suggestions('AT',   ProtocolAT.spec,   atHint); 
+    _suggestions('$',    ProtocolNMEA.spec, nmeaHint); 
+    _suggestions('UBX ', ProtocolUBX.spec,  ubxHint); 
+    //_suggestions('$',   ProtocolNMEA.spec); 
+    return arr;
+    
+    function _suggestions(txt, spec, hint) {
+        let keys = Object.keys(spec);
+        keys.forEach( function _addAt(key) {
+            if (false === spec[key].suggest) {
+                /* skip */
+            } else {
+                const payload = spec[key].spec ? hint(spec[key].spec) : undefined;
+                arr.push( { data:txt+key, descr:spec[key].descr, payload:payload } );
+                
+                
+            }
+        } );
+    }
+    
+    function ubxHint(spec) {
+        let payload = _payloadHint(spec);
+        return ' ' + JSON.stringify(payload);
 
-		// helper for recursion
-		function _payloadHint(spec) {
-			if (spec.type !== undefined) {
-				return spec.type;
-			} else if (spec.spec)  {
-				let elems = [];
-				const repeat = 1; //_repeat(spec.repeat, fields);
-				for (let r = 0; (repeat===undefined) || (r < repeat); r ++ ) {
-					const elem = _payloadHint(spec.spec, elems);
-					if (elem !== undefined) elems.push(elem);
-				}
-				return elems;
-			} else {
-				let elems = {};
-				for (let s = 0; s < spec.length; s ++ ) {
-					const elem = _payloadHint(spec[s], elems);
-					if ((elem !== undefined) && spec[s].name) elems[spec[s].name] = elem;
-				}
-				return elems;
-			}
-		}
-	}
-	function atHint(spec, pre) {
-		return txtHint(spec, '=');
-	}
-	function nmeaHint(spec, pre) {
-		return txtHint(spec, ',');
-	}
-	function txtHint(spec, pre) {
-		let data = [];
-		_payloadHint(spec);
-		return pre+data.join(',');
+        // helper for recursion
+        function _payloadHint(spec) {
+            if (spec.type !== undefined) {
+                return spec.type;
+            } else if (spec.spec)  {
+                let elems = [];
+                const repeat = 1; //_repeat(spec.repeat, fields);
+                for (let r = 0; (repeat===undefined) || (r < repeat); r ++ ) {
+                    const elem = _payloadHint(spec.spec, elems);
+                    if (elem !== undefined) elems.push(elem);
+                }
+                return elems;
+            } else {
+                let elems = {};
+                for (let s = 0; s < spec.length; s ++ ) {
+                    const elem = _payloadHint(spec[s], elems);
+                    if ((elem !== undefined) && spec[s].name) elems[spec[s].name] = elem;
+                }
+                return elems;
+            }
+        }
+    }
+    function atHint(spec, pre) {
+        return txtHint(spec, '=');
+    }
+    function nmeaHint(spec, pre) {
+        return txtHint(spec, ',');
+    }
+    function txtHint(spec, pre) {
+        let data = [];
+        _payloadHint(spec);
+        return pre+data.join(',');
 
-		// helper for recursion
-		function _payloadHint(spec) {
-			if (spec.type !== undefined) {
-				data.push(spec.name);
-			} else if (spec.spec)  {
-				const repeat = 1; //_repeat(spec.repeat, fields);
-				for (let r = 0; (repeat===undefined) || (r < repeat); r ++ ) {
-					_payloadHint(spec.spec);
-				}
-			} else {
-				for (let s = 0; s < spec.length; s ++ ) {
-					_payloadHint(spec[s]);
-				}
-			}
-		}
-	}
+        // helper for recursion
+        function _payloadHint(spec) {
+            if (spec.type !== undefined) {
+                data.push(spec.name);
+            } else if (spec.spec)  {
+                const repeat = 1; //_repeat(spec.repeat, fields);
+                for (let r = 0; (repeat===undefined) || (r < repeat); r ++ ) {
+                    _payloadHint(spec.spec);
+                }
+            } else {
+                for (let s = 0; s < spec.length; s ++ ) {
+                    _payloadHint(spec[s]);
+                }
+            }
+        }
+    }
 }
 
 function make(data) {
     data = conv(data);
     // parse them into separate messages
     let ret = parseProtocols(data, TYPE_INPUT);
-	let messages = ret[0];
-	let done = ret[1];
+    let messages = ret[0];
+    let done = ret[1];
     // remainder as unknown
     if (done !== data.length) {
         let message = ProtocolUNKNOWN.process( data.slice(done), TYPE_INPUT);
@@ -2260,8 +2331,8 @@ function append(data) {
 
 function parse() {
     let ret = parseProtocols(parseBuffer, TYPE_OUTPUT);
-	let messages = ret[0];
-	let done = ret[1];
+    let messages = ret[0];
+    let done = ret[1];
     // rcompact the buffer
     if (done > 0) parseBuffer = parseBuffer.slice(done);
     // remainder as unknown (but mark temporary pending)
@@ -2300,13 +2371,13 @@ function time(time) {
     makeNmea:      ProtocolNMEA.make,
     makeAt:        ProtocolAT.make,
     makeText:      ProtocolTEXT.make,
-	make:     	   make,
+    make:            make,
     makeFromText:  makeFromText,
-	makeSuggestions: makeSuggestions, 
-	
+    makeSuggestions: makeSuggestions, 
+    
     Message:        Message,
     messageLine:    messageLine,
-	messageTable:   messageTable,
+    messageTable:   messageTable,
     messageLogFile: messageLogFile,
 };
 })();

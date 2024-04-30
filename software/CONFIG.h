@@ -88,7 +88,9 @@ const int NTRIP_CONNECT_TIMEOUT           =              5000;  //!< initial res
 const unsigned short NTRIP_SERVER_PORT    =              2101;  //!< NTRIP default port
 #define NTRIP_VERSION_1                           "Ntrip/1.0"   //!< NTRIP version 1
 #define NTRIP_VERSION_2                           "Ntrip/2.0"   //!< NTRIP version 2 
-#define NTRIP_USE_HTTP10                                false   //!< set true if HTTP 1.0 should be used
+#define NTRIP_HEADER_VERSION                  "Ntrip-Version"   //!< HTTP header NTRIP version tag 
+#define NTRIP_HEADER_GGA                          "Ntrip-GGA"   //!< HTTP header NTRIP GGA tag 
+const bool NTRIP_USE_HTTP10               =             false;  //!< HTTP protocol version, set true if HTTP 1.0 should be used instead of 1.1
 
 // -----------------------------------------------------------------------
 // CONFIGURATION keys
