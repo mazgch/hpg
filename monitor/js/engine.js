@@ -332,7 +332,9 @@ function processDecode(data, spec, littleEnd = true, ofsBit = 0) {
                             }
                             const neg = v & (1 << (size - 1));
                             const adj = ((type === 'i') && neg) ? (1 << size) : 0;
-                            ofsBit = (ofsBit + size) % 8
+                            ofsBit = (ofsBit + size) % 8;
+                            if (ofsBit == 0) ofs ++;
+                            v &= ((1 << size) - 1);
                             elem = v - adj;
                         } else {
                             // RTCM big endian format 
@@ -401,13 +403,17 @@ function processDecode(data, spec, littleEnd = true, ofsBit = 0) {
                 return noArray ? elems[0] : elems;
             }
         } else if (spec.spec)  {
-            let elems = [];
-            const repeat = _repeat(spec.repeat, fields);
-            for (let r = 0; (ofs < len) && ((repeat===undefined) || (r < repeat)); r ++ ) {
-                const elem = _decodeItem(spec.spec, elems);
-                if (elem !== undefined) elems.push(elem);
+            if (spec.repeat){
+                let elems = [];
+                const repeat = _repeat(spec.repeat, fields);
+                for (let r = 0; (ofs < len) && ((repeat===undefined) || (r < repeat)); r ++ ) {
+                    const elem = _decodeItem(spec.spec, elems);
+                    if (elem !== undefined) elems.push(elem);
+                }
+                return elems;
+            } else {
+                return _decodeItem(spec.spec, {});
             }
-            return elems;
         } else {
             let elems = {};
             for (let s = 0; (ofs < len) && (s < spec.length); s ++ ) {
@@ -677,12 +683,26 @@ const spec = {
                                  { name:'hour',        type:'U1',             unit:'h'   },
                                  { name:'min',         type:'U1',             unit:'min' },
                                  { name:'sec',         type:'U1',             unit:'s'   },
-                                 { name:'valid',       type:'X1',                        }, // bit0:validDate, bit1:validTime, bit2:fullyResolved
+                                 { name:'valid',       spec: [
+                                    { name:'validDate',     type:'x1' },      // bit0:validDate,
+                                    { name:'validTime',     type:'x1' },      // bit1:validTime,
+                                    { name:'fullyResolved', type:'x1' },      // bit2:fullyResolved
+                                    {                       type:'x5' } ] },
+                                 { name:'valid',       type:'X1',                        },
                                  { name:'tAcc',        type:'U4',             unit:'ns'  },
                                  { name:'nano',        type:'I4',             unit:'ns'  },
                                  { name:'fixType',     type:'U1',                        },
-                                 { name:'flags',       type:'X1',                        },  // bit0:fixOk, bit1:diffSol, bit2-4: psmState, bit5:headVehVal, bit6-7:carrSol
-                                 { name:'flags2',      type:'X1',                        },  //
+                                 { name:'flags',       spec: [
+                                    { name:'fixOk',         type:'x1' },       // bit0:fixOk,
+                                    { name:'diffSol',       type:'x1' },       // bit1:diffSol, 
+                                    { name:'psmState',      type:'x3' },       // bit2-4: psmState,
+                                    { name:'headVehVal',    type:'x1' },       // bit5:headVehVal,
+                                    { name:'carrSol',       type:'x2' } ] },   // bit6-7:carrSol
+                                 { name:'flags2',       spec: [
+                                    {                       type:'x5' },
+                                    { name:'confirmedAvai', type:'x1' },
+                                    { name:'confirmedDate', type:'x1' },
+                                    { name:'confirmedTime', type:'x1' } ] },
                                  { name:'numSV',       type:'U1',                        },
                                  { name:'lon',         type:'I4', scale:1e-7, unit:'deg' },
                                  { name:'lat',         type:'I4', scale:1e-7, unit:'deg' },
@@ -704,9 +724,20 @@ const spec = {
     'NAV-STATUS':       { descr:'Receiver Navigation Status',
                           spec:[ { name:'itow',        type:'U4', scale:1e-3, unit:'s'   },
                                  { name:'gpsFix',      type:'U1',                        }, // 0:no fix, 1:dead reckoning only, 2:2D-fix, 3:3D-fix, 4:GPS + dead reckoning combined, 5:Time only fix
-                                 { name:'flags',       type:'X1',                        }, // bit0:gpsFix, bit1:diffSol, bit2:wknSet, bit3:towSet
-                                 { name:'fixStat',     type:'X1',                        }, // bit0:dgpsIStat bit6/7:mapMatching
-                                 { name:'flags2',      type:'X1',                        }, // bit0/1:psmState, bit3/4:spoofDetState
+                                 { name:'flags',       spec: [
+                                    { name:'fixOk',         type:'x1' },       // bit0:fixOk,
+                                    { name:'diffSol',       type:'x1' },       // bit1:diffSol, 
+                                    { name:'wknSet',        type:'x1' },       // bit2:wknSet,
+                                    { name:'towSet',        type:'x1' },       // bit3:towSet
+                                    {                       type:'x4' } ] },
+                                 { name:'fixStat',     spec: [
+                                    { name:'dgpsIStat',     type:'x1' },       // bit0:dgpsIStat,
+                                    {                       type:'x5' },
+                                    { name:'mapMatching',   type:'x2' } ] },   // bit6/7:mapMatching
+                                { name:'flags2',       spec: [
+                                    { name:'psmState',      type:'x2' },       // bit0/1:psmState,
+                                    { name:'spoofDetState', type:'x2' },       // bit3/4:spoofDetState
+                                    {                       type:'x4' } ] },
                                  { name:'ttff',        type:'U4', scale:1e-3, unit:'s'   },
                                  { name:'msss',        type:'U4', scale:1e-3, unit:'s'   }, ] },
     'NAV-VELECEF':      { descr:'Velocity Solution in ECEF',
@@ -737,7 +768,27 @@ const spec = {
                                    { name:'elv',       type:'I1',             unit:'deg' },
                                    { name:'azim',      type:'I2',             unit:'deg' },
                                    { name:'prRes',     type:'I2', scale:0.1,  unit:'m'   },
-                                   { name:'flags',     type:'X4',    }, ] }, ] },
+                                   { name:'flags',       spec: [
+                                     { name:'qualityInd',     type:'x3' },       // bit0..2:qualityInd,
+                                     { name:'svUsed',         type:'x1' },       // bit3:svUsed, 
+                                     { name:'healthy',        type:'x2' },       // bit4..5:healthy,
+                                     { name:'diffCorr',       type:'x1' },       // bit6:diffCorr
+                                     { name:'smoothed',       type:'x1' },       // bit7:smoothed
+                                     { name:'orbitSource',    type:'x3' },       // bit8..10:orbitSource
+                                     { name:'ephAvail',       type:'x1' },       // bit11:ephAvail
+                                     { name:'almAvail',       type:'x1' },       // bit12:almAvail
+                                     { name:'anoAvail',       type:'x1' },       // bit13:anoAvail
+                                     { name:'aopAvail',       type:'x1' },       // bit14:aopAvail
+                                     {                        type:'x1' },
+                                     { name:'sbasCorrUsed',   type:'x1' },       // bit16:sbasCorrUsed
+                                     { name:'rtcmCorrUsed',   type:'x1' },       // bit17:rtcmCorrUsed
+                                     { name:'slasCorrUsed',   type:'x1' },       // bit18:slasCorrUsed
+                                     { name:'spartnCorrUsed', type:'x1' },       // bit19:spartnCorrUsed
+                                     { name:'prCorrUsed',     type:'x1' },       // bit20:prCorrUsed
+                                     { name:'crCorrUsed',     type:'x1' },       // bit21:crCorrUsed
+                                     { name:'doCorrUsed',     type:'x1' },       // bit22:doCorrUsed
+                                     { name:'clasCorrUsed',   type:'x1' },       // bit23:clasCorrUsed
+                                     {                        type:'x8' } ] } ] }, ] },
 // RXM ------------
     'RXM-COR':          { descr:'Differential correction input status',
                           spec:[ { name:'ver',         type:'U1',                        },
