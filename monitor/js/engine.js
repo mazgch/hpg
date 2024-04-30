@@ -688,7 +688,6 @@ const spec = {
                                     { name:'validTime',     type:'x1' },      // bit1:validTime,
                                     { name:'fullyResolved', type:'x1' },      // bit2:fullyResolved
                                     {                       type:'x5' } ] },
-                                 { name:'valid',       type:'X1',                        },
                                  { name:'tAcc',        type:'U4',             unit:'ns'  },
                                  { name:'nano',        type:'I4',             unit:'ns'  },
                                  { name:'fixType',     type:'U1',                        },
