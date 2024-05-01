@@ -39,11 +39,11 @@
   #error unknown board target 
 #endif
 
-// https://github.com/mazgch/hpg/tree/main/hardware
+// Black PCB: https://github.com/mazgch/hpg/tree/main/hardware
 #define MAZGCH_HPG_SOLUTION_V08              1 //!< Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
 #define MAZGCH_HPG_SOLUTION_V09              2 //!< Select ESP32 Arduino / u-blox NINA-W10 series (ESP32) 
 
-// https://www.u-blox.com/en/product/xplr-hpg-2
+// Green PCB: https://www.u-blox.com/en/product/xplr-hpg-2
 #define UBLOX_XPLR_HPG2_C214                 3 //!< Select ESP32 Arduino / u-blox NINA-W10 series (ESP32), PCB rev A/B 
 
 // https://www.u-blox.com/en/product/xplr-hpg-1
