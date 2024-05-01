@@ -24,7 +24,7 @@
 // Github Repository:    https://github.com/espressif/arduino-esp32 
 
 // Third parties libraries
-//-----------------------------------
+//-------------------------------------------------------------------------------------
 
 // ArduinoMqttClient by Arduino, version 0.1.8
 // Library Manager:    http://librarymanager/All#ArduinoMqttClient   
@@ -51,7 +51,7 @@
 // Github Repository: https://github.com/h2zero/NimBLE-Arduino
 
 // Sparkfun libraries
-//-----------------------------------
+//-------------------------------------------------------------------------------------
 
 // SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.25
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
@@ -62,17 +62,19 @@
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_SARA-R5_Arduino_Library
 
 // Header files of this project
-//-----------------------------------
-#include "LOG.h"        // Comment this if you do not want a separate log level for this application 
+// to remove LTE, BLUETOOTH, LBAND, CANBUS fucnztion simply comment to save memory, the 
+// peripherial is however not put into low power mode or its pins remain uncontrolled 
+//-------------------------------------------------------------------------------------
+#include "LOG.h"          // Comment this if you do not want a separate log level for this application 
 #include "HW.h"
 #include "CONFIG.h"
 #include "UBXFILE.h"
-//#include "BLUETOOTH.h"  // Comment this to save memory if not needed, choose the flash size 4MB and suitable partition
+//#include "BLUETOOTH.h"  // Optional, Comment this to save memory if not needed, choose the flash size 4MB and suitable partition
 #include "WLAN.h"
 #include "GNSS.h"
-#include "LBAND.h"
-#include "LTE.h"
-//#include "CANBUS.h"     // Comment this if not on vehicle using the CAN interface
+#include "LBAND.h"        // Optional, comment this if not needed
+#include "LTE.h"          // Optional, comment this if not needed,
+//#include "CANBUS.h"     // Optional, comment this if not on vehicle using the CAN interface, CAN PHY is reqired 
 
 // ====================================================================================
 // MAIN setup / loop
@@ -100,20 +102,23 @@ void setup(void) {
   Bluetooth.init(hwName);
 #endif
   Wlan.init(); // WLAN runs in a tasks, creates an additional LED task 
+#ifdef __LTE_H__
   //Lte.enableDebugging(Serial);
   //Lte.enableAtDebugging(Serial); // we use UbxSerial for data logging instead
   //Lte.enableAtDebugging(Websocket); // forward all messages
   Lte.init();  // LTE runs in a task
+#endif
   // i2c wire
   UbxWire.begin(I2C_SDA, I2C_SCL); // Start I2C
   UbxWire.setClock(400000); //Increase I2C clock speed to 400kHz
   if (!Gnss.detect()) { 
     log_w("GNSS ZED-F9 not detected, check wiring");
   }
+#ifdef __LBAND_H__
   if (!LBand.detect()) {
     log_w("LBAND NEO-D9 not detected, check wiring");
   }
-  
+#endif  
 #ifdef __CANBUS_H__
   Canbus.init();
 #endif
@@ -122,7 +127,9 @@ void setup(void) {
 /** Main Arduino loop function is used to manage the GPS and LBAND communication 
 */
 void loop(void) {
+#ifdef __LBAND_H__
   LBand.poll();
+#endif
   Gnss.poll();
   delay(50);
 

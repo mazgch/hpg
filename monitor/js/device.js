@@ -120,7 +120,7 @@ function deviceInit(ip) {
     } else if (json.ip !== undefined) { // from cookie argument
         device.name = json.name;
         device.ip = json.ip;
-        device.ws = json.ws;
+        device.ws = json.ws.replace(/^wss?:\/\//, proto); // force matching protocol
     } else {
         device.name = 'unknown';
         device.ip = window.location.hostname;

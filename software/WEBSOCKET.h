@@ -308,28 +308,28 @@ WEBSOCKET Websocket;  //!< The global WEBSOCKET peripherial object
 // --------------------------------------------------------------------------------------
 
 //! the content of served file monitor.html
-const char WEBSOCKET::HTML[] = R"html(
+const char WEBSOCKET::HTML[] = R"(
 <!DOCTYPE html>
 <html>
   <head>
-    <script src="monitor.js" type="text/javascript"></script>
-    <link   href="monitor.css"  type="text/css" rel="stylesheet" media="all" />
+    <script src=")" WEBSOCKET_JSURL R"(" type="text/javascript"></script>
+    <link   href=")" WEBSOCKET_CSSURL R"("  type="text/css" rel="stylesheet" media="all" />
     <script src="https://cdn.jsdelivr.net/npm/openlayers@4.6.5/dist/ol.js"  type="text/javascript"></script>
     <link  href="https://cdn.jsdelivr.net/npm/openlayers@4.6.5/dist/ol.css" type="text/css" rel="stylesheet"/>
-    <title>Monitor</title>
+    <title>)" WEBSOCKET_BUTTON R"(</title>
     <meta charset='UTF-8'>
   </head>
   <body>
-    <h1>Monitor</h1>
+    <h1>)" WEBSOCKET_BUTTON R"(</h1>
     <div hidden id='map' class='map item' style="height:40vh"></div>
     <div id='output' class='item'></div>
     <input id='message' class='item' type='text' placeholder='Send a message' />
   </body>
 </html>
-)html";
+)";
 
 //! the content of served file monitor.css
-const char WEBSOCKET::CSS[] = R"css(
+const char WEBSOCKET::CSS[] = R"(
   body {
     display: grid;
     grid-gap: 1em;
@@ -364,10 +364,10 @@ const char WEBSOCKET::CSS[] = R"css(
     outline: none;
     box-sizing: border-box;
   }
-)css";
+)";
 
 //! the content of served file monitor.js
-const char WEBSOCKET::JS[] = R"js(
+const char WEBSOCKET::JS[] = R"(
   "use strict";
   let map = null; 
   let track = null;
@@ -442,7 +442,7 @@ const char WEBSOCKET::JS[] = R"js(
     ws.addEventListener('message', ({ data }) => {
       if (typeof(data) == 'string') {
         log(`${data}`)
-        //                     time        src  fix  car acc       lat          lon
+        //                     time        src     fix  car acc       lat          lon
         const m = data.match(/^\d+:\d+:\d+ [\w-]+ (\S+) \w+ \d+\.\d+ (-?\d+\.\d+) (-?\d+\.\d+)/)
         if (map && track && m) {
           if (m[1] != "No") {
@@ -461,6 +461,6 @@ const char WEBSOCKET::JS[] = R"js(
     })
     log(`Connecting to ${url} ...`, 'blue')
   }
-)js";
+)";
 
 #endif

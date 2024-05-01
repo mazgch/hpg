@@ -39,7 +39,8 @@ window.onload = function _onload() {
         const href = window.location.href.replace(/^https:/, 'http:');
         if (confirm('This page does not work when loaded with secure https: protocol. ' + 
                     'The insecure ws: websocket connection used to connect to the device would cause mixed content issues.'+
-                    '\n\nRedirect to ' + href)) {
+                    '\n\nRedirect to ' + href + '\n\n' + 
+                    'If this does not work for you, type http: protocol in the address bar manually!')) {
             window.open(href,'_self');
         }
     }
