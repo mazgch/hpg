@@ -20,16 +20,23 @@
 /** The target is used to enable conditional code thoughout this application 
  */
 #if defined(ARDUINO_UBLOX_NINA_W10)
- //#define HW_TARGET     UBLOX_XPLR_HPG2_C214   //!< enable this when using https://www.u-blox.com/en/product/xplr-hpg-2
- #define HW_TARGET     MAZGCH_HPG_SOLUTION_V09
+  /*! if you have a board with Green PCB, enable the following 
+      UBLOX_XPLR_HPG2_C214 deines when using the u-blox productized 
+      version: https://www.u-blox.com/en/product/xplr-hpg-2
+  */
+  #define HW_TARGET     UBLOX_XPLR_HPG2_C214   
+  /*! if your board is one of the original Black PCB versions enable 
+      the following MAZGCH_HPG_SOLUTION_xx define instead of the above.  
+  */
+  //#define HW_TARGET     MAZGCH_HPG_SOLUTION_V09  
 #elif defined(ARDUINO_UBLOX_NORA_W10)
- #define HW_TARGET     UBLOX_XPLR_HPG1_C213
+  #define HW_TARGET     UBLOX_XPLR_HPG1_C213
 #elif defined(ARDUINO_ESP32_MICROMOD)
- #define HW_TARGET     SPARKFUN_MICROMOD_MAINBOARD
+  #define HW_TARGET     SPARKFUN_MICROMOD_MAINBOARD
 #elif defined(ARDUINO_ESP32_DEV)
- #define HW_TARGET     SPARKFUN_RTK_EVERYWHERE
+  #define HW_TARGET     SPARKFUN_RTK_EVERYWHERE
 #else
- #error unknown board target 
+  #error unknown board target 
 #endif
 
 // https://github.com/mazgch/hpg/tree/main/hardware
