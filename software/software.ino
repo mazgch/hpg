@@ -91,10 +91,12 @@ void setup(void) {
   log_i("-------------------------------------------------------------------");
   Config.init();
   String hwName = Config.getDeviceName();
-  log_i("mazg.ch %s (%s)", Config.getDeviceTitle().c_str(), hwName.c_str());
-  //              NINA-VCC / ADC-BITS * (R30  + R31)  / R31 * ADC-reading
-  log_i("VIN: %.2fV", (3.3 / 4095.0   * (22e3 + 33e3) / 33e3) * analogRead(VIN));
   
+  log_i("mazg.ch %s (%s) on board " HW_TARGET_NAME, Config.getDeviceTitle().c_str(), hwName.c_str());
+  if (VIN != PIN_INVALID) {
+    //              NINA-VCC / ADC-BITS * (R30  + R31)  / R31 * ADC-reading
+    log_i("Supply %.2fV", (3.3 / 4095.0   * (22e3 + 33e3) / 33e3) * analogRead(VIN));
+  }
   espVersion();
   // SD card 
   UbxSd.init(); // handling SD card and files runs in a task
@@ -188,7 +190,7 @@ void memUsage(void) {
         len += sprintf(&buf[len], " %s %u", tasks[i], stack);
       }
     }
-    log_i("stacks:%s heap: min %d cur %d size %d tasks: %d", buf, 
+    log_i("Stacks:%s heap: min %d cur %d size %d tasks: %d", buf, 
           ESP.getMinFreeHeap(), ESP.getFreeHeap(), ESP.getHeapSize(), uxTaskGetNumberOfTasks());
   }
 }

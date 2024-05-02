@@ -259,6 +259,26 @@ enum HW_PINS {
     PIN_INVALID = -1
 };
 
+/** A human readable string identifying the platform. 
+ */
+#if (HW_TARGET == MAZGCH_HPG_SOLUTION_V08)
+  #define HW_TARGET_NAME "HPG Solution (v0.8, Black PCB, )"
+#elif (HW_TARGET == MAZGCH_HPG_SOLUTION_V09)
+  #define HW_TARGET_NAME "HPG Solution (v0.9, Black PCB)"
+#elif (HW_TARGET == UBLOX_XPLR_HPG2_C214)
+  #define HW_TARGET_NAME "u-blox XPLR-HPG2 (C214, Green PCB)"
+#elif (HW_TARGET == UBLOX_XPLR_HPG1_C213_revA)
+  #define HW_TARGET_NAME "u-blox XPLR-HPG1 (C213, revA)"
+#elif (HW_TARGET == UBLOX_XPLR_HPG1_C213)
+  #define HW_TARGET_NAME "u-blox XPLR-HPG1 (C213)"
+#elif (HW_TARGET == SPARKFUN_MICROMOD_ASSET_TRACKER)
+  #define HW_TARGET_NAME "Sparkfun MicroMod Asset Tracker"
+#elif (HW_TARGET == SPARKFUN_RTK_EVERYWHERE)
+  #define HW_TARGET_NAME "Sparkfun RTK Everywhere"
+#else
+  #define HW_TARGET_NAME "Unknown"
+#endif
+
 /** Helper macro for GPIO debugging with a logic analyzer (e.g. Saleae Logic Pro 8 or 16)
  *  Will do nothing if pin is set invalid. Carefully check the schemtic before using a GPIO. 
  */
