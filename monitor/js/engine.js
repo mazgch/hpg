@@ -1566,6 +1566,13 @@ const spec = {
     1123: { descr: 'BeiDou MSM3'                                                                },
     1125: { descr: 'BeiDou MSM5'                                                                },
     1126: { descr: 'BeiDou MSM6'                                                                },
+    1131: { descr: 'IRNSS/NavIC MSM1'                                                           },
+    1132: { descr: 'IRNSS/NavIC MSM2'                                                           },
+    1133: { descr: 'IRNSS/NavIC MSM3'                                                           },
+    1134: { descr: 'IRNSS/NavIC MSM4'                                                           },
+    1135: { descr: 'IRNSS/NavIC MSM5'                                                           },
+    1136: { descr: 'IRNSS/NavIC MSM6'                                                           },
+    1137: { descr: 'IRNSS/NavIC MSM7'                                                           },
     1230: { descr: 'GLONASS L1 and L2 Code-Phase Biases'                                        }
 };
 
@@ -1663,7 +1670,7 @@ function mjdToString(mjdDay, mjdSec) {
         d.setDate(d.getDate() + mjdDay);
         d.setSeconds(d.getSeconds() + mjdSec);
         let mt  = (d.getUTCMonth() + 1).toString();
-        let day =  d.getUTCDay().toString().padStart(2, '0');
+        let day =  d.getUTCDate().toString().padStart(2, '0');
         let hr  =  d.getUTCHours().toString().padStart(2, '0');
         let min =  d.getUTCMinutes().toString().padStart(2, '0');
         let sec =  d.getUTCSeconds().toString().padStart(2, '0');
