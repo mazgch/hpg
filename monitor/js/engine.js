@@ -1664,17 +1664,27 @@ function process(data, type) {
 }
     
 function mjdToString(mjdDay, mjdSec) {
-    if(mjdDay && mjdSec) {
-        let d = new Date();
-        d = new Date(d.getUTCFullYear(), 0, 1);
-        d.setDate(d.getDate() + mjdDay);
-        d.setSeconds(d.getSeconds() + mjdSec);
+    if(mjdDay !== undefined && mjdSec !== undefined) {
+        
+        /* RTCM 3.0 DF051: Modified Julian Day (MJD)), is the continous count of day numbers since November 17, 1858 midnight. 
+        For example, the first day in GPS week 0 has MJD 44244. The full MJD number shall always be transmitted. At this point 
+        in time the rollover of the MJD is quite far away, but experience with the Y2K problem showed that the actual life of 
+        software and applications can be considerably longer than expected. Therefore, it is foreseen to have a rollover of 
+        the MJD in calendar year 2038. At day 65,536 MJD the counter will start at 0 again. */
+        let d = new Date(Date.UTC(1858, 11, 17));
+        // workaround for onocoy that sends only the day in current year
+        if (mjdDay <= 366) { 
+            d = new Date(Date.UTC(new Date().getUTCFullYear())); 
+        }
+        d.setUTCDate(d.getUTCDate() + mjdDay);
+        d.setUTCSeconds(d.getUTCSeconds() + mjdSec);
+        let yr  =  d.getUTCFullYear().toString();
         let mt  = (d.getUTCMonth() + 1).toString();
         let day =  d.getUTCDate().toString().padStart(2, '0');
         let hr  =  d.getUTCHours().toString().padStart(2, '0');
         let min =  d.getUTCMinutes().toString().padStart(2, '0');
         let sec =  d.getUTCSeconds().toString().padStart(2, '0');
-        return mt + '-' + day + ' ' + hr + ':' + min + ':' + sec;
+        return yr + '-' + mt + '-' + day + ' ' + hr + ':' + min + ':' + sec;
     }
     return '';
 }
