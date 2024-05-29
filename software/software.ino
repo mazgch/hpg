@@ -148,7 +148,7 @@ void loop(void) {
 #if defined(ARDUINO_UBLOX_NINA_W10) && defined(ESP_ARDUINO_VERSION)
   #if (ESP_ARDUINO_VERSION > ESP_ARDUINO_VERSION_VAL(2, 0, 9))
     #error "Please downgrade your Arduino-esp32 to version 2.0.9 using the Board Manager"
-    // for some reason 2.0.10 and at least until 2.0.15 crashes on NINA-W10 after boot with a flash CRC error
+    // for some reason 2.0.10 and at least until 2.0.16 crashes on NINA-W10 after boot with a flash CRC error
     // E (452) spi_flash: Detected size(128k) smaller than the size in the binary image header(2048k). Probe failed.
     // assert failed: do_core_init startup.c:328 (flash_ret == ESP_OK)
     // might be related to https://github.com/espressif/esp-idf/issues/12222

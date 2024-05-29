@@ -867,7 +867,7 @@ const char WLAN::PORTAL_PAGE[] = R"(
   
 <script>
   function addMountpoints(url) {
-    let m = url.match(/^(https?:\/\/)?(([0-9a-zA-Z_\-]+\.)+[0-9a-zA-Z_\-]{2,})(:[0-9]+)?(\/[0-9a-zA-Z_\-]+)?$/);
+    let m = url.match(/^(https?:\/\/)?(([0-9a-zA-Z_\-]+\.)+[0-9a-zA-Z_\-]{2,})(:[0-9]+)?(\/[0-9a-zA-Z_\-]*)?$/);
     if(m[2]) {
       if (!m[4]) m[4] = ':2101';
       if (!m[1]) {
@@ -883,6 +883,7 @@ const char WLAN::PORTAL_PAGE[] = R"(
         const usr = _getById(')" CONFIG_VALUE_NTRIP_USERNAME R"(');
         const pwd = _getById(')" CONFIG_VALUE_NTRIP_PASSWORD R"(');
         xhr.open('GET', url, true, usr, pwd);
+        xhr.timeout = 5000;
         xhr.setRequestHeader(')" NTRIP_HEADER_VERSION R"(', ')" NTRIP_VERSION_2 R"(');
         xhr.onreadystatechange = _onReadyState;
         xhr.send();
