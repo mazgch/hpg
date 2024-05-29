@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-// ESP32 libraries, version 2.0.9 (2.0.10 and higher crashes)
+// ESP32 libraries, version 2.0.9 (2.0.10 and higher crashes, at least until 2.0.17, version 3.0.0 
+// is confirmed to fix the issue but some libraries do not yet support this major version upgrade)
 //-----------------------------------
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
 // Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
@@ -53,7 +54,7 @@
 // Sparkfun libraries
 //-------------------------------------------------------------------------------------
 
-// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.25
+// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.26
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
 
@@ -146,9 +147,9 @@ void loop(void) {
   #include <core_version.h>
 #endif
 #if defined(ARDUINO_UBLOX_NINA_W10) && defined(ESP_ARDUINO_VERSION)
-  #if (ESP_ARDUINO_VERSION > ESP_ARDUINO_VERSION_VAL(2, 0, 9))
-    #error "Please downgrade your Arduino-esp32 to version 2.0.9 using the Board Manager"
-    // for some reason 2.0.10 and at least until 2.0.16 crashes on NINA-W10 after boot with a flash CRC error
+  #if ((ESP_ARDUINO_VERSION > ESP_ARDUINO_VERSION_VAL(2, 0, 9)) && (ESP_ARDUINO_VERSION < ESP_ARDUINO_VERSION_VAL(3, 0, 0)))
+    #error "Please downgrade your Arduino-esp32 to version 2.0.9, or switch to 3.0.0 using the Board Manager"
+    // for some reason 2.0.10 and at least until 2.0.17 crashes on NINA-W10 after boot with a flash CRC error
     // E (452) spi_flash: Detected size(128k) smaller than the size in the binary image header(2048k). Probe failed.
     // assert failed: do_core_init startup.c:328 (flash_ret == ESP_OK)
     // might be related to https://github.com/espressif/esp-idf/issues/12222
@@ -186,8 +187,8 @@ void memUsage(void) {
       h = xTaskGetHandle(name);
 #endif
       if (h) {
-        uint32_t stack = uxTaskGetStackHighWaterMark(h);
-        len += sprintf(&buf[len], " %s %u", tasks[i], stack);
+        UBaseType_t stack = uxTaskGetStackHighWaterMark(h);
+        len += sprintf(&buf[len], " %s %d", tasks[i], stack); 
       }
     }
     log_i("Stacks:%s heap: min %d cur %d size %d tasks: %d", buf, 

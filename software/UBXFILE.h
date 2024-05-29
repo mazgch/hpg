@@ -22,7 +22,7 @@
 #include <SD.h>
 #include <cbuf.h> 
 
-const int UBXSERIAL_BUFFER_SIZE   =      0*1024;  //!< Size of circular buffer, typically AT modem gets bursts upto 9kB of MQTT data, but 2kB is also fine
+const int UBXSERIAL_BUFFER_SIZE   =      2*1024;  //!< Size of circular buffer, typically AT modem gets bursts upto 9kB of MQTT data, but 2kB is also fine
 const int UBXWIRE_BUFFER_SIZE     =     12*1024;  //!< Size of circular buffer, typically we see about 2.5kBs coming from the GNSS
 const int UBXFILE_BLOCK_SIZE      =        1024;  //!< Size of the blocks used to pull from the GNSS and send to the File. 
 

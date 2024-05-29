@@ -584,6 +584,7 @@ protected:
    */
   void pinInit(void) {
     ttagPinChange = ttagNextTry = millis();
+    pinMode(BOOT, INPUT_PULLUP);
     lastPinLvl = HIGH;
   }
 
