@@ -503,6 +503,7 @@ protected:
         if (0 < gga.length())  req += NTRIP_HEADER_GGA ": " + gga + "\r\n";
         LTE_CHECK_INIT;
         LTE_CHECK(8) = socketWrite(ntripSocket, req.c_str(), req.length());
+        LTE_CHECK_EVAL("write");
         // now get the response
         int avail = 0;
         bool ntripV1 = ver.equals(NTRIP_VERSION_1);
@@ -514,11 +515,13 @@ protected:
           LTE_CHECK(2) = socketReadAvailable(ntripSocket, &avail);
           now = millis();
         } while (LTE_CHECK_OK && (0 < (start + NTRIP_CONNECT_TIMEOUT - now)) && (avail < len));
+        LTE_CHECK_EVAL("wait avail");
         if (avail >= len) {
+          int read = 0;
           char buf[len];
-          LTE_CHECK(3) = socketRead(ntripSocket, len, buf, &avail);
-          LTE_CHECK_EVAL("reply");
-          if (LTE_CHECK_OK && (avail == len)) {
+          LTE_CHECK(3) = socketRead(ntripSocket, len, buf, &read);
+          LTE_CHECK_EVAL("read reply");
+          if (LTE_CHECK_OK && (read == len)) {
             const char NTRIP_RESPONSE_HTTPOK[] = " 200 OK\r\n";
             const int iOk = sizeof(NTRIP_RESPONSE_HTTPOK)-1;
             const char* pOk = &buf[len - iOk];             
@@ -529,9 +532,14 @@ protected:
               return true;
             } else {
               log_e("url \"%s\" user \"%s\" pwd \"%s\" ver \"%s\" failed, reply \"%.*s\"", 
-                    url.c_str(), user.c_str(), pwd.c_str(), ver, avail, buf);
+                    url.c_str(), user.c_str(), pwd.c_str(), ver, read, buf);
             }
+          } else {
+            log_e("reply check %d avail %d len %d reply %d \"%.*s\"", 
+                  LTE_CHECK_OK, avail, len, read, LTE_CHECK_OK ? read : 0, buf);
           }
+        } else {
+          log_e("timeout check %d avail %d len %d", LTE_CHECK_OK, avail, len);
         }
       }
     }
