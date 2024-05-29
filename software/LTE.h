@@ -494,7 +494,7 @@ protected:
           auth = base64::encode(user + ":" + pwd);
         }                    
         log_d("GET \"/%s\" user=\"%s\" pwd=\"%s\" auth=\"%s\" ver=\"%s\"", 
-              mntpnt.c_str(), user.c_str(), pwd.c_str(), authEnc.c_str(), ver.c_str());
+              mntpnt.c_str(), user.c_str(), pwd.c_str(), auth.c_str(), ver.c_str());
         String req = "GET /" + mntpnt + (NTRIP_USE_HTTP10 ? " HTTP/1.0\r\n" : " HTTP/1.1\r\n");
         // add headers
         req += "User-Agent: " CONFIG_DEVICE_TITLE "\r\n";
