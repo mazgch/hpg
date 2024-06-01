@@ -16,6 +16,8 @@
 
 // ESP32 libraries, version 2.0.9 (2.0.10 and higher crashes, at least until 2.0.17, version 3.0.0 
 // is confirmed to fix the issue but some libraries do not yet support this major version upgrade)
+// for v3.0.0 apply https://github.com/gilmaimon/ArduinoWebsockets/issues/156 and set Warnings to 
+// default as otherwise many libraries throw nasty warings -wFormat=, -Wpessimizing-move 
 //-----------------------------------
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
 // Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 

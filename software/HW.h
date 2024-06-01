@@ -286,6 +286,8 @@ enum HW_PINS {
 #define HW_DBG_HI(pin)        HW_DBG_PIN(pin,HIGH)  //!< put the at the start of the code to profile
 #define HW_DBG_LO(pin)        HW_DBG_PIN(pin,LOW)   //!< put the at the end of the code to profile
 
+#include "driver/gpio.h"
+
 class HW {
   
 public:
@@ -296,19 +298,26 @@ public:
     hwInit();
   }
 
+  static void pinModeWrite(uint8_t pin, uint8_t val) {
+    // We configure the pin to the level before switching to an output to avoid glitches. 
+    // gpio_set_level is digitalWrite without internal checking, and applies regardless 
+    // of the current pin mode. 
+    if (pin < SOC_GPIO_PIN_COUNT) { 
+      gpio_set_level((gpio_num_t)pin, val);
+    }
+    pinMode(pin, OUTPUT);
+    digitalWrite(pin, val);
+  }
+
   void hwInit(void) {
     // Do any top-level hardware initialization here:
     // Initialize any required GPIO pins
     if (PIN_INVALID != REQUIRED_GPIO_PIN) {
-      digitalWrite(REQUIRED_GPIO_PIN, REQUIRED_GPIO_PIN_ACTIVE);
-      pinMode(REQUIRED_GPIO_PIN, OUTPUT);
-      digitalWrite(REQUIRED_GPIO_PIN, REQUIRED_GPIO_PIN_ACTIVE);
+      HW::pinModeWrite(REQUIRED_GPIO_PIN, REQUIRED_GPIO_PIN_ACTIVE);
     }
     // Turn on the 3.3V regulator - if present
     if (PIN_INVALID != V33_EN) {
-      digitalWrite(V33_EN, V33_EN_ACTIVE);
-      pinMode(V33_EN, OUTPUT);
-      digitalWrite(V33_EN, V33_EN_ACTIVE);
+      HW::pinModeWrite(V33_EN, V33_EN_ACTIVE);
     }
     log_i("Hardware initialized");
   }

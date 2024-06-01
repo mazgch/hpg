@@ -497,49 +497,58 @@ protected:
               mntpnt.c_str(), user.c_str(), pwd.c_str(), auth.c_str(), ver.c_str());
         String req = "GET /" + mntpnt + (NTRIP_USE_HTTP10 ? " HTTP/1.0\r\n" : " HTTP/1.1\r\n");
         // add headers
-        req += "User-Agent: " CONFIG_DEVICE_TITLE "\r\n";
         if (0 < auth.length()) req += "Authorization: Basic " + auth + "\r\n";
         if (0 < ver.length())  req += NTRIP_HEADER_VERSION ": " + ver + "\r\n";
         if (0 < gga.length())  req += NTRIP_HEADER_GGA ": " + gga + "\r\n";
+        req += "Host: " + server + ":" + port + "\r\n"
+               "User-Agent: " CONFIG_DEVICE_TITLE "\r\n"
+               "Accept: */*\r\n"
+               "\r\n";
         LTE_CHECK_INIT;
         LTE_CHECK(8) = socketWrite(ntripSocket, req.c_str(), req.length());
         LTE_CHECK_EVAL("write");
-        // now get the response
-        int avail = 0;
-        bool ntripV1 = ver.equals(NTRIP_VERSION_1);
-        int len = ntripV1 ? 12 /* "ICY 200 OK\r\n" */: 17 /* "HTTP/x.x 200 OK\r\n" */;
-        int32_t start = millis();
-        int32_t now;
-        do {
-          vTaskDelay(10);
-          LTE_CHECK(2) = socketReadAvailable(ntripSocket, &avail);
-          now = millis();
-        } while (LTE_CHECK_OK && (0 < (start + NTRIP_CONNECT_TIMEOUT - now)) && (avail < len));
-        LTE_CHECK_EVAL("wait avail");
-        if (avail >= len) {
-          int read = 0;
-          char buf[len];
-          LTE_CHECK(3) = socketRead(ntripSocket, len, buf, &read);
-          LTE_CHECK_EVAL("read reply");
-          if (LTE_CHECK_OK && (read == len)) {
-            const char NTRIP_RESPONSE_HTTPOK[] = " 200 OK\r\n";
-            const int iOk = sizeof(NTRIP_RESPONSE_HTTPOK)-1;
-            const char* pOk = &buf[len - iOk];             
-            if (0 == memcmp(pOk, NTRIP_RESPONSE_HTTPOK, iOk)) {
-              log_i("url \"%s\" user \"%s\" pwd \"%s\" ver \"%s\" connected", 
-                    url.c_str(), user.c_str(), pwd.c_str(), ver);
-              ntripGgaMs = millis();
-              return true;
+        if (LTE_CHECK_OK) {
+          // now get the response
+          int avail = 0;
+          bool ntripV1 = ver.equals(NTRIP_VERSION_1);
+          int len = ntripV1 ? 12 /* "ICY 200 OK\r\n" */: 17 /* "HTTP/x.x 200 OK\r\n" */;
+          int32_t start = millis();
+          int32_t now;
+          do {
+            vTaskDelay(10);
+            LTE_CHECK(2) = socketReadAvailable(ntripSocket, &avail);
+            now = millis();
+          } while (LTE_CHECK_OK && (0 < (start + NTRIP_CONNECT_TIMEOUT - now)) && (avail < len));
+          LTE_CHECK_EVAL("wait avail");
+          if (LTE_CHECK_OK) {
+            if (avail >= len) {
+              int read = 0;
+              char buf[len];
+              LTE_CHECK(3) = socketRead(ntripSocket, len, buf, &read);
+              LTE_CHECK_EVAL("read reply");
+              if (LTE_CHECK_OK) {
+                if (read == len) {
+                  const char NTRIP_RESPONSE_HTTPOK[] = " 200 OK\r\n";
+                  const int iOk = sizeof(NTRIP_RESPONSE_HTTPOK)-1;
+                  const char* pOk = &buf[len - iOk];             
+                  if (0 == memcmp(pOk, NTRIP_RESPONSE_HTTPOK, iOk)) {
+                    log_i("url \"%s\" user \"%s\" pwd \"%s\" ver \"%s\" connected", 
+                          url.c_str(), user.c_str(), pwd.c_str(), ver);
+                    ntripGgaMs = millis();
+                    return true;
+                  } else {
+                    log_e("url \"%s\" user \"%s\" pwd \"%s\" ver \"%s\" failed, reply \"%.*s\"", 
+                          url.c_str(), user.c_str(), pwd.c_str(), ver, read, buf);
+                  }
+                } else {
+                  log_e("reply avail %d len %d reply %d \"%.*s\"", 
+                        avail, len, read, read, buf);
+                }
+              } 
             } else {
-              log_e("url \"%s\" user \"%s\" pwd \"%s\" ver \"%s\" failed, reply \"%.*s\"", 
-                    url.c_str(), user.c_str(), pwd.c_str(), ver, read, buf);
+              log_e("timeout avail %d len %d", avail, len);
             }
-          } else {
-            log_e("reply check %d avail %d len %d reply %d \"%.*s\"", 
-                  LTE_CHECK_OK, avail, len, read, LTE_CHECK_OK ? read : 0, buf);
           }
-        } else {
-          log_e("timeout check %d avail %d len %d", LTE_CHECK_OK, avail, len);
         }
       }
     }
@@ -1015,31 +1024,21 @@ protected:
     // The LTE_RESET pin is active LOW, HIGH = idle, LOW = in reset
     // The LTE_RESET pin unfortunately does not have a pull up resistor on the v0.8/v0.9 hardware
     if (PIN_INVALID != LTE_RESET) {
-      digitalWrite(LTE_RESET, HIGH);
-      pinMode(LTE_RESET, OUTPUT);
-      digitalWrite(LTE_RESET, HIGH);
+      HW::pinModeWrite(LTE_RESET, HIGH);
     }
     // The LTE_PWR_ON pin is usually active HIGH, LOW = idle, defined by LTE_PWR_ON_ACTIVE, active timings see table above
     // The LTE_PWR_ON pin has a external pull low resistor on the board. 
     if (PIN_INVALID != LTE_PWR_ON) {
-      digitalWrite(LTE_PWR_ON, !LTE_PWR_ON_ACTIVE);
-      pinMode(LTE_PWR_ON, OUTPUT);
-      digitalWrite(LTE_PWR_ON, !LTE_PWR_ON_ACTIVE);
+      HW::pinModeWrite(LTE_PWR_ON, !LTE_PWR_ON_ACTIVE);
     }
     if (PIN_INVALID != LTE_TXI) {
-      digitalWrite(LTE_TXI, HIGH);
-      pinMode(LTE_TXI, OUTPUT);
-      digitalWrite(LTE_TXI, HIGH);
+      HW::pinModeWrite(LTE_TXI, HIGH);
     }
     if (PIN_INVALID != LTE_RTS) {
-      digitalWrite(LTE_RTS, LOW);
-      pinMode(LTE_RTS, OUTPUT);
-      digitalWrite(LTE_RTS, LOW);
+      HW::pinModeWrite(LTE_RTS, LOW);
     }
     if (PIN_INVALID != LTE_DTR) {
-      digitalWrite(LTE_DTR, LOW);
-      pinMode(LTE_DTR, OUTPUT);
-      digitalWrite(LTE_DTR, LOW);
+      HW::pinModeWrite(LTE_DTR, LOW);
     } 
     // init all other pins here
     if (PIN_INVALID != LTE_ON)  pinMode(LTE_ON,  INPUT);
