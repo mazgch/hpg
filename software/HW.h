@@ -24,11 +24,11 @@
       UBLOX_XPLR_HPG2_C214 deines when using the u-blox productized 
       version: https://www.u-blox.com/en/product/xplr-hpg-2
   */
-  #define HW_TARGET     UBLOX_XPLR_HPG2_C214   
+  //#define HW_TARGET     UBLOX_XPLR_HPG2_C214   
   /*! if your board is one of the original Black PCB versions enable 
       the following MAZGCH_HPG_SOLUTION_xx define instead of the above.  
   */
-  //#define HW_TARGET     MAZGCH_HPG_SOLUTION_V09  
+  #define HW_TARGET     MAZGCH_HPG_SOLUTION_V09  
 #elif defined(ARDUINO_UBLOX_NORA_W10)
   #define HW_TARGET     UBLOX_XPLR_HPG1_C213
 #elif defined(ARDUINO_ESP32_MICROMOD)

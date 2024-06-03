@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-// ESP32 libraries, version 2.0.9 (2.0.10 and higher crashes, at least until 2.0.17, version 3.0.0 
-// is confirmed to fix the issue but some libraries do not yet support this major version upgrade)
-// for v3.0.0 apply https://github.com/gilmaimon/ArduinoWebsockets/issues/156 and set Warnings to 
-// default as otherwise many libraries throw nasty warings -wFormat=, -Wpessimizing-move 
+// ESP32 libraries, version 2.0.9 recommended, 2.0.10 until 2.0.17 crashes due to 
+// https://github.com/espressif/esp-idf/issues/12222, version 3.0.0 is confirmed 
+// to fix the issue but some libraries do not yet support this major version upgrade, 
+// for v3.0.0 please apply https://github.com/gilmaimon/ArduinoWebsockets/pull/158
+
 //-----------------------------------
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
 // Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
@@ -60,7 +61,7 @@
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
 
-// SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.11
+// SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.12
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_SARA-R5_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_SARA-R5_Arduino_Library
 
