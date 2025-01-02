@@ -14,11 +14,6 @@
  * limitations under the License.
  */
 
-// ESP32 libraries, version 2.0.9 recommended, 2.0.10 until 2.0.17 crashes due to 
-// https://github.com/espressif/esp-idf/issues/12222, version 3.0.0 is confirmed 
-// to fix the issue but some libraries do not yet support this major version upgrade, 
-// for v3.0.0 please apply https://github.com/gilmaimon/ArduinoWebsockets/pull/158
-
 //-----------------------------------
 // Follow instruction on: https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html
 // Install Arduino -> Preferences -> AdditionalBoard Manager URL, then in Board Manager add esp32 by EspressIf, 
@@ -27,6 +22,9 @@
 // Board Manager URL:    https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 // Github Repository:    https://github.com/espressif/arduino-esp32 
 
+// ESP32 libraries, version 3.0.7 is recommended, use version >= 3.0.0 or <= 2.0.9
+// on NINA-W1 versions 2.0.10 until 2.0.17 crash due to https://github.com/espressif/esp-idf/issues/12222 do not use
+
 // Third parties libraries
 //-------------------------------------------------------------------------------------
 
@@ -34,11 +32,11 @@
 // Library Manager:    http://librarymanager/All#ArduinoMqttClient   
 // Github Repository:  https://github.com/arduino-libraries/ArduinoMqttClient 
 
-// ArduinoWebsockets by Gil Maimon, version 0.5.3
+// ArduinoWebsockets by Gil Maimon, version 0.5.4
 // Library Manager:    http://librarymanager/All#ArduinoWebsockets   
 // Github Repository:  https://github.com/gilmaimon/ArduinoWebsockets
 
-// ArduinoJson by Benoit Blanchon, version 7.0.4
+// ArduinoJson by Benoit Blanchon, version 7.3.0
 // Library Manager:    http://librarymanager/All#ArduinoJson      
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
 
@@ -50,14 +48,14 @@
 // Library Manager:   http://librarymanager/All#arduino-CAN
 // Github Repository: https://github.com/sandeepmistry/arduino-CAN
 
-// NimBLE-Arduino by h2zero, version 1.4.1
+// NimBLE-Arduino by h2zero, version 2.1.2
 // Library Manager:   http://librarymanager/All#NimBLE-Arduino
 // Github Repository: https://github.com/h2zero/NimBLE-Arduino
 
 // Sparkfun libraries
 //-------------------------------------------------------------------------------------
 
-// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.26
+// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.27
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
 
@@ -66,8 +64,8 @@
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_SARA-R5_Arduino_Library
 
 // Header files of this project
-// to remove LTE, BLUETOOTH, LBAND, CANBUS fucnztion simply comment to save memory, the 
-// peripherial is however not put into low power mode or its pins remain uncontrolled 
+// to remove LTE, BLUETOOTH, LBAND, CANBUS function simply comment the header below to save memory, 
+// the peripherial is however not put into low power mode or its pins remain uncontrolled 
 //-------------------------------------------------------------------------------------
 #include "LOG.h"          // Comment this if you do not want a separate log level for this application 
 #include "HW.h"

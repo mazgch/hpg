@@ -259,7 +259,8 @@ public:
   String getValue(const char *key) {
     String str;
     if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      str = json.containsKey(key) ? json[key] : String();
+      JsonVariantConst obj = json[key];
+      if (!obj.isNull() && obj.is<const char*>()) str = obj.as<const char*>();
       xSemaphoreGive(mutex);
     }
     log_v("key %s is \"%s\"", key, str.c_str());
@@ -275,7 +276,8 @@ public:
     String old;
     bool changed = false;
     if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) { 
-      old = json.containsKey(key) ? json[key] : String();
+      JsonVariantConst obj = json[key];
+      if (!obj.isNull() && obj.is<const char*>()) old = obj.as<const char*>();
       changed = !old.equals(value);
       if (changed) {
         json[String(key)] = value;
@@ -297,7 +299,7 @@ public:
   bool delValue(const char *key) {
     bool changed = false;
     if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      changed = json.containsKey(key);
+      changed = !json[key].isNull();
       if (changed) {
         json.remove(key);
       }
@@ -353,9 +355,12 @@ public:
     String region;
     String source;
     if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      stream = json.containsKey(CONFIG_VALUE_STREAM) ? json[CONFIG_VALUE_STREAM] : String();
-      region = json.containsKey(CONFIG_VALUE_REGION) ? json[CONFIG_VALUE_REGION] : POINTPERFECT_REGIONS[0].region;
-      source = json.containsKey(CONFIG_VALUE_USESOURCE) ? json[CONFIG_VALUE_USESOURCE] : String();
+      JsonVariantConst obj = json[CONFIG_VALUE_STREAM];
+      if (!obj.isNull() && obj.is<const char*>()) stream = obj.as<const char*>();
+      obj = json[CONFIG_VALUE_REGION];
+      region = (!obj.isNull() && obj.is<const char*>()) ? obj.as<const char*>() : POINTPERFECT_REGIONS[0].region;
+      obj = json[CONFIG_VALUE_USESOURCE];
+      if (!obj.isNull() && obj.is<const char*>()) source = obj.as<const char*>();
       xSemaphoreGive(mutex); 
     }
     std::vector<String> topics;
@@ -384,10 +389,11 @@ public:
   /** get the LBAND frequency  
    *  \return  the frequency or 0 if no suitable frequency
    */
-  int getFreq(void) {
-    int freq = 0;
+  long getFreq(void) {
+    long freq = 0;
     if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      freq = json.containsKey(CONFIG_VALUE_FREQ) ? json[CONFIG_VALUE_FREQ] : POINTPERFECT_REGIONS[0].freq;
+      JsonVariantConst obj = json[CONFIG_VALUE_FREQ];
+      freq = (!obj.isNull() && obj.is<long>()) ? obj.as<long>() : POINTPERFECT_REGIONS[0].freq;
       xSemaphoreGive(mutex); 
     }
     return freq;
@@ -405,13 +411,16 @@ public:
     } else {
       for (int i = 0; i < sizeof(POINTPERFECT_REGIONS)/sizeof(*POINTPERFECT_REGIONS); i ++) {
         const char* region = POINTPERFECT_REGIONS[i].region;
-        if (region && json["frequencies"].containsKey(region)) {
-          String str = json["frequencies"][region]["current"]["value"];
-          if (0 < str.length()) {
-            long freq = (long)(1e6 * str.toDouble());
-            if (POINTPERFECT_REGIONS[i].freq != freq) {
-              log_w("region %s update freq to %li from %li", region, freq, POINTPERFECT_REGIONS[i].freq);
-              POINTPERFECT_REGIONS[i].freq = freq; 
+        if (region) {
+          JsonVariantConst obj = json["frequencies"][region];
+          if (!obj.isNull()) {
+            obj = obj["current"]["value"];
+            if (!obj.isNull() && obj.is<double>()) {
+              long freq = (long)(1e6 * obj.as<double>());
+              if (POINTPERFECT_REGIONS[i].freq != freq) {
+                log_w("region %s update freq to %li from %li", region, freq, POINTPERFECT_REGIONS[i].freq);
+                POINTPERFECT_REGIONS[i].freq = freq; 
+              }
             }
           }
         }
@@ -440,18 +449,21 @@ public:
     } 
     bool changed = false;
     if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
+      JsonVariantConst obj = json[CONFIG_VALUE_REGION];
       if (region) {
-        String oldRegion = json.containsKey(CONFIG_VALUE_REGION) ? json[CONFIG_VALUE_REGION] : String();
+        String oldRegion;
+        if (!obj.isNull() && obj.is<const char*>()) oldRegion = obj.as<const char*>();
         if (!oldRegion.equals(region)) {
           json[CONFIG_VALUE_REGION] = region;
           changed = true;
         }
-      } else if (json.containsKey(CONFIG_VALUE_REGION)) { // we leave coverage area
+      } else if (!obj.isNull()) { // we leave coverage area
         json.remove(CONFIG_VALUE_REGION);
         changed = true;
       }
       if (freq) {
-        int oldFreq = json.containsKey(CONFIG_VALUE_FREQ) ? json[CONFIG_VALUE_FREQ] : 0;
+        JsonVariantConst obj = json[CONFIG_VALUE_FREQ];
+        long oldFreq = (!obj.isNull() && obj.is<long>())  ? obj.as<long>() : 0;
         if (freq != oldFreq) {
             json[CONFIG_VALUE_FREQ] = freq;
             changed = true;
@@ -528,7 +540,8 @@ public:
   String ztpRequest(void) {
     String token;
     if (pdTRUE == xSemaphoreTake(mutex, portMAX_DELAY)) {
-      token = json.containsKey(CONFIG_VALUE_ZTPTOKEN) ? json[CONFIG_VALUE_ZTPTOKEN] : String();
+      JsonVariantConst obj = json[CONFIG_VALUE_ZTPTOKEN];
+      if (!obj.isNull() && obj.is<const char*>()) token = obj.as<const char*>();
       xSemaphoreGive(mutex); 
     }
     String str;

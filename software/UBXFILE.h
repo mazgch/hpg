@@ -69,7 +69,8 @@ public:
       for (int i = 0; (i <= max) && !opened; i ++) {
         sprintf(fn, format, i);
         if (!SD.exists(fn)) {
-          if (file = SD.open(fn, FILE_WRITE)) {
+          file = SD.open(fn, FILE_WRITE);
+          if (file) {
             log_i("UBXFILE created file \"%s\"", fn);
             opened = true;
             size = 0;

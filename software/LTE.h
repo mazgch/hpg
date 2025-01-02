@@ -550,6 +550,12 @@ protected:
             }
           }
         }
+      } 
+      if (!LTE_CHECK_OK) {
+        int err = socketGetLastError();
+        if ((err != SARA_R5_ERROR_OUT_OF_MEMORY) && (err != -1)) {
+          log_i("socket last error %d", err);
+        }
       }
     }
     ntripStop();

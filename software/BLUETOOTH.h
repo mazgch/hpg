@@ -155,7 +155,7 @@ protected:
             len = buffer.read((char*)temp, sizeof(temp));
             loop = (len == sizeof(temp));
             if (creditsChar && (0 < len)) {
-              txCredits --;
+              txCredits = txCredits - 1;
             }
           }
           xSemaphoreGive(mutex);
@@ -217,7 +217,7 @@ protected:
           txCredits = credits;
           log_d("credits %d", txCredits);
         } else  {
-          txCredits += credits;
+          txCredits = txCredits + credits;
           log_d("credits %d added %d", txCredits, credits);
         } 
       } else if (pCharacteristic == rxChar) {
