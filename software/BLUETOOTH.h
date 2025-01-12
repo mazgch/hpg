@@ -177,7 +177,8 @@ protected:
   /* Callback to inform about connections  
    * \param pServer pointer to the server 
    */
-  void onConnect(NimBLEServer *pServer) {
+  using NimBLEServerCallbacks::onConnect;
+  virtual void onConnect(NimBLEServer *pServer) {
     log_i("connected");
     connected = true;
   }
@@ -185,7 +186,8 @@ protected:
   /* Callback to inform about disconnections  
    * \param pServer pointer to the server 
    */
-  void onDisconnect(NimBLEServer *pServer) {
+  using NimBLEServerCallbacks::onDisconnect;
+  virtual void onDisconnect(NimBLEServer *pServer) {
     log_i("disconnected");
     connected = pServer->getConnectedCount();
     // pServer->startAdvertising();
@@ -195,7 +197,8 @@ protected:
    * \param MTU   the maximum transmission unit, includes a 3 byte overhead
    * \param desc  the BLE GAP connection description 
    */
-  void onMTUChange(uint16_t MTU, ble_gap_conn_desc* desc) {
+  using NimBLEServerCallbacks::onMTUChange;
+  virtual void onMTUChange(uint16_t MTU, ble_gap_conn_desc* desc) {
     txSize = MTU - BLUETOOTH_MTU_OVERHEAD;
     log_i("mtu %d for id %d", MTU, desc->conn_handle);
   }
@@ -203,7 +206,8 @@ protected:
   /* Callback to inform about data receive 
    * \param pCharacteristic pointer to the characteristic 
    */
-  void onWrite(BLECharacteristic *pCharacteristic) {
+  using NimBLECharacteristicCallbacks::onWrite;
+  virtual void onWrite(BLECharacteristic *pCharacteristic) {
     if (pCharacteristic) {
       if (pCharacteristic == creditsChar) {
         int8_t credits = pCharacteristic->getValue<uint8_t>();
@@ -233,7 +237,7 @@ protected:
       }
     }
   }
-
+  
   SemaphoreHandle_t mutex;         //!< Protect the cbuf from cross task access
   cbuf buffer;                     //!< Local circular buffer to keep the data until we can send it. 
   size_t txSize;                   //!< Requested max size of tx characteristics (depends on MTU from client)

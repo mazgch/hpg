@@ -22,8 +22,9 @@
 // Board Manager URL:    https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 // Github Repository:    https://github.com/espressif/arduino-esp32 
 
-// ESP32 libraries, version 3.0.7 is recommended, use version >= 3.0.0 or <= 2.0.9
-// on NINA-W1 versions 2.0.10 until 2.0.17 crash due to https://github.com/espressif/esp-idf/issues/12222 do not use
+// ESP32 libraries, version 3.1.1 is recommended
+// - on NINA-W1 versions 2.0.10 until 2.0.17 crash due to https://github.com/espressif/esp-idf/issues/12222 do not use
+// - recent v3.1.0 is causing some extra warnings when compiled with All warnings enabled
 
 // Third parties libraries
 //-------------------------------------------------------------------------------------
@@ -59,7 +60,7 @@
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
 
-// SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.12
+// SparkFun u-blox SARA-R5 Arduino Library by Sparkfun Electronics, version 1.1.13
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_SARA-R5_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_SARA-R5_Arduino_Library
 
