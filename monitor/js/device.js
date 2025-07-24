@@ -251,10 +251,10 @@ function testNet() {
                     let config = '';
                     if (host != undefined) {
                         name = host;
-                        open = '<a href="' + window.location.origin + window.location.pathname + '?ip=' + ip + port + ext + '"><b>open</b></a>'
-                        config = '<a target="_blank" href="' + window.location.protocol + '//'+ ip + port + '">configure</a>'
+                        open = '<a href="' + window.location.origin + window.location.pathname + '?ip=' + encodeURIComponent(ip + port + ext) + '"><b>open</b></a>'
+                        config = '<a target="_blank" href="' + window.location.protocol + '//' + encodeURIComponent(ip + port) + '">configure</a>'
                     } 
-                    tr.innerHTML = '<td>'+host+'</td><td>'+ip+'</td><td>' + open + '</td><td>' + config + '</td>'
+                    tr.innerHTML = '<td>'+encodeURIComponent(host)+'</td><td>'+encodeURIComponent(ip)+'</td><td>' + open + '</td><td>' + config + '</td>'
                     th.parentNode.appendChild(tr);
                 }
                 ws.timer = setTimeout(10000, _onDone)
@@ -549,4 +549,3 @@ function onSocketMessage(evt) {
 };
 })();
 // ------------------------------------------------------------------------------------
-
