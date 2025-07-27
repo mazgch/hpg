@@ -1,0 +1,87 @@
+body {
+  font-family: sans-serif;
+  padding: 0;
+}
+
+#config, #hint {
+  margin: 10px;
+  font-size: 0.7em;
+}
+
+#map {
+  resize: both;
+  margin: 10px;
+  display:none; 
+  height:calc(100vh - 100px);
+  border: 2px solid #888;
+}
+
+.map-section .leaflet-control-zoom, 
+.map-section .leaflet-control-layers {
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  pointer-events: none; /* prevents clicking controls when hidden */
+}
+
+.map-section:hover .leaflet-control {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.map-section .leaflet-control-attribution {
+  display: none !important;
+}
+
+.map-section .leaflet-control-coords {
+  background-color: rgba(255, 255, 255, 0.8);
+  color: rgb(51,51,51);
+  padding: 4px;
+}
+
+.place  {
+  stroke: black;
+  stroke-opacity: 0.1;
+  fill: black;
+  fill-opacity: 0.02;
+}
+
+.place:hover  {
+  stroke: blue;
+  stroke-opacity: 0.2;
+  fill: blue;
+  fill-opacity: 0.05;
+}
+
+/* ---- table ---- */
+
+table {
+  border-collapse: collapse;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 0px 2px;
+  text-align: right;
+  vertical-align: top;
+}
+
+th {
+  background-color: #f4f4f4;
+  font-weight: bold;
+}
+
+tr:nth-child(even) {
+  background-color: #fafafa;
+}
+
+th:nth-child(1), td:nth-child(1) {
+  text-align: left;
+}
+
+/* ---- json pretty print ---- */
+.json-key     { color: brown; }
+.json-value   { color: navy; }
+.json-boolean { color: teal; }
+.json-string  { color: olive; }
+
+

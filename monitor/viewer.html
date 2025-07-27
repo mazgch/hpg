@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<!--
+  Copyright 2022 by Michael Ammann (@mazgch)
+  
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  
+    http://www.apache.org/licenses/LICENSE-2.0
+  
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+--> 
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <link rel="profile" href="http://www.w3.org/1999/xhtml/vocab">
+    <meta name="MobileOptimized"  content="width">
+    <meta name="HandheldFriendly" content="true">
+    <meta name="viewport"         content="width=device-width, initial-scale=1.0">
+    <title>mazg.ch - UBX Viewer</title>
+    <meta property="og:site_name" content="mazgch">
+    <meta property="og:type"      content="website">
+    <meta property="og:title"     content="UBX Viewer">
+    <meta property="og:url"       content="http://hpg.mazg.ch">
+    <meta name="twitter:card"     content="summary">
+    <meta name="twitter:site"     content="@mazgch">
+    <meta name="twitter:creator"  content="@mazgch">
+    <meta name="twitter:title"    content="UBX Viewer">
+    <meta name="twitter:url"      content="http://hpg.mazg.ch">
+    <meta name="theme-color"      content="#ffffff">
+    <link rel="canonical"         href="http://hpg.mazg.ch">
+    <link rel="shortlink"         href="http://hpg.mazg.ch">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta charset="UTF-8">
+    <!-- Third party js & css -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet-src.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-area-select@1.1.1/dist/index.min.js"></script>
+    <!-- My own js & css -->
+    <script defer src="js/viewer.js"></script>
+    <script src="js/engine.js"></script>
+    <link rel="stylesheet" href="css/viewer.css">
+  </head>
+  <body id="dropzone">
+    <main>
+      <div id="config">
+        Load .ubx or .json: <input type="file" id="files" accept=".json,.ubx" multiple>
+        Places: <select id="places"></select>
+        Opacity: <input type="range" id="opacity" min="0" max="1" step="0.1" value="0.4" style="height: 10px;" />
+        Download .json: <button id="download">download</button>
+      </div>
+      <div id="map" style="display:none; height:calc(100vh -80px)"></div>
+      <div id="hint">
+        Zoom by area: area select + Shift, define place: area select + Ctrl, resize map when clicking a place + Ctrl.
+        Pass drop files or pass urls as search argument '?f=config.json&f=...', none of your data is sent to a server.</div>
+    </main>
+  </body>
+</html>
