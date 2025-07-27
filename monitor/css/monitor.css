@@ -151,6 +151,7 @@ a:focus, a:hover {
 }
 
 /* ---- input ---- */
+
 input {
     background-color: inherit;
     border: 1px solid var(--gray);
@@ -159,6 +160,9 @@ input {
     transition: all .25s ease;
     font-size: 1rem;
     box-sizing: border-box;
+}
+input[type="color"] {
+    border: 0px;
 }
 input:focus, input:hover {
     border-color: var(--black);

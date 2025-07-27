@@ -1,19 +1,22 @@
-body {
-  font-family: sans-serif;
-  padding: 0;
-}
-
-#config, #hint {
-  margin: 10px;
-  font-size: 0.7em;
-}
-
 #map {
-  resize: both;
-  margin: 10px;
+  resize: vertical;
   display:none; 
-  height:calc(100vh - 100px);
+  height:calc(60vh);
   border: 2px solid #888;
+}
+
+#drop-overlay {
+  position: fixed; z-index: 1000;
+  top: 0; left: 0; right: 0; bottom: 0;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px); /* for Safari */
+
+  display: none;
+  text-align: center;
+  font-size: 24px;
+  font-weight: bold;
+  padding-top: 50vh;
+  pointer-events: none;
 }
 
 .map-section .leaflet-control-zoom, 

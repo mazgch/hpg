@@ -40,6 +40,8 @@
     <link rel="manifest" href="/site.webmanifest">
     <meta charset="UTF-8">
     <!-- Third party js & css -->
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.29.0/dist/feather.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet-src.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-area-select@1.1.1/dist/index.min.js"></script>
@@ -47,19 +49,75 @@
     <script defer src="js/viewer.js"></script>
     <script src="js/engine.js"></script>
     <link rel="stylesheet" href="css/viewer.css">
+    <link  href="css/monitor.css" type="text/css" rel="stylesheet" media="all">
   </head>
   <body id="dropzone">
-    <main>
-      <div id="config">
-        Load .ubx or .json: <input type="file" id="files" accept=".json,.ubx" multiple>
-        Places: <select id="places"></select>
-        Opacity: <input type="range" id="opacity" min="0" max="1" step="0.1" value="0.4" style="height: 10px;" />
-        Download .json: <button id="download">download</button>
+    <div id="drop-overlay">Drop your .ubx GNSS files or .json configuration.</div>
+    <div class="page">
+      <div style="margin-top: 1em; padding-top:1em;" class="section">
+        <svg style="vertical-align:middle; display:inline;" id="mazgch_logo" width="3em" height="3em" viewBox="0 0 600 600" stroke-linecap="round" stroke-width="20" fill="none" stroke="null" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+              <g id="sv">
+                  <path id="sb" stroke="#eb0000" d="m50,300c0,-138.12156 111.87845,-250 250,-250"/>
+                  <circle id="sc" fill="#eb0000" cx="300" cy="50" r="25"/>
+              </g>
+          </defs>
+          <title>mazgch</title>
+          <circle id="rb" fill="#eb0000" cx="300" cy="300" r="200" />
+          <g id="rs">
+              <use id="r1" x="0" y="0" href="#sv" transform="rotate(45 300 300)"/>
+              <use id="r2" x="0" y="0" href="#sv" transform="rotate(165 300 300)"/>
+              <use id="r3" x="0" y="0" href="#sv" transform="rotate(285 300 300)"/>
+          </g>
+          <g id="w">
+              <circle id="wb" fill="#fff" cx="230" cy="370" r="50" />
+              <g id="ws" stroke="#fff" >
+                  <path id="w1" d="m230,280c50,0 90,40 90,90" />
+                  <path id="w2" d="m230,230c77.5,0 140,62.5 140,140" />
+                  <path id="w3" d="m230,180c105,0 190,85.0 190,190" />
+              </g>
+          </g>
+        </svg>
+        <h1 style="vertical-align:middle; display:inline">mazg.ch - UBX Viewer</h1>
+        <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
+          <div class="overlay_button" onclick="window.clickLink('https://twitter.com/mazgch/');"                  title="Twitter @mazgch"><i data-feather="twitter"></i></div>
+          <div class="overlay_button" onclick="window.clickLink('https://www.linkedin.com/in/michael-ammann/');"  title="LinkedIn"><i data-feather="linkedin"></i></div>
+          <div class="overlay_button" onclick="window.clickLink('https://github.com/mazgch/hpg');"                title="Github Project Documentation"><i data-feather="github"></i></div>
+          <div class="overlay_button" onclick="window.clickLink('https://youtube.com/playlist?list=PL2_anu1A0T7t96QxOAa9ln5qbBdUn92Uo');" title="Youtube"><i data-feather="youtube"></i></div>
+        </div>
       </div>
-      <div id="map" style="display:none; height:calc(100vh -80px)"></div>
-      <div id="hint">
-        Zoom by area: area select + Shift, define place: area select + Ctrl, resize map when clicking a place + Ctrl.
-        Pass drop files or pass urls as search argument '?f=config.json&f=...', none of your data is sent to a server.</div>
+      <div id="tile_tracks" class="section">
+        <div class="section" style="width: calc(100% - 24px)">
+          <p>
+            This page allows users to upload and view multiple .ubx files recorded from a GPS/GNSS receiver directly in the browser. 
+            Each file is parsed, and the resulting tracks are displayed together on an interactive map. Users can visually 
+            compare different recordings, inspect tracks, and analyze positional differences by overlaying them. 
+        </div>
+        <div class="section">
+          <h2>Tracks</h2>
+          <p>
+            Upload multiple .ubx files recorderd with <a href="https://www.u-blox.com/en/product/u-center">u-center</a> or 
+            load a previosuly saved .json file. You can also drag and drop files to this page.
+         </p>
+          <table id="table_tracks" class="table" style="table-layout:auto"></table>
+          <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
+            <input id="files"  type="file" accept=".json,.ubx" multiple style="display: none;">
+            <div class="overlay_button" onclick="document.getElementById('files').click()" title="Add .ubx or .json files."><i data-feather="file-plus"></i></div>
+            <div class="overlay_button" id="download" title="Download current .json file."><i data-feather="download"></i></div>
+          </div>
+        </div>
+      </div>
+      <div id="tile_map">
+        <p>
+            Places: <select id="places"></select>
+            Opacity: <input type="range" id="opacity" min="0" max="1" step="0.1" value="0.4" style="height: 10px;" />
+        </p>
+        <div id="map" style="display:none; height:calc(100vh -80px)"></div>
+        <div id="hint">
+          Zoom by area: area select + Shift, define place: area select + Ctrl, resize map when clicking a place + Ctrl.
+          Pass drop files or pass urls as search argument '?f=config.json&f=...', none of your data is sent to a server.
+        </div>
+      </div>
     </main>
   </body>
 </html>

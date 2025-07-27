@@ -13,13 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+    
+"use strict";
 
-document.addEventListener("DOMContentLoaded", () => {
+// ------------------------------------------------------------------------------------
+/* START OF MODULE */ var UVIEW = (function () {
+// ------------------------------------------------------------------------------------
+
+window.clickLink = function _clickLink(link) {
+    let el = window.open(link,'_blank');
+    if (el) el.focus();
+} 
+
+// Init
+// ------------------------------------------------------------------------------------
+window.onload = function _onload() {
 
   // -------------------------------------------------------------
   // UI
   // -------------------------------------------------------------
 
+  feather.replace();
+    
   const params = new URLSearchParams(window.location.search);
   const urls = params.getAll('f');
 
@@ -36,16 +51,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const uploadPicker = document.getElementById('files');
   uploadPicker.addEventListener('change', (e) => configReadFiles(e.target.files) );
   const dropzone = document.getElementById('dropzone');
+  const dropOverlay = document.getElementById('drop-overlay');
   dropzone.addEventListener('dragover', function(e) {
     e.preventDefault();
-    dropzone.style.backgroundColor = '#c0f0c0';
+    dropOverlay.style.display = 'block';
   });
   dropzone.addEventListener('dragleave', function() {
-    dropzone.style.backgroundColor = '';
+    dropOverlay.style.display = 'none';
   });
   dropzone.addEventListener('drop', function(e) {
     e.preventDefault();
-    dropzone.style.backgroundColor = '';
+    dropOverlay.style.display = 'none';
     configReadFiles(e.dataTransfer.files);
   });
 
@@ -57,9 +73,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let placesLayer;
   let trackLayers = [];
   let layerControl;
-  let config;
-  mapInit()
-  configApply();
+  let config = { places: [], tracks: [] };
+  mapInit();
+  trackTableUpdate();
+  mapUpdateTrackLegend();
   urls.forEach(url => {
     if (isDef(url) && ('' != url)) {
       const name = url.toLowerCase();
@@ -70,6 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   });
+    
   // -------------------------------------------------------------
   // MAP
   // -------------------------------------------------------------
@@ -114,17 +132,24 @@ document.addEventListener("DOMContentLoaded", () => {
     map.on('mousemove', mapUpdateCoords);
     mapsContainer.addEventListener('mouseleave', mapUpdateTrackLegend)
     map.on('overlayadd', function (e) {
-      e.layer.track ??= {};
-      e.layer.track.selected = true;
-      mapUpdateTrackLegend();
-      if (e.layer.getLayers().length == 0) {
-        trackAddLayer(e.layer);
+      if (e.layer.track) {
+        e.layer.track.selected = true;
+        mapUpdateTrackLegend();
+        if (!map.hasLayer(e.layer)) {
+          trackAddLayer(e.layer);
+        }
+      } else {
+        // must be 'Places' layer
       }
+      /*i*/
     });
     map.on('overlayremove', function (e) {
-      e.layer.track ??= {};
-      e.layer.track.selected = false;
-      mapUpdateTrackLegend();
+      if (e.layer.track) {
+        e.layer.track.selected = false;
+        mapUpdateTrackLegend();
+      } else {
+        // must be 'Places' layer
+      }
     });
     map.on("selectarea:selected", (e) => placeAddBounds(e.bounds));
   }
@@ -174,14 +199,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function configApply(json) {
-    config = json;
-    config ??= {};
-    config.places ??= [];
-    config.tracks ??= [];
-    placeApplyConfig();
-    trackApplyConfig();
-    placeChange();
-    mapUpdateTrackLegend();
+    let sanJson;
+    try {
+      sanJson = JSON.parse(json);
+    } catch (err) { 
+      alert("Error parsing the .json file.");
+    }
+    if (isDef(sanJson) && isDef(sanJson.places) && isDef(sanJson.tracks)) {
+      placeApplyConfig(sanJson.places);
+      trackApplyConfig(sanJson.tracks);
+      placeChange();
+      mapUpdateTrackLegend();
+    }
   }
 
   function configReadFiles(files) {
@@ -190,12 +219,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (name.endsWith('.json')) {
         const reader = new FileReader();
         reader.onload = (e) => {
-          try {
-            const json = JSON.parse(e.target.result);
-            configApply(json);
-          } catch (err) {
-            alert('Invalid JSON file', err);
-          }
+          configApply(e.target.result);
         };
         reader.readAsText(file);
       } else if (name.endsWith('.ubx')) {
@@ -205,7 +229,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
    
   function configDownloadJson() {
-    const json = JSON.stringify(config);
+    const json = JSON.stringify(config, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);;
@@ -230,9 +254,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const zoom = map.getZoom();
       const sw = map.project(bounds.getSouthWest(), zoom);
       const ne = map.project(bounds.getNorthEast(), zoom);
-      const width = parseInt(Math.abs(ne.x - sw.x));
-      const height = parseInt(Math.abs(sw.y - ne.y));
-      const place = { name:name, center: [center.lat, center.lng], zoom:zoom, size: [ width, height ] };
+      const w = parseInt(Math.abs(ne.x - sw.x));
+      const h = parseInt(Math.abs(ne.y - sw.y));
+      const place = { name:name, size: [ w, h ], bounds:[sw, ne] };
       config.places.push(place);
       placeAddOption(place.name, place);
     }
@@ -244,19 +268,24 @@ document.addEventListener("DOMContentLoaded", () => {
     option.value = name;
     option.place = place;
     placeSelect.appendChild(option);
-    if (isDef(place) && isDef(place.size) && isDef(place.center) && isDef(place.zoom)) {
-      const temp = L.map(document.createElement('div'), { center: place.center, zoom: place.zoom });
-      temp._size = L.point(place.size[0], place.size[1]);
-      temp._resetView(L.latLng(place.center), place.zoom);
-      const bounds = temp.getBounds();
-      const marker = L.rectangle([bounds.getSouthWest(),bounds.getNorthEast()], { dashArray: '5, 5', weight: 2, className: 'place' });
-      marker.place = place;
-      marker.on('click', (e) => {
-        const isOverview = (place.name == placeSelect.value);
-        placeChange(isOverview ? null : place, e.originalEvent.ctrlKey);
-        placeSelect.value = isOverview ? 'Overview' : place.name;
-      });
-      placesLayer.addLayer(marker);
+    if (isDef(place)) {
+      let bounds = place.bounds; 
+      if (!isDef(bounds) && isDef(place.size) && isDef(place.center) && isDef(place.zoom)) {
+        const temp = L.map(document.createElement('div'), { center: place.center, zoom: place.zoom });
+        temp._size = L.point(place.size[0], place.size[1]);
+        temp._resetView(L.latLng(place.center), place.zoom);
+        bounds = temp.getBounds();
+      }
+      if (isDef(bounds)) {
+        const marker = L.rectangle(bounds, { dashArray: '5, 5', weight: 2, className: 'place' });
+        marker.place = place;
+        marker.on('click', (e) => {
+          const isOverview = (place.name == placeSelect.value);
+          placeChange(isOverview ? null : place, e.originalEvent.ctrlKey);
+          placeSelect.value = isOverview ? 'Overview' : place.name;
+        });
+        placesLayer.addLayer(marker);
+      }
     }
   }
   
@@ -264,7 +293,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (map) {
       if (place) {
         if (setSize) mapSetSize(place.size);
-        if (isDef(place.center) && isDef(place.zoom)) { 
+        if (isDef(place.bounds)) {
+          map.fitBounds(place.bounds, { animate: false } );
+        } else if (isDef(place.center) && isDef(place.zoom)) { 
           map.setView([place.center[0], place.center[1]], place.zoom, { animate: false });
         }  
         mapsContainer.style.display = 'block';
@@ -283,46 +314,58 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function placeApplyConfig() {
+  function placeApplyConfig(places) {
+    map.removeLayer(placesLayer);
+    layerControl.removeLayer(placesLayer);
+    placesLayer = L.layerGroup().addTo(map);
+    layerControl.addOverlay(placesLayer, "Places");
     placeSelect.options.length = 0;
-    mapUpdateTrackLegend();
+    config.places = [];
     placeAddOption('Overview');
-    config.places.forEach((place, idx) => {
-      placeAddOption(place.name, place);
-    });
+    if (isDef(places)) {
+      places.forEach((place, idx) => {
+        placeAddOption(place.name, place);
+      });
+    }
   }
 
   // ------------------------------------------------------------
   // TRACK 
   // ------------------------------------------------------------
 
-  function trackApplyConfig() {
+  function trackApplyConfig(tracks) {
     trackLayers.forEach( layer => {
       if(map.hasLayer(layer)) {
         map.removeLayer(layer);
       }
       layerControl.removeLayer(layer);
     } );
-    
-    config.tracks.forEach((track) => {
-      trackFetchUrl(track);
-    });
+    config.tracks = [];
+    trackTableUpdate();
+    mapUpdateTrackLegend();
+    if (isDef(tracks)) {
+      tracks.forEach((track) => {
+        trackFetchUrl(track);
+      });
+    }
   }
 
   function trackReadFile(file) {
     const reader = new FileReader();
     reader.onload = () => {
-      let track = { name: name, selected: true, color: 'green' };
+      let track = { name: file.name, selected: true, color: 'red' };
       const bytes = new Uint8Array(reader.result);
       const ubxData = convertUbxToUnicode(bytes);
       track.epochs = convertUbxToEpochs(ubxData, track);
       const length = track.epochs.length;
       if (length > 0) {
-        track.name = prompt(length +" epochs loaded, please name the track.", file.name);
+        const name = file.name.replace(/\.ubx$/i, '');
+        track.name = prompt(length +" epochs loaded, please name the track.", name);
         if (isDef(track.name) && ('' != track.name)) {
           track.bounds = epochsGetBounds(track.epochs);
           const groupLayer = trackAdd(track);
           trackAddLayer(groupLayer);
+          trackTableUpdate();
         }
       } else {
         alert('No epochs loaded, please check the file ' + file.name);
@@ -333,6 +376,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function trackAdd(track) {
     const groupLayer = L.layerGroup();
+    config.tracks.push(track);
+    trackTableUpdate();
     groupLayer.track = track;
     trackLayers.push(groupLayer);
     layerControl.addOverlay(groupLayer, trackGetLabel(track));
@@ -361,6 +406,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (track.selected) {
             trackAddLayer(groupLayer);
           }
+          trackTableUpdate();
         } else {
           alert('No epochs loaded, please check the file ' + track.url);
         }
@@ -414,6 +460,33 @@ document.addEventListener("DOMContentLoaded", () => {
     return '<span style="color:'+ track.color + ';">' + track.name + '</span>';
   }
 
+  function trackGetInfo(track, key) {
+    return isDef(track.info) && isDef(track.info[key]) ? track.info[key] : '';
+  }
+
+  function trackTableUpdate() {
+    const table = document.getElementById('table_tracks');
+    let html = '<tr><th>Track Name</th><th>Color</th><th>Module</th><th>Firmware</th><th>Protocol</th><th>Hardware</th><th>ROM</th></tr>';
+    config.tracks.forEach((track) => {
+      html += '<tr><td>'+track.name+'</td>';
+      html += '<td><input type="color" disabled value="'+track.color+'"></input></td>';
+      html += '<td>' + trackGetInfo(track, 'module') + '</td>';
+      let fwVer = trackGetInfo(track, 'fwVer');
+      if (fwVer == '') {
+        fwVer = trackGetInfo(track, 'monFwVer');
+      }
+      html += '<td>' + fwVer + '</td>';
+      html += '<td>' + trackGetInfo(track, 'protoVer') + '</td>';
+      let hwVer = trackGetInfo(track, 'hwVer');
+      if (hwVer == '') {
+        hwVer = trackGetInfo(track, 'monHwVer');
+      }
+      html += '<td>' + hwVer + '</td>';
+      html += '<td>' + trackGetInfo(track, 'romVer') + '</td></tr>';
+    } );
+    table.innerHTML = html;
+  }
+
   // ------------------------------------------------------------
   // TRACK 
   // ------------------------------------------------------------
@@ -463,14 +536,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       } );
     }
-    return epochs;
+    return jsonSanitize(epochs);
   }
   
   function convertMessageExtract(track, message) {
     if (message.protocol === 'UBX') {
       if (message.name === 'MON-VER') {
-        convertSetInfo(track, 'FW Version', message.fields.swVer);
-        convertSetInfo(track, 'HW Version', message.fields.hwVer);
+        convertSetInfo(track, 'monFwVer', message.fields.swVer);
+        convertSetInfo(track, 'monHwVer', message.fields.hwVer);
         if (message.fields.extVer) {
             for (let i = 0; i < message.fields.extVer.length; i ++)
               convertTextExtract(track, message.fields.extVer[i]);
@@ -486,12 +559,12 @@ document.addEventListener("DOMContentLoaded", () => {
   function convertTextExtract(track, text) {
     if (text) {
         let m;
-        if (m = text.match(/^MOD=(.+)$/))                     convertSetInfo(track, 'Module', m[1]);
-        else if (m = text.match(/^HW (.+)$/))                 convertSetInfo(track, 'Hardware Version', m[1]);
-        else if (m = text.match(/^ROM (?:BASE|CORE) (.+)$/))  convertSetInfo(track, 'ROM Version', m[1]);
-        else if (m = text.match(/^EXT CORE (.+)$/))           convertSetInfo(track, 'EXT Core', m[1]);
-        else if (m = text.match(/^FWVER=(.+)$/))              convertSetInfo(track, 'FW Version', m[1]);
-        else if (m = text.match(/^PROTVER=(.+)$/))            convertSetInfo(track, 'Protocol Version', m[1]);
+        if (m = text.match(/^MOD=(.+)$/))                     convertSetInfo(track, 'module', m[1]);
+        else if (m = text.match(/^HW (.+)$/))                 convertSetInfo(track, 'hwVer', m[1]);
+        else if (m = text.match(/^ROM (?:BASE|CORE) (.+)$/))  convertSetInfo(track, 'romVer', m[1]);
+        else if (m = text.match(/^EXT CORE (.+)$/))           convertSetInfo(track, 'extCore', m[1]);
+        else if (m = text.match(/^FWVER=(.+)$/))              convertSetInfo(track, 'fwVer', m[1]);
+        else if (m = text.match(/^PROTVER=(.+)$/))            convertSetInfo(track, 'protoVer', m[1]);
     }
   }
 
@@ -600,8 +673,9 @@ document.addEventListener("DOMContentLoaded", () => {
         epoch.msl = fields.height - fields.sep;
       }
     } else if (isDef(fields.height) && isDef(fields.msl)) {
-      epoch.sep =fields.height - fields.msl;
+      epoch.sep = fields.height - fields.msl;
     }
+    epoch = jsonSanitize(epoch);
   }
 
   function epochsGetBounds(epochs) {
@@ -658,7 +732,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!isNaN(num)) {
           text = Number(num.toFixed(10));
         } else {
-          text = String(value)
+          text = value
         }
       }
     }
@@ -667,13 +741,54 @@ document.addEventListener("DOMContentLoaded", () => {
   
   function jsonToTable(json) {
     const rows = Object.entries(json).map(([key, value]) => {
-      return `<tr><td>${key}</td><td>${fmtValue(value)}</td></tr>`;
+      return `<tr><td>${key}</td><td>${value}</td></tr>`;
     });
     return `<table><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  }
+
+  function jsonSanitize(obj) {
+    // sanitize the json object
+    if (Array.isArray(obj)) {
+      return obj.map(jsonSanitize).filter(jsonSanitizeObj);
+    } else if ((typeof obj === 'object') && obj !== null) {
+      const result = {};
+      const objs = Object.entries(obj);
+      for (const [key, rawObj] of objs) {
+        const sanObj = jsonSanitize(rawObj)
+        if(jsonSanitizeObj(sanObj)) {
+          result[key] = sanObj;
+        }
+      }
+      return result;
+    } else if (typeof obj === 'number') {
+      return jsonSanitizeNum(obj);
+    } else if ((typeof obj === 'string') && !isNaN(obj) && obj.trim() !== '') {
+      return jsonSanitizeNum(obj);
+    } else {
+      return obj;
+    }
+  }
+  
+  function jsonSanitizeObj(obj) {
+    // no undefined, null objects or empty strings
+    return (obj !== undefined) && (obj !== null) && 
+          !((typeof obj === 'string') && (obj.trim() === ''));
+  }
+  
+  function jsonSanitizeNum(obj) {
+    // lets round to some digits to avoid long numbers 
+    const m = String(obj).match(/^-?\d*(\.?\d*(e[+-]?\d+)?)?$/i);
+    if (m) {
+      const num = Number(obj);
+      return (m[1] && (10 < m[1].length)) ? Number(num.toFixed(10)) : num;
+    }
+    return obj;
   }
 
   // ------------------------------------------------------------
   // END 
   // ------------------------------------------------------------
 
-} )
+}
+
+return { }; })(); // UVIEW mdoule end
