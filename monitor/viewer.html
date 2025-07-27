@@ -41,10 +41,10 @@
     <meta charset="UTF-8">
     <!-- Third party js & css -->
     <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.29.0/dist/feather.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet-src.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-area-select@1.1.1/dist/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
     <!-- My own js & css -->
     <script defer src="js/viewer.js"></script>
     <script src="js/engine.js"></script>
@@ -112,7 +112,7 @@
             Places: <select id="places"></select>
             Opacity: <input type="range" id="opacity" min="0" max="1" step="0.1" value="0.4" style="height: 10px;" />
         </p>
-        <div id="map" style="display:none; height:calc(100vh -80px)"></div>
+        <div id="map"></div>
         <div id="hint">
           Zoom by area: area select + Shift, define place: area select + Ctrl, resize map when clicking a place + Ctrl.
           Pass drop files or pass urls as search argument '?f=config.json&f=...', none of your data is sent to a server.

@@ -75,18 +75,33 @@ window.onload = function _onload() {
   let layerControl;
   let config = { places: [], tracks: [] };
   mapInit();
+  placeAddOption('Overview');
   trackTableUpdate();
   mapUpdateTrackLegend();
-  urls.forEach(url => {
-    if (isDef(url) && ('' != url)) {
-      const name = url.toLowerCase();
-      if (name.endsWith('.json')) {
-        configFetchJson(url);
-      } else if (name.endsWith('.ubx')) {
-        trackFetchUrl(url);
+  if (0 < urls.length) {
+    urls.forEach(url => {
+      if (isDef(url) && ('' != url)) {
+        const name = url.toLowerCase();
+        if (name.endsWith('.json')) {
+          configFetchJson(url);
+        } else if (name.endsWith('.ubx')) {
+          trackFetchUrl(url);
+        }
       }
+    });
+  } else {
+    if (navigator.geolocation && map) {
+      navigator.geolocation.getCurrentPosition(
+
+        (position) => { 
+          map.setView([position.coords.latitude, position.coords.longitude], 14, { animate: false })
+          mapsContainer.style.display = 'block';
+        }, 
+        (err) => {},
+        { timeout: 1000 } // Timeout in ms
+      );
     }
-  });
+  }   
     
   // -------------------------------------------------------------
   // MAP
@@ -101,7 +116,8 @@ window.onload = function _onload() {
       }
     });
     resizeObserver.observe(mapsContainer);
-    map = L.map(mapsContainer, { zoomControl: true, zoomSnap: 0.1, wheelPxPerZoomLevel: 20, boxZoom: true, selectArea: true });
+    map = L.map(mapsContainer, { zoomControl: true, zoomSnap: 0.1, wheelPxPerZoomLevel: 20, boxZoom: true });
+    map.selectArea.enable();
     map.selectArea.setControlKey(true);
     L.control.scale().addTo(map);
     mapSetOpacity(opacitySlider.value);
@@ -257,7 +273,6 @@ window.onload = function _onload() {
       const w = parseInt(Math.abs(ne.x - sw.x));
       const h = parseInt(Math.abs(ne.y - sw.y));
       const place = { name:name, size: [ w, h ], bounds:[sw, ne] };
-      config.places.push(place);
       placeAddOption(place.name, place);
     }
   }
@@ -269,23 +284,25 @@ window.onload = function _onload() {
     option.place = place;
     placeSelect.appendChild(option);
     if (isDef(place)) {
-      let bounds = place.bounds; 
-      if (!isDef(bounds) && isDef(place.size) && isDef(place.center) && isDef(place.zoom)) {
+      if (!isDef(place.bounds) && isDef(place.size) && isDef(place.center) && isDef(place.zoom)) {
         const temp = L.map(document.createElement('div'), { center: place.center, zoom: place.zoom });
         temp._size = L.point(place.size[0], place.size[1]);
         temp._resetView(L.latLng(place.center), place.zoom);
-        bounds = temp.getBounds();
+        const sw = temp.getBounds().getSouthWest();
+        const ne = temp.getBounds().getNorthEast();
+        place.bounds = [ [sw.lat, sw.lng] , [ne.lat, ne.lng] ];
       }
-      if (isDef(bounds)) {
-        const marker = L.rectangle(bounds, { dashArray: '5, 5', weight: 2, className: 'place' });
+      if (isDef(place.bounds)) {
+        const marker = L.rectangle(place.bounds, { dashArray: '5, 5', weight: 2, className: 'place' });
         marker.place = place;
         marker.on('click', (e) => {
           const isOverview = (place.name == placeSelect.value);
-          placeChange(isOverview ? null : place, e.originalEvent.ctrlKey);
+          placeChange(isOverview ? undefined : place, e.originalEvent.ctrlKey);
           placeSelect.value = isOverview ? 'Overview' : place.name;
         });
         placesLayer.addLayer(marker);
       }
+      config.places.push(place);
     }
   }
   
@@ -307,7 +324,6 @@ window.onload = function _onload() {
             [ Math.min(...tracks.map(item => item.bounds[0][0])), Math.min(...tracks.map(item => item.bounds[0][1])) ],
             [ Math.max(...tracks.map(item => item.bounds[1][0])), Math.max(...tracks.map(item => item.bounds[1][1])) ]);
           map.fitBounds(bounds, { animate: false } );
-          map.panTo(bounds.getCenter(), { animate: false } );
           mapsContainer.style.display = 'block';
         }
       }
@@ -320,8 +336,8 @@ window.onload = function _onload() {
     placesLayer = L.layerGroup().addTo(map);
     layerControl.addOverlay(placesLayer, "Places");
     placeSelect.options.length = 0;
-    config.places = [];
     placeAddOption('Overview');
+    config.places = [];
     if (isDef(places)) {
       places.forEach((place, idx) => {
         placeAddOption(place.name, place);
@@ -387,7 +403,7 @@ window.onload = function _onload() {
   function trackFetchUrl(track) {
     const groupLayer = trackAdd(track);
     if (track.epochs) {
-      if (!track.bounds) {
+      if (track.bounds) {
         track.bounds = epochsGetBounds(track.epochs);
       }
       if (track.selected) {
@@ -466,10 +482,11 @@ window.onload = function _onload() {
 
   function trackTableUpdate() {
     const table = document.getElementById('table_tracks');
-    let html = '<tr><th>Track Name</th><th>Color</th><th>Module</th><th>Firmware</th><th>Protocol</th><th>Hardware</th><th>ROM</th></tr>';
+    let html = '<tr><th>Track Name</th><th>Color</th><th>Epochs</th><th>Module</th><th>Firmware</th><th>Protocol</th><th>Hardware</th><th>ROM</th></tr>';
     config.tracks.forEach((track) => {
       html += '<tr><td>'+track.name+'</td>';
       html += '<td><input type="color" disabled value="'+track.color+'"></input></td>';
+      html += '<td>' + (isDef(track.epochs) ? track.epochs.length : '') + '</td>';
       html += '<td>' + trackGetInfo(track, 'module') + '</td>';
       let fwVer = trackGetInfo(track, 'fwVer');
       if (fwVer == '') {
@@ -509,21 +526,23 @@ window.onload = function _onload() {
     if (messages.length) {
       let epoch = { fields: {}, ids: {}, info: [] };
       messages.forEach( function(message) {
-        if ((message.type === 'output') && message.protocol.match(/^NMEA|UBX$/) && isDef(message.fields)) {
-          if (epochCheck(epoch, message)) {
-            const colorMap = { 
-              'DR':    'purple', '2D':    'blue', 
-              '2D/3D': 'green',  '3D':    'green', 'DGPS':  'green', 
-              '3D+DR': 'purple', 'FIXED': 'green', 'FLOAT': 'green' 
-            };
-            if (isDef(epoch.fields.lat) && isDef(epoch.fields.lon) && isDef(epoch.fields.fix) && isDef(colorMap[epoch.fields.fix])) {
-              epochs.push( { color: colorMap[epoch.fields.fix], center: [epoch.fields.lat, epoch.fields.lon], fields: epoch.fields, info: epoch.info } );
-              epoch.info = [];
+        if ((message.type === 'output') && message.protocol.match(/^NMEA|UBX$/)) {
+          if (isDef(message.fields)) {
+            if (epochCheck(epoch, message)) {
+              const colorMap = { 
+                'DR':    'purple', '2D':    'blue', 
+                '2D/3D': 'green',  '3D':    'green', 'DGPS':  'green', 
+                '3D+DR': 'purple', 'FIXED': 'green', 'FLOAT': 'green' 
+              };
+              if (isDef(epoch.fields.lat) && isDef(epoch.fields.lon) && isDef(epoch.fields.fix) && isDef(colorMap[epoch.fields.fix])) {
+                epochs.push( { color: colorMap[epoch.fields.fix], center: [epoch.fields.lat, epoch.fields.lon], fields: epoch.fields, info: epoch.info } );
+                epoch.info = [];
+              }
+              epoch.fields = {};
+              epoch.ids = {};
             }
-            epoch.fields = {};
-            epoch.ids = {};
+            epochFill(epoch.fields, message.fields);
           }
-          epochFill(epoch.fields, message.fields);
           convertMessageExtract(track, message);
           epoch.ids[message.id] = true;
           let m = message.name.match(/^(INF-(ERROR|WARNING|NOTICE)|(G[PN]TXT))$/)
@@ -540,7 +559,7 @@ window.onload = function _onload() {
   }
   
   function convertMessageExtract(track, message) {
-    if (message.protocol === 'UBX') {
+    if ((message.protocol === 'UBX') && isDef(message.fields)) {
       if (message.name === 'MON-VER') {
         convertSetInfo(track, 'monFwVer', message.fields.swVer);
         convertSetInfo(track, 'monHwVer', message.fields.hwVer);
@@ -551,8 +570,19 @@ window.onload = function _onload() {
       } else if (message.name === 'INF-NOTICE') {
         convertTextExtract(track, message.fields.infTxt);
       }
-    } if ((message.protocol === 'NMEA') && (message.id === 'TXT')) {
-      convertTextExtract(track, message.fields.infTxt);
+    } else if (message.protocol === 'NMEA') {
+      if ((message.id === 'TXT') && isDef(message.fields)) {
+        convertTextExtract(track, message.fields.infTxt);
+      } else {
+        // $PAIR021,Project,Freq,SWPack,SerVer,SerBuildTime,L1RomVer>,L1ramVer,L5romVer,L5RamVer,KernelVer,KernelBuildTime,KFVersion,KFBuildTime,RTKVersion,RTKBuildTime,...
+        // $PAIR021,AG3352Q_V2.3.0.AG3352_20230213,S,N,2b31f59,2209141904,2b9,0,,,d32ef91c,2209141902,571d3e7,2209141904,,,-15.48,-15.48,-14.02,-15.48,0,1,##,0,0*6D
+        const m = message.text.match(/^\$PAIR02[1|0],([^_]*)_([^\,]*)\.([^,]*),(\w)/);
+        if (m) {
+          convertSetInfo(track, 'module', m[1]);
+          convertSetInfo(track, 'fwVer', m[2]);
+          convertSetInfo(track, 'hwVer', m[3]);
+        }
+      }
     }
   } 
 
@@ -720,23 +750,6 @@ window.onload = function _onload() {
     const mm = String(m).padStart(2, '0');
     const dd = String(d).padStart(2, '0');
     return `${y}-${mm}-${d}`;
-  }
-
-  function fmtValue(value) {
-    let text = '';
-    if (isDef(value)) {
-      if (typeof value === 'object') {
-        return JSON.stringify(value, null, 2);
-      } else { 
-        const num = Number(value);
-        if (!isNaN(num)) {
-          text = Number(num.toFixed(10));
-        } else {
-          text = value
-        }
-      }
-    }
-    return text;
   }
   
   function jsonToTable(json) {
