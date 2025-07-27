@@ -179,10 +179,11 @@ window.onload = function _onload() {
   }
 
   function mapUpdateTrackLegend() {
-    map.divInfo.innerHTML = config.tracks
+    const html = config.tracks
       .filter(track => track.selected)
       .map(track => trackGetLabel(track))
       .join(' | ');
+    map.divInfo.innerHTML = (isDef(html) && (html != '')) ? html : 'Please add Tracks';
   }
   
   function mapSetSize(size) {
@@ -323,7 +324,8 @@ window.onload = function _onload() {
           const bounds = L.latLngBounds(
             [ Math.min(...tracks.map(item => item.bounds[0][0])), Math.min(...tracks.map(item => item.bounds[0][1])) ],
             [ Math.max(...tracks.map(item => item.bounds[1][0])), Math.max(...tracks.map(item => item.bounds[1][1])) ]);
-          map.fitBounds(bounds, { animate: false } );
+          bounds.add
+          map.fitBounds(bounds, { animate: false, padding: [20, 20] } );
           mapsContainer.style.display = 'block';
         }
       }
