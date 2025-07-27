@@ -2531,9 +2531,14 @@ function time(time) {
     makeNmea:      ProtocolNMEA.make,
     makeAt:        ProtocolAT.make,
     makeText:      ProtocolTEXT.make,
-    make:            make,
+    make:          make,
     makeFromText:  makeFromText,
     makeSuggestions: makeSuggestions, 
+
+    charDump:        charDump,
+    textDump:        textDump,
+    jsonDump:        jsonDump,
+    hexDump:         hexDump,
     
     Message:        Message,
     messageLine:    messageLine,
