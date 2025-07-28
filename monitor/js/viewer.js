@@ -372,7 +372,6 @@ window.onload = function _onload() {
     } else {
       // must be 'Places' layer
     }
-    /*i*/
   };
   
   function trackOverlayRemove(e) {
@@ -388,16 +387,20 @@ window.onload = function _onload() {
   function trackReadFile(file) {
     const reader = new FileReader();
     reader.onload = () => {
-      let track = { name: file.name, selected: true, color: 'red' };
+      const track = { };
       const bytes = new Uint8Array(reader.result);
       const ubxData = convertUbxToUnicode(bytes);
       track.epochs = convertUbxToEpochs(ubxData, track);
       const length = track.epochs.length;
       if (length > 0) {
-        const name = file.name.replace(/\.ubx$/i, '');
-        track.name = prompt(length +" epochs loaded, please name the track.", name);
-        if (isDef(track.name) && ('' != track.name)) {
+        let name = file.name.replace(/\.ubx$/i, '');
+        name = prompt(length +" epochs loaded, please name the track.", name);
+        if (isDef(name) && ('' != name)) {
+          track.name = name;
           track.bounds = trackGetBounds(track.epochs);
+          track.color = (name.toLowerCase() == 'truth') ? 'black' : 
+                        isDef(track.info?.protoVer)     ? 'blue' : 
+                                                          'red';
           const groupLayer = trackAdd(track);
           trackAddLayer(groupLayer);
           trackTableUpdate();
