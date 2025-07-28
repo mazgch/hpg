@@ -148,26 +148,8 @@ window.onload = function _onload() {
     coordControl.addTo(map);
     map.on('mousemove', mapUpdateCoords);
     mapsContainer.addEventListener('mouseleave', mapUpdateTrackLegend)
-    map.on('overlayadd', function (e) {
-      if (e.layer.track) {
-        e.layer.track.selected = true;
-        mapUpdateTrackLegend();
-        if (!map.hasLayer(e.layer)) {
-          trackAddLayer(e.layer);
-        }
-      } else {
-        // must be 'Places' layer
-      }
-      /*i*/
-    });
-    map.on('overlayremove', function (e) {
-      if (e.layer.track) {
-        e.layer.track.selected = false;
-        mapUpdateTrackLegend();
-      } else {
-        // must be 'Places' layer
-      }
-    });
+    map.on('overlayadd', trackOverlayAdd);
+    map.on('overlayremove', trackOverlayRemove);
     map.on("selectarea:selected", (e) => placeAddBounds(e.bounds));
   }
   
@@ -365,6 +347,7 @@ window.onload = function _onload() {
       }
       layerControl.removeLayer(layer);
     } );
+    trackLayers = [];
     config.tracks = [];
     trackTableUpdate();
     mapUpdateTrackLegend();
@@ -378,6 +361,29 @@ window.onload = function _onload() {
       });
     }
   }
+
+  function trackOverlayAdd(e) {
+    if (e.layer.track) {
+      e.layer.track.selected = true;
+      mapUpdateTrackLegend();
+      if (0 == e.layer.getLayers().length) {
+        trackAddLayer(e.layer);
+      }
+    } else {
+      // must be 'Places' layer
+    }
+    /*i*/
+  };
+  
+  function trackOverlayRemove(e) {
+    if (e.layer.track) {
+      e.layer.track.selected = false;
+      mapUpdateTrackLegend();
+      e.layer.clearLayers();
+    } else {
+      // must be 'Places' layer
+    }
+  };
 
   function trackReadFile(file) {
     const reader = new FileReader();
