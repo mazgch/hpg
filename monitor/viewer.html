@@ -48,6 +48,7 @@
     <!-- My own js & css -->
     <script defer src="js/viewer.js"></script>
     <script src="js/engine.js"></script>
+    <script src="js/epoch.js"></script>
     <link rel="stylesheet" href="css/viewer.css">
     <link  href="css/monitor.css" type="text/css" rel="stylesheet" media="all">
   </head>
@@ -88,14 +89,14 @@
       </div>
       <div id="tile_tracks" class="section">
         <div class="section">
-          <p style="width: calc(100% - 32px)">
+          <p style="width: calc(100% - 48px)">
             This page allows users to upload and view multiple .ubx files recorded from a GPS/GNSS receiver directly in the browser. 
             Each file is parsed, and the resulting tracks are displayed together on an interactive map. Users can visually 
             compare, inspect and analyze tracks by overlaying them on an interactive map. 
         </div>
         <div class="section">
           <h2>Tracks</h2>
-          <p style="width: calc(100% - 32px)">
+          <p style="width: calc(100% - 48px)">
             Load multiple .ubx files recorderd with <a href="https://www.u-blox.com/en/product/u-center">u-center</a> or 
             load a previosuly saved .json file. You can also drag and drop files to this page. Pass urls as
             <span class="form-required" title="http://hpg.mazg.ch/hpg/monitor/viewer.html
@@ -109,23 +110,25 @@
             <input id="files"  type="file" accept=".json,.ubx" multiple style="display: none;">
             <div class="overlay_button" onclick="document.getElementById('files').click()" title="Add .ubx or .json files."><i data-feather="file-plus"></i></div>
             <div class="overlay_button" id="download" title="Download current .json file."><i data-feather="download"></i></div>
+            <div class="overlay_button" id="clear" title="Remove all tracks and places."><i data-feather="trash"></i></div>
           </div>
         </div>
       </div>
       <div id="tile_map">
-        <h2>Map</h2>
+        <h2>Map & Places</h2>
         Use the layer control in the top right to switch between base maps and toggle the visibility of tracks or places. 
-        Places help you define areas of interest that you like to revisit. You can zoom and pan the map using the mouse. 
-        Each track is shown as a colored polyline, matching the track's assigned color. Position quality is indicated by 
-        points along the track, click a point to view details. Markers highlight locations where important messages were logged.
+        Places help you define areas of interest that you like people to revisit. You can zoom and pan the map using the mouse. 
+        Each track is shown as a colored polyline, matching the track's assigned color. Fix quality is indicated by points along 
+        the track, click a point to view details. Markers highlight locations where important errors, wanrings or notifications 
+        were collected.
         <ul>
-          <li><b>Zoom to area:</b> Hold <b>Shift</b> and drag to select a region.</li>
-          <li><b>Define a place:</b> Hold <b>Ctrl</b> and drag to define new named place.</li>
-          <li><b>Resize map to a place:</b> Hold Ctrl</b> and click on defined place.</li>
-          <li><b>Select a place:</b> Chose from the list <select id="places"></select> or enable clickable places in the map using the layer control.</li>
+          <li><b>Zoom to area:</b> Hold <b>Shift</b> and drag to select an area to zoom to.</li>
+          <li><b>Define a place:</b> Hold <b>Ctrl</b> and drag to to select an area to be defined as a new place.</li>
+          <li><b>Resize to place:</b> Hold Ctrl</b> and click on the dashed place rectangle in the map.</li>
+          <li><b>Fit to place:</b> Chose from the list <select id="places"></select> or click on a dashed place rectangle in the map.</li>
           <li>
             <b>Adjust brightness:</b> Reduce or increase base layer opacity 
-            <input type="range" id="opacity" min="0" max="1" step="0.1" value="0.4" style="height: 10px;"> 
+            <input type="range" id="opacity" min="0" max="0.8" step="0.05" value="0.4" style="height: 0.8em;"> 
             to improve visibility.
           </li>
         </ul>

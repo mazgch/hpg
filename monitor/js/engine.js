@@ -214,7 +214,7 @@ function hexDump(data, newLine = '</br>')
    I        Integer
    U        Unsigned
    R        Real/Float, 
-   L        Lat/Long
+   L        Lat/Lng
    T        Time
    D        Date, 
  
@@ -637,7 +637,7 @@ const spec = {
         spec:[  { name:'version',               type:'U1'                           },
                 {                               type:'U1[3]'                        },
                 { name:'itow',                  type:'U4', scale:1e-3, unit:'s'     },
-                { name:'lon',                   type:'I4', scale:1e-7, unit:'deg'   },
+                { name:'lng',                   type:'I4', scale:1e-7, unit:'deg'   },
                 { name:'lat',                   type:'I4', scale:1e-7, unit:'deg'   },
                 { name:'height',                type:'I4', scale:1e-3, unit:'m'     },
                 { name:'msl',                   type:'I4', scale:1e-3, unit:'m'     },
@@ -653,7 +653,7 @@ const spec = {
     'NAV-POSLLH': {     
         descr:  'Geodetic Position Solution',   
         spec:[  { name:'itow',                  type:'U4', scale:1e-3, unit:'s'     },
-                { name:'lon',                   type:'I4', scale:1e-7, unit:'deg'   },
+                { name:'lng',                   type:'I4', scale:1e-7, unit:'deg'   },
                 { name:'lat',                   type:'I4', scale:1e-7, unit:'deg'   },
                 { name:'height',                type:'I4', scale:1e-3, unit:'m'     },
                 { name:'msl',                   type:'I4', scale:1e-3, unit:'m'     },
@@ -709,7 +709,7 @@ const spec = {
                     { name:'confirmedDate',     type:'x1'                           },
                     { name:'confirmedTime',     type:'x1'                           } ] },
                 { name:'numSV',                 type:'U1',                          },
-                { name:'lon',                   type:'I4', scale:1e-7, unit:'deg'   },
+                { name:'lng',                   type:'I4', scale:1e-7, unit:'deg'   },
                 { name:'lat',                   type:'I4', scale:1e-7, unit:'deg'   },
                 { name:'height',                type:'I4', scale:1e-3, unit:'m'     },
                 { name:'msl',                   type:'I4', scale:1e-3, unit:'m'     },

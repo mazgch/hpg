@@ -232,51 +232,6 @@ const flagsEmojy = {
 var nmeaSvUsed = [];
 var nmeaSvDb = { freqs:0 };
 var oldSvDb = { freqs:0 };
-// convert some fields to text
-const mapNmeaStatus = { 
-    'V':'Data invalid',
-    'A':'Data valid',
-};
-const mapNmeaNavMode = {
-    '3':'3D fix',
-    '2':'2D fix',
-    '1':'No fix',
-}
-const mapEsfFusionMode = {
-    '0':'Initilizing',
-    '1':'Fusion Mode',
-    '2':'Temporary Disabled',
-    '3':'Disabled',
-}
-const mapEsfCalibMode = {
-    '0':'Initialization',
-    '1':'Fusion Mode',
-    '2':'Suspended',
-    '3':'Disabled',
-}
-const mapNmeaQuality = {
-    '8':'Simulation',
-    '7':'Manual input',
-    '6':'Estimated/Dead reckoning fix',
-    '5':'RTK float',
-    '4':'RTK fixed',
-    '3':'PPS fix',
-    '2':'Differential GNSS fix',
-    '1':'Autonomous GNSS fix',
-    '0':'No fix',
-};
-const mapNmeaPosMode = {
-    'N':'No fix', 
-    'E':'Estimated/Dead reckoning fix', 
-    'A':'Autonomous GNSS fix', 
-    'D':'Differential GNSS fix', 
-    'F':'RTK float', 
-    'R':'RTK fixed', 
-};
-const mapNmeaOpMode = {
-    'M':'Manually set to 2D or 3D mode',
-    'A':'Automatic 2D or 3D mode',
-};
 
 const mapNmeaSignalId = {  1:'GPS',  2:'GLONASS',  3:'Galileo',  4:'BeiDou',  5:'QZSS',  6:'IRNSS', };
 const mapNmeaTalker   = { GP:'GPS', GL:'GLONASS', GA:'Galileo', GB:'BeiDou', GQ:'QZSS', GI:'IRNSS', GN:'GNSS', BD:'BeiDou', };
@@ -285,75 +240,7 @@ const mapNmeaTalker   = { GP:'GPS', GL:'GLONASS', GA:'Galileo', GB:'BeiDou', GQ:
 
 const DB_LINES = 60+1;
 const LEAP_SECONDS = 18;
-let db = { // a database with values values to capture an report
-    date:   new dbY( { name: 'Date UTC',                            unit:'yyyy-mm-dd',         } ),
-    time:   new dbY( { name: 'Time UTC',                            unit:'hh:mm:ss.sss',       } ),
-    wno:    new dbY( { name: 'GPS week number',                     unit:'s',          prec:3,   descr:'weeks since 1980-01-06 modulo 1024' } ),
-    itow:   new dbY( { name: 'GPS time of week',                    unit:'s',          prec:3,   descr:'offset by leap seconds to UTC', } ),
-    // 3D Position
-    ecefX:  new dbY( { name: 'ECEF X coordinate',                   unit:'m',          prec:3, } ),
-    ecefY:  new dbY( { name: 'ECEF Y coordinate',                   unit:'m',          prec:3, } ),
-    ecefZ:  new dbY( { name: 'ECEF Z coordinate',                   unit:'m',          prec:3, } ),
-    pAcc:   new dbY( { name: 'Position accuracy estimate',          unit:'m',          prec:3, } ),
-    // 2D Horizontal Porition
-    lat:    new dbY( { name: 'Latitude',                            unit:'degrees',    prec:8, } ),
-    long:   new dbY( { name: 'Longitude',                           unit:'degrees',    prec:8, } ),
-    hAcc:   new dbY( { name: 'Horizontal accuarcy estimate',        unit:'m',          prec:3, } ),
-    // Vertical
-    height: new dbY( { name: 'Height above ellipsoid',              unit:'m',          prec:3, } ),
-    msl:    new dbY( { name: 'Height above mean sea level',         unit:'m',          prec:3, } ),
-    sep:    new dbY( { name: 'Geoidal separation',                  unit:'m',          prec:3, } ),
-    vAcc:   new dbY( { name: 'Vertical position accuarcy',          unit:'m',          prec:3, } ),
-    // Velocities
-    ecefVX: new dbY( { name: 'ECEF X velocity',                     unit:'m/s',        prec:3, } ),
-    ecefVY: new dbY( { name: 'ECEF Y velocity',                     unit:'m/s',        prec:3, } ),
-    ecefVZ: new dbY( { name: 'ECEF Z velocity',                     unit:'m/s',        prec:3, } ),
-    sAcc:   new dbY( { name: 'Velocity (3D) accuarcy',              unit:'m/s',        prec:3, } ),
-    // Speed
-    speed:  new dbY( { name: 'Speed (3-D)',                         unit:'m/s',        prec:3, } ),
-    gSpeed: new dbY( { name: 'Ground Speed (2-D)',                  unit:'m/s',        prec:3, } ),
-    velN:   new dbY( { name: 'NED north velocity',                  unit:'m/s',        prec:3, } ),
-    velE:   new dbY( { name: 'NED east velocity',                   unit:'m/s',        prec:3, } ),
-    velD:   new dbY( { name: 'NED down velocity',                   unit:'m/s',        prec:3, } ),
-    // Heading
-    heading:new dbY( { name: 'Heading of motion 2-D',               unit:'degrees',    prec:2, } ),
-    cogt:   new dbY( { name: 'Course over Ground',                  unit:'degrees',    prec:2, } ), // == heading
-    cAcc:   new dbY( { name: 'Heading accuracy estimate',           unit:'degrees',    prec:2, } ),
-    // DOP
-    gDop:   new dbY( { name: 'Geometric DOP',                                          prec:2, } ),
-    pDop:   new dbY( { name: 'Position DOP',                                           prec:2, } ),
-    hDop:   new dbY( { name: 'Horizontal DOP',                                         prec:2, } ),
-    vDop:   new dbY( { name: 'Vertical DOP',                                           prec:2, } ),
-    nDop:   new dbY( { name: 'Northing DOP',                                           prec:2, } ),
-    eDop:   new dbY( { name: 'Easting DOP',                                            prec:2, } ),
-    tDop:   new dbY( { name: 'Time DOP',                                               prec:2, } ),
-    // Portection Level
-    plPosValid: new dbY( { name: 'Position protection level valid',       hide:true } ), // assuming frame PL 3
-    plPos1: new dbY( { name: 'Position protection level major',           unit:'m',       prec:3, } ),
-    plPos2: new dbY( { name: 'Position protection level minor',           unit:'m',       prec:3, } ),
-    plPos3: new dbY( { name: 'Position protection level vertical',        unit:'m',       prec:3, } ),
-    plPosHorOr: new dbY( { name: 'Position protection level orientation', unit:'degrees', prec:1, } ),
-    plVelValid: new dbY( { name: 'Velocity protection level valid',       hide:true } ), // assuming frame PL 3
-    plVel1: new dbY( { name: 'Velocity protection level major',           unit:'m/s',     prec:3, hide:true } ),
-    plVel2: new dbY( { name: 'Velocity protection level minor',           unit:'m/s',     prec:3, hide:true } ),
-    plVel3: new dbY( { name: 'Velocity protection level vertical',        unit:'m/s',     prec:3, hide:true } ),
-    plVelHorOr: new dbY( { name: 'Velocity protection level orientation', unit:'degrees', prec:1, hide:true } ),
-      // status
-    status: new dbY( { name: 'NMEA valid status',                   map:mapNmeaStatus,           } ),
-    posMode:new dbY( { name: 'NMEA position mode',                    map:mapNmeaPosMode,           } ),
-    opMode: new dbY( { name: 'NMEA operation status',               map:mapNmeaOpMode,            } ),
-    navMode:new dbY( { name: 'NMEA navigation mode',                map:mapNmeaNavMode,        } ),
-    quality:new dbY( { name: 'NMEA quality',                        map:mapNmeaQuality,        } ),
-    // 
-    fusionMode: new dbY( { name: 'ESF fusion mode',                 map:mapEsfFusionMode,      } ),
-    lBebn0: new dbY( { name: 'LBAND Eb/N0',                         unit:'dB',         prec:1, } ),
-    lBcn0:  new dbY( { name: 'LBAND C/N0',                          unit:'dB',         prec:1, } ),
-    // internals
-    epIndex:new dbY( { name: 'Epoch index',                                                    } ),
-    epNumMsg:new dbY({ name: 'Messages in epoch',                                      prec:0, } ),
-    epBytes:new dbY( { name: 'Bytes in epoch',                      unit:'Bytes',      prec:0, } ),
-    // time series 
-};
+let db = Object.fromEntries(Object.entries(Epoch.epochFields).map( ([key, field]) => [key, new dbY(field)]));
 let dbUpdateReq = false; // if true Publish will Update the GUI
 let epoch = { ids:{}, index:0, data:'', numMsg:0, }; // a database with all messages from the current epoch
 
@@ -700,15 +587,15 @@ function dbSaveKml(e) {
     const coords = [];
     const coordsto = [];
     for (let r = 0; r < db.time.array.length; r ++) {
-        const lon = db.long.array[r];
+        const lng = db.lng.array[r];
         const lat = db.lat.array[r];
         const msl = db.msl.array[r];
-        if (!isNaN(lon) && !isNaN(lat) && !isNaN(msl)) {
-            coords.push( [ lon, lat, msl ].join() );
+        if (!isNaN(lng) && !isNaN(lat) && !isNaN(msl)) {
+            coords.push( [ lng, lat, msl ].join() );
             const vE = !isNaN(db.velE.array[r]) ? db.velE.array[r] : 0;
             const vN = !isNaN(db.velN.array[r]) ? db.velN.array[r] : 0;
             const vD = !isNaN(db.velD.array[r]) ? db.velD.array[r] : 0;
-            coordsto.push( [ lon + vE / (111199.0 * Math.cos(lat * Math.PI / 180.0)), 
+            coordsto.push( [ lng + vE / (111199.0 * Math.cos(lat * Math.PI / 180.0)), 
                              lat + vN /  111199.0, msl - vD].join() );
         }
     }
@@ -1003,8 +890,8 @@ function dbOnPublish(el) {
         
 function dbPublish() {
     // now publish to the gui
-    if (db.long.dirty && db.lat.dirty)
-        centerMap(db.long.val, db.lat.val, db.cogt.val, db.gSpeed.val, db.hAcc.val,
+    if (db.lng.dirty && db.lat.dirty)
+        centerMap(db.lng.val, db.lat.val, db.cogt.val, db.gSpeed.val, db.hAcc.val,
                   (db.plPosValid.val ? { major:db.plPos1.val, minor:db.plPos2.val, vert:db.plPos3.val, angle:db.plPosHorOr.val } : undefined),
                   (db.plVelValid.val ? { major:db.plVel1.val, minor:db.plVel2.val, vert:db.plVel3.val, angle:db.plVelHorOr.val } : undefined) );
     if (nmeaSvDb.dirty) {
@@ -1096,8 +983,8 @@ function updateStatus( message ) {
         for(let name in fields)
             if(db[name]) db[name].set(fields[name], message);
         // some conversions to correct units (most recent wins) set always
-        if ((undefined !== fields.longN) && (undefined !== fields.longI) && (0 === db.long.sta))
-            db.long.set((fields.longI === 'W') ? -fields.longN : fields.longN, message);
+        if ((undefined !== fields.longN) && (undefined !== fields.longI) && (0 === db.lng.sta))
+            db.lng.set((fields.longI === 'W') ? -fields.longN : fields.longN, message);
         if ((undefined !== fields.latN) && (undefined !== fields.latI) && (0 === db.lat.sta))
             db.lat.set((fields.latI === 'S') ? -fields.latN : fields.latN, message);
         if (0 === db.gSpeed.sta) {
@@ -1125,8 +1012,8 @@ function updateStatus( message ) {
         }
         /*
         if ((undefined !== fields.ecefX) && (undefined !== fields.ecefY)){
-            if (0 === db.long.sta) {
-                db.long.set(Math.atan2(fields.ecefY, fields.ecefX), message);
+            if (0 === db.lng.sta) {
+                db.lng.set(Math.atan2(fields.ecefY, fields.ecefX), message);
             } 
             if ((undefined !== fields.ecefZ) && (0 === db.lat.sta)){
                 const F        = 0.00335281066474748;//(1/298.2572235630);
@@ -1215,9 +1102,9 @@ double X = m_pStorageX->GetValue();
     VXYZ -> VNED
         double X = m_pStorageX->GetValue();
         double Y = m_pStorageY->GetValue();
-        double Long = m_pStorageLong->GetValue();
-        double sinL = sin(Long);
-        double cosL = cos(Long);
+        double Lng = m_pStorageLong->GetValue();
+        double sinL = sin(Lng);
+        double cosL = cos(Lng);
         if (m_pStorageEast && m_pStorageEast->IsUndefined())
             bUpdated |= m_pStorageEast->EstValue(- X * sinL + Y * cosL);
         if (m_pStorageZ && m_pStorageZ->IsDefined() && 
@@ -1249,9 +1136,9 @@ double X = m_pStorageX->GetValue();
             m_pStorageLong && m_pStorageLong->IsDefined())
         {
             double East = m_pStorageEast->GetValue();
-            double Long = m_pStorageLong->GetValue();
-            double sinL = sin(Long);
-            double cosL = cos(Long);
+            double Lng = m_pStorageLong->GetValue();
+            double sinL = sin(Lng);
+            double cosL = cos(Lng);
             if (m_pStorageX && m_pStorageX->IsUndefined()) 
                 bUpdated |= m_pStorageX->EstValue(- sinL * East  - cosL * sinF * North - cosL * cosF * Down);
             if (m_pStorageY && m_pStorageY->IsUndefined()) 
@@ -1771,12 +1658,12 @@ function clearMapTrack(e) {
     if (dots) dots.getGeometry().setCoordinates([]);
 }
 
-function centerMap(lon, lat, cogt, gSpeed, hAcc, plPos, plVel) {
+function centerMap(lng, lat, cogt, gSpeed, hAcc, plPos, plVel) {
     var el = document.getElementById('map');
-    if (el && (ol !== undefined) && !isNaN(lon) && !isNaN(lat)) {
+    if (el && (ol !== undefined) && !isNaN(lng) && !isNaN(lat)) {
         el.removeAttribute('hidden');
         let scale = Math.cos(lat * Math.PI / 180.0 );
-        let position = ol.proj.fromLonLat([Number(lon), Number(lat)]);
+        let position = ol.proj.fromLonLat([Number(lng), Number(lat)]);
         let radius = !isNaN(hAcc) ? scale * hAcc : 0;
         let posEll = plPos ? makeEllipse(position, plPos.major * scale, plPos.minor * scale, plPos.angle) : [];
         let velEll = [];

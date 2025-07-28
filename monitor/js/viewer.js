@@ -29,9 +29,10 @@ window.clickLink = function _clickLink(link) {
 // ------------------------------------------------------------------------------------
 window.onload = function _onload() {
 
-  // -------------------------------------------------------------
+  const CONFIG_EMPTY = { places: [], tracks: [] };
+  
   // UI
-  // -------------------------------------------------------------
+  // ------------------------------------------------------------------------------------
 
   feather.replace();
     
@@ -43,11 +44,13 @@ window.onload = function _onload() {
   downloadConfig.addEventListener('click', configDownloadJson);
   const placeSelect = document.getElementById("places");
   placeSelect.addEventListener("change", placeSelectChange);
+  const clearConfig = document.getElementById("clear");
+  clearConfig.addEventListener('click', configClear);
   const opacitySlider = document.getElementById('opacity');
   opacitySlider.addEventListener('input', (e) => {
     mapSetOpacity(Math.abs(e.target.value));
   });
-
+  
   const uploadPicker = document.getElementById('files');
   uploadPicker.addEventListener('change', (e) => configReadFiles(e.target.files) );
   const dropzone = document.getElementById('dropzone');
@@ -65,16 +68,15 @@ window.onload = function _onload() {
     configReadFiles(e.dataTransfer.files);
   });
 
-  // -------------------------------------------------------------
-  // APPLICATION
-  // -------------------------------------------------------------
+  // Application
+  // ------------------------------------------------------------------------------------
 
   let map;
   let placesLayer;
   let trackLayers = [];
   let layerControl;
-  let config = { places: [], tracks: [] };
-  mapInit();
+  let config = CONFIG_EMPTY;
+  mapInit(); 
   placeAddOption('Overview');
   trackTableUpdate();
   mapUpdateTrackLegend();
@@ -103,9 +105,8 @@ window.onload = function _onload() {
     }
   }   
     
-  // -------------------------------------------------------------
-  // MAP
-  // -------------------------------------------------------------
+  // Map
+  // ------------------------------------------------------------------------------------
 
   function mapInit() {
     mapsContainer.style.display = "none";
@@ -140,7 +141,7 @@ window.onload = function _onload() {
       "OSM Topography": osmTopography, "OSM Street": osmStreet };
     placesLayer = L.layerGroup().addTo(map);
     layerControl = L.control.layers( baseLayers, { "Places": placesLayer } ).addTo(map);
-    // add lat lon x y hint
+    // add lat lng x y hint
     const coordControl = L.control({ position: 'bottomright' });
     map.divInfo = L.DomUtil.create('div', 'leaflet-control-coords leaflet-bar');
     coordControl.onAdd = function () { return map.divInfo; };
@@ -205,14 +206,18 @@ window.onload = function _onload() {
     }
   }
 
-  // ------------------------------------------------------------
-  // CONFIG 
-  // ------------------------------------------------------------
+  // Config 
+  // ------------------------------------------------------------------------------------
 
   function configFetchJson(name) {
     fetch(name)
     .then(response => response.json())
     .then(json => configApply(json))
+  }
+  
+  function configClear() {
+    placeRemoveAll();
+    trackRemoveAll();
   }
 
   function configApply(json) {
@@ -255,10 +260,28 @@ window.onload = function _onload() {
     URL.revokeObjectURL(link.href);
   }
 
-  // ------------------------------------------------------------
-  // PLACE 
-  // ------------------------------------------------------------
-  
+  // Place 
+  // ------------------------------------------------------------------------------------
+
+  function placeRemoveAll() {
+    map.removeLayer(placesLayer);
+    layerControl.removeLayer(placesLayer);
+    placesLayer = L.layerGroup().addTo(map);
+    layerControl.addOverlay(placesLayer, "Places");
+    placeSelect.options.length = 0;
+    placeAddOption('Overview');
+    config.places = [];
+  }
+
+  function placeApplyConfig(places) {
+    placeRemoveAll();
+    if (isDef(places)) {
+      places.forEach((place, idx) => {
+        placeAddOption(place.name, place);
+      });
+    }
+  }
+
   function placeSelectChange(e) { 
     const option = e.target.selectedOptions[0];
     placeChange(option.place); 
@@ -332,26 +355,10 @@ window.onload = function _onload() {
     }
   }
 
-  function placeApplyConfig(places) {
-    map.removeLayer(placesLayer);
-    layerControl.removeLayer(placesLayer);
-    placesLayer = L.layerGroup().addTo(map);
-    layerControl.addOverlay(placesLayer, "Places");
-    placeSelect.options.length = 0;
-    placeAddOption('Overview');
-    config.places = [];
-    if (isDef(places)) {
-      places.forEach((place, idx) => {
-        placeAddOption(place.name, place);
-      });
-    }
-  }
+  // Track 
+  // ------------------------------------------------------------------------------------
 
-  // ------------------------------------------------------------
-  // TRACK 
-  // ------------------------------------------------------------
-
-  function trackApplyConfig(tracks) {
+  function trackRemoveAll() {
     trackLayers.forEach( layer => {
       if(map.hasLayer(layer)) {
         map.removeLayer(layer);
@@ -361,6 +368,10 @@ window.onload = function _onload() {
     config.tracks = [];
     trackTableUpdate();
     mapUpdateTrackLegend();
+  }
+
+  function trackApplyConfig(tracks) {
+    trackRemoveAll();
     if (isDef(tracks)) {
       tracks.forEach((track) => {
         trackFetchUrl(track);
@@ -380,7 +391,7 @@ window.onload = function _onload() {
         const name = file.name.replace(/\.ubx$/i, '');
         track.name = prompt(length +" epochs loaded, please name the track.", name);
         if (isDef(track.name) && ('' != track.name)) {
-          track.bounds = epochsGetBounds(track.epochs);
+          track.bounds = trackGetBounds(track.epochs);
           const groupLayer = trackAdd(track);
           trackAddLayer(groupLayer);
           trackTableUpdate();
@@ -406,7 +417,7 @@ window.onload = function _onload() {
     const groupLayer = trackAdd(track);
     if (track.epochs) {
       if (track.bounds) {
-        track.bounds = epochsGetBounds(track.epochs);
+        track.bounds = trackGetBounds(track.epochs);
       }
       if (track.selected) {
         trackAddLayer(groupLayer);
@@ -420,7 +431,7 @@ window.onload = function _onload() {
         track.epochs = convertUbxToEpochs(ubxData, track);
         const length = track.epochs.length;
         if (0 < length) {
-          track.bounds = epochsGetBounds(track.epochs);
+          track.bounds = trackGetBounds(track.epochs);
           if (track.selected) {
             trackAddLayer(groupLayer);
           }
@@ -435,17 +446,18 @@ window.onload = function _onload() {
   function trackAddLayer(layerGroup) {
     let trackCoords = [];
     layerGroup.track.epochs.forEach( function(epoch) {
-      trackCoords.push( epoch.center );
+      const center = [epoch.fields.lat, epoch.fields.lng];
+      trackCoords.push( center );
       if (layerGroup.track.name.toLowerCase() !== 'truth') {
-        const marker = L.circleMarker(epoch.center, {
+        const marker = L.circleMarker(center, {
           radius: 3, weight: 1, 
           color: epoch.color, opacity: 1, 
           fillColor: epoch.color, fillOpacity: 0.8,
           className: 'marker'
         });
-        if (0 < epoch.info.length) {
+        if (isDef(epoch.info) && (0 < epoch.info.length)) {
           const infText = epoch.info.join('<br/>');
-          const flag = L.marker(epoch.center, { riseOnHover: true, className: 'inf-error' } )
+          const flag = L.marker(center, { riseOnHover: true, className: 'inf-error' } )
                   .bindTooltip(infText, { direction: 'bottom', offset: [-14, 28], });
           layerGroup.addLayer(flag);
         }
@@ -467,15 +479,23 @@ window.onload = function _onload() {
   function trackMarkerPopUp(e) { 
     const popup = L.popup();
     popup.setLatLng(e.latlng)
-    popup.setContent(e.target.label + '<br><br>' + jsonToTable(e.target.fields) )
+    const fields =  e.target.fields;
+    const rows = Object.entries(Epoch.epochFields)
+            .filter(([key]) => key in fields)
+            .map(([key, def]) => {
+      const unit = isDef(def.unit) ? def.unit : '';
+      return '<tr><td>'+def.name+'</td><td class="right">'+fields[key]+'</td><td>'+unit+'</td></tr>';
+    });
+    popup.setContent( e.target.label + '<br><table style="font-size:0.8em"><thead>' +
+            '<tr><th>Parameter</th><th class="right">Value</th><th>Unit</th></tr>' +
+            '</thead><tbody>' + rows.join('') + '</tbody></table>');
     popup.openOn(map);
   }
-  
   function trackMarkerHover() { this.setRadius(5); }
   function trackMarkerReset() { this.setRadius(3); }
 
   function trackGetLabel(track) {
-    return '<span style="color:'+ track.color + ';">' + track.name + '</span>';
+    return `<span style="color:${track.color};">${track.name}</span>`;
   }
 
   function trackGetInfo(track, key) {
@@ -486,28 +506,36 @@ window.onload = function _onload() {
     const table = document.getElementById('table_tracks');
     let html = '<tr><th>Track Name</th><th>Color</th><th>Epochs</th><th>Module</th><th>Firmware</th><th>Protocol</th><th>Hardware</th><th>ROM</th></tr>';
     config.tracks.forEach((track) => {
-      html += '<tr><td>'+track.name+'</td>';
-      html += '<td><input type="color" disabled value="'+track.color+'"></input></td>';
-      html += '<td>' + (isDef(track.epochs) ? track.epochs.length : '') + '</td>';
-      html += '<td>' + trackGetInfo(track, 'module') + '</td>';
+      const epochs = isDef(track.epochs) ? track.epochs.length : '';
       let fwVer = trackGetInfo(track, 'fwVer');
-      if (fwVer == '') {
-        fwVer = trackGetInfo(track, 'monFwVer');
+      if (fwVer == '') { 
+        fwVer = trackGetInfo(track, 'monFwVer'); 
       }
-      html += '<td>' + fwVer + '</td>';
-      html += '<td>' + trackGetInfo(track, 'protoVer') + '</td>';
       let hwVer = trackGetInfo(track, 'hwVer');
       if (hwVer == '') {
         hwVer = trackGetInfo(track, 'monHwVer');
       }
-      html += '<td>' + hwVer + '</td>';
-      html += '<td>' + trackGetInfo(track, 'romVer') + '</td></tr>';
+      html += '<tr><td>' + track.name + 
+              '</td><td><input type="color" disabled value="' + track.color + '" /></td><td>' + epochs + 
+              '</td><td>' + trackGetInfo(track, 'module') + '</td><td>' + fwVer + 
+              '</td><td>' + trackGetInfo(track, 'protoVer') + '</td><td>' + hwVer + 
+              '</td><td>' + trackGetInfo(track, 'romVer') + '</td></tr>';
     } );
     table.innerHTML = html;
   }
 
-  // ------------------------------------------------------------
-  // TRACK 
+  function trackGetBounds(epochs) {
+    if (isDef(epochs) && (0 < epochs.length)) {
+      const latlngs = Object.values(epochs).map(p => [p.fields.lat, p.fields.lng]);
+      const bounds = L.latLngBounds(latlngs);
+      return [
+        [bounds.getSouthWest().lat, bounds.getSouthWest().lng],
+        [bounds.getNorthEast().lat, bounds.getNorthEast().lng]
+      ];
+    }
+  }
+
+  // Conversions 
   // ------------------------------------------------------------
 
   // the engine needs a unicode string as it will use getCharCodeAt to extract a byte
@@ -526,30 +554,35 @@ window.onload = function _onload() {
     Engine.parseAppend(ubxData);
     let messages = Engine.parseMessages();
     if (messages.length) {
-      let epoch = { fields: {}, ids: {}, info: [] };
+      let epoch = { fields: {}, ids: {} };
       messages.forEach( function(message) {
         if ((message.type === 'output') && message.protocol.match(/^NMEA|UBX$/)) {
           if (isDef(message.fields)) {
-            if (epochCheck(epoch, message)) {
+            if (Epoch.epochCheck(epoch, message)) {
               const colorMap = { 
                 'DR':    'purple', '2D':    'blue', 
                 '2D/3D': 'green',  '3D':    'green', 'DGPS':  'green', 
                 '3D+DR': 'purple', 'FIXED': 'green', 'FLOAT': 'green' 
               };
-              if (isDef(epoch.fields.lat) && isDef(epoch.fields.lon) && isDef(epoch.fields.fix) && isDef(colorMap[epoch.fields.fix])) {
-                epochs.push( { color: colorMap[epoch.fields.fix], center: [epoch.fields.lat, epoch.fields.lon], fields: epoch.fields, info: epoch.info } );
-                epoch.info = [];
+              if (isDef(epoch.fields.lat) && isDef(epoch.fields.lng) && isDef(epoch.fields.fix) && isDef(colorMap[epoch.fields.fix])) {
+                epochs.push( { color: colorMap[epoch.fields.fix], fields: epoch.fields, info: epoch.info } );
+                delete epoch.info;
               }
               epoch.fields = {};
               epoch.ids = {};
             }
-            epochFill(epoch.fields, message.fields);
+            const keys = [ 
+              'date', 'time', 'lat', 'lng', 'height', 'msl', 'pAcc', 'hAcc', 'vAcc', 
+              'speed', 'gSpeed', 'sAcc', 'cAcc', 'hDop', 'pDop', 'numSV' 
+            ];
+            Epoch.epochFill(epoch.fields, message.fields, keys);
           }
           convertMessageExtract(track, message);
           epoch.ids[message.id] = true;
           let m = message.name.match(/^(INF-(ERROR|WARNING|NOTICE)|(G[PN]TXT))$/)
           if (m) {
             // add texts but only once
+            epoch.info ??= [];
             if (!epoch.info.includes(message.fields.infTxt)) {
               epoch.info.push(message.fields.infTxt);
             }
@@ -557,7 +590,7 @@ window.onload = function _onload() {
         }
       } );
     }
-    return jsonSanitize(epochs);
+    return epochs;
   }
   
   function convertMessageExtract(track, message) {
@@ -607,203 +640,15 @@ window.onload = function _onload() {
     }
   }
   
-  // ------------------------------------------------------------
-  // EPOCH 
-  // ------------------------------------------------------------
-
-  function epochCheck(epoch, message) {
-    const fields = message.fields;
-    if (isDef(fields.time)) {
-      return fields.time !== epoch.fields.time;
-    } else if (isDef(fields.itow)) {
-      return getTimeItow(fields.itow) !== epoch.fields.time;
-    }
-    const msgId = ['RMC', 'VTG', 'GGA', 'GNS'];
-    return msgId.includes(message.id) && epoch.ids[message.id];
-  }
-
-  function epochFill(epoch, fields) {
-    const keys = [
-      'date', 'time',
-      'lat', 'lon', 'height', 'msl', 
-      'pAcc', 'hAcc', 'vAcc', 
-      'speed', 'gSpeed',             
-      'sAcc', 'cAcc', 
-      'hDop', 'pDop', 'numSV' 
-    ];
-    keys.forEach(key => {
-      if (key in fields) {
-        epoch[key] = fields[key];
-      }
-    });
-    // fix
-    if (isDef(fields.fixType) && isDef(fields.flags.fixOk)) {
-      // from UBX
-      const map = { 5: 'TIME', 4: '3D+DR', 3: '3D', 2: '2D', 1: 'DR' }; 
-      epoch.fix = (0 == fields.flags.fixOk) ? 'BAD'  :
-                  isDef(map[fields.fixType]) ? map[fields.fixType] : 'NO';
-    } else {
-      /* from  NMEA
-      status  quality  navMode posMode 
-          V       0        1       N      V = data invalid, A = data valid
-          V       0        1       N      GNSS fix, but user limits exceeded
-          V       6        2       E      Dead reckoning fix, but user limits exceeded
-          A       6        2       E      Dead reckoning fix
-          A      1/2       2      A/D     2D GNSS fix        
-          A      1/2       3      A/D     3D GNSS fix        
-          A      1/2       3      A/D     Combined GNSS/dead reckoning fix  
-      */
-      if (isDef(fields.status)) {
-        const map = { 'V': 'BAD' }; // V = data invalid, A = data valid
-        epoch.fix = isDef(map[fields.status]) ? map[fields.status] : epoch.fix;
-      } else {
-        if (isDef(fields.quality)) {
-          const map = { 5: 'FLOAT', 4: 'FIXED', 2: 'DGPS', 1: '2D/3D', 6: 'DR' }; 
-          epoch.fix = isDef(map[fields.quality]) ? map[fields.quality] : 'NO';
-        } else if (isDef(fields.posMode)) {
-          const map = { 'S':'SIM', 'M':'MANUAL', 'F':'FLOAT', 'R':'FIXED', 'D':'DGPS', 'A':'2D/3D', 'E':'DR' }; 
-          epoch.fix = isDef(map[fields.posMode]) ? map[fields.posMode] : 'NO';
-        }
-        if (isDef(epoch.fix) && isDef(fields.navMode) && ("2D/3D" === epoch.fix)) {
-          const map = { '3': '3D', '2': '2D' }; 
-          epoch.fix = isDef(map[fields.navMode]) ? map[fields.navMode] : epoch.fix;
-        }
-      }
-    }
-    // date / time
-    if (!isDef(epoch.date) && isDef(fields.year) && isDef(fields.month) && isDef(fields.day)) {
-      epoch.date = fmtDate(fields.year, fields.month, fields.day);
-    }
-    if (!isDef(epoch.time)) {
-      if (isDef(fields.hour) && isDef(fields.min) && isDef(fields.sec)) {
-        epoch.time = fmtTime(fields.hour, fields.min, fields.sec);
-      }
-      else if (isDef(fields.itow)) {
-        epoch.time = getTimeItow(fields.itow);
-      }
-    }
-    // location
-    if (!isDef(epoch.lon) && isDef(fields.longN) && isDef(fields.longI)) {
-      epoch.lon = (fields.longI === 'W') ? -fields.longN : fields.longN;
-    }
-    if (!isDef(epoch.lat) && isDef(fields.latN) && isDef(fields.latI)) {
-      epoch.lat = (fields.latI === 'S') ? -fields.latN : fields.latN;
-    }
-    // speed
-    if (!isDef(epoch.gSpeed)) {
-      if (isDef(fields.spdKm))
-        epoch.gSpeed = 0.06 * fields.spdKm;
-      else if (isDef(fields.spdKn))
-        epoch.gSpeed = 0.11112 * fields.spdKn;
-    }
-    // altitude 
-    if (isDef(fields.sep)) {
-      if (!isDef(epoch.height) && isDef(fields.msl)) {
-        epoch.height = fields.msl + fields.sep;
-      }
-      else if (!isDef(epoch.msl) && isDef(fields.height)) {
-        epoch.msl = fields.height - fields.sep;
-      }
-    } else if (isDef(fields.height) && isDef(fields.msl)) {
-      epoch.sep = fields.height - fields.msl;
-    }
-    epoch = jsonSanitize(epoch);
-  }
-
-  function epochsGetBounds(epochs) {
-    if (isDef(epochs) && (0 < epochs.length)) {
-      const latlngs = Object.values(epochs).map(p => p.center);
-      const bounds = L.latLngBounds(latlngs);
-      return [
-        [bounds.getSouthWest().lat, bounds.getSouthWest().lng],
-        [bounds.getNorthEast().lat, bounds.getNorthEast().lng]
-      ];
-    }
-  }
-
-  // ------------------------------------------------------------
   // HELPER 
-  // ------------------------------------------------------------
+  // ------------------------------------------------------------------------------------
 
   function isDef(value) {
     return undefined !== value;
   }
 
-  function getTimeItow(itow) {
-    const LEAP_SECONDS = 18;
-    const itowleap = itow - LEAP_SECONDS
-    let tod = (itowleap < 0 ? itowleap + 86400 : itowleap);
-    const h = Math.floor(tod / 3600);
-    tod = (tod - (h * 3600));
-    const m = Math.floor(tod / 60);
-    const s = tod - (m * 60);
-    return fmtTime(h, m, s);
-  }
-
-  function fmtTime(h, m, s) {
-    const hh = String(h).padStart(2, '0');
-    const mm = String(m).padStart(2, '0');
-    const ss = String(Math.floor(s)).padStart(2, '0');
-    const sss = String(Math.round((s % 1) * 1000)).padStart(3, '0');
-    return `${hh}:${mm}:${ss}.${sss}`;
-  }
-
-  function fmtDate(y, m, d) {
-    const mm = String(m).padStart(2, '0');
-    const dd = String(d).padStart(2, '0');
-    return `${y}-${mm}-${d}`;
-  }
-  
-  function jsonToTable(json) {
-    const rows = Object.entries(json).map(([key, value]) => {
-      return `<tr><td>${key}</td><td>${value}</td></tr>`;
-    });
-    return `<table><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
-  }
-
-  function jsonSanitize(obj) {
-    // sanitize the json object
-    if (Array.isArray(obj)) {
-      return obj.map(jsonSanitize).filter(jsonSanitizeObj);
-    } else if ((typeof obj === 'object') && obj !== null) {
-      const result = {};
-      const objs = Object.entries(obj);
-      for (const [key, rawObj] of objs) {
-        const sanObj = jsonSanitize(rawObj)
-        if(jsonSanitizeObj(sanObj)) {
-          result[key] = sanObj;
-        }
-      }
-      return result;
-    } else if (typeof obj === 'number') {
-      return jsonSanitizeNum(obj);
-    } else if ((typeof obj === 'string') && !isNaN(obj) && obj.trim() !== '') {
-      return jsonSanitizeNum(obj);
-    } else {
-      return obj;
-    }
-  }
-  
-  function jsonSanitizeObj(obj) {
-    // no undefined, null objects or empty strings
-    return (obj !== undefined) && (obj !== null) && 
-          !((typeof obj === 'string') && (obj.trim() === ''));
-  }
-  
-  function jsonSanitizeNum(obj) {
-    // lets round to some digits to avoid long numbers 
-    const m = String(obj).match(/^-?\d*(\.?\d*(e[+-]?\d+)?)?$/i);
-    if (m) {
-      const num = Number(obj);
-      return (m[1] && (10 < m[1].length)) ? Number(num.toFixed(10)) : num;
-    }
-    return obj;
-  }
-
-  // ------------------------------------------------------------
-  // END 
-  // ------------------------------------------------------------
-
 }
 
+// ------------------------------------------------------------------------------------
 return { }; })(); // UVIEW mdoule end
+// ------------------------------------------------------------------------------------
