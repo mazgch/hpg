@@ -720,7 +720,7 @@ window.onload = function _onload() {
       const unit = isDef(def.unit) ? def.unit : '';
       return '<tr><td>'+def.name+'</td><td class="right">'+fields[key]+'</td><td>'+unit+'</td></tr>';
     });
-    popup.setContent( e.target.label + '<br><table style="font-size:0.8em"><thead>' +
+    popup.setContent( e.target.label + '<br><table class="table" style="font-size:0.8em"><thead>' +
             '<tr><th>Parameter</th><th class="right">Value</th><th>Unit</th></tr>' +
             '</thead><tbody>' + rows.join('') + '</tbody></table>');
     popup.openOn(map);

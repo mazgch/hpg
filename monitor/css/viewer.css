@@ -84,37 +84,3 @@
   padding: 0.1em 0.1em;
   border-radius: 4px;
 }
-
-/* ---- table ---- */
-
-table {
-  border-collapse: collapse;
-}
-
-th, td {
-  border: 1px solid #ccc;
-  padding: 0px 2px;
-  text-align: right;
-  vertical-align: top;
-}
-
-th {
-  background-color: #00000010;
-  font-weight: bold;
-}
-
-tr:nth-child(even) {
-  background-color: #00000010;
-}
-
-th:nth-child(1), td:nth-child(1) {
-  text-align: left;
-}
-
-/* ---- json pretty print ---- */
-.json-key     { color: brown; }
-.json-value   { color: navy; }
-.json-boolean { color: teal; }
-.json-string  { color: olive; }
-
-
