@@ -161,6 +161,10 @@ input {
     font-size: 1rem;
     box-sizing: border-box;
 }
+td input {
+    border-color: transparent;
+}
+
 input[type="color"] {
     border: 0px;
 }

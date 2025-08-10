@@ -97,7 +97,7 @@ const gnssLut = {
                         us: 1556290000,
                      } },
 };
-const flagsEmojy = {
+const flagsEmoji = {
     'us': '🇺🇸',
     'ru': '🇷🇺', 
     'eu': '🇪🇺',
@@ -123,18 +123,6 @@ const mapNmeaNavMode = {
     '2':'2D fix',
     '1':'No fix',
 }
-const mapEsfFusionMode = {
-    '0':'Initilizing',
-    '1':'Fusion Mode',
-    '2':'Temporary Disabled',
-    '3':'Disabled',
-}
-const mapEsfCalibMode = {
-    '0':'Initialization',
-    '1':'Fusion Mode',
-    '2':'Suspended',
-    '3':'Disabled',
-}
 const mapNmeaQuality = {
     '8':'Simulation',
     '7':'Manual input',
@@ -158,9 +146,57 @@ const mapNmeaOpMode = {
     'M':'Manually set to 2D or 3D mode',
     'A':'Automatic 2D or 3D mode',
 };
-
 const mapNmeaSignalId = {  1:'GPS',  2:'GLONASS',  3:'Galileo',  4:'BeiDou',  5:'QZSS',  6:'IRNSS', };
 const mapNmeaTalker   = { GP:'GPS', GL:'GLONASS', GA:'Galileo', GB:'BeiDou', GQ:'QZSS', GI:'IRNSS', GN:'GNSS', BD:'BeiDou', };
+
+// UBX
+const mapNavFixType = {
+    0: 'No fix',
+    1: 'Dead reckoning only',
+    2: '2D-fix', 
+    3: '3D-fix', 
+    4: 'GNSS + Dead reckoning combined', 
+    5: 'Time only fix', 
+};
+const mapNavPsmState = {
+    0: 'PSM is not active',
+    1: 'Enabled (an intermediate state before Acquisition state)',
+    2: 'Acquisition',
+    3: 'Tracking',
+    4: 'Power optimized tracking',
+    5: 'Inactive',
+};
+const mapNavCarrSol = {
+    0: 'No carrier phase range solution',
+    1: 'carrier phase range solution with floating ambiguities',
+    2: 'carrier phase range solution with fixed ambiguities'
+};
+const mapEsfFusionMode = {
+    '0':'Initilizing',
+    '1':'Fusion Mode',
+    '2':'Temporary Disabled',
+    '3':'Disabled',
+};
+const mapEsfCalibMode = {
+    '0':'Initialization',
+    '1':'Fusion Mode',
+    '2':'Suspended',
+    '3':'Disabled',
+};
+
+const mapPositionFix = { 
+    'NO':    'No fix',
+    'BAD':   'Invalid fix',
+    'SIM':   'Simulator',
+    'DR':    'Dead reckoning only', 
+    '2D':    '2D fix', 
+    '2D/3D': '2D/3D fix',  
+    '3D':    '3D fix', 
+    'DGPS':  'Differential GNSS fix', 
+    '3D+DR': 'GNSS + Dead reckoning combined', 
+    'FLOAT': 'RTK float', 
+    'FIXED': 'RTK fixed'
+};
 
 const epochFields = {
     date:   { name: 'Date UTC',                            unit:'yyyy-mm-dd'         },
@@ -168,7 +204,7 @@ const epochFields = {
     wno:    { name: 'GPS week number',                     unit:'s',          prec:3,   descr:'weeks since 1980-01-06 modulo 1024' },
     itow:   { name: 'GPS time of week',                    unit:'s',          prec:3,   descr:'offset by leap seconds to UTC' },
     // 3D Position
-    fix:    { name: 'Position fix',                                                 },
+    fix:    { name: 'Position fix',                        map:mapPositionFix        },
     ecefX:  { name: 'ECEF X coordinate',                   unit:'m',          prec:3 },
     ecefY:  { name: 'ECEF Y coordinate',                   unit:'m',          prec:3 },
     ecefZ:  { name: 'ECEF Z coordinate',                   unit:'m',          prec:3 },
@@ -180,7 +216,7 @@ const epochFields = {
     // Vertical
     height: { name: 'Height above ellipsoid',              unit:'m',          prec:3 },
     msl:    { name: 'Height above mean sea level',         unit:'m',          prec:3 },
-    sep:    { name: 'Geoidal separation',                  unit:'m',          prec:3 },
+    gsep:   { name: 'Geoidal separation',                  unit:'m',          prec:3 },
     vAcc:   { name: 'Vertical position accuarcy',          unit:'m',          prec:3 },
     // Velocitiy
     ecefVX: { name: 'ECEF X velocity',                     unit:'m/s',        prec:3 },
@@ -188,8 +224,8 @@ const epochFields = {
     ecefVZ: { name: 'ECEF Z velocity',                     unit:'m/s',        prec:3 },
     sAcc:   { name: 'Velocity (3D) accuarcy',              unit:'m/s',        prec:3 },
     // Speed
-    speed:  { name: 'Speed (3-D)',                         unit:'m/s',        prec:3 },
-    gSpeed: { name: 'Ground Speed (2-D)',                  unit:'m/s',        prec:3 },
+    speed:  { name: 'Speed (3D)',                          unit:'m/s',        prec:3 },
+    gSpeed: { name: 'Ground Speed (2D)',                   unit:'m/s',        prec:3 },
     velN:   { name: 'NED north velocity',                  unit:'m/s',        prec:3 },
     velE:   { name: 'NED east velocity',                   unit:'m/s',        prec:3 },
     velD:   { name: 'NED down velocity',                   unit:'m/s',        prec:3 },
@@ -229,37 +265,49 @@ const epochFields = {
     lBcn0:  { name: 'LBAND C/N0',                          unit:'dB',         prec:1  } ,
     // internals
     epIndex: { name: 'Epoch index',                                                   } ,
-    epNumMsg:{ name: 'Messages in epoch',                                      prec:0 } ,
-    epBytes: { name: 'Bytes in epoch',                      unit:'Bytes',      prec:0 } ,
+    epNumMsg:{ name: 'Messages in epoch',                                     prec:0  } ,
+    epBytes: { name: 'Bytes in epoch',                     unit:'Bytes',      prec:0  } ,
+    // Refrence position offset
+    hErr:    { name: 'Horizontal reference offset',        unit:'m',          prec:3  },
+    vErr:    { name: 'Vertical reference offset',          unit:'m',          prec:3  },
+    pErr:    { name: '3D reference offset',                unit:'m',          prec:3  },
+    sErr:    { name: 'Speed reference offset',             unit:'m/s',        prec:3  },
+    gsErr:   { name: 'Ground speed reference offset',      unit:'m/s',        prec:3  },
 };
 
 function epochCheck(epoch, message) {
     const fields = message.fields;
-    if (isDef(fields.time)) {
+    if (isDef(fields.time) && isDef(epoch.fields.time)) {
         return fields.time !== epoch.fields.time;
-    } else if (isDef(fields.itow)) {
-        return getTimeItow(fields.itow) !== epoch.fields.time;
+    } else if (isDef(fields.itow) && isDef(epoch.fields.itow)) {
+        return fields.itow !== epoch.fields.itow;
     }
     const msgId = ['RMC', 'VTG', 'GGA', 'GNS'];
     return msgId.includes(message.id) && epoch.ids[message.id];
 }
 
-function epochFill(epoch, fields, keys=[]) {
-    keys.forEach(key => {
-        if (key in fields) {
-            epoch[key] = jsonSanitizeNum(fields[key]);
-        }
+function epochFill(epoch, message) {
+    Object.entries(message.fields).forEach(([key, value]) => {
+        epoch.fields[key] = value;
     });
+    if (isDef(message.id)) epoch.ids[message.id] = true;      
+}
+
+function epochComplete(epoch) {
     // fix
+    const fields = epoch.fields; 
     if (isDef(fields.fixType) && isDef(fields.flags.fixOk)) {
         // from UBX
         const map = { 5: 'TIME', 4: '3D+DR', 3: '3D', 2: '2D', 1: 'DR' }; 
-        epoch.fix = (0 == fields.flags.fixOk) ? 'BAD'  :
-                    isDef(map[fields.fixType]) ? map[fields.fixType] : 'NO';
+        const mapC = { 1: 'FLOAT', 2: 'FIXED' }; 
+        fields.fix = (0 == fields.flags.fixOk) ?    'BAD' :
+                    !isDef(map[fields.fixType]) ?  'NO' :
+                    isDef(mapC[fields.flags?.carrSol]) ?   mapC[fields.flags?.carrSol] :
+                                                   map[fields.fixType];
     } else {
         /* from  NMEA
         status  quality  navMode posMode 
-            V       0        1       N      V = data invalid, A = data valid
+            V       0        1       N      No fix
             V       0        1       N      GNSS fix, but user limits exceeded
             V       6        2       E      Dead reckoning fix, but user limits exceeded
             A       6        2       E      Dead reckoning fix
@@ -267,61 +315,87 @@ function epochFill(epoch, fields, keys=[]) {
             A      1/2       3      A/D     3D GNSS fix        
             A      1/2       3      A/D     Combined GNSS/dead reckoning fix  
         */
-        if (isDef(fields.status)) {
-        const map = { 'V': 'BAD' }; // V = data invalid, A = data valid
-        epoch.fix = isDef(map[fields.status]) ? map[fields.status] : epoch.fix;
-        } else {
-        if (isDef(fields.quality)) {
+        const mapStatus = { 'V': 'BAD' }; // V = data invalid, A = data valid
+        if (isDef(fields.status) && isDef(mapStatus[fields.status])) {
+            fields.fix = mapStatus[fields.status];
+        } else if (isDef(fields.quality)) {
             const map = { 5: 'FLOAT', 4: 'FIXED', 2: 'DGPS', 1: '2D/3D', 6: 'DR' }; 
-            epoch.fix = isDef(map[fields.quality]) ? map[fields.quality] : 'NO';
+            fields.fix = isDef(map[fields.quality]) ? map[fields.quality] : 'NO';
         } else if (isDef(fields.posMode)) {
             const map = { 'S':'SIM', 'M':'MANUAL', 'F':'FLOAT', 'R':'FIXED', 'D':'DGPS', 'A':'2D/3D', 'E':'DR' }; 
-            epoch.fix = isDef(map[fields.posMode]) ? map[fields.posMode] : 'NO';
+            fields.fix = isDef(map[fields.posMode]) ? map[fields.posMode] : 'NO';
         }
-        if (isDef(epoch.fix) && isDef(fields.navMode) && ("2D/3D" === epoch.fix)) {
+        if (isDef(fields.fix) && isDef(fields.navMode) && ("2D/3D" === fields.fix)) {
             const map = { '3': '3D', '2': '2D' }; 
-            epoch.fix = isDef(map[fields.navMode]) ? map[fields.navMode] : epoch.fix;
-        }
+            fields.fix = isDef(map[fields.navMode]) ? map[fields.navMode] : fields.fix;
         }
     }
-    // date / time
-    if (!isDef(epoch.date) && isDef(fields.year) && isDef(fields.month) && isDef(fields.day)) {
-        epoch.date = fmtDate(fields.year, fields.month, fields.day);
+    // date / time from UBX
+    if (!isDef(fields.date) && (fields.valid?.validDate == 1) && 
+        isDef(fields.year) && isDef(fields.month) && isDef(fields.day)) {
+        fields.date = fmtDate(fields.year, fields.month, fields.day);
     }
-    if (!isDef(epoch.time)) {
-        if (isDef(fields.hour) && isDef(fields.min) && isDef(fields.sec)) {
-            epoch.time = fmtTime(fields.hour, fields.min, fields.sec);
-        }
-        else if (isDef(fields.itow)) {
-            epoch.time = getTimeItow(fields.itow);
-        }
+    if (!isDef(fields.time) && (fields.valid?.validTime == 1) && 
+        isDef(fields.hour) && isDef(fields.min) && isDef(fields.sec)) {
+        const sec = fields.sec; // + (isDef(fields.nano) ? fields.nano * 1e-9 : 0); 
+        fields.time = fmtTime(fields.hour, fields.min, sec);
     }
     // location
-    if (!isDef(epoch.lng) && isDef(fields.longN) && isDef(fields.longI)) {
-        epoch.lng = jsonSanitizeNum((fields.longI === 'W') ? -fields.longN : fields.longN);
+    if (!isDef(fields.lng) && isDef(fields.longN) && isDef(fields.longI)) {
+        fields.lng = (fields.longI === 'W') ? -fields.longN : fields.longN;
     }
-    if (!isDef(epoch.lat) && isDef(fields.latN) && isDef(fields.latI)) {
-        epoch.lat = jsonSanitizeNum((fields.latI === 'S') ? -fields.latN : fields.latN);
+    if (!isDef(fields.lat) && isDef(fields.latN) && isDef(fields.latI)) {
+        fields.lat = (fields.latI === 'S') ? -fields.latN : fields.latN;
     }
     // speed
-    if (!isDef(epoch.gSpeed)) {
-        if (isDef(fields.spdKm))
-        epoch.gSpeed = jsonSanitizeNum(0.06 * fields.spdKm);
+    if (!isDef(fields.gSpeed)) {
+        if (isDef(fields.velN) && isDef(fields.velE))
+            fields.gSpeed = Math.sqrt(fields.velN ** 2 + fields.velE ** 2);
+        else if (isDef(fields.spdKm))
+            fields.gSpeed = fields.spdKm * (1.0 / 3.6);
         else if (isDef(fields.spdKn))
-        epoch.gSpeed = jsonSanitizeNum(0.11112 * fields.spdKn);
+            fields.gSpeed = fields.spdKn * (1852.0 / 3600.0);
+    }
+    if (!isDef(fields.speed) && isDef(fields.gSpeed) && isDef(fields.velD)) {
+            fields.speed = Math.sqrt(fields.velD ** 2 + fields.gSpeed ** 2);
     }
     // altitude 
-    if (isDef(fields.sep)) {
-        if (!isDef(epoch.height) && isDef(fields.msl)) {
-        epoch.height = jsonSanitizeNum(fields.msl + fields.sep);
+    if (isDef(fields.gsep)) {
+        if (!isDef(fields.height) && isDef(fields.msl)) {
+            fields.height = fields.msl + fields.gsep;
         }
-        else if (!isDef(epoch.msl) && isDef(fields.height)) {
-        epoch.msl = jsonSanitizeNum(fields.height - fields.sep);
+        else if (!isDef(fields.msl) && isDef(fields.height)) {
+            fields.msl = fields.height - fields.gsep;
         }
     } else if (isDef(fields.height) && isDef(fields.msl)) {
-        epoch.sep = jsonSanitizeNum(fields.height - fields.msl);
+        fields.gsep = fields.height - fields.msl;
     }
-    epoch = jsonSanitize(epoch);
+    if (!isDef(fields.pAcc) && isDef(fields.hAcc) && isDef(fields.vAcc)) {
+        fields.pAcc = Math.sqrt(fields.hAcc ** 2 + fields.vAcc ** 2);
+    }
+}
+
+function epochClean(epoch, keys) {
+    const newEpoch = { fields: {} };
+    keys.forEach(key => {
+        const value = epoch.fields[key];
+        if (isDef(value)) {
+            const prec = epochFields[key].prec;
+            const num = Number(value);
+            if (Number.isFinite(num)) {
+                newEpoch.fields[key] = (0 <= prec) ? Number(num.toFixed(prec)) : num;
+            } else {
+                newEpoch.fields[key] = value;
+            }
+        }
+    });
+    if (epoch.info) {
+        newEpoch.info = epoch.info;
+    }
+    epoch.fields = {}
+    epoch.ids = {};
+    delete epoch.info;
+    return newEpoch;
 }
 
 function isDef(value) {
@@ -354,50 +428,10 @@ function fmtDate(y, m, d) {
     return `${y}-${mm}-${d}`;
 }
 
-// Helpers
-// ------------------------------------------------------------------------------------
-
-function jsonSanitize(obj) {
-    // sanitize the json object
-    if (Array.isArray(obj)) {
-        return obj.map(jsonSanitize).filter(jsonSanitizeObj);
-    } else if ((typeof obj === 'object') && obj !== null) {
-        const result = {};
-        const objs = Object.entries(obj);
-        for (const [key, rawObj] of objs) {
-            const sanObj = jsonSanitize(rawObj)
-            if(jsonSanitizeObj(sanObj)) {
-                result[key] = sanObj;
-            }
-        }
-        return result;
-    } else if (typeof obj === 'number') {
-        return jsonSanitizeNum(obj);
-    } else if ((typeof obj === 'string') && !isNaN(obj) && obj.trim() !== '') {
-        return jsonSanitizeNum(obj);
-    } else {
-        return obj;
-    }
-}
-  
-function jsonSanitizeObj(obj) {
-    // no undefined, null objects or empty strings
-    return (obj !== undefined) && (obj !== null) && 
-        !((typeof obj === 'string') && (obj.trim() === ''));
-}
-  
-function jsonSanitizeNum(obj) {
-    // lets round to some digits to avoid excessive numbers 
-    const m = String(obj).match(/^-?\d*(\.?\d*(e[+-]?\d+)?)?$/i);
-    if (m) {
-        const num = Number(obj);
-        return (m[1] && (10 < m[1].length)) ? Number(num.toFixed(10)) : num;
-    }
-    return obj;
-}
-
-return { gnssLut: gnssLut, flagsEmojy: flagsEmojy, epochFields: epochFields, 
-         epochCheck:epochCheck, epochFill:epochFill };
+return { gnssLut: gnssLut, flagsEmoji: flagsEmoji, epochFields: epochFields, 
+         fmtDate:fmtDate, fmtTime:fmtTime,
+         epochCheck:epochCheck, epochFill:epochFill, 
+         epochComplete:epochComplete, epochClean:epochClean };
 })();
 
 // ------------------------------------------------------------------------------------

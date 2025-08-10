@@ -216,7 +216,7 @@ const gnssLut = {
                         us: 1556290000,
                      } },
 };
-const flagsEmojy = {
+const flagsEmoji = {
     'us': '🇺🇸',
     'ru': '🇷🇺', 
     'eu': '🇪🇺',
@@ -989,18 +989,18 @@ function updateStatus( message ) {
             db.lat.set((fields.latI === 'S') ? -fields.latN : fields.latN, message);
         if (0 === db.gSpeed.sta) {
             if (undefined !== fields.spdKm)
-                db.gSpeed.set(0.06 * fields.spdKm. message);
+                db.gSpeed.set(fields.spdKm * (1.0 / 3.6), message);
             else if (undefined !== fields.spdKn)
-                db.gSpeed.set(0.11112 * fields.spdKn. message);
+                db.gSpeed.set(fields.spdKn * (1852.0 / 3600.0),  message);
         }
         // complete from other fields
-        if (undefined !== fields.sep) {
+        if (undefined !== fields.gsep) {
             if (undefined !== fields.msl)
-                db.height.set(fields.msl + fields.sep, message);
+                db.height.set(fields.msl + fields.gsep, message);
             else if (undefined !== fields.height)
-                db.msl.set(fields.height - fields.sep, message);
+                db.msl.set(fields.height - fields.gsep, message);
         } else if ((undefined !== fields.height) && (undefined !== fields.msl))
-            db.sep.set(fields.height - fields.msl, message);
+            db.gsep.set(fields.height - fields.msl, message);
         if (undefined !== fields.itow) {
             let tod = (fields.itow - 18) % 86400;
             const h = Math.floor(tod / 3600);
@@ -1394,7 +1394,7 @@ function tableSvs(svdb) {
                     //let srcUsed = 'data:image/svg+xml;utf8,' + icon.toSvg();
                     let iconUsed  = (sv.used === undefined) ? '' : sv.used ? '◾' : '◽'; // 🟩🟥🟢🔴⚪⭕◾◽
                     const txtUsed = (sv.used === undefined) ? '' : 'Satellite ' + (sv.used ? '' :'is not ') + 'used in navigation solution';
-                    const txtSys = flagsEmojy[lut.flag] + ' ' + sys;
+                    const txtSys = flagsEmoji[lut.flag] + ' ' + sys;
                     let sig = Object.keys(sv.cno);
                     let cno = sig.map( function(freq) { 
                         let c = sv.cno[freq];
