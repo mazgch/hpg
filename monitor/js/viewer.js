@@ -883,30 +883,34 @@ window.onload = function _onload() {
   function chartInit() {
     const defField = Epoch.epochFields[fieldSelect.value];
     const isLin = isDef(defField) ? 0<=defField.prec : true;
+  
+  
     if (Chart !== undefined) {
         Chart.defaults.responsive = true; 
         Chart.defaults.layout.padding = { left: 10, right: 10+10+24, top: 10, bottom: 10 };
         Chart.defaults.animation = false;
         Chart.defaults.transitions.active.animation.duration = 0;
         Chart.defaults.transitions.resize.animation.duration = 0;
-        //Chart.defaults.plugins.tooltip.callbacks.label = function noToolTip(tooltipItem) { return ''; };
         Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(245,245,245,0.8)';
         Chart.defaults.plugins.tooltip.borderColor = '#888';
         Chart.defaults.plugins.tooltip.borderWidth = 1;
         Chart.defaults.plugins.tooltip.cornerRadius = 0;
-        Chart.defaults.plugins.tooltip.titleColor = '#000';//titleFontColor = '#000';
+        Chart.defaults.plugins.tooltip.titleColor = '#000';
         Chart.defaults.plugins.tooltip.titleFont.size = 10;
         Chart.defaults.plugins.tooltip.bodyColor = '#000';
         Chart.defaults.plugins.tooltip.bodyFont.size = 10;
         Chart.defaults.plugins.tooltip.displayColors = false;
-        //Chart.defaults.plugins.legend.display = false;
     }
-    chart = new Chart(document.getElementById("chart"), {
+    const chartContainer = document.getElementById("chart");
+    chartContainer.addEventListener( 'mouseout', chartStatsUpdate);
+    chart = new Chart(chartContainer, {
       type: 'scatter',
       data: {
         datasets: []
       },
       options: { 
+        onHover: chartStatsUpdate,
+        onLeave: chartStatsUpdate,
         responsive: true,
         maintainAspectRatio: false,
         interaction: {
@@ -918,6 +922,9 @@ window.onload = function _onload() {
           duration: 0
         },
         plugins: {
+          annotation: { 
+            annotations: {} 
+          },
           legend: {
             enabled: true,
             labels: {
@@ -970,6 +977,7 @@ window.onload = function _onload() {
         }
       }
     });
+    chartFieldChange();
     function _toolTipTitle(context) {
       return context.dataset.label;
     }
@@ -1034,8 +1042,8 @@ window.onload = function _onload() {
       pointHoverBorderWidth: 1,
     } );
     function epochColor(ctx) {
-      const color = ctx.dataset.data[ctx.dataIndex].c;
-      return color ? color : track.color;
+      const row = isDef(ctx.dataIndex) && (ctx.dataIndex < ctx.dataset.data.length) ? ctx.dataset.data[ctx.dataIndex] : undefined; 
+      return isDef(row) && isDef(row.c) ? row.c : track.color;
     }
     function epochBackgroundColor(ctx) { 
       return toRGBa(epochColor(ctx), 0.8);
@@ -1072,6 +1080,7 @@ window.onload = function _onload() {
       chart.options.scales.y.ticks.maxTicksLimit = undefined;
       chart.options.scales.y.ticks.autoSkip = true;
       chart.options.scales.y.ticks.stepSize = undefined;
+
     } else if (modeSelect.value === 'val') {
       chart.options.scales.x.title.text = 'Time';
       chart.options.scales.x.ticks.callback = chartTimeCallback;
@@ -1085,10 +1094,7 @@ window.onload = function _onload() {
       chart.options.scales.y.ticks.autoSkip = category ? false : true;
       chart.options.scales.y.ticks.stepSize = category ? 1 : undefined;
     }
-    let minX;
-    let maxX;
-    let minY;
-    let maxY;
+ 
     chart.data.datasets.forEach((dataset) => {
       const track = config.tracks[dataset.label];
       dataset.showLine = true;
@@ -1096,12 +1102,24 @@ window.onload = function _onload() {
         .filter((epoch) => isDef(epoch.datetime) && epoch.valid)
         .map((epoch) => { 
         let y = epoch.fields[fieldSelect.value];
-        if (defField.map) {
+        if (!isDef(y)) {
+          y = Number.NaN;
+        } else if (defField.map) {
           y = category.indexOf(y);
         }
         const x = epoch.datetime;
         return { x: x, y: y, c: epoch.color }; 
       });
+      // calc the mean and std dev
+      const vals = data.map(row => row.y).filter(Number.isFinite);
+      dataset.hidden = (0 == vals.length) || (track.mode === 'hidden');
+      dataset.stats = {};
+      if (0 < vals.length) {
+        dataset.stats.min = Math.min(... vals);
+        dataset.stats.max = Math.max(... vals);
+        dataset.stats.mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+        dataset.stats.std = (1 < vals.length) ? Math.sqrt(vals.reduce((s, x) => s + (x - dataset.stats.mean) ** 2, 0) / vals.length): undefined;
+      }
       // convert to cdf or histogram
       if (modeSelect.value !== 'val') {
         // 1) extract & optionally round
@@ -1117,28 +1135,95 @@ window.onload = function _onload() {
             return y; 
           } );
         const len = values.length;
-        if (!len) return [];
-        // 2) frequency by value
-        const hist = {};
-        for (const value of values) hist[value] = (hist[value] || 0) + 1;
-        // 3) sort unique value
-        const sortValues = Object.keys(hist).map(Number).sort((a, b) => a > b);
-        // 4) cumulative → CDF
-        let cum = 0;
-        data = sortValues.map(x => {
-          const cnt = hist[x];
-          cum += cnt;
-          const y = ((modeSelect.value === 'cdf') ? cum : cnt) / len;
-          return { x: x, y: y };
-        } );
+        if (0 < len) {
+          // 2) frequency by value
+          const hist = {};
+          for (const value of values) hist[value] = (hist[value] || 0) + 1;
+          // 3) sort unique value
+          const sortValues = Object.keys(hist).map(Number).sort((a, b) => a > b);
+          // 4) cumulative → CDF
+          let cum = 0;
+          data = sortValues.map(x => {
+            const cnt = hist[x];
+            cum += cnt;
+            const cdf = cum / len;
+            if (!isDef(dataset.stats.q50) && (cdf >= 0.500)) { dataset.stats.q50 = x; }
+            if (!isDef(dataset.stats.q68) && (cdf >= 0.680)) { dataset.stats.q68 = x; }
+            if (!isDef(dataset.stats.q95) && (cdf >= 0.950)) { dataset.stats.q95 = x; }
+            if (!isDef(dataset.stats.q99) && (cdf >= 0.997)) { dataset.stats.q99 = x; }
+            const y = (modeSelect.value === 'cdf') ? cdf : (cnt / len);
+            return { x: x, y: y };
+          } );
+        
+        } else { 
+          data = [];
+        }
       }
       dataset.data = data;
     });
-    
-    
+      
     // update the chart and reset the zoom pan
     chartResetZoom();
+    chartStatsUpdate(); // force an inital update to set all settings
     chart.update();
+  }
+
+  function chartStatsUpdate(evt, active/*,chart*/) {
+    if (chart) {
+      const CHART_CDF_ANNOTAIONS = {
+        y50: annotation('y', 0.500, '#00000040', '0.5'),
+        y68: annotation('y', 0.680, '#00000040', '0.68'),
+        y95: annotation('y', 0.950, '#00000040', '0.95'),
+        y99: annotation('y', 0.997, '#00000040', '0.997')
+      };    
+      let annotations = (modeSelect.value === 'cdf') ? CHART_CDF_ANNOTAIONS : {};
+      if (active && (0 < active.length)) {
+        const axis = (modeSelect.value === 'val') ? 'y' : 'x';
+        const index = active[0].datasetIndex;
+        const dataset = chart.data.datasets[index];
+        if (!dataset.hidden) {
+          if (modeSelect.value === 'cdf') {
+            if (isDef(dataset.stats.q50)) annotations.q50 = annotation(axis, dataset.stats.q50, dataset.borderColor, `q50 = ${chartValCallback(dataset.stats.q50)}` );
+            if (isDef(dataset.stats.q68)) annotations.q68 = annotation(axis, dataset.stats.q68, dataset.borderColor, `q68 = ${chartValCallback(dataset.stats.q68)}` );
+            if (isDef(dataset.stats.q95)) annotations.q95 = annotation(axis, dataset.stats.q95, dataset.borderColor, `q95 = ${chartValCallback(dataset.stats.q95)}` );
+            if (isDef(dataset.stats.q99)) annotations.q99 = annotation(axis, dataset.stats.q99, dataset.borderColor, `q99 = ${chartValCallback(dataset.stats.q99)}` );
+          } else {
+            if (isDef(dataset.stats.min)) annotations.min = annotation(axis, dataset.stats.min, dataset.borderColor, `min = ${chartValCallback(dataset.stats.min)}`);
+            if (isDef(dataset.stats.max)) annotations.max = annotation(axis, dataset.stats.max, dataset.borderColor, `max = ${chartValCallback(dataset.stats.max)}`);
+            if (isDef(dataset.stats.mean)) {
+              annotations.mean = annotation(axis, dataset.stats.mean, dataset.borderColor, `μ = ${chartValCallback(dataset.stats.mean)}`);
+              if (isDef(dataset.stats.std)) {
+                const mps = dataset.stats.mean + dataset.stats.std;
+                const mms = dataset.stats.mean - dataset.stats.std;
+                annotations.plus = annotation(axis, mps, dataset.borderColor, `μ+σ = ${chartValCallback(mps)}` );
+                annotations.minus = annotation(axis, mms, dataset.borderColor, `μ-σ = ${chartValCallback(mms)}`);
+              }
+            }
+          }
+        }
+      }
+      chart.options.plugins.annotation.annotations = annotations;
+      chart.update();
+    }
+  }
+ 
+  function annotation(axis, val, color, label) {
+    const axisMin = axis + 'Min';
+    const axisMax = axis + 'Max';
+    const annotation = { type: 'line', borderColor: color, borderWidth: 1, borderDash: [6, 6] };
+    if (axis === 'x') {
+      annotation.xMin = annotation.xMax = val;
+    } else {
+      annotation.yMin = annotation.yMax = val;
+    }
+    if (label) {
+      const position = (axis === 'y') ? 'start' : 'end';
+      const rotation = (axis === 'x') ? -90 : 0;
+      annotation.label = { padding:2, display: true, content: label, position: position, 
+        textStrokeColor:'rgba(255,255,255,1)', textStrokeWidth: 3, font: { weight:'nomal' },
+        backgroundColor: 'rgba(255,255,255,0)', color: color, rotation: rotation };
+    }
+    return annotation;
   }
 
   function chartResetZoom() {
@@ -1152,16 +1237,18 @@ window.onload = function _onload() {
         .filter(dataset => !dataset.hidden)
         .forEach((dataset) => {
       const data = dataset.data.filter(r => isDef(r.x) && isDef(r.y));
-      const arrX = data.map((r) => r.x).sort((a, b) => a > b);
-      const thisMinX = arrX[0]
-      const thisMaxX = arrX[arrX.length - 1];
-      const arrY = data.map((r) => r.y).sort((a, b) => a > b);
-      const thisMinY = arrY[0];
-      const thisMaxY = arrY[arrY.length - 1];
-      if (isDef(thisMinX) && (!isDef(minX) || (thisMinX < minX))) minX = thisMinX;
-      if (isDef(thisMaxX) && (!isDef(maxX) || (thisMaxX > maxX))) maxX = thisMaxX;
-      if (isDef(thisMinY) && (!isDef(minY) || (thisMinY < minY))) minY = thisMinY;
-      if (isDef(thisMaxY) && (!isDef(maxY) || (thisMaxY > maxY))) maxY = thisMaxY;
+      if(0 < data.length) {
+        const arrX = data.map((r) => r.x).sort((a, b) => a > b);
+        const thisMinX = arrX[0]
+        const thisMaxX = arrX[arrX.length - 1];
+        const arrY = data.map((r) => r.y).sort((a, b) => a > b);
+        const thisMinY = arrY[0];
+        const thisMaxY = arrY[arrY.length - 1];
+        if (isDef(thisMinX) && (!isDef(minX) || (thisMinX < minX))) minX = thisMinX;
+        if (isDef(thisMaxX) && (!isDef(maxX) || (thisMaxX > maxX))) maxX = thisMaxX;
+        if (isDef(thisMinY) && (!isDef(minY) || (thisMinY < minY))) minY = thisMinY;
+        if (isDef(thisMaxY) && (!isDef(maxY) || (thisMaxY > maxY))) maxY = thisMaxY;
+      }
     });
     if (defField.map) {
       // make it fixed size
@@ -1174,7 +1261,7 @@ window.onload = function _onload() {
       }
     }
     if (modeSelect.value === 'hist') {
-      //minY = 0.00;
+      minY = 0.00;
     } else if (modeSelect.value === 'cdf') {
       minY = 0.00;
       maxY = 1.00;
@@ -1191,9 +1278,9 @@ window.onload = function _onload() {
   function updateErrors() {
     const refTrack = config.tracks[TRACK_REFERENCE];
     if (isDef(refTrack)) {
-      Object.values(config.tracks)
-        .filter(track => (track != refTrack))
-        .forEach( track => {
+      Object.entries(config.tracks)
+        .filter(([name, track]) => (name !== TRACK_REFERENCE))
+        .forEach(([name, track])  => {
           computeErrors(track.epochs, refTrack.epochs);
         } )
     }
