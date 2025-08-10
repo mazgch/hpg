@@ -313,6 +313,7 @@ window.onload = function _onload() {
           configApply( txt );
         } else {
           const track = { file:file.name };
+          const m = file.name.match(/(?:.*\/)?([^.]+).*$/);
           const name = m ? m[1] : file.name;
           if (!trackFromBytes(name, bytes, track)) {
             alert('No epochs loaded, please check source:\n' + name);
@@ -330,7 +331,7 @@ window.onload = function _onload() {
     let name = 'config.json';
     if (doGzip) {
       data = window.pako.gzip(data);
-      type = 'application/zip';
+      type = 'application/x-gzip';
       name += '.gz';
     }
     const blob = new Blob([data], { type: type });
@@ -635,7 +636,7 @@ window.onload = function _onload() {
                                                     COLOR_OTHERS;
       }
       if (!isDef(track.mode)) {
-        track.mode = (name !== TRACK_REFERENCE);
+        track.mode = (name === TRACK_REFERENCE) ? 'line' : 'markers';
       }
       if (!isDef(track.bounds)) {
         const latlngs = Object.values(track.epochs)
