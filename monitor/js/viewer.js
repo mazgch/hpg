@@ -982,11 +982,21 @@ window.onload = function _onload() {
       return context.dataset.label;
     }
     function _toolTipText(context) {
-      const txtX = context.chart.options.scales.x.title.text;
-      const txtY = context.chart.options.scales.y.title.text;
-      const valX = context.chart.options.scales.x.ticks.callback(context.raw.x)
-      const valY = context.chart.options.scales.y.ticks.callback(context.raw.y)
-      return `${txtY}: ${valY}\n${txtX}: ${valX}`;
+      const defField = Epoch.epochFields[fieldSelect.value];
+      const unit = (defField.unit ? ' ' + defField.unit : '')
+      if (modeSelect.value === 'val') {
+        const txtX = context.chart.options.scales.x.title.text;
+        const txtY = defField.name;
+        const valX = context.chart.options.scales.x.ticks.callback(context.raw.x);
+        const valY = chartValCallback(context.raw.y) + unit;
+        return `${txtY}: ${valY}\n${txtX}: ${valX}`;
+      } else {
+        const txtX = defField.name;
+        const txtY = context.chart.options.scales.y.title.text;
+        const valX = chartValCallback(context.raw.x) + unit;
+        const valY = context.chart.options.scales.y.ticks.callback(context.raw.y);
+        return `${txtY}: ${valY}\n${txtX}: ${valX}`;
+      }
     }
   }
 
@@ -1004,11 +1014,10 @@ window.onload = function _onload() {
   function chartValCallback(va) {
     const defField = Epoch.epochFields[fieldSelect.value];
     const category = defField.map ? Object.keys(defField.map) : undefined;
-    const val = (0 <= defField.prec)  ?  va.toFixed(defField.prec) :
+    const val = (0 <= defField.prec)  ? va.toFixed(defField.prec) :
                 (isDef(category))     ? category[va] : // get key by index
-                                         va;
-    return val + (defField.unit ? ' ' + defField.unit : '')
-       // + ((defField.map && defField.map[va]) ? " " + defField.map[va] : '')
+                                        va;
+    return val;
   }
 
   function chartReset() {
@@ -1055,9 +1064,10 @@ window.onload = function _onload() {
     // update the data from epoch
     const field = fieldSelect.value;
     const defField = Epoch.epochFields[field];
+    const name = defField.name + (defField.unit ? ' [' + defField.unit + ']' : '');
     const category = isDef(defField.map) ? Object.keys(defField.map) : undefined;
     if (modeSelect.value === 'hist') {
-      chart.options.scales.x.title.text = defField.name;
+      chart.options.scales.x.title.text = name;
       chart.options.scales.x.ticks.callback = chartValCallback;
       chart.options.scales.x.ticks.maxTicksLimit = category ? category.length: undefined;
       chart.options.scales.x.ticks.autoSkip = category ? false : true;
@@ -1069,7 +1079,7 @@ window.onload = function _onload() {
       chart.options.scales.y.ticks.autoSkip = true;
       chart.options.scales.y.ticks.stepSize = undefined;
     } else if (modeSelect.value === 'cdf') {
-      chart.options.scales.x.title.text = defField.name;
+      chart.options.scales.x.title.text = name;
       chart.options.scales.x.ticks.callback = chartValCallback;
       chart.options.scales.x.ticks.maxTicksLimit = category ? category.length: undefined;
       chart.options.scales.x.ticks.autoSkip = category ? false : true;
@@ -1088,7 +1098,7 @@ window.onload = function _onload() {
       chart.options.scales.x.ticks.autoSkip = true;
       chart.options.scales.x.ticks.stepSize = undefined;
 
-      chart.options.scales.y.title.text = defField.name;
+      chart.options.scales.y.title.text = name;
       chart.options.scales.y.ticks.callback = chartValCallback;
       chart.options.scales.y.ticks.maxTicksLimit = category ? category.length: undefined;
       chart.options.scales.y.ticks.autoSkip = category ? false : true;
