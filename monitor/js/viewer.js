@@ -1255,7 +1255,9 @@ window.onload = function _onload() {
       const defField = Epoch.epochFields[fieldSelect.value];
       const unit = (defField.unit ? ' ' + defField.unit : '')
       const category = defField.map ? Object.keys(defField.map) : undefined;
-      if (modeSelect.value === CHART_TIMESERIES) {
+      if ((modeSelect.value === CHART_TIMESERIES) || 
+          (modeSelect.value === CHART_CUMULATIVE) ||
+          (modeSelect.value === CHART_DERIVATIVE)) {
         const txtX = context.chart.options.scales.x.title.text;
         const txtY = defField.name;
         const valX = context.chart.options.scales.x.ticks.callback(context.raw.x);
@@ -1352,7 +1354,7 @@ window.onload = function _onload() {
       chart.options.scales.x.ticks.autoSkip = category ? false : true;
       chart.options.scales.x.ticks.stepSize = category ? 1 : undefined;
 
-      chart.options.scales.y.title.text = (modeSelect.value === CHART_HISTOGRAM) ? 'Density' : 'Cumulative density';
+      chart.options.scales.y.title.text = (modeSelect.value === CHART_HCDF) ? 'Cumulative density' : 'Density';
       chart.options.scales.y.ticks.callback = (v) => Number(v.toFixed(5));
       chart.options.scales.y.ticks.maxTicksLimit = undefined;
       chart.options.scales.y.ticks.autoSkip = true;
@@ -1404,8 +1406,9 @@ window.onload = function _onload() {
             c += v;
             const d = Number.isFinite(l) ? (v - l) : undefined;
             l = v;
-            const y = (modeSelect.value === CHART_CUMULATIVE) ? (category ? undefined : c) : 
+            let y = (modeSelect.value === CHART_CUMULATIVE) ? (category ? undefined : c) : 
                       (modeSelect.value === CHART_DERIVATIVE) ? (category ? undefined : d) : v;
+            y = (0 <= defField.prec) ? Number(y.toFixed(defField.prec)) : y;
             return { x: epoch.datetime, y: y, epoch:epoch };
           } else {
             l = undefined;
