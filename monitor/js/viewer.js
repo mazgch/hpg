@@ -29,13 +29,25 @@ window.clickLink = function _clickLink(link) {
 // ------------------------------------------------------------------------------------
 window.onload = function _onload() {
 
-  const CONFIG_EMPTY = { places: {}, tracks: {} };
-  const PLACE_OVERVIEW  = 'Overview';
-  const TRACK_REFERENCE = 'Reference';
-  const COLOR_REFERENCE = '#000000';
-  const COLOR_UBLOX     = '#0000ff';
-  const COLOR_OTHERS    = '#ff0000';
+  // Track mode
+  const MODE_HIDDEN      = 'hidden';
+  const MODE_MARKERS     = 'markers';
+  const MODE_ANYFIX      = 'anyfix';
+  const MODE_LINE        = 'line';
+  // chart modes 
+  const CHART_HISTOGRAM   = 'histogram';
+  const CHART_HISTORGRAM2 = 'histogram2';
+  const CHART_TIMESERIES  = 'time series';
+  const CHART_CDF         = 'cdf';
+  // Reseverd words 
+  const PLACE_OVERVIEW   = 'Overview';
+  const TRACK_REFERENCE  = 'Reference';
+  // track colors
+  const COLOR_REFERENCE  = '#000000';
+  const COLOR_UBLOX      = '#0000ff';
+  const COLOR_OTHERS     = '#ff0000';
   const COLOR_FIX = { 
+    undefined: '#00000000',
     'NO':    '#ff0000',
     'BAD':   '#ff0000',
     'SIM':   '#ff0000',
@@ -46,7 +58,7 @@ window.onload = function _onload() {
     'DGPS':  '#00ff00', 
     '3D+DR': '#ffbf00', 
     'FLOAT': '#00C000', 
-    'FIXED': '#008000'
+    'FIXED': '#008000',
   };
   const EPOCH_FIELDS = [ 
     'date', 'time', 'itow', 
@@ -63,53 +75,155 @@ window.onload = function _onload() {
   // drag and drop
   const dropzone = document.getElementById('dropzone');
   const dropOverlay = document.getElementById('drop-overlay');
-  dropzone.addEventListener('dragover', function(e) {
+  dropzone.addEventListener('dragover', (evt) => {
     dropOverlay.style.display = 'block';
-    e.preventDefault();
+    evt.preventDefault();
   });
-  dropzone.addEventListener('dragleave', function() {
+  dropzone.addEventListener('dragleave', () => {
     dropOverlay.style.display = 'none';
   });
-  dropzone.addEventListener('drop', function(e) {
+  dropzone.addEventListener('drop', (evt) => {
     dropOverlay.style.display = 'none';
-    configReadFiles(e.dataTransfer.files);
-    e.preventDefault();
+    configReadFiles(evt.dataTransfer.files);
+    evt.preventDefault();
   });
-  // track list
+  // load button
   const loadPicker = document.getElementById('loadpicker');
   const loadFiles = document.getElementById("load");
-  loadFiles.addEventListener('click',(e) => {
+  loadFiles.addEventListener('click', () => {
     loadPicker.click();
   });
-  loadPicker.addEventListener('change', (e) => { 
-    configReadFiles(e.target.files);
-    e.target.value = null;
+  loadPicker.addEventListener('change', (evt) => { 
+    configReadFiles(evt.target.files);
+    evt.target.value = null;
   });
+
+  // datetime slider and fields 
+  const timeStep = 1000;
+  let timeDisabled = true;
+  const timeFromPicker = document.getElementById('fromTime');
+  timeFromPicker.step = 1;
+  timeFromPicker.addEventListener('change', () => {
+    const datetime = timeFromPicker.valueAsNumber;
+    if (Number.isFinite(datetime)) {
+      if (config.time[0] !== datetime) {
+        config.time[0] = datetime;
+        if (datetime > config.time[1]) {
+          timeFromPicker.valueAsNumber = config.time[1] = datetime;
+        }
+        timeSlider.value( config.time );
+      }
+    }
+  });
+
+  const timeToPicker = document.getElementById('toTime');
+  timeToPicker.step = 1;
+  timeToPicker.addEventListener('change', () => { 
+    const datetime = timeToPicker.valueAsNumber;
+    if (Number.isFinite(datetime)) {
+      if (config.time[1] !== datetime) {
+        config.time[1] = datetime;
+        if (datetime < config.time[0]) {
+          timeFromPicker.valueAsNumber = config.time[0] = datetime;
+        }
+        timeSlider.value( config.time );
+      }
+    }
+  });
+  const timeToday = Math.round(Date.now() / timeStep) * 1000;
+  const timeSliderContainer = document.getElementById('range-slider');
+  let timeSliderTimer;
+  const timeSlider = rangeSlider(timeSliderContainer, {    
+    min: timeToday-timeStep, max: timeToday+timeStep, 
+    value: [ timeToday-timeStep , timeToday+timeStep ], disabled:timeDisabled, step: timeStep,
+    onInput: (range, userInteraction) => {
+      {
+        if (userInteraction) {
+          if (Number.isFinite(range[0]) && (config.time[0] !== range[0])) {
+            timeFromPicker.valueAsNumber = config.time[0] = range[0];
+          }
+          if (Number.isFinite(range[1]) && (config.time[1] !== range[1])) {
+            timeToPicker.valueAsNumber = config.time[1] = range[1];
+          }
+          if(timeSliderTimer) {
+            clearTimeout(timeSliderTimer);
+            timeSliderTimer = undefined;
+          }
+          timeSliderTimer = setTimeout( () => {
+            trackTableUpdate();
+            config.tracks.forEach( (track) => { 
+              trackUpdate(track);
+              chartUpdateData(track.dataset);
+              mapUpdateTrack(track); 
+              trackTableUpdate();
+            } );
+          }, 500)
+        }
+      }
+    }
+  });
+
+  function timeSetRange(range) {
+    config.time = range;
+    timeFromPicker.valueAsNumber = config.time[0];
+    timeToPicker.valueAsNumber = config.time[1];
+    timeSlider.value( config.time );
+  }
+
+  function timeSetBounds(bounds) {
+    const invalidBounds = !(Array.isArray(bounds) && (bounds[0] < bounds[1]));
+    if (invalidBounds !== timeDisabled) {
+      timeSlider.disabled(invalidBounds);
+      timeFromPicker.disabled = invalidBounds;
+      timeToPicker.disabled = invalidBounds;
+      timeDisabled = invalidBounds;
+      if (invalidBounds) {
+        // make look nice if invalid
+        timeSlider.min(timeToday - timeStep);
+        timeSlider.max(timeToday + timeStep);
+        timeSlider.value([timeToday - timeStep, timeToday + timeStep]);
+      }
+    }
+    if (!invalidBounds) {
+      // round the bounds to step size
+      const rounded  = [ Math.floor(bounds[0] / timeStep) * timeStep, 
+                         Math.ceil(bounds[1] / timeStep) * timeStep ];
+      timeSlider.min(rounded[0]);
+      timeSlider.max(rounded[1]);
+      timeSlider.value(config.time); // try to restore the wished range
+    }
+  }
+  
   // map
   const mapsContainer = document.getElementById("map");
   const downloadConfig = document.getElementById("download");
   downloadConfig.addEventListener('click', configDownloadJson);
   const placeSelect = document.getElementById("places");
-  placeSelect.addEventListener("change", placeSelectChange);
+  placeSelect.addEventListener("change", (evt) => {
+    const placeName = evt.target.value;
+    const place = config.places.find((place) => (place.name === placeName));
+    placeChange(place);
+  });
   const clearConfig = document.getElementById("clear");
   clearConfig.addEventListener('click', configClear);
   const opacitySlider = document.getElementById('opacity');
-  opacitySlider.addEventListener('input', (e) => {
-    mapSetOpacity(e.target.value);
+  opacitySlider.addEventListener('input', (evt) => {
+    mapSetOpacity(evt.target.value);
   });
+  
   // chart
   const fieldSelect = document.getElementById('field');
-  fieldSelect.addEventListener("change", chartFieldChange);
-  EPOCH_FIELDS.slice(3/*skip time/ date/itow*/).forEach( field => {
+  fieldSelect.addEventListener("change", (evt) => chartConfigChange() );
+  EPOCH_FIELDS.slice(3 /* skip time/date/itow */).forEach( field => {
     const option = document.createElement("option");
     const defField = Epoch.epochFields[field];
-    option.textContent = isDef(defField) ? defField.name : field;
+    option.textContent = defField?.name || field;
     option.value = field;
     fieldSelect.appendChild(option);
   })
   fieldSelect.value = 'height';
   const modeSelect = document.getElementById('mode');
-  modeSelect.addEventListener("change", chartFieldChange);
+  modeSelect.addEventListener("change", (evt) => chartConfigChange() );
   const resetZoom = document.getElementById('resetZoom');
   resetZoom.addEventListener("click", chartResetZoom);
 
@@ -119,9 +233,8 @@ window.onload = function _onload() {
   let map;
   let chart;
   let placesLayer;
-  let trackLayers = {};
   let layerControl;
-  let config = CONFIG_EMPTY;
+  let config = { places: [], tracks: [], time: [ -Infinity, Infinity ] };
   mapInit(); 
   chartInit();
   placeAddOption(PLACE_OVERVIEW);
@@ -134,13 +247,13 @@ window.onload = function _onload() {
   const params = new URLSearchParams(window.location.search);
   if (0 < params.size) {
     params.forEach( (url, name) => {
-      if (isDef(url) && ('' != url)) {
-        const name = url.toLowerCase();
-        if (name.endsWith('.json')) {
+      if (url) {
+        const url = url.toLowerCase();
+        if (url.endsWith('.json')) {
           configFetchJson(url);
-        } else if (name.endsWith('.ubx')) {
-          const track = { url:url };
-          trackFetchUrl( name, track );
+        } else if (url.endsWith('.ubx')) {
+          const track = { name:name, url:url };
+          trackFetchUrl( track );
         }
       }
     });
@@ -190,53 +303,54 @@ window.onload = function _onload() {
             { minZoom: 7.5, maxZoom: 19.5, bounds: swisstopoBounds });
     const swisstopoGray = L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-grau/default/current/3857/{z}/{x}/{y}.jpeg', 
             { minZoom: 7.5, maxZoom: 19.5, bounds: swisstopoBounds });
-    const osmTopography = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",   { maxZoom: 17.5 });
     const osmStreet     = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19.5 });
     const baseLayers = { 
       "ESRI World Imagery": esriSatellite, "Stadia Satellite": stadiaSatellite,
       "Swisstopo Satellite":swisstopoSatellite, "Swisstopo Color":swisstopoColor, "Swisstopo Gray":swisstopoGray,
-      "OSM Topography": osmTopography, "OSM Street": osmStreet };
+      "OSM Street": osmStreet };
     placesLayer = L.layerGroup().addTo(map);
     layerControl = L.control.layers( baseLayers, { "Places": placesLayer } ).addTo(map);
     // add lat lng x y hint
     const coordControl = L.control({ position: 'bottomright' });
     map.divInfo = L.DomUtil.create('div', 'leaflet-control-coords leaflet-bar');
-    coordControl.onAdd = function () { return map.divInfo; };
+    coordControl.onAdd = () => { return map.divInfo; };
     coordControl.addTo(map);
     map.on('mousemove', mapUpdateCoords);
     mapsContainer.addEventListener('mouseleave', mapUpdateTrackLegend)
-    map.on("selectarea:selected", (e) => placeAddBounds(e.bounds));
+    map.on("selectarea:selected", (evt) => placeAddBounds(evt.bounds));
   }
   
-  function mapUpdateCoords(e) {
-    const lat = Number(e.latlng.lat.toFixed(5));
-    const lng = Number(e.latlng.lng.toFixed(5));
-    const x = Math.round(e.containerPoint.x);
-    const y = Math.round(e.containerPoint.y);
+  function mapUpdateCoords(evt) {
+    const lat = Number(evt.latlng.lat.toFixed(5));
+    const lng = Number(evt.latlng.lng.toFixed(5));
+    const x = Math.round(evt.containerPoint.x);
+    const y = Math.round(evt.containerPoint.y);
     map.divInfo.innerHTML = `Lat: ${lat}, y: ${y}<br>Lng: ${lng} x: ${x} `;
     map.divInfo.style.display = 'block';
   }
 
   function mapUpdateTrackLegend() {
-    const html = Object.entries(config.tracks)
-        .filter(([name, track]) => track.mode !== 'hidden')
-        //.map(([name, track]) => '<span class="dash" style="background-color:'+ track.color +'"></span>' + name )
-        .map(([name, track]) => trackGetLabel(track) )
+    const html = config.tracks
+        .filter( (track) => (track.mode !== MODE_HIDDEN) )
+        .map( (track) => track.label )
         .join('&nbsp;&nbsp;');
-    const show = isDef(html) && (html != '');
-    map.divInfo.innerHTML = (show) ? html : 'No tracks.';
-    map.divInfo.style.display = show ? 'block' : 'none';
+    map.divInfo.innerHTML = html || 'No tracks.';
+    map.divInfo.style.display = html ? 'block' : 'none';
   }
   
-  function mapSetSize(size) {
-    mapsContainer.style.display = "block";
-    const set = isDef(size);
-    const width = set ? size[0] + "px" : '';
-    const height = set ? size[1] + "px" : '';
-    if ((mapsContainer.style.width != width) || (mapsContainer.style.height != height)) { 
-      mapsContainer.style.width = width;
-      mapsContainer.style.height = height;
-      map.invalidateSize(); // Call after setting size
+  function mapSetBounds(bounds, size) {
+    const setSize = Array.isArray(size) && (2 === size.length);
+    const wh = setSize ? size.map( (v) => (v + 'px')) : ['',''];
+    mapsContainer.style.display = 'block';
+    if ((mapsContainer.style.width != wh[0]) || (mapsContainer.style.height != wh[1])) { 
+      mapsContainer.style.width = wh[0];
+      mapsContainer.style.height = wh[1];
+      map.invalidateSize(); // Call after changing size
+    }
+    if (Array.isArray(bounds) && (2 === bounds.length) && 
+       (bounds[0][0] < bounds[1][0]) && (bounds[0][1] < bounds[1][1])) {
+     const padding = setSize ? [0,0] : [10, 10];
+     map.fitBounds(bounds, { animate: false, padding: padding } );
     }
   }
 
@@ -247,13 +361,125 @@ window.onload = function _onload() {
     }
   }
 
+  function mapAddLayer(track) {
+    const addInfos   = (track.mode === MODE_MARKERS) || true; // REACQ / LOST
+    const addMarkers = (track.mode === MODE_MARKERS) || (track.mode === MODE_ANYFIX);
+    // collect an array of cordinates and information for markers
+    let infos = [];
+    let trackCoords = [];
+    let infoCenter;
+    let fixLost;
+    const layer = L.layerGroup();
+    track.epochs.forEach( (epoch) => {
+      // if we are loosing the fix with this epoch 
+      if (addInfos && !epoch.selFixGood && (fixLost === false)) {
+        infos.push('Fix lost');
+        fixLost = true;
+      }
+      // publish messages if we has a location from before 
+      if (infoCenter && (0 < infos.length)) {
+        // remove any later duplicates 
+        infos.filter((item, index) => infos.indexOf(item) === index);
+        // add the marker to the layer 
+        layer.addLayer( _message(infoCenter, infos, track));
+        infos = [];
+        infoCenter = undefined;
+      }
+      // if we are reacquiring a good fix 
+      if (addInfos && epoch.posValid && epoch.selFixGood) {
+        if ((fixLost === true) && addInfos) {
+          infos.push('Fix recovered');
+        }
+        fixLost = false;
+      }
+      // now concatenate the strings 
+      if (epoch.info?.length) {
+        infos = infos.concat(epoch.info);
+      }
+      // populate the the coordinates for the polyline
+      if (epoch.posValid) {
+        const center = [epoch.fields.lat, epoch.fields.lng];
+        if (((track.mode === MODE_ANYFIX) ? epoch.selFix : epoch.selFixGood)) {
+          trackCoords.push( center );
+          if (addMarkers) {
+            // the do marker 
+            const marker = L.circleMarker(center, {
+              className: 'marker', color: epoch.color, fillColor: epoch.color, 
+              radius: 3, weight: 1, opacity: 1, fillOpacity: 0.8
+            });
+            marker.on('mouseover', (evt) => evt.target.setRadius(5) );
+            marker.on('mouseout',  (evt) => evt.target.setRadius(3) );
+            marker.on('click', (evt) => mapPopUp(evt.latlng, epoch.fields, track.label));
+            layer.addLayer(marker);
+          }
+          infoCenter = center;
+        } else if (0 < trackCoords.length) {
+          // create segments with gaps
+          layer.addLayer( _polyline(trackCoords) );
+          trackCoords = [];
+        }        
+      } 
+    } )
+    // add the last text marker
+    if (infoCenter && (0 < infos.length)) {
+      layer.addLayer( _message(infoCenter, infos, track));
+    }
+    layer.addLayer( _polyline(trackCoords) );
+    layer.addTo(map);
+    return layer;
+
+    function _polyline( trackCoords ) {
+      const polyline = L.polyline(trackCoords, { className: 'polyline', color: track.color, opacity: 0.6, weight: 2 } );
+      return polyline;
+    }
+
+    function _message(center, infos, track) {
+      const infoText = infos.join('<br/>');
+      const text = `${track.label}</br>${infoText}`;
+      const svgIcon = feather.icons['message-square'].toSvg( { fill: toRGBa(track.color, 0.3), stroke: toRGBa(track.color, 0.9) } );
+      const divIcon = L.divIcon( { html: svgIcon, className: '', iconSize: [20, 20], iconAnchor: [2, 22] } );
+      const marker = L.marker(center, { icon: divIcon, riseOnHover: true, } );
+      marker.bindTooltip(text, { direction: 'bottom', });
+      return marker;
+    }
+  }
+
+  function mapPopUp(center, fields, label) { 
+    const popup = L.popup();
+    popup.setLatLng(center)
+    const rows = Object.entries(fields)
+            .map( ([field, val]) => _tr(field, Epoch.epochFields[field], val) )
+            .join('');
+    popup.setContent( 
+          `${label}<br><table class="table" style="font-size:0.8em"><thead>
+          <tr><th>Parameter</th><th class="right">Value</th><th>Unit</th></tr>
+          </thead><tbody>${rows}</tbody></table>`);
+    popup.openOn(map);
+
+    function _tr(field, def, val){
+      const unit = def?.unit || '';
+      const name = def?.name || field;
+      return `<tr><td>${name}</td><td class="right">${val}</td><td>${unit}</td></tr>`;
+    }
+  }
+ 
+  function mapUpdateTrack(track) {
+    if (track.layer) {
+      map.removeLayer(track.layer);
+      delete track.layer;
+    }
+    if (track.mode !== MODE_HIDDEN) {
+      track.layer = mapAddLayer(track);
+    }
+  }
+  
   // Config 
   // ------------------------------------------------------------------------------------
 
   function configFetchJson(name) {
     fetch(name)
-    .then(response => response.bytes())
-    .then(bytes => {
+    .then( (response) => response.bytes())
+    .then( (bytes) => {
       if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
           bytes = window.pako.ungzip(bytes);
       }
@@ -275,25 +501,34 @@ window.onload = function _onload() {
       alert("Error parsing the .json file.");
     }
     if (isDef(sanJson)) {
-      placeApplyConfig(sanJson.places);
-      trackApplyConfig(sanJson.tracks);
-      if (isDef(sanJson.map?.opacity)) {
-        opacitySlider.value = sanJson.map.opacity;
-        mapSetOpacity(opacitySlider.value);
-      }
-      if (isDef(sanJson.map?.place) && isDef(config.places[sanJson.map.place])) {
-        placeSelect.value = sanJson.map.place;
-      }
-      const place = config.places[placeSelect.value];
-      placeChange(place ? place : PLACE_OVERVIEW);
       if (isDef(sanJson.chart?.field)) {
         fieldSelect.value = sanJson.chart.field;
       }
       if (isDef(sanJson.chart?.mode)) {
         modeSelect.value = sanJson.chart.mode;
       }
-      chartFieldChange();
-      mapUpdateTrackLegend();
+      if (Array.isArray(sanJson.config?.time) && (2 === sanJson.config.time.length)) {
+        const range = sanJson.config.time.map( (time) => new Date(time).getTime() );
+        if (Number.isFinite(range[0]) && Number.isFinite(range[1])) {
+          config.time = range;
+          timeSetRange(config.time);
+        }
+      }
+      if (Array.isArray(sanJson.places)) {
+        placeApplyConfig(sanJson.places);
+      }
+      if (Array.isArray(sanJson.tracks)) {
+        trackApplyConfig(sanJson.tracks);
+      }
+      if (Number.isFinite(sanJson.map?.opacity)) {
+        opacitySlider.value = sanJson.map.opacity;
+        mapSetOpacity(opacitySlider.value);
+      }
+      let place;
+      if (typeof sanJson.map?.place === 'string') {
+        place = config.places[sanJson.map.place];
+      }
+      placeChange(place);
     }
   }
 
@@ -301,8 +536,8 @@ window.onload = function _onload() {
     Array.from(files).forEach(file => {
       const name = file.name.toLowerCase();
       const reader = new FileReader();
-      reader.onload = (e) => {
-        let bytes = new Uint8Array(e.target.result)
+      reader.onload = (evt) => {
+        let bytes = new Uint8Array(evt.target.result)
         let txt;
         if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
           bytes = window.pako.ungzip(bytes);
@@ -312,10 +547,10 @@ window.onload = function _onload() {
           const txt = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
           configApply( txt );
         } else {
-          const track = { file:file.name };
           const m = file.name.match(/(?:.*\/)?([^.]+).*$/);
           const name = m ? m[1] : file.name;
-          if (!trackFromBytes(name, bytes, track)) {
+          const track = { file:file.name, name:name };
+          if (!trackFromBytes(bytes, track)) {
             alert('No epochs loaded, please check source:\n' + name);
           }
         } 
@@ -324,8 +559,8 @@ window.onload = function _onload() {
     });
   }
    
-  function configDownloadJson(e) { 
-    const doGzip = !e.shiftKey;
+  function configDownloadJson(evt) { 
+    const doGzip = !evt.shiftKey;
     let data = configGetJson();
     let type = 'application/json';
     let name = 'config.json';
@@ -343,27 +578,29 @@ window.onload = function _onload() {
   }
 
   function configGetJson() { 
-    const places = Object.entries(config.places)
-        .map(([name, place]) => [ name, configPlaceJson(place) ] );
-    const tracks = Object.entries(config.tracks)
-        .map(([name, track]) => [ name, configTrackJson(track) ] );
+    const places = config.places.map( (place) => configPlaceJson(place) );
+    const tracks = config.tracks.map( (track) => configTrackJson(track) );
     const json = { 
       comment: `This file can be viewed with ${window.location.protocol}//${window.location.hostname}${window.location.pathname}`, 
-      map:   { place: placeSelect.value, opacity: opacitySlider.value },
-      chart: { field: fieldSelect.value, mode: modeSelect.value },
-      places:  Object.fromEntries(places), 
-      tracks:  Object.fromEntries(tracks),
+      map:    { place: placeSelect.value, opacity: opacitySlider.value },
+      chart:  { field: fieldSelect.value, mode: modeSelect.value },
+      places:  places, 
+      tracks:  tracks,
     };
+    const range = config.time
+          .filter((time) => isFinite(time))
+          .map( (time) => new Date(time).toISOString());
+    (range.length === 2) && (config.time = range);
     return JSON.stringify(json, null, 1/*change to 1 for better readability*/);
   }
 
   function configPlaceJson(place) {
-    return { size:place.size, zoom:place.zoom, center:place.center };
+    return { name:place.name, size:place.size, zoom:place.zoom, center:place.center };
   }
 
   function configTrackJson(track) {
     const epochs = track.epochs.map( epoch => configEpochJson(epoch) );
-    const json = { color:track.color };
+    const json = { name:track.name, color:track.color };
     if (track.mode) json.mode = track.mode;
     if (track.info) json.info = track.info;
     if (epochs) json.epochs = epochs;
@@ -383,32 +620,20 @@ window.onload = function _onload() {
 
   // Place 
   // ------------------------------------------------------------------------------------
-
   function placeRemoveAll() {
-    map.removeLayer(placesLayer);
-    layerControl.removeLayer(placesLayer);
-    placesLayer = L.layerGroup().addTo(map);
-    layerControl.addOverlay(placesLayer, "Places");
-    while (placeSelect.firstChild) {
-      placeSelect.removeChild(placeSelect.firstChild);
-    }
-    placeAddOption(PLACE_OVERVIEW);
-    config.places = {};
+    config.places.forEach( (place) => {
+      placesLayer.removeLayer(place.layer);
+      placeSelect.removeChild(place.option);
+    });
+    config.places.length = 0;
   }
 
   function placeApplyConfig(places) {
     placeRemoveAll();
-    if (isDef(places)) {
-      for (const [name, place] of Object.entries(places)) {
-        placeAddOption(name, place);
-      }
+    if (Array.isArray(places)) {
+      places.forEach( (place) => placeAdd(place) )
     }
   }
-
-  function placeSelectChange(e) { 
-    const option = e.target.selectedOptions[0];
-    placeChange(option.place); 
-  };
 
   function placeAddBounds(bounds) {
     // maks sure bound are valid in current map area 
@@ -418,118 +643,123 @@ window.onload = function _onload() {
     if (mapBounds.contains(sw) && mapBounds.contains(ne)) {
       const center = bounds.getCenter();
       const name = prompt('Please name the place.', center.lat.toFixed(6) + ',' + center.lng.toFixed(6));
-      if (isDef(name) && ('' != name)) {
+      if (name) {
         const zoom = map.getZoom();
         const swPx = map.project(sw, zoom);
         const nePx = map.project(ne, zoom);
         const w = parseInt(Math.abs(nePx.x - swPx.x));
         const h = parseInt(Math.abs(nePx.y - swPx.y));
-        const place = { size: [ w, h ], bounds:[sw, ne] };
-        placeAddOption(name, place);
+        const place = { name:name, size: [ w, h ], bounds:[sw, ne] };
+        placeAdd(place);
       }
+    }
+  }
+
+  function placeAdd(place) {
+    if (!Array.isArray(place.bounds) && Number.isFinite(place.zoom) && 
+          Array.isArray(place.size) && Array.isArray(place.center)) {
+      const div = document.createElement('div');
+      const temp = L.map(div, { center: place.center, zoom: place.zoom });
+      temp._size = L.point(place.size);
+      temp._resetView(L.latLng(place.center), place.zoom);
+      const sw = temp.getBounds().getSouthWest();
+      const ne = temp.getBounds().getNorthEast();
+      place.bounds = [ [sw.lat, sw.lng], [ne.lat, ne.lng] ];
+    }
+    if (Array.isArray(place.bounds)) {
+      const marker = L.rectangle(place.bounds, { className: 'place', dashArray: '5, 5', weight: 2 });
+      marker.place = place;
+      marker.on('click', (evt) => {
+        const place = evt.target.place;
+        const isOverview = (place.name === PLACE_OVERVIEW);
+        placeChange(isOverview ? undefined : place, evt.originalEvent.ctrlKey);
+        placeSelect.value = isOverview ? PLACE_OVERVIEW : place.name;
+      });
+      place.layer = marker;
+      placesLayer.addLayer(marker);
+      config.places.push(place);
+      placeAddOption(place.name, place);
     }
   }
 
   function placeAddOption(name, place) {
-    let option = Array.from(placeSelect.options).find(opt => opt.value === name);
-    if (!isDef(option)) {
-      option = document.createElement("option");
-      option.textContent = name;
-      option.value = name;
-      placeSelect.appendChild(option);
+    const option = document.createElement('option');
+    option.textContent = name;
+    option.value = name;
+    if (place) {
+      option.place = place;
+      place.option = option;
     }
-    option.place = place;
-    if (isDef(place)) {
-      if (!isDef(place.bounds) && isDef(place.size) && isDef(place.center) && isDef(place.zoom)) {
-        const temp = L.map(document.createElement('div'), { center: place.center, zoom: place.zoom });
-        temp._size = L.point(place.size[0], place.size[1]);
-        temp._resetView(L.latLng(place.center), place.zoom);
-        const sw = temp.getBounds().getSouthWest();
-        const ne = temp.getBounds().getNorthEast();
-        place.bounds = [ [sw.lat, sw.lng] , [ne.lat, ne.lng] ];
-      }
-      if (isDef(place.bounds)) {
-        const marker = L.rectangle(place.bounds, { dashArray: '5, 5', weight: 2, className: 'place' });
-        marker.place = place;
-        marker.on('click', (e) => {
-          const isOverview = (name == placeSelect.value);
-          placeChange(isOverview ? undefined : place, e.originalEvent.ctrlKey);
-          placeSelect.value = isOverview ? PLACE_OVERVIEW : name;
-        });
-        placesLayer.addLayer(marker);
-      }
-      config.places[name] = place;
-    }
+    placeSelect.appendChild(option);
   }
   
   function placeChange(place, setSize = false) {
-    if (map) {
-      if (place) {
-        if (setSize) mapSetSize(place.size);
-        if (isDef(place.bounds)) {
-          map.fitBounds(place.bounds, { animate: false } );
-        } else if (isDef(place.center) && isDef(place.zoom)) { 
-          map.setView([place.center[0], place.center[1]], place.zoom, { animate: false });
-        }  
-        mapsContainer.style.display = 'block';
-      } else {
-        mapSetSize();
-        const tracks = Object.values(config.tracks)
-                .filter(track => isDef(track.bounds));
-        if(0 < tracks.length) {
-          const bounds = L.latLngBounds(
-            [ Math.min(...tracks.map(item => item.bounds[0][0])), Math.min(...tracks.map(item => item.bounds[0][1])) ],
-            [ Math.max(...tracks.map(item => item.bounds[1][0])), Math.max(...tracks.map(item => item.bounds[1][1])) ]);
-          map.fitBounds(bounds, { animate: false, padding: [20, 20] } );
-          mapsContainer.style.display = 'block';
-        }
-      }
+    let name;
+    if (place === undefined) {
+      name = PLACE_OVERVIEW;
+      mapSetBounds(config.posBounds);
+    } else {
+      name = place.name;
+      mapSetBounds(place.bounds, setSize ? place.size : undefined);
+    }
+    if (placeSelect.value !== name) {
+      placeSelect.value = PLACE_OVERVIEW;
     }
   }
 
-  // Track 
+// Track 
   // ------------------------------------------------------------------------------------
 
   function trackRemoveAll() {
-    Object.values(trackLayers).forEach( layer => {
-      if(map.hasLayer(layer)) {
-        map.removeLayer(layer);
+    
+    // CHART: remove all datasets
+    // MAP: remove all layers and update legends  
+    config.tracks.forEach( (track) => {
+      if (track.layer) {
+         map.removeLayer(track.layer);
+         delete track.layer;
       }
-      //layerControl.removeLayer(layer);
+      if (track.dataset) {
+        chartRemoveDataset(track.dataset);
+      }
     } );
-    trackLayers = {};
-    config.tracks = {};
-    chartReset();
-    trackTableUpdate();
+    config.tracks.length = 0;
+    chart.update();
     mapUpdateTrackLegend();
+    // TABLE: update
+    trackTableUpdate();
+    // no track any more 
+    trackUpdate();
+    // TODO: is this right here ?
+    timeSetBounds(); // disable 
   }
 
   function trackApplyConfig(tracks) {
     trackRemoveAll();
-    if (isDef(tracks)) {
-      for (const [name, track] of Object.entries(tracks)) {
-        if (!trackAdd(name, track) && isDef(track.url)) {
-          trackFetchUrl(name, track);
+    if (Array.isArray(tracks)) {
+      tracks.forEach( (track) => {
+        if (!trackAdd(track) && isDef(track.url)) {
+          trackFetchUrl(track);
         }
-      }
+      } );
     }
   }
 
-  function trackFetchUrl(name, track) {
+  function trackFetchUrl(track) {
     fetch(track.url)
-      .then(response => response.bytes())
-      .then(bytes => {
+      .then( (response) => response.bytes() )
+      .then( (bytes) => {
         // cound be zipped 
         if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
           bytes = window.pako.ungzip(bytes);
         }
-        if (!trackFromBytes(name, bytes, track)) {
+        if (!trackFromBytes(bytes, track)) {
           alert('No epochs loaded, please check source:\n' + track.url);
         }
       });
   }
 
-  function trackFromBytes(name, bytes, track) {
+  function trackFromBytes(bytes, track) {
     const ubxData = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
     let epochs = [];
     Engine.parseReset()
@@ -548,28 +778,27 @@ window.onload = function _onload() {
             Epoch.epochFill(epoch, message);
           }
           // extract text fields 
-          if ((message.protocol === 'UBX') && isDef(message.fields)) {
+          if ((message.protocol === 'UBX') && message.fields) {
             if (message.name === 'MON-VER') {
-              convertTextExtract(track, message.fields.swVer);
-              convertSetInfo(track, 'monHwVer', message.fields.hwVer);
+              _textExtract(track, message.fields.swVer);
+              _setInfo(track, 'monHwVer', message.fields.hwVer);
               if (message.fields.extVer) {
                   for (let i = 0; i < message.fields.extVer.length; i ++)
-                    convertTextExtract(track, message.fields.extVer[i]);
+                    _textExtract(track, message.fields.extVer[i]);
               }
             } else if (message.name === 'INF-NOTICE') {
-              convertTextExtract(track, message.fields.infTxt);
+              _textExtract(track, message.fields.infTxt);
             }
           } else if (message.protocol === 'NMEA') {
-            if ((message.id === 'TXT') && isDef(message.fields)) {
-              convertTextExtract(track, message.fields.infTxt);
+            if ((message.id === 'TXT') && message.fields) {
+              _textExtract(track, message.fields.infTxt);
             } else {
-              // $PAIR021,Project,Freq,SWPack,SerVer,SerBuildTime,L1RomVer>,L1ramVer,L5romVer,L5RamVer,KernelVer,KernelBuildTime,KFVersion,KFBuildTime,RTKVersion,RTKBuildTime,...
-              // $PAIR021,AG3352Q_V2.3.0.AG3352_20230213,S,N,2b31f59,2209141904,2b9,0,,,d32ef91c,2209141902,571d3e7,2209141904,,,-15.48,-15.48,-14.02,-15.48,0,1,##,0,0*6D
+              // try to pares Airoha sw version messages
               const m = message.text.match(/^\$PAIR02[1|0],([^_]*)_([^\,]*)\.([^,]*),(\w)/);
               if (m) {
-                convertSetInfo(track, 'module', m[1]);
-                convertSetInfo(track, 'fwVer', m[2]);
-                convertSetInfo(track, 'hwVer', m[3]);
+                _setInfo(track, 'module', m[1]);
+                _setInfo(track, 'fwVer',  m[2]);
+                _setInfo(track, 'hwVer',  m[3]);
               }
             }
           }
@@ -585,161 +814,202 @@ window.onload = function _onload() {
       } );
     }
     track.epochs = epochs;
-    return trackAdd(name, track);
+    return trackAdd(track);
+
+    function _textExtract(track, text) {
+      if (text) {
+        let m;
+        if (m = text.match(/^MOD=(.+)$/))                       _setInfo(track, 'module',   m[1]);
+        else if (m = text.match(/^HW (.+)$/))                   _setInfo(track, 'hwVer',    m[1]);
+        else if (m = text.match(/^ROM (?:BASE|CORE)?\s*(.+)$/)) _setInfo(track, 'romVer',   m[1]);
+        else if (m = text.match(/^EXT (?:BASE|CORE)?\s*(.+)$/)) _setInfo(track, 'extVer',   m[1]);
+        else if (m = text.match(/^FWVER=(.+)$/))                _setInfo(track, 'fwVer',    m[1]);
+        else if (m = text.match(/^PROTVER=(.+)$/))              _setInfo(track, 'protoVer', m[1]);
+      }
+    }
+
+    function _setInfo(track, key, value) {
+      if(value !== undefined) {
+        track.info ??= {};
+        track.info[key] = value;
+      }
+    }
   } 
   
-  function convertTextExtract(track, text) {
-    if (text) {
-        let m;
-        if (m = text.match(/^MOD=(.+)$/))                       convertSetInfo(track, 'module', m[1]);
-        else if (m = text.match(/^HW (.+)$/))                   convertSetInfo(track, 'hwVer', m[1]);
-        else if (m = text.match(/^ROM (?:BASE|CORE)?\s*(.+)$/)) convertSetInfo(track, 'romVer', m[1]);
-        else if (m = text.match(/^EXT (?:BASE|CORE)?\s*(.+)$/)) convertSetInfo(track, 'extVer', m[1]);
-        else if (m = text.match(/^FWVER=(.+)$/))                convertSetInfo(track, 'fwVer', m[1]);
-        else if (m = text.match(/^PROTVER=(.+)$/))              convertSetInfo(track, 'protoVer', m[1]);
-    }
+  function trackDefaults(track) {
+    // set defaults for basic settings
+    const defMode = ((track.name === TRACK_REFERENCE)  ? MODE_LINE : MODE_MARKERS);
+    const defColor = (track.name === TRACK_REFERENCE)  ? COLOR_REFERENCE : 
+                     (track.info?.protoVer)            ? COLOR_UBLOX : COLOR_OTHERS;
+    // apply if not set otherwise
+    track.color = track.color ?? defColor;
+    track.mode = track.mode ?? defMode;
+    track.label = trackLabel(track);
+    // set epoch flags and determine the datetime bounds
+    track.epochs.forEach( (epoch) => {
+      epoch.posValid = isDef(epoch.fields.lat) && isDef(epoch.fields.lng);
+      epoch.color = COLOR_FIX[epoch.fields?.fix];
+      epoch.selFix = epoch.fields.fix && (epoch.fields.fix !== 'NO');
+      epoch.selFixGood = epoch.selFix && (epoch.fields.fix !== 'BAD');
+      let datetime = Number.NaN;
+      if (isDef(epoch.fields.date) && isDef(epoch.fields.time)) {
+        const isoTime = epoch.fields.date + 'T'+ epoch.fields.time + 'Z';
+        datetime = new Date(isoTime).getTime();
+      }
+      // Airoha/MTK is outputting 1.5.1980 as Dates in NMEA, which is GPS week 0, lets ignore the first year
+      epoch.timeValid = Number.isFinite(datetime) && (datetime > 347068800000 /* 31.12.1980 */);
+      if (epoch.timeValid) {
+        epoch.datetime = datetime;
+      }
+    } )
+  } 
+  
+  function trackLabel(track) {
+    return '<span class="dash" style="background-color:'+ track.color +'"></span>' + track.name;
   }
 
-  function convertSetInfo(track, key, value) {
-    if(isDef(value) && isDef(key)) {
-      track.info ??= {};
-      track.info[key] = value;
-    }
-  }
-
-  function trackAdd(name, track) {
-    if (isDef(track.epochs) && (0 < track.epochs.length)) {
-      // complete each epoch (color, datetime, valid)
-      track.epochs.forEach( (epoch) => {
-        if (!isDef(epoch.time) && 
-              isDef(epoch.fields.date) && (epoch.fields.date != '') &&
-              isDef(epoch.fields.time) && (epoch.fields.time != '') ) {
-          //Date.UTC(year, monthIndex, day, hours, minutes, seconds, milliseconds
-          const datetime = new Date(epoch.fields.date + 'T'+ epoch.fields.time + 'Z').getTime();
-          if (isNaN(datetime)) {
-            throw new Error("bad time");
-          } else {
-            epoch.datetime = datetime;
+  function trackUpdateReferenceErrors( track ) {
+    const refTrack = config.tracks.find((track) => (track.name === TRACK_REFERENCE));
+    const refEpochs = (refTrack !== track) ? refTrack?.epochs : undefined;
+    track.epochs.forEach( (epoch) => _calcEpochError(epoch, refEpochs) );
+  
+    function _calcEpochError(epoch, refEpochs) {
+      const vals = {};
+      const measDatetime = epoch.datetime;
+      if (refEpochs && isDef(measDatetime)) {
+        // find the first epoch in the file (should e use valid only)
+        const refIx = refEpochs.findIndex(refEpoch => (refEpoch.datetime >= measDatetime));
+        if (refIx != -1) {
+          const fields = epoch.fields;
+          let refFields = {};
+          const refEpoch = refEpochs[refIx];
+          const refDatetime = refEpoch.datetime;
+          let ratio = 0; 
+          let prevEpoch;
+          if ((refDatetime > measDatetime) && (refIx > 0)) {
+            prevEpoch = refEpochs[refIx - 1];
+            const prevDatetime = prevEpoch.datetime;
+            if (isDef(prevDatetime) && (prevDatetime < measDatetime)) {
+              ratio = (refDatetime - measDatetime) / (refDatetime - prevDatetime);
+            }
+          }
+          const keys = ['lat', 'lng', 'height', 'speed', 'gSpeed'];
+          keys.forEach( key => {
+            let value = refEpoch.fields[key];
+            if (isDef(prevEpoch) && (ratio !== 0)) {
+              value += (prevEpoch.fields[key] - value) * ratio;
+            }
+            vals[key] = value;
+          });
+          if (epoch.posValid && isDef(fields.lng) && isDef(vals.lng)) {
+            // haversine: calculate the great cicle in meters using between to lat/lng positions
+            const R = 6371000; // Earth radius in meters
+            const toRad = deg => deg * Math.PI / 180;
+            const dLat = toRad(vals.lat - fields.lat);
+            const dLng = toRad(vals.lng - fields.lng);
+            const a = Math.sin(dLat/2) ** 2 +
+                      Math.cos(toRad(fields.lat)) * Math.cos(toRad(vals.lat)) * Math.sin(dLng/2)**2;
+            vals.hErr = 2 * R * Math.asin(Math.sqrt(a));
+          }
+          if (isDef(fields.height) && isDef(vals.height)){
+            vals.vErr = Math.abs(fields.height - vals.height)
+          }
+          if (isDef(vals.hErr) && isDef(vals.vErr)){
+            vals.pErr = Math.sqrt(vals.hErr ** 2 + vals.vErr ** 2);
+          }
+          if (isDef(fields.speed) && isDef(vals.speed)){
+            vals.sErr = Math.abs(fields.speed - vals.speed);
+          }
+          if (isDef(fields.gSpeed) && isDef(vals.gSpeed)){
+            vals.gsErr = Math.abs(fields.gSpeed - vals.gSpeed);
           }
         }
-        if (!isDef(epoch.color)) {
-          epoch.color = COLOR_FIX[epoch.fields.fix];
+      }
+      // now write all the erros back or delete the previous
+      const errKeys = [ 'hErr', 'vErr', 'pErr', 'sErr', 'gsErr' ];
+      errKeys.forEach(key => {
+        if (Number.isFinite(vals[key])) {
+          epoch.fields[key] = Number(vals[key].toFixed(3));
+        } else {
+          delete epoch.fields[key];
         }
-        if (!isDef(epoch.valid)) {
-          epoch.valid = (epoch.fields.fix != 'NO') && (epoch.fields.fix != 'BAD');
-        }       
-      });
-      // set track level 
-      if (!isDef(track.color)) {
-        track.color = (name === TRACK_REFERENCE)  ? COLOR_REFERENCE : 
-                      isDef(track.info?.protoVer) ? COLOR_UBLOX : 
-                                                    COLOR_OTHERS;
+      })
+    }
+  }
+  
+  function trackUpdate(track) {
+    // now we get new bounds
+    let minTime =  Infinity;
+    let maxTime = -Infinity;
+    let minLat  =  Infinity;
+    let maxLat  = -Infinity;
+    let minLng  =  Infinity;
+    let maxLng  = -Infinity;
+    if (track) {
+      track.epochs.forEach( (epoch) => { 
+        epoch.selTime = epoch.timeValid && ((config.time.length !== 2) ||
+              ((config.time[0] <= epoch.datetime) && (config.time[1] >= epoch.datetime)));
+        if (epoch.timeValid) {
+          minTime = Math.min(minTime, epoch.datetime);
+          maxTime = Math.max(maxTime, epoch.datetime);
+        }
+        if (epoch.selTime && epoch.selFixGood && epoch.posValid) {
+          minLat = Math.min(minLat, epoch.fields.lat);
+          maxLat = Math.max(maxLat, epoch.fields.lat);
+          minLng = Math.min(minLng, epoch.fields.lng);
+          maxLng = Math.max(maxLng, epoch.fields.lng);
+        }
+      } );
+      track.timeBounds = [ minTime, maxTime ];
+      track.posBounds = [ [ minLat, minLng ], [ maxLat, maxLng] ];
+    }
+    // propagate bounds to the config
+    config.tracks
+        .filter( (track) => (track.mode !== MODE_HIDDEN) )
+        .forEach( (track) => {
+      minTime = Math.min(minTime, track.timeBounds[0]);
+      maxTime = Math.max(maxTime, track.timeBounds[1]); 
+      minLat = Math.min(minLat, track.posBounds[0][0]);
+      maxLat = Math.max(maxLat, track.posBounds[1][0]);
+      minLng = Math.min(minLng, track.posBounds[0][1]);
+      maxLng = Math.max(maxLng, track.posBounds[1][1]);
+    } );
+    config.timeBounds = [ minTime, maxTime ];
+    config.posBounds = [ [ minLat, minLng ], [ maxLat, maxLng ] ];
+  }
+
+  function trackAdd(track) {
+    if ((typeof track  === 'object') && (track) && (track.name) && 
+        Array.isArray(track.epochs) && (0 < track.epochs.length)) {
+      // this is part of adding the tack
+      config.tracks.push(track);
+      trackDefaults(track);
+      if (track.name == TRACK_REFERENCE) {
+        config.tracks.forEach( (track) => { 
+            trackUpdateReferenceErrors(track); 
+        } );
+      } else {
+        trackUpdateReferenceErrors(track);
       }
-      if (!isDef(track.mode)) {
-        track.mode = (name === TRACK_REFERENCE) ? 'line' : 'markers';
-      }
-      if (!isDef(track.bounds)) {
-        const latlngs = Object.values(track.epochs)
-            .filter(epoch => (epoch.valid === true) && isDef(epoch.fields.lat) && isDef(epoch.fields.lng))
-            .map(epoch => [epoch.fields.lat, epoch.fields.lng]);
-        const bounds = L.latLngBounds(latlngs);
-        const sw = bounds.getSouthWest();
-        const ne = bounds.getNorthEast();
-        track.bounds = [ [sw.lat, sw.lng], [ne.lat, ne.lng] ];
-      }
-      track.name = name
-      config.tracks[name] = track;
-      const groupLayer = L.layerGroup();
-      groupLayer.track = track;
-      trackLayers[name] = groupLayer;
-      const label = trackGetLabel(track);
-      //layerControl.addOverlay(groupLayer, label);
-      chartAddTrack(track);
+      // now update the tracks 
+      trackUpdate(track);
+      timeSetBounds(config.timeBounds);
       trackTableUpdate();
-      if (track.mode !== 'hidden') {
-        trackAddLayer(groupLayer, track.mode == 'markers');
+      // CHART: add dataset 
+      track.dataset = chartAddDataset(track);
+      // MAP: add layer
+      if (track.mode !== MODE_HIDDEN) {
+        track.layer = mapAddLayer(track);
       }
-      updateErrors();
+      // bound may have changed 
       placeChange();
       return true;
     }
     return false;
   } 
 
-  function trackAddLayer(layerGroup, addMarkers) {
-    let trackCoords = [];
-    let infos = [];
-    const track = layerGroup.track;
-    const svgIcon = feather.icons['message-square'].toSvg( { fill: 'rgba(64,64,64,0.3)', stroke: 'rgba(64,64,64,0.9)' });
-    const divIcon = L.divIcon({ html: svgIcon, className: '', iconSize: [20, 20], iconAnchor: [2, 22] });
-    track.epochs
-         .forEach( function(epoch) {
-      if (isDef(epoch.info) && (0 < epoch.info.length)) {
-        infos = infos.concat(epoch.info);
-      }
-      if (epoch.valid) {
-        const center = [epoch.fields.lat, epoch.fields.lng];
-        trackCoords.push( center );
-        if (addMarkers) {
-          const marker = L.circleMarker(center, {
-            radius: 3, weight: 1, 
-            color: epoch.color, opacity: 1, 
-            fillColor: epoch.color, fillOpacity: 0.8,
-            className: 'marker'
-          });
-          const label = trackGetLabel(track);
-          if (0 < infos.length) {
-            const infText = infos.join('<br/>');
-            const flag = L.marker(center, { icon: divIcon, riseOnHover: true, } )
-                    .bindTooltip(label + '</br>' + infText, { direction: 'bottom', });
-            layerGroup.addLayer(flag);
-            infos = [];
-          }
-          marker.label = label;
-          marker.fields = epoch.fields;
-          marker.on('mouseover', trackMarkerHover);
-          marker.on('mouseout', trackMarkerReset);
-          marker.on('click', trackMarkerPopUp);
-          layerGroup.addLayer(marker);
-        }
-      } 
-    } )
-    const trackLine = L.polyline(trackCoords);
-    trackLine.setStyle({ color: track.color, opacity: 0.6, weight: 2 });
-    layerGroup.addLayer(trackLine);
-    layerGroup.addTo(map);
-  }
-
-  function trackMarkerPopUp(e) { 
-    const popup = L.popup();
-    popup.setLatLng(e.latlng)
-    const fields =  e.target.fields;
-    const rows = Object.entries(Epoch.epochFields)
-            .filter(([key]) => key in fields)
-            .map(([key, def]) => {
-      const unit = isDef(def.unit) ? def.unit : '';
-      return '<tr><td>'+def.name+'</td><td class="right">'+fields[key]+'</td><td>'+unit+'</td></tr>';
-    });
-    popup.setContent( e.target.label + '<br><table class="table" style="font-size:0.8em"><thead>' +
-            '<tr><th>Parameter</th><th class="right">Value</th><th>Unit</th></tr>' +
-            '</thead><tbody>' + rows.join('') + '</tbody></table>');
-    popup.openOn(map);
-  }
-  function trackMarkerHover() { this.setRadius(5); }
-  function trackMarkerReset() { this.setRadius(3); }
-
-  function trackGetLabel(track) {
-    return '<span class="dash" style="background-color:'+ track.color +'"></span>' + track.name;
-    return `<span style="color:${track.color};">${track.name}</span>`;
-  }
-
-  function trackGetInfo(track, key) {
-    return isDef(track.info) && isDef(track.info[key]) ? track.info[key] : '';
-  }
-
   function trackTableUpdate() {
     const iconShow = feather.icons['eye'].toSvg({class:'icon-inline'});
-    const iconMarker = feather.icons['git-commit'].toSvg({class:'icon-inline', fill:COLOR_FIX['3D']}, );
     const table = document.getElementById('table_tracks');
     while (table.firstChild) {
         table.removeChild(table.firstChild);
@@ -758,511 +1028,520 @@ window.onload = function _onload() {
       tr.appendChild(th);
     });
     tbody.appendChild(tr);
-    
-    for (const [name, track] of Object.entries(config.tracks).sort(([keyA], [keyB]) => keyA.localeCompare(keyB))) {
-      const tr = trackTableAddRow(name, track);
-      tbody.appendChild(tr);
-    }
-  }
+    config.tracks
+          .sort( (trackA, trackB) => trackA.name.localeCompare(trackB.name) )
+          .forEach( (track) => {
+            const tr = _getTr(track);
+            tbody.appendChild(tr);
+          } );
 
-  function trackTableAddRow(name, track) {
-    const iconHide = feather.icons['eye-off'].toSvg( { class:'icon-inline' } );
-    const iconMarker = feather.icons['share-2'].toSvg( { class:'icon-inline', fill:COLOR_FIX['3D']} );
-    const iconShow = track.mode === 'hidden' ? iconHide : track.mode === 'markers' ? iconMarker  : '〜';
-    const tr = document.createElement('tr');
-    let td = document.createElement('td');
-    td.className = 'center';
-    td.innerHTML = iconShow;
-    td.addEventListener('click', (e) => { 
-      track.mode = track.mode === 'hidden' ? 'markers' :
-                   track.mode === 'markers' ? 'line' : 
-                                              'hidden';
-      chart.data.datasets
-          .filter( dataset => dataset.label == name )
-          .forEach( dataset => dataset.hidden = (track.mode === 'hidden'));
-      chart.update();
-      const layerGrp = trackLayers[name];
-      if(map.hasLayer(layerGrp)) {
-        map.removeLayer(layerGrp);
-      }
-      // remove all layers to free memory
-      layerGrp.eachLayer(layer => {
-        layerGrp.removeLayer(layer);
+    function _getTr(track) {
+      const tr = document.createElement('tr');
+      // Icon
+      const tdIcon = document.createElement('td');
+      tdIcon.className = 'center';
+      tdIcon.style.cursor = 'pointer';
+      tdIcon.innerHTML = _icon(track.mode);
+      tdIcon.addEventListener('click', (evt) => {
+        _modeChange(track);
+        tdIcon.innerHTML = _icon(track.mode);
       } );
-      if (track.mode !== 'hidden') {
-        trackAddLayer(layerGrp, track.mode === 'markers');
-      }
-      trackTableUpdate();
-      mapUpdateTrackLegend();
-    } );
-    tr.appendChild(td);
-    td = document.createElement('td');
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.value = name;
-    nameInput.addEventListener("keyup", function(event) {
-      if (event.key === "Enter") {
-        nameInput.blur();
-      }
-    });
-    nameInput.addEventListener("blur", function(event) {
-      if (name !== nameInput.value) {
-        const newName = nameInput.value;
-        delete Object.assign(config.tracks, {[newName]: config.tracks[name] })[name];
-        // if we change the reference then recaluclate the errors 
-        if (newName === TRACK_REFERENCE || name === TRACK_REFERENCE) {
-          updateErrors();
+      tr.appendChild(tdIcon);
+      // Name
+      const tdName = document.createElement('td');
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.value = track.name;
+      nameInput.addEventListener("keyup", (evt) => {
+        if (evt.key === "Enter") {
+          nameInput.blur();
         }
-        chart.data.datasets
-          .filter( dataset => dataset.label == name )
-          .forEach( dataset => dataset.label = newName );
+      } );
+      nameInput.addEventListener("blur", (evt) => {
+        _nameChange(track, evt.target.value);
+      } );
+      tdName.appendChild(nameInput);
+      tr.appendChild(tdName);
+      // Color Pickers
+      const tdColor = document.createElement('td');
+      const colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.value =  track.color;
+      colorInput.style.cursor = 'pointer';
+      nameInput.track = track;
+      colorInput.addEventListener("change", (evt) => {
+        _colorChange(track, evt.target.value);
+      });
+      tdColor.appendChild(colorInput);
+      tr.appendChild(tdColor);
+      // infos 
+      _addTd(tr, track.info?.module || '');
+      _addTd(tr, track.info?.fwVer || '');
+      _addTd(tr, track.info?.protoVer || '');
+      _addTd(tr, track.info?.hwVer || track.info?.monHwVer || '');
+      const epochs = track.epochs.filter(epoch => epoch.selTime && epoch.selFixGood);
+      _addTd(tr, `${epochs.length} / ${track.epochs.length}`);
+      
+      function _addTd(tr, value) {
+        const td = document.createElement('td');
+        td.textContent = value;
+        tr.appendChild(td);
+      }
+      return tr;
+    
+      function _icon(mode) {
+        let icon;
+        if (mode === MODE_HIDDEN) {
+          icon = feather.icons['eye-off'].toSvg( { class:'icon-inline' } );
+        } else if (mode === MODE_MARKERS) {
+          icon = feather.icons['git-commit'].toSvg( { class:'icon-inline', fill:COLOR_FIX['3D']} )
+        } else if (mode === MODE_ANYFIX) {
+          icon = feather.icons['share-2'].toSvg( { class:'icon-inline', fill:COLOR_FIX['BAD']} )
+        } else {
+          icon = '〜';
+        }
+        return icon;
+      }
+
+      function _modeChange(track) {
+        // DATA: track mode
+        track.mode = (track.mode === MODE_HIDDEN)  ? MODE_LINE :
+                     (track.mode === MODE_LINE)    ? MODE_MARKERS :
+                     (track.mode === MODE_MARKERS) ? MODE_ANYFIX : 
+                                                     MODE_HIDDEN;
+        // CHART: update chart with its dataset
+        track.dataset.hidden = (track.mode === MODE_HIDDEN) && (0 < track.dataset.data.length);
         chart.update();
-        delete Object.assign(trackLayers, {[newName]: trackLayers[name] })[name];
-        trackTableUpdate();
+        // MAP: rebuidl track and legend
+        mapUpdateTrack(track);
         mapUpdateTrackLegend();
-      }
-    });
-    td.appendChild(nameInput);
-    tr.appendChild(td);
-    td = document.createElement('td');
-    const colorInput = document.createElement('input');
-    colorInput.type = 'color';
-    colorInput.value =  track.color;
-    colorInput.addEventListener("change", (e) => { 
-      track.color = e.target.value;
-      // update the map and chart colors 
-      chart.data.datasets
-          .filter( dataset => dataset.label == name )
-          .forEach( dataset => dataset.borderColor = track.color);
-      chart.update();
-      // change the color of the polyline layer
-      trackLayers[name].eachLayer(layer => {
-        if (layer instanceof L.Polyline) {
-          layer.setStyle({ color: track.color });
+      } 
+
+      function _nameChange(track, newName) {
+        if (track.name !== newName) { 
+          delete Object.assign(config.tracks, {[newName]: config.tracks[track.name] })[newName];
+          const refErrUpd = (track.name === TRACK_REFERENCE) || (newName === TRACK_REFERENCE);
+          // DATA: update name and reference errors  
+          track.name = newName;
+          track.label = trackLabel(track);
+          if (refErrUpd) {
+            config.tracks.forEach( (track) => { 
+              trackUpdateReferenceErrors(track); 
+            } );
+          } else {
+            trackUpdateReferenceErrors(track);
+          }
+          // CHART: update the name in the dataset
+          if (track.dataset) {
+            track.dataset.label = newName;
+            chart.update();
+          }
+          // MAP: change the name of marker, popup and legend
+          mapUpdateTrack(track);
+          mapUpdateTrackLegend();
         }
-      } );
-      trackTableUpdate();
-      mapUpdateTrackLegend();
-    } );
-    td.appendChild(colorInput);
-    tr.appendChild(td);
-    
-    td = document.createElement('td');
-    td.textContent = trackGetInfo(track, 'module');
-    tr.appendChild(td);
+      }
 
-    td = document.createElement('td');
-    let fwVer = trackGetInfo(track, 'fwVer');
-    td.textContent = fwVer;
-    tr.appendChild(td);
-
-    td = document.createElement('td');
-    td.textContent = trackGetInfo(track, 'protoVer');
-    tr.appendChild(td);
-    
-    td = document.createElement('td');
-    let hwVer = trackGetInfo(track, 'hwVer');
-    if (!isDef(hwVer) || (hwVer == '')) {
-      hwVer = trackGetInfo(track, 'monHwVer');
+      function _colorChange(track, newColor) {
+        if (track.color !== newColor) {
+          // DATA: update color 
+          track.color = newColor;
+          track.label = trackLabel(track);
+          // CHART: update the map and chart colors 
+          track.dataset.borderColor = track.color;
+          chart.update();
+          // MAP: change the color ployline, marker, popup and legend
+          mapUpdateTrack(track);
+          mapUpdateTrackLegend();
+        }
+      } 
     }
-    td.textContent = hwVer;
-    tr.appendChild(td); 
-    
-    td = document.createElement('td');
-    const epochs =(isDef(track.epochs) ? track.epochs.length : '');
-    td.textContent = epochs;
-    tr.appendChild(td);
-    
-    
-    return tr;
   }
 
   // Chart 
   // ------------------------------------------------------------------------------------
 
   function chartInit() {
-    const defField = Epoch.epochFields[fieldSelect.value];
-    const isLin = isDef(defField) ? 0<=defField.prec : true;
-  
-  
-    if (Chart !== undefined) {
-        Chart.defaults.responsive = true; 
-        Chart.defaults.layout.padding = { left: 10, right: 10+10+24, top: 10, bottom: 10 };
-        Chart.defaults.animation = false;
-        Chart.defaults.transitions.active.animation.duration = 0;
-        Chart.defaults.transitions.resize.animation.duration = 0;
-        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(245,245,245,0.8)';
-        Chart.defaults.plugins.tooltip.borderColor = '#888';
-        Chart.defaults.plugins.tooltip.borderWidth = 1;
-        Chart.defaults.plugins.tooltip.cornerRadius = 0;
-        Chart.defaults.plugins.tooltip.titleColor = '#000';
-        Chart.defaults.plugins.tooltip.titleFont.size = 10;
-        Chart.defaults.plugins.tooltip.bodyColor = '#000';
-        Chart.defaults.plugins.tooltip.bodyFont.size = 10;
-        Chart.defaults.plugins.tooltip.displayColors = false;
-    }
     const chartContainer = document.getElementById("chart");
-    chartContainer.addEventListener( 'mouseout', chartStatsUpdate);
+    chartContainer.addEventListener( 'mouseout', chartUpdateAnnotation);
     chart = new Chart(chartContainer, {
       type: 'scatter',
       data: {
         datasets: []
       },
       options: { 
-        onHover: chartStatsUpdate,
-        onLeave: chartStatsUpdate,
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-          intersect: false,
-          mode: 'nearest',
-          //axis: 'x'
-        },
-        animation: {
-          duration: 0
-        },
+        onHover: chartUpdateAnnotation,
+        onLeave: chartUpdateAnnotation,
+        onClick: chartOnClick,
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { intersect: false, mode: 'nearest' },
+        layout: { padding: { left: 10, right: 10+10+24, top: 10, bottom: 10 } },
+        transitions: { active: { animation: { duration: 0 } }, resize: { animation: { duration: 0 } } },
         plugins: {
-          annotation: { 
-            annotations: {} 
-          },
+          annotation: {  annotations: {} },
           legend: {
             enabled: true,
-            labels: {
-              boxWidth: 20,
-              boxHeight: 0,
-              filter: (li) => { return li.hidden == false; }
+            labels: { 
+              boxWidth: 20, boxHeight: 0,
+              filter: (legendItem) => (!legendItem.hidden)
             }, 
-            onClick: () => { return; }
+            onClick: (evt) => evt.stopPropagation()
           },
           tooltip: {
-            usePointStyle: true,
-            callbacks: {
-              label: _toolTipTitle, 
-              afterLabel: _toolTipText,
-            }
+            usePointStyle: false, displayColors: false,
+            backgroundColor: 'rgba(245,245,245,0.8)',
+            bodyColor: '#000',  bodyFont: { size: 10 },
+            borderColor: '#888', borderWidth: 1, cornerRadius: 0,
+            callbacks: { label: _toolTipTitle,  afterLabel: _toolTipText, }
           },
           zoom: {
-            pan: {
-              enabled: true,
-              mode: 'xy',
-            },
+            pan: { enabled: true, mode: 'xy' },
             zoom: {
-              wheel: {
-                enabled: true,
-                modifierKey: 'shift'
-              },
-              drag: {
-                enabled: true,
-                modifierKey: 'shift',
-                borderWidth: 2              
-              },
-              pinch: {
-                enabled: true,
-              },
               mode: 'xy',
+              pinch: { enabled: true },
+              wheel: { enabled: true, modifierKey: 'shift' },
+              drag:  { enabled: true, modifierKey: 'shift', borderWidth: 2 }
             }
           }
         },
         scales: { 
           y: { 
             type: 'linear',
-            title: { display: true, },
-            ticks: { font:{ size:10 }, maxRotation:0, autoSkipPadding:10, },
+            title: { display: true },
+            ticks: { font:{ size:10 }, maxRotation:0, autoSkipPadding:10 }
           },
           x: { 
             type: 'linear',
-            ticks: { font:{ size:10 }, maxRotation:0, },
-            title: { display: true, }
+            title: { display: true, },
+            ticks: { font:{ size:10 }, maxRotation:0, autoSkipPadding:10 }
           }
         }
       }
     });
-    chartFieldChange();
+    chartConfigChange(); // initial change
+
     function _toolTipTitle(context) {
       return context.dataset.label;
     }
+    
     function _toolTipText(context) {
       const defField = Epoch.epochFields[fieldSelect.value];
       const unit = (defField.unit ? ' ' + defField.unit : '')
-      if (modeSelect.value === 'val') {
+      const category = defField.map ? Object.keys(defField.map) : undefined;
+      if (modeSelect.value === CHART_TIMESERIES) {
         const txtX = context.chart.options.scales.x.title.text;
         const txtY = defField.name;
         const valX = context.chart.options.scales.x.ticks.callback(context.raw.x);
-        const valY = chartValCallback(context.raw.y) + unit;
+        const valY = (category ? category[context.raw.y] : context.raw.y) + unit;
         return `${txtY}: ${valY}\n${txtX}: ${valX}`;
       } else {
         const txtX = defField.name;
         const txtY = context.chart.options.scales.y.title.text;
-        const valX = chartValCallback(context.raw.x) + unit;
+        const valX = (category ? category[context.raw.x] : context.raw.x) + unit;
         const valY = context.chart.options.scales.y.ticks.callback(context.raw.y);
         return `${txtY}: ${valY}\n${txtX}: ${valX}`;
       }
     }
   }
 
-  function chartTimeCallback(va) {
-    const datetime = new Date(va);
-    const yr = datetime.getUTCFullYear();
-    const mt = datetime.getUTCMonth()+1;
-    const day = datetime.getUTCDay();
-    const h = datetime.getUTCHours();
-    const m = datetime.getUTCMinutes();
-    const s = datetime.getUTCSeconds() + datetime.getUTCMilliseconds() * 1e-3;
-    return Epoch.fmtDate(yr,mt,day) + ' ' + Epoch.fmtTime(h,m,s);
+  function chartOnClick(e) {
+    const elems = e.chart.getElementsAtEventForMode(e, "nearest", {intersect:false} );
+    if (0 < elems.length) {
+      const pt = elems[0];
+      const dataset = e.chart.data.datasets[pt.datasetIndex];
+      const epoch = dataset.data[pt.index].epoch;
+      if (epoch?.posValid) {
+        const zoom = Math.min(map.getZoom(), 20);
+        const center = [epoch.fields.lat, epoch.fields.lng];
+        map.setView( center, zoom );
+        mapPopUp( center, epoch.fields, dataset.track.label);
+      }
+    }
   }
-  
-  function chartValCallback(va) {
-    const defField = Epoch.epochFields[fieldSelect.value];
-    const category = defField.map ? Object.keys(defField.map) : undefined;
-    const val = (0 <= defField.prec)  ? va.toFixed(defField.prec) :
-                (isDef(category))     ? category[va] : // get key by index
-                                        va;
-    return val;
-  }
-
-  function chartReset() {
-    chart.data.datasets = [];
-    chart.update();
-  }
-  
-  function chartAddTrack(track) {
-    const defField = Epoch.epochFields[fieldSelect.value];
-    const isLin = isDef(defField) ? (0<=defField.prec) : true;
-    const bkg = toRGBa(track.color, 0.5);
-    const light = toRGBa(track.color, 0.3);
-    chart.data.datasets.push( { 
-      label: track.name, 
+  function chartAddDataset(track) {
+    const dataset = { 
+      label: track.name, borderColor: track.color, 
+      track: track,
       data: [],
-      spanGaps: false,
-      showLine: isLin,
-      hidden: track.mode == 'hidden',
-      borderCapStyle: 'round',
-      borderJoinStyle: 'bevel',
-      borderColor: track.color,
+      hidden: true, spanGaps: false, showLine: true,
+      borderCapStyle: 'round', borderJoinStyle: 'bevel',
       borderWidth: 2,
-
-      pointRadius: 0,
-      pointBorderColor: epochColor,
-      pointBackgroundColor: epochBackgroundColor,
-      pointBorderWidth: 0,
-      pointHoverRadius: 5,
-      pointHoverBorderColor: epochColor,
-      pointHoverBackgroundColor: epochBackgroundColor,
-      pointHoverBorderWidth: 1,
-    } );
-    function epochColor(ctx) {
-      const row = isDef(ctx.dataIndex) && (ctx.dataIndex < ctx.dataset.data.length) ? ctx.dataset.data[ctx.dataIndex] : undefined; 
-      return isDef(row) && isDef(row.c) ? row.c : track.color;
+      pointRadius: 0, pointBorderWidth: 0,
+      pointBorderColor: _pointColor,
+      pointBackgroundColor: _pointBackgroundColor,
+      pointHoverRadius: 5, pointHoverBorderWidth: 1,
+      pointHoverBorderColor: _pointColor,
+      pointHoverBackgroundColor: _pointBackgroundColor,
+    };
+    chart.data.datasets.push( dataset );
+    track.dataset = dataset;
+    chartUpdateData(dataset);
+    
+    function _pointColor(ctx) {
+      return ctx.dataset.data[ctx.dataIndex]?.epoch?.color || track.color; 
     }
-    function epochBackgroundColor(ctx) { 
-      return toRGBa(epochColor(ctx), 0.8);
+    function _pointBackgroundColor(ctx) { 
+      return toRGBa(_pointColor(ctx), 0.8);
     }
-    chartFieldChange();
+    return dataset;
   }
 
-  function chartFieldChange() {
+  function chartRemoveDataset(dataset) { 
+    const ix = chart.data.datasets.indexOf(dataset);
+    if (ix !== -1) {
+      chart.data.datasets.splice(ix, 1);
+    }
+  }
+
+  function chartConfigChange() { 
     // update the data from epoch
     const field = fieldSelect.value;
     const defField = Epoch.epochFields[field];
-    const name = defField.name + (defField.unit ? ' [' + defField.unit + ']' : '');
+    const axisName = defField.name + (defField.unit ? ' [' + defField.unit + ']' : '');
     const category = isDef(defField.map) ? Object.keys(defField.map) : undefined;
-    if (modeSelect.value === 'hist') {
-      chart.options.scales.x.title.text = name;
-      chart.options.scales.x.ticks.callback = chartValCallback;
-      chart.options.scales.x.ticks.maxTicksLimit = category ? category.length: undefined;
-      chart.options.scales.x.ticks.autoSkip = category ? false : true;
-      chart.options.scales.x.ticks.stepSize = category ? 1 : undefined;
-
-      chart.options.scales.y.title.text = 'Density';
-      chart.options.scales.y.ticks.callback = (v) => v.toFixed(2);
-      chart.options.scales.y.ticks.maxTicksLimit = undefined;
-      chart.options.scales.y.ticks.autoSkip = true;
-      chart.options.scales.y.ticks.stepSize = undefined;
-    } else if (modeSelect.value === 'cdf') {
-      chart.options.scales.x.title.text = name;
-      chart.options.scales.x.ticks.callback = chartValCallback;
-      chart.options.scales.x.ticks.maxTicksLimit = category ? category.length: undefined;
-      chart.options.scales.x.ticks.autoSkip = category ? false : true;
-      chart.options.scales.x.ticks.stepSize = category ? 1 : undefined;
-
-      chart.options.scales.y.title.text = 'Cumulative density';
-      chart.options.scales.y.ticks.callback = (v) => v.toFixed(2);
-      chart.options.scales.y.ticks.maxTicksLimit = undefined;
-      chart.options.scales.y.ticks.autoSkip = true;
-      chart.options.scales.y.ticks.stepSize = undefined;
-
-    } else if (modeSelect.value === 'val') {
-      chart.options.scales.x.title.text = 'Time';
-      chart.options.scales.x.ticks.callback = chartTimeCallback;
-      chart.options.scales.x.ticks.maxTicksLimit = undefined;
+    const prec = defField.prec;
+    
+    if (modeSelect.value === CHART_TIMESERIES) {
+      chart.options.scales.x.title.text = 'Time UTC';
+      chart.options.scales.x.ticks.callback = _fmtDateTime;
+      chart.options.scales.x.ticks.maxTicksLimit = 10;
       chart.options.scales.x.ticks.autoSkip = true;
       chart.options.scales.x.ticks.stepSize = undefined;
 
-      chart.options.scales.y.title.text = name;
-      chart.options.scales.y.ticks.callback = chartValCallback;
+      chart.options.scales.y.title.text = axisName;
+      chart.options.scales.y.ticks.callback = _fmtVal;
       chart.options.scales.y.ticks.maxTicksLimit = category ? category.length: undefined;
       chart.options.scales.y.ticks.autoSkip = category ? false : true;
       chart.options.scales.y.ticks.stepSize = category ? 1 : undefined;
+    } else {
+      chart.options.scales.x.title.text = axisName;
+      chart.options.scales.x.ticks.callback = _fmtVal;
+      chart.options.scales.x.ticks.maxTicksLimit = category ? category.length: undefined;
+      chart.options.scales.x.ticks.autoSkip = category ? false : true;
+      chart.options.scales.x.ticks.stepSize = category ? 1 : undefined;
+
+      chart.options.scales.y.title.text = (modeSelect.value === CHART_HISTOGRAM) ? 'Density' : 'Cumulative density';
+      chart.options.scales.y.ticks.callback = (v) => Number(v.toFixed(5));
+      chart.options.scales.y.ticks.maxTicksLimit = undefined;
+      chart.options.scales.y.ticks.autoSkip = true;
+      chart.options.scales.y.ticks.stepSize = undefined;
+    } 
+
+    chart.data.datasets.forEach( (dataset) => chartUpdateData(dataset) );
+
+    function _fmtVal(v) { 
+      return category ? category[v] : Number(prec ? v.toFixed(prec) : v); 
     }
- 
-    chart.data.datasets.forEach((dataset) => {
-      const track = config.tracks[dataset.label];
-      dataset.showLine = true;
+    
+    function _fmtDateTime(va) {
+      const datetime = new Date(va);
+      const yr = datetime.getUTCFullYear();
+      const mt = datetime.getUTCMonth()+1;
+      const day = datetime.getUTCDay();
+      const h = datetime.getUTCHours();
+      const m = datetime.getUTCMinutes();
+      const s = datetime.getUTCSeconds() + datetime.getUTCMilliseconds() * 1e-3;
+      const date = Epoch.fmtDate(yr,mt,day);
+      const time = Epoch.fmtTime(h,m,s);
+      return  `${date} ${time}`;
+    }
+  }
+
+  function chartUpdateData(dataset) {
+    // update the data from epoch
+    const field = fieldSelect.value;
+    const defField = Epoch.epochFields[field];
+    const category = isDef(defField.map) ? Object.keys(defField.map) : undefined;
+    // TODO *************** fix above 
+    
+    config.tracks
+          .filter( (track) => ((dataset === undefined) || (dataset === track.dataset)))
+          .forEach( (track) => {
+      // created the chart data 
       let data = track.epochs
-        .filter((epoch) => isDef(epoch.datetime) && epoch.valid)
-        .map((epoch) => { 
+        .filter( (epoch) => (epoch.selTime && ((track.mode === MODE_ANYFIX) ? epoch.selFix : epoch.selFixGood) && epoch.timeValid) )
+        .map( (epoch) => { 
         let y = epoch.fields[fieldSelect.value];
-        if (!isDef(y)) {
-          y = Number.NaN;
-        } else if (defField.map) {
+        if (category) {
           y = category.indexOf(y);
+          y = (0 < y) ? y : undefined;
         }
-        const x = epoch.datetime;
-        return { x: x, y: y, c: epoch.color }; 
+        y = Number.isFinite(y) ? y : Number.NaN;
+        return { x: epoch.datetime, y: y, epoch:epoch }; 
       });
-      // calc the mean and std dev
+      // calc the cnt, mean, std dev, min and max
       const vals = data.map(row => row.y).filter(Number.isFinite);
-      dataset.hidden = (0 == vals.length) || (track.mode === 'hidden');
+      
+      const dataset = track.dataset;
       dataset.stats = {};
+      dataset.stats.cnt = vals.length;
       if (0 < vals.length) {
         dataset.stats.min = Math.min(... vals);
         dataset.stats.max = Math.max(... vals);
         dataset.stats.mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-        dataset.stats.std = (1 < vals.length) ? Math.sqrt(vals.reduce((s, x) => s + (x - dataset.stats.mean) ** 2, 0) / vals.length): undefined;
+        if (1 < vals.length) {
+          dataset.stats.std = Math.sqrt(vals.reduce((s, x) => s + (x - dataset.stats.mean) ** 2, 0) / vals.length);
+        }
       }
-      // convert to cdf or histogram
-      if (modeSelect.value !== 'val') {
+      // convert to cdf or histogram and calc median and quantiles 
+      if (modeSelect.value !== CHART_TIMESERIES) {
+        const PRECISION_REDUCE = (modeSelect.value === CHART_HISTORGRAM2) ? 2 : 1;
+        const prec = (0 < defField.prec) ? Math.max(1, defField.prec - 1) : 1;
+        const xd = (10 ** -prec);
         // 1) extract & optionally round
-        const PRECISION_REDUCE = 1;
-        const prec = (0 <= defField.prec) ? Math.max(defField.prec - PRECISION_REDUCE, 0) : undefined;
-        const values = data
-          .filter(e => isDef(e.y))
-          .map(e => {
-            let y = e.y;
-            if (0 <= prec) {
-              y = Number(y.toFixed(prec))
-            }
-            return y; 
-          } );
-        const len = values.length;
+        const vals = data
+          .filter( (row) => Number.isFinite(row.y) )   // only work with good numbers 
+          .map( (row) => Number(row.y.toFixed(prec)) ) // reduce precision 
+        const len = vals.length;
         if (0 < len) {
           // 2) frequency by value
           const hist = {};
-          for (const value of values) hist[value] = (hist[value] || 0) + 1;
+          vals.forEach( (x) => { 
+            hist[x] = (hist[x] || 0) + 1
+          });
           // 3) sort unique value
-          const sortValues = Object.keys(hist).map(Number).sort((a, b) => a > b);
-          // 4) cumulative → CDF
-          let cum = 0;
-          data = sortValues.map(x => {
-            const cnt = hist[x];
-            cum += cnt;
-            const cdf = cum / len;
-            if (!isDef(dataset.stats.q50) && (cdf >= 0.500)) { dataset.stats.q50 = x; }
-            if (!isDef(dataset.stats.q68) && (cdf >= 0.680)) { dataset.stats.q68 = x; }
-            if (!isDef(dataset.stats.q95) && (cdf >= 0.950)) { dataset.stats.q95 = x; }
-            if (!isDef(dataset.stats.q99) && (cdf >= 0.997)) { dataset.stats.q99 = x; }
-            const y = (modeSelect.value === 'cdf') ? cdf : (cnt / len);
-            return { x: x, y: y };
-          } );
-        
+          let sortValues = Object.keys(hist).map(Number).sort((a, b) => a > b);
+          // 4) stuff additional zeros in between values / determine the quantiles
+          const isCdf = (modeSelect.value === CHART_CDF);
+          let xl = sortValues[0] - xd;
+          let y = 0;
+          let yCum = 0;
+          const dataValues = [];
+          sortValues.forEach( (x) => {
+            // push a 0 just after last 
+            if ((xl < x) && !isCdf) {
+              dataValues.push( { x:xl, y:y } );
+            }
+            // push a 0 just before current 
+            const xn = x - xd;
+            if (xl < xn) {
+              dataValues.push( { x:xn, y:y } );
+            }
+            y = hist[x] || 0;
+            yCum += y;
+            // capture the cdf values in the hash
+            const cdf = yCum / len;
+            dataset.stats.q50 ??= cdf >= 0.500 ? x : dataset.stats.q50;
+            dataset.stats.q68 ??= cdf >= 0.680 ? x : dataset.stats.q68;
+            dataset.stats.q95 ??= cdf >= 0.950 ? x : dataset.stats.q95;
+            dataset.stats.q99 ??= cdf >= 0.997 ? x : dataset.stats.q99;
+            // select the new y value
+            y = isCdf ? cdf : (y / len);
+            dataValues.push( { x:x, y:y } );
+            y = isCdf ? y : 0;
+            xl = x + xd;
+          });
+          dataValues.push( { x:xl, y:y } );
+          data = dataValues;
         } else { 
-          data = [];
+          data.length = 0;
         }
       }
-      dataset.data = data;
+      dataset.hidden = (0 === data.length) || (track.mode === MODE_HIDDEN);
+      dataset.data.length = 0;
+      if (data.length) {
+        dataset.data.push.apply(dataset.data, data);
+      }
     });
-      
-    // update the chart and reset the zoom pan
+    // create the annotaions
+    chartUpdateAnnotation();
+    // change axis to fit new data
     chartResetZoom();
-    chartStatsUpdate(); // force an inital update to set all settings
+    // finally redraw
     chart.update();
   }
 
-  function chartStatsUpdate(evt, active/*,chart*/) {
+  // add annotaions to the chart
+  function chartUpdateAnnotation(evt, active/*,chart*/) {
     if (chart) {
       const CHART_CDF_ANNOTAIONS = {
-        y50: annotation('y', 0.500, '#00000040', '0.5'),
-        y68: annotation('y', 0.680, '#00000040', '0.68'),
-        y95: annotation('y', 0.950, '#00000040', '0.95'),
-        y99: annotation('y', 0.997, '#00000040', '0.997')
+        y50: _annotation('y', 0.500, '#00000040', '0.5' ),
+        y68: _annotation('y', 0.680, '#00000040', '0.68' ),
+        y95: _annotation('y', 0.950, '#00000040', '0.95' ),
+        y99: _annotation('y', 0.997, '#00000040', '0.997')
       };    
-      let annotations = (modeSelect.value === 'cdf') ? CHART_CDF_ANNOTAIONS : {};
+      let annotations = (modeSelect.value === CHART_CDF) ? CHART_CDF_ANNOTAIONS : {};
       if (active && (0 < active.length)) {
-        const axis = (modeSelect.value === 'val') ? 'y' : 'x';
+        const axis = (modeSelect.value === CHART_TIMESERIES) ? 'y' : 'x';
         const index = active[0].datasetIndex;
         const dataset = chart.data.datasets[index];
         if (!dataset.hidden) {
-          if (modeSelect.value === 'cdf') {
-            if (isDef(dataset.stats.q50)) annotations.q50 = annotation(axis, dataset.stats.q50, dataset.borderColor, `q50 = ${chartValCallback(dataset.stats.q50)}` );
-            if (isDef(dataset.stats.q68)) annotations.q68 = annotation(axis, dataset.stats.q68, dataset.borderColor, `q68 = ${chartValCallback(dataset.stats.q68)}` );
-            if (isDef(dataset.stats.q95)) annotations.q95 = annotation(axis, dataset.stats.q95, dataset.borderColor, `q95 = ${chartValCallback(dataset.stats.q95)}` );
-            if (isDef(dataset.stats.q99)) annotations.q99 = annotation(axis, dataset.stats.q99, dataset.borderColor, `q99 = ${chartValCallback(dataset.stats.q99)}` );
+          const color = dataset.borderColor;
+          if (modeSelect.value === CHART_CDF) {
+            if (isDef(dataset.stats.q50)) annotations.q50 = _annotation(axis, dataset.stats.q50, color, `x̃ = ${dataset.stats.q50}` );
+            if (isDef(dataset.stats.q68)) annotations.q68 = _annotation(axis, dataset.stats.q68, color, `Q68 = ${dataset.stats.q68}` );
+            if (isDef(dataset.stats.q95)) annotations.q95 = _annotation(axis, dataset.stats.q95, color, `Q95 = ${dataset.stats.q95}` );
+            if (isDef(dataset.stats.q99)) annotations.q99 = _annotation(axis, dataset.stats.q99, color, `Q99.7 = ${dataset.stats.q99}` );
           } else {
-            if (isDef(dataset.stats.min)) annotations.min = annotation(axis, dataset.stats.min, dataset.borderColor, `min = ${chartValCallback(dataset.stats.min)}`);
-            if (isDef(dataset.stats.max)) annotations.max = annotation(axis, dataset.stats.max, dataset.borderColor, `max = ${chartValCallback(dataset.stats.max)}`);
+            if (isDef(dataset.stats.min)) annotations.min = _annotation(axis, dataset.stats.min, color, `min = ${dataset.stats.min}`);
+            if (isDef(dataset.stats.max)) annotations.max = _annotation(axis, dataset.stats.max, color, `max = ${dataset.stats.max}`);
             if (isDef(dataset.stats.mean)) {
-              annotations.mean = annotation(axis, dataset.stats.mean, dataset.borderColor, `μ = ${chartValCallback(dataset.stats.mean)}`);
-              if (isDef(dataset.stats.std)) {
-                const mps = dataset.stats.mean + dataset.stats.std;
-                const mms = dataset.stats.mean - dataset.stats.std;
-                annotations.plus = annotation(axis, mps, dataset.borderColor, `μ+σ = ${chartValCallback(mps)}` );
-                annotations.minus = annotation(axis, mms, dataset.borderColor, `μ-σ = ${chartValCallback(mms)}`);
+              const field = fieldSelect.value;
+              const defField = Epoch.epochFields[field];
+              function _fmtVal(v) { return Number(defField.prec ? v.toFixed(defField.prec) : v); }
+              if (!isDef(defField.map)) {
+                annotations.mean = _annotation(axis, dataset.stats.mean, color, `μ = ${_fmtVal(dataset.stats.mean)}`);
+                if (isDef(dataset.stats.std)) {
+                  const mps = dataset.stats.mean + dataset.stats.std;
+                  annotations.plus = _annotation(axis, mps, color, `μ+σ = ${_fmtVal(mps)}` );
+                  const mms = dataset.stats.mean - dataset.stats.std;
+                  annotations.minus = _annotation(axis, mms, color, `μ-σ = ${_fmtVal(mms)}`);
+                }
               }
             }
           }
         }
       }
+      /// TODO: try to reuse the hash
       chart.options.plugins.annotation.annotations = annotations;
       chart.update();
     }
+
+    function _annotation(axis, val, color, label) {
+      const annotation = { type: MODE_LINE, borderColor: color, borderWidth: 1, borderDash: [6, 6] };
+      if (axis === 'x') {
+        annotation.xMin = annotation.xMax = val;
+      } else {
+        annotation.yMin = annotation.yMax = val;
+      }
+      if (label) {
+        const position = (axis === 'y') ? 'start' : 'end';
+        const rotation = (axis === 'x') ? -90 : 0;
+        annotation.label = { 
+          padding:2, display: true, content: label, position: position, 
+          textStrokeColor: 'rgba(255,255,255,1)', textStrokeWidth: 5, font: { weight:'nomal' },
+          backgroundColor: 'rgba(255,255,255,0)', color: color, rotation: rotation 
+        };
+      }
+      return annotation;
+    }
   }
  
-  function annotation(axis, val, color, label) {
-    const axisMin = axis + 'Min';
-    const axisMax = axis + 'Max';
-    const annotation = { type: 'line', borderColor: color, borderWidth: 1, borderDash: [6, 6] };
-    if (axis === 'x') {
-      annotation.xMin = annotation.xMax = val;
-    } else {
-      annotation.yMin = annotation.yMax = val;
-    }
-    if (label) {
-      const position = (axis === 'y') ? 'start' : 'end';
-      const rotation = (axis === 'x') ? -90 : 0;
-      annotation.label = { padding:2, display: true, content: label, position: position, 
-        textStrokeColor:'rgba(255,255,255,1)', textStrokeWidth: 3, font: { weight:'nomal' },
-        backgroundColor: 'rgba(255,255,255,0)', color: color, rotation: rotation };
-    }
-    return annotation;
-  }
-
   function chartResetZoom() {
-    let minX;
-    let maxX;
-    let minY;
-    let maxY;
-    chart.resetZoom();
-    const defField = Epoch.epochFields[fieldSelect.value];
+    // find the bounds 
+    let minX =  Infinity;
+    let maxX = -Infinity;
+    let minY =  Infinity;
+    let maxY = -Infinity;
     chart.data.datasets
-        .filter(dataset => !dataset.hidden)
-        .forEach((dataset) => {
-      const data = dataset.data.filter(r => isDef(r.x) && isDef(r.y));
-      if(0 < data.length) {
-        const arrX = data.map((r) => r.x).sort((a, b) => a > b);
-        const thisMinX = arrX[0]
-        const thisMaxX = arrX[arrX.length - 1];
-        const arrY = data.map((r) => r.y).sort((a, b) => a > b);
-        const thisMinY = arrY[0];
-        const thisMaxY = arrY[arrY.length - 1];
-        if (isDef(thisMinX) && (!isDef(minX) || (thisMinX < minX))) minX = thisMinX;
-        if (isDef(thisMaxX) && (!isDef(maxX) || (thisMaxX > maxX))) maxX = thisMaxX;
-        if (isDef(thisMinY) && (!isDef(minY) || (thisMinY < minY))) minY = thisMinY;
-        if (isDef(thisMaxY) && (!isDef(maxY) || (thisMaxY > maxY))) maxY = thisMaxY;
-      }
-    });
+      .filter( (dataset) => (!dataset.hidden) )
+      .forEach( (dataset) => {
+        dataset.data.forEach( (row) => {
+          if (Number.isFinite(row.x)) {
+            minX = Math.min(minX, row.x);
+            maxX = Math.max(maxX, row.x);
+          }
+          if (Number.isFinite(row.y)) {
+            minY = Math.min(minY, row.y);
+            maxY = Math.max(maxY, row.y);
+          }
+        } )
+    } );
+    // category fields are fixed
+    const defField = Epoch.epochFields[fieldSelect.value];
     if (defField.map) {
       // make it fixed size
-      if (modeSelect.value === 'val') {
+      if (modeSelect.value === CHART_TIMESERIES) {
         minY = 0; 
         maxY = Object.keys(defField.map).length - 1;
       } else {
@@ -1270,98 +1549,20 @@ window.onload = function _onload() {
         maxX = Object.keys(defField.map).length - 1;
       }
     }
-    if (modeSelect.value === 'hist') {
+    // make defaults 
+    if (modeSelect.value !== CHART_TIMESERIES) {
       minY = 0.00;
-    } else if (modeSelect.value === 'cdf') {
-      minY = 0.00;
-      maxY = 1.00;
-    }
-    if (isDef(minX)) chart.options.scales.x.min = minX;
-    if (isDef(maxX)) chart.options.scales.x.max = maxX;
-    if (isDef(minY)) chart.options.scales.y.min = minY;
-    if (isDef(maxY)) chart.options.scales.y.max = maxY;
-  }
-
-  // Math 
-  // ------------------------------------------------------------------------------------
-
-  function updateErrors() {
-    const refTrack = config.tracks[TRACK_REFERENCE];
-    if (isDef(refTrack)) {
-      Object.entries(config.tracks)
-        .filter(([name, track]) => (name !== TRACK_REFERENCE))
-        .forEach(([name, track])  => {
-          computeErrors(track.epochs, refTrack.epochs);
-        } )
-    }
-  }
-
-  function haversine(lat1, lng1, lat2, lng2) {
-    const R = 6371000; // Earth radius in meters
-    const toRad = deg => deg * Math.PI / 180;
-    const dLat = toRad(lat2 - lat1);
-    const dLng = toRad(lng2 - lng1);
-    const a = Math.sin(dLat/2)**2 +
-              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
-    return 2 * R * Math.asin(Math.sqrt(a));
-  }
-
-  function computeErrors(measEpochs, refEpochs) {
-    let refIx = 0;
-    const refLen = refEpochs.length;
-    measEpochs.forEach( (epoch) => {
-      const measDatetime = epoch.datetime;
-      // we are not checking 
-      const refIx = refEpochs.findIndex(refEpoch => refEpoch.datetime >= measDatetime);
-      let refMeas;
-      if (refIx != -1) {
-        const refEpoch = refEpochs[refIx];
-        const refDatetime = refEpoch.datetime;
-        if (refDatetime == measDatetime) {
-          refMeas = { 
-            lat:refEpoch.fields.lat, 
-            lng:refEpoch.fields.lng, 
-            height:refEpoch.fields.height,
-            speed:refEpoch.fields.speed,
-            gSpeed:refEpoch.fields.gSpeed 
-          };
-        } else if (refIx > 0) {
-          const prevEpoch = refEpochs[refIx - 1];
-          const prevDatetime = prevEpoch.datetime;
-          if (prevDatetime < measDatetime) {
-            const ratio = (refDatetime - measDatetime) / (refDatetime - prevDatetime);
-            refMeas = {
-              lat: refEpoch.fields.lat + (prevEpoch.fields.lat - refEpoch.fields.lat) * ratio,
-              lng: refEpoch.fields.lng + (prevEpoch.fields.lng - refEpoch.fields.lng) * ratio,
-              height: refEpoch.fields.height + (prevEpoch.fields.height - refEpoch.fields.height) * ratio,
-              speed: refEpoch.fields.speed + (prevEpoch.fields.speed - refEpoch.fields.speed) * ratio,
-              gSpeed: refEpoch.fields.gSpeed + (prevEpoch.fields.gSpeed - refEpoch.fields.gSpeed) * ratio
-            }
-          }
-        }
-      }
-      
-      if (isDef(refMeas)) {
-        helper('hErr', haversine(epoch.fields.lat, epoch.fields.lng, refMeas.lat, refMeas.lng));
-        helper('vErr', Math.abs(epoch.fields.height - refMeas.height));
-        helper('pErr', Math.sqrt(epoch.fields.hErr ** 2 + epoch.fields.vErr ** 2));
-        helper('sErr', Math.abs(epoch.fields.speed - refMeas.speed));
-        helper('gsErr', Math.abs(epoch.fields.gSpeed - refMeas.gSpeed));
-      } else {
-        delete epoch.fields.hErr;
-        delete epoch.fields.vErr;
-        delete epoch.fields.pErr;
-        delete epoch.fields.sErr;
-        delete epoch.fields.gsErr;
-      }
-      function helper(key, value) {
-        if (isDef(refMeas) && Number.isFinite(value)) {
-          epoch.fields[key] = Number(value.toFixed(3));
-        } else {
-          delete epoch.fields[key];
-        }
+      if (modeSelect.value === CHART_CDF) {
+        maxY = 1.00;
       } 
-    } )
+    }
+    // now reset the zoom plugin 
+    chart.resetZoom();
+    // set new scales
+    if (Number.isFinite(minX)) chart.options.scales.x.min = minX;
+    if (Number.isFinite(maxX)) chart.options.scales.x.max = maxX;
+    if (Number.isFinite(minY)) chart.options.scales.y.min = minY;
+    if (Number.isFinite(maxY)) chart.options.scales.y.max = maxY;
   }
 
   // Helper 
@@ -1371,15 +1572,11 @@ window.onload = function _onload() {
     return (undefined !== value) && (null !== value);
   }
 
-  function toRGBa(hex, alpha) {
+  function toRGBa(hex, alpha = 1) {
     var r = parseInt(hex.slice(1, 3), 16),
         g = parseInt(hex.slice(3, 5), 16),
         b = parseInt(hex.slice(5, 7), 16);
-    if (alpha) {
-        return "rgba(" + r + ", " + g + ", " + b + ", " + alpha + ")";
-    } else {
-        return "rgb(" + r + ", " + g + ", " + b + ")";
-    }
+    return `rgba(${r},${g},${b},${alpha})`;
   }
 
 }

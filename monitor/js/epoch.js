@@ -298,12 +298,15 @@ function epochComplete(epoch) {
     const fields = epoch.fields; 
     if (isDef(fields.fixType) && isDef(fields.flags.fixOk)) {
         // from UBX
-        const map = { 5: 'TIME', 4: '3D+DR', 3: '3D', 2: '2D', 1: 'DR' }; 
+        const map = { 5: 'TIME', 4: '3D+DR', 3: '3D', 2: '2D', 1: 'DR', 0:'NO' }; 
         const mapC = { 1: 'FLOAT', 2: 'FIXED' }; 
-        fields.fix = (0 == fields.flags.fixOk) ?    'BAD' :
-                    !isDef(map[fields.fixType]) ?  'NO' :
-                    isDef(mapC[fields.flags?.carrSol]) ?   mapC[fields.flags?.carrSol] :
-                                                   map[fields.fixType];
+        if ((0 !== fields.fixType) && (0 === fields.flags.fixOk)) {
+            fields.fix = 'BAD';
+        } else if (mapC[fields.flags?.carrSol]) {
+            fields.fix = mapC[fields.flags?.carrSol];
+        }  else if (map[fields.fixType]) {
+            fields.fix =map[fields.fixType];
+        }
     } else {
         /* from  NMEA
         status  quality  navMode posMode 
@@ -333,6 +336,7 @@ function epochComplete(epoch) {
     // date / time from UBX
     if (!isDef(fields.date) && (fields.valid?.validDate == 1) && 
         isDef(fields.year) && isDef(fields.month) && isDef(fields.day)) {
+        if (fields.year > 2025) prompt(fields.toString());
         fields.date = fmtDate(fields.year, fields.month, fields.day);
     }
     if (!isDef(fields.time) && (fields.valid?.validTime == 1) && 
@@ -402,7 +406,6 @@ function isDef(value) {
     return undefined !== value;
 }
 
-const LEAP_SECONDS = 18;
 function getTimeItow(itow) {
     const LEAP_SECONDS = 18;
     const itowleap = (itow % 86400) - LEAP_SECONDS
@@ -414,18 +417,22 @@ function getTimeItow(itow) {
     return fmtTime(h, m, s);
 }
 
-function fmtTime(h, m, s) {
+function fmtTime(h, m, s, prec=3) {
     const hh = String(h).padStart(2, '0');
     const mm = String(m).padStart(2, '0');
     const ss = String(Math.floor(s)).padStart(2, '0');
-    const sss = String(Math.round((s % 1) * 1000)).padStart(3, '0');
-    return `${hh}:${mm}:${ss}.${sss}`;
+    const ms = (s - ss) * 1000;
+    const sss = ((0 < prec) && (ms != 0)) ? '.' + String(Math.round(ms)).padStart(prec, '0') : '';
+    return `${hh}:${mm}:${ss}${sss}`;
 }
 
 function fmtDate(y, m, d) {
     const mm = String(m).padStart(2, '0');
     const dd = String(d).padStart(2, '0');
-    return `${y}-${mm}-${d}`;
+    y = Number(y);
+    y = ((y < 80) ? 2000 : (y < 100) ? 1900 : 0) + y;
+    y = y.toString();
+    return `${y}-${mm}-${dd}`;
 }
 
 return { gnssLut: gnssLut, flagsEmoji: flagsEmoji, epochFields: epochFields, 

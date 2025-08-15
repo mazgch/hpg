@@ -291,7 +291,12 @@ function processDecode(data, spec, littleEnd = true, ofsBit = 0) {
                                     if (m) elem = [m[1],m[2],(m[3]+'000').slice(0,6)].join(':');
                                 } else if (type === 'D') {
                                     const m = elem.match(/^(\d\d)(\d\d)(\d\d)$/);
-                                    if (m) elem = ['20'+m[3],m[2],m[1]].join('-');
+                                    if (m) {
+                                        let y = Number(m[3]);
+                                        y = ((y < 80) ? 2000 : (y < 100) ? 1900 : 0) + y;
+                                        y = y.toString();
+                                        elem = [ y, m[2] , m[1] ].join('-');
+                                    }
                                 } else {
                                     let v;
                                     if (type === 'R') {

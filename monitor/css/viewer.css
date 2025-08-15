@@ -14,9 +14,13 @@
  * limitations under the License.
  */
  
- #map, #chart, .vresize {
+ #map, .vresize {
+  resize: vertical;
+  min-height:200px;
   resize: vertical;
   height: 50vh;
+	overflow: clip;
+	overflow-anchor: none;
 }
 
 #drop-overlay {
@@ -38,15 +42,6 @@
   opacity: 0;
   transition: opacity 0.2s ease-in-out;
   pointer-events: none; /* prevents clicking controls when hidden */
-}
-
-.dash {
-  display: inline-block;
-  width: 20px;
-  height: 2px;
-  margin-inline: 4px;
-  margin-bottom: calc(0.5em-1px);
-  vertical-align: middle;
 }
 
 .map-section:hover .leaflet-control {
@@ -82,6 +77,15 @@
   fill-opacity: 0.05;
 }
 
+.dash {
+  display: inline-block;
+  width: 20px;
+  height: 2px;
+  margin-inline: 4px;
+  margin-bottom: calc(0.5em-1px);
+  vertical-align: middle;
+}
+
 .icon-inline {
   width: 0.9em;
   height: 0.9em;
@@ -99,4 +103,30 @@
   background-color: #00000010;
   padding: 0.1em 0.1em;
   border-radius: 4px;
+}
+
+/* experimental */
+
+.range-slider input[type=range] {
+  display: none;
+}
+
+.slider {
+    height: 6px;
+    margin-top:0.5em;
+    margin-bottom:1em;
+    background: var(--bgnd);
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.slider .range-slider__thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 6px;
+    background: var(--black);
+}
+
+.slider .range-slider__range {
+    background: var(--gray);
 }
