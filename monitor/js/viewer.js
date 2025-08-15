@@ -1354,7 +1354,7 @@ window.onload = function _onload() {
       chart.options.scales.x.ticks.autoSkip = category ? false : true;
       chart.options.scales.x.ticks.stepSize = category ? 1 : undefined;
 
-      chart.options.scales.y.title.text = (modeSelect.value === CHART_HCDF) ? 'Cumulative density' : 'Density';
+      chart.options.scales.y.title.text = (modeSelect.value === CHART_CDF) ? 'Cumulative density' : 'Density';
       chart.options.scales.y.ticks.callback = (v) => Number(v.toFixed(5));
       chart.options.scales.y.ticks.maxTicksLimit = undefined;
       chart.options.scales.y.ticks.autoSkip = true;
@@ -1408,7 +1408,7 @@ window.onload = function _onload() {
             l = v;
             let y = (modeSelect.value === CHART_CUMULATIVE) ? (category ? undefined : c) : 
                       (modeSelect.value === CHART_DERIVATIVE) ? (category ? undefined : d) : v;
-            y = (0 <= defField.prec) ? Number(y.toFixed(defField.prec)) : y;
+            y = (Number.isFinite(y) && (0 <= defField.prec)) ? Number(y.toFixed(defField.prec)) : y;
             return { x: epoch.datetime, y: y, epoch:epoch };
           } else {
             l = undefined;
