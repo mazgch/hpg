@@ -35,10 +35,10 @@ window.onload = function _onload() {
   const MODE_ANYFIX      = 'anyfix';
   const MODE_LINE        = 'line';
   // chart modes 
-  const CHART_HISTOGRAM   = 'histogram';
-  const CHART_HISTORGRAM2 = 'histogram2';
-  const CHART_TIMESERIES  = 'time series';
-  const CHART_CDF         = 'cdf';
+  const CHART_HISTOGRAM   = 'Histogram';
+  const CHART_HISTORGRAM2 = 'Histogram 2';
+  const CHART_TIMESERIES  = 'Time series';
+  const CHART_CDF         = 'CDF';
   // Reseverd words 
   const PLACE_OVERVIEW   = 'Overview';
   const TRACK_REFERENCE  = 'Reference';
@@ -200,8 +200,8 @@ window.onload = function _onload() {
   downloadConfig.addEventListener('click', configDownloadJson);
   const placeSelect = document.getElementById("places");
   placeSelect.addEventListener("change", (evt) => {
-    const placeName = evt.target.value;
-    const place = config.places.find((place) => (place.name === placeName));
+    const name = evt.target.value;
+    const place = config.places.find((place) => (place.name === name));
     placeChange(place);
   });
   const clearConfig = document.getElementById("clear");
@@ -370,7 +370,9 @@ window.onload = function _onload() {
     let infoCenter;
     let fixLost;
     const layer = L.layerGroup();
-    track.epochs.forEach( (epoch) => {
+    track.epochs
+          .filter((epoch) => epoch.selTime)
+          .forEach( (epoch) => {
       // if we are loosing the fix with this epoch 
       if (addInfos && !epoch.selFixGood && (fixLost === false)) {
         infos.push('Fix lost');
@@ -451,15 +453,15 @@ window.onload = function _onload() {
             .map( ([field, val]) => _tr(field, Epoch.epochFields[field], val) )
             .join('');
     popup.setContent( 
-          `${label}<br><table class="table" style="font-size:0.8em"><thead>
-          <tr><th>Parameter</th><th class="right">Value</th><th>Unit</th></tr>
-          </thead><tbody>${rows}</tbody></table>`);
+          label + '<br><table class="table" style="font-size:0.8em"><thead>'+
+          '<tr><th>Parameter</th><th class="right">Value</th><th>Unit</th></tr>'+
+          '</thead><tbody>'+rows+'</tbody></table>');
     popup.openOn(map);
 
     function _tr(field, def, val){
       const unit = def?.unit || '';
       const name = def?.name || field;
-      return `<tr><td>${name}</td><td class="right">${val}</td><td>${unit}</td></tr>`;
+      return '<tr><td>'+name+'</td><td class="right">'+val+'</td><td>'+unit+'</td></tr>';
     }
   }
  
@@ -493,41 +495,38 @@ window.onload = function _onload() {
     trackRemoveAll();
   }
 
-  function configApply(json) {
-    let sanJson;
+  function configApply(rawJson) {
+    let json;
     try {
-      sanJson = JSON.parse(json);
-    } catch (err) { 
-      alert("Error parsing the .json file.");
+      json = JSON.parse(rawJson);
+    } catch (err) {
+       alert("Error parsing the .json envirionment file.");
     }
-    if (isDef(sanJson)) {
-      if (isDef(sanJson.chart?.field)) {
-        fieldSelect.value = sanJson.chart.field;
-      }
-      if (isDef(sanJson.chart?.mode)) {
-        modeSelect.value = sanJson.chart.mode;
-      }
-      if (Array.isArray(sanJson.config?.time) && (2 === sanJson.config.time.length)) {
-        const range = sanJson.config.time.map( (time) => new Date(time).getTime() );
-        if (Number.isFinite(range[0]) && Number.isFinite(range[1])) {
-          timeSetRange(config.time);
+    if (typeof json === 'object') {
+      if (json.version === 1.0) {
+        (typeof json.field === 'string') && (fieldSelect.value = json.field);
+        (typeof json.mode === 'string') && (modeSelect.value = json.mode);
+        if (Array.isArray(json.time) && (2 === json.time.length)) {
+          const range = json.time.map( (time) => new Date(time).getTime() );
+          if (Number.isFinite(range[0]) && Number.isFinite(range[1]) && (range[0] < range[1])) {
+            timeSetRange(range);
+          }
         }
+        if (Number.isFinite(json.opacity)) {
+          opacitySlider.value = json.opacity;
+          mapSetOpacity(opacitySlider.value);
+        }
+        Array.isArray(json.places) && placeApplyConfig(json.places);
+        Array.isArray(json.tracks) && trackApplyConfig(json.tracks);
+        if (typeof json.place === 'string') {
+          const place = config.places.find((place) => (place.name === json.place))
+          if (place) {
+            placeChange(place);
+          }
+        }
+      } else {
+        alert('Version '+json.version+'of .json envirionment file not supported or unknown.');
       }
-      if (Array.isArray(sanJson.places)) {
-        placeApplyConfig(sanJson.places);
-      }
-      if (Array.isArray(sanJson.tracks)) {
-        trackApplyConfig(sanJson.tracks);
-      }
-      if (Number.isFinite(sanJson.map?.opacity)) {
-        opacitySlider.value = sanJson.map.opacity;
-        mapSetOpacity(opacitySlider.value);
-      }
-      let place;
-      if (typeof sanJson.map?.place === 'string') {
-        place = config.places[sanJson.map.place];
-      }
-      placeChange(place);
     }
   }
 
@@ -584,8 +583,11 @@ window.onload = function _onload() {
           .map( (time) => new Date(time).toISOString() );
     const json = { 
       comment: `This file can be viewed with ${window.location.protocol}//${window.location.hostname}${window.location.pathname}`, 
-      map:    { place: placeSelect.value, opacity: opacitySlider.value },
-      chart:  { field: fieldSelect.value, mode: modeSelect.value },
+      version: 1,
+      place: placeSelect.value, 
+      opacity: opacitySlider.value,
+      field: fieldSelect.value, 
+      mode: modeSelect.value
     };
     (range.length === 2) && (json.time = range);
     json.places = places;
