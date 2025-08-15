@@ -510,7 +510,6 @@ window.onload = function _onload() {
       if (Array.isArray(sanJson.config?.time) && (2 === sanJson.config.time.length)) {
         const range = sanJson.config.time.map( (time) => new Date(time).getTime() );
         if (Number.isFinite(range[0]) && Number.isFinite(range[1])) {
-          config.time = range;
           timeSetRange(config.time);
         }
       }
@@ -580,17 +579,17 @@ window.onload = function _onload() {
   function configGetJson() { 
     const places = config.places.map( (place) => configPlaceJson(place) );
     const tracks = config.tracks.map( (track) => configTrackJson(track) );
+    const range = config.time
+          .filter( (time) => Number.isFinite(time) )
+          .map( (time) => new Date(time).toISOString() );
     const json = { 
       comment: `This file can be viewed with ${window.location.protocol}//${window.location.hostname}${window.location.pathname}`, 
       map:    { place: placeSelect.value, opacity: opacitySlider.value },
       chart:  { field: fieldSelect.value, mode: modeSelect.value },
-      places:  places, 
-      tracks:  tracks,
     };
-    const range = config.time
-          .filter((time) => isFinite(time))
-          .map( (time) => new Date(time).toISOString());
-    (range.length === 2) && (config.time = range);
+    (range.length === 2) && (json.time = range);
+    json.places = places;
+    json.tracks = tracks;
     return JSON.stringify(json, null, 1/*change to 1 for better readability*/);
   }
 
