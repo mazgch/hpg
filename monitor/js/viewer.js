@@ -42,6 +42,7 @@ window.onload = function _onload() {
   // Reseverd words 
   const PLACE_OVERVIEW   = 'Overview';
   const TRACK_REFERENCE  = 'Reference';
+  const LAYER_PLACES     = "Places";
   // track colors
   const COLOR_REFERENCE  = '#000000';
   const COLOR_UBLOX      = '#0000ff';
@@ -233,6 +234,7 @@ window.onload = function _onload() {
   let map;
   let chart;
   let placesLayer;
+  let baseLayers;
   let layerControl;
   let config = { places: [], tracks: [], time: [ -Infinity, Infinity ] };
   mapInit(); 
@@ -304,12 +306,12 @@ window.onload = function _onload() {
     const swisstopoGray = L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-grau/default/current/3857/{z}/{x}/{y}.jpeg', 
             { minZoom: 7.5, maxZoom: 19.5, bounds: swisstopoBounds });
     const osmStreet     = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19.5 });
-    const baseLayers = { 
+    baseLayers = { 
       "ESRI World Imagery": esriSatellite, "Stadia Satellite": stadiaSatellite,
       "Swisstopo Satellite":swisstopoSatellite, "Swisstopo Color":swisstopoColor, "Swisstopo Gray":swisstopoGray,
       "OSM Street": osmStreet };
     placesLayer = L.layerGroup().addTo(map);
-    layerControl = L.control.layers( baseLayers, { "Places": placesLayer } ).addTo(map);
+    layerControl = L.control.layers( baseLayers, { [LAYER_PLACES]: placesLayer } ).addTo(map);
     // add lat lng x y hint
     const coordControl = L.control({ position: 'bottomright' });
     map.divInfo = L.DomUtil.create('div', 'leaflet-control-coords leaflet-bar');
@@ -318,6 +320,9 @@ window.onload = function _onload() {
     map.on('mousemove', mapUpdateCoords);
     mapsContainer.addEventListener('mouseleave', mapUpdateTrackLegend)
     map.on("selectarea:selected", (evt) => placeAddBounds(evt.bounds));
+    map.on('baselayerchange', function (e) {
+      console.log('base change' + e.layer.name);;
+    });
   }
   
   function mapUpdateCoords(evt) {
@@ -517,6 +522,18 @@ window.onload = function _onload() {
           opacitySlider.value = json.opacity;
           mapSetOpacity(opacitySlider.value);
         }
+        if (Array.isArray(json.layers)) {
+          Object.entries(baseLayers).forEach( ([name, layer]) => {
+            _setVisible(layer,(-1 !== json.layers.indexOf(name)));
+          } );
+          _setVisible(placesLayer,(-1 !== json.layers.indexOf(LAYER_PLACES)));
+
+          function _setVisible(layer, show) {
+            const isVisible = map.hasLayer(layer);
+            (isVisible && !show) && map.removeLayer(layer);
+            (!isVisible && show) && layer.addTo(map);
+          }
+        }
         Array.isArray(json.places) && placeApplyConfig(json.places);
         Array.isArray(json.tracks) && trackApplyConfig(json.tracks);
         if (typeof json.place === 'string') {
@@ -582,6 +599,11 @@ window.onload = function _onload() {
     const range = config.time
           .filter( (time) => Number.isFinite(time) )
           .map( (time) => new Date(time).toISOString() );
+    let layers = [];
+    Object.entries(baseLayers).forEach(([name, layer]) => {
+      map.hasLayer(layer) && layers.push(name);
+    } );
+    map.hasLayer(placesLayer) && layers.push(LAYER_PLACES);
     const json = { 
       comment: `This file can be viewed with ${window.location.protocol}//${window.location.hostname}${window.location.pathname}`, 
       version: 1,
@@ -590,6 +612,7 @@ window.onload = function _onload() {
       field: fieldSelect.value, 
       mode: modeSelect.value
     };
+    (Array.isArray(layers) && (0 < layers.length)) && (json.layers = layers);
     (range.length === 2) && (json.time = range);
     json.places = places;
     json.tracks = tracks;
