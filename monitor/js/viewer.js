@@ -35,10 +35,12 @@ window.onload = function _onload() {
   const MODE_ANYFIX      = 'anyfix';
   const MODE_LINE        = 'line';
   // chart modes 
-  const CHART_HISTOGRAM   = 'Histogram';
-  const CHART_HISTORGRAM2 = 'Histogram 2';
-  const CHART_TIMESERIES  = 'Time series';
-  const CHART_CDF         = 'CDF';
+  const CHART_TIMESERIES = 'Time series';
+  const CHART_CUMULATIVE = 'Cumulative';
+  const CHART_DERIVATIVE = 'Derivative';
+  const CHART_CDF        = 'CDF';
+  const CHART_HISTOGRAM  = 'Histogram';
+  const CHART_HISTOGRAM_COARSE = 'Histogram Coarse';
   // Reseverd words 
   const PLACE_OVERVIEW   = 'Overview';
   const TRACK_REFERENCE  = 'Reference';
@@ -294,18 +296,18 @@ window.onload = function _onload() {
     map.selectArea.setControlKey(true);
     L.control.scale().addTo(map);
     mapSetOpacity(opacitySlider.value);
-    const esriSatellite = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", 
-            { maxZoom: 20.5 }).addTo(map);
-    const stadiaSatellite = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.{ext}', 
-            { maxZoom: 20.5, ext: 'jpg' });
+    const stadiaHost = 'https://tiles.stadiamaps.com/tiles/'
+    const stadiaTile = '/{z}/{x}/{y}{r}.{ext}';
+    //const arcGisHost = 
+    const swissTopoHost = 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.';
+    const swissTopoTile = '/default/current/3857/{z}/{x}/{y}.jpeg';
     const swisstopoBounds = [[45.398181, 5.140242], [48.230651, 11.47757]];
-    const swisstopoSatellite = L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg', 
-            { minZoom: 7.5, maxZoom: 20.5, bounds: swisstopoBounds });
-    const swisstopoColor = L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg', 
-            { minZoom: 7.5, maxZoom: 19.5, bounds: swisstopoBounds });
-    const swisstopoGray = L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-grau/default/current/3857/{z}/{x}/{y}.jpeg', 
-            { minZoom: 7.5, maxZoom: 19.5, bounds: swisstopoBounds });
-    const osmStreet     = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19.5 });
+    const swisstopoSatellite = L.tileLayer(swissTopoHost + 'swissimage'    + swissTopoTile, { maxZoom: 20.5, minZoom: 7.5, bounds: swisstopoBounds } );
+    const swisstopoColor  = L.tileLayer(swissTopoHost + 'pixelkarte-farbe' + swissTopoTile, { maxZoom: 19.5, minZoom: 7.5, bounds: swisstopoBounds } );
+    const swisstopoGray   = L.tileLayer(swissTopoHost + 'pixelkarte-grau'  + swissTopoTile, { maxZoom: 19.5, minZoom: 7.5, bounds: swisstopoBounds } );
+    const esriSatellite   = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20.5 } ).addTo(map);
+    const stadiaSatellite = L.tileLayer(stadiaHost + 'alidade_satellite' + stadiaTile, { maxZoom: 20.5, ext: 'jpg' } );
+    const osmStreet       = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19.5 });
     baseLayers = { 
       "ESRI World Imagery": esriSatellite, "Stadia Satellite": stadiaSatellite,
       "Swisstopo Satellite":swisstopoSatellite, "Swisstopo Color":swisstopoColor, "Swisstopo Gray":swisstopoGray,
@@ -1233,12 +1235,12 @@ window.onload = function _onload() {
           y: { 
             type: 'linear',
             title: { display: true },
-            ticks: { font:{ size:10 }, maxRotation:0, autoSkipPadding:10 }
+            ticks: { font:{ size:10 }, maxRotation:0, autoSkipPadding:10, beginAtZero: false }
           },
           x: { 
             type: 'linear',
             title: { display: true, },
-            ticks: { font:{ size:10 }, maxRotation:0, autoSkipPadding:10 }
+            ticks: { font:{ size:10 }, maxRotation:0, autoSkipPadding:10, beginAtZero: false }
           }
         }
       }
@@ -1322,18 +1324,23 @@ window.onload = function _onload() {
     // update the data from epoch
     const field = fieldSelect.value;
     const defField = Epoch.epochFields[field];
-    const axisName = defField.name + (defField.unit ? ' [' + defField.unit + ']' : '');
+    const axisName = defField.name + 
+        ((modeSelect.value === CHART_CUMULATIVE) ||
+          (modeSelect.value === CHART_DERIVATIVE) ||
+          !defField.unit) ? '' : (' [' + defField.unit + ']');
     const category = isDef(defField.map) ? Object.keys(defField.map) : undefined;
     const prec = defField.prec;
     
-    if (modeSelect.value === CHART_TIMESERIES) {
+    if ((modeSelect.value === CHART_TIMESERIES) || 
+        (modeSelect.value === CHART_CUMULATIVE) || 
+        (modeSelect.value === CHART_DERIVATIVE)) {
       chart.options.scales.x.title.text = 'Time UTC';
       chart.options.scales.x.ticks.callback = _fmtDateTime;
       chart.options.scales.x.ticks.maxTicksLimit = 10;
       chart.options.scales.x.ticks.autoSkip = true;
       chart.options.scales.x.ticks.stepSize = undefined;
 
-      chart.options.scales.y.title.text = axisName;
+      chart.options.scales.y.title.text = ((modeSelect.value !== CHART_TIMESERIES) ? modeSelect.value + ' ' : '')  + axisName;
       chart.options.scales.y.ticks.callback = _fmtVal;
       chart.options.scales.y.ticks.maxTicksLimit = category ? category.length: undefined;
       chart.options.scales.y.ticks.autoSkip = category ? false : true;
@@ -1382,21 +1389,32 @@ window.onload = function _onload() {
     config.tracks
           .filter( (track) => ((dataset === undefined) || (dataset === track.dataset)))
           .forEach( (track) => {
-      // created the chart data 
+      // created the chart data
+      let c = 0;
+      let l; 
       let data = track.epochs
-        .filter( (epoch) => (epoch.selTime && ((track.mode === MODE_ANYFIX) ? epoch.selFix : epoch.selFixGood) && epoch.timeValid) )
+        .filter( (epoch) => (epoch.selTime && epoch.timeValid) )
         .map( (epoch) => { 
-        let y = epoch.fields[fieldSelect.value];
-        if (category) {
-          y = category.indexOf(y);
-          y = (0 < y) ? y : undefined;
-        }
-        y = Number.isFinite(y) ? y : Number.NaN;
-        return { x: epoch.datetime, y: y, epoch:epoch }; 
-      });
+          let v = epoch.fields[fieldSelect.value];
+          if (((track.mode === MODE_ANYFIX) ? epoch.selFix : epoch.selFixGood) && (v !== undefined)) {
+            if (category) {
+              v = category.indexOf(v);
+              v = (0 <= v) ? v : undefined;
+            } 
+            c += v;
+            const d = Number.isFinite(l) ? (v - l) : undefined;
+            l = v;
+            const y = (modeSelect.value === CHART_CUMULATIVE) ? (category ? undefined : c) : 
+                      (modeSelect.value === CHART_DERIVATIVE) ? (category ? undefined : d) : v;
+            return { x: epoch.datetime, y: y, epoch:epoch };
+          } else {
+            l = undefined;
+            return { x: epoch.datetime, y: undefined, epoch:epoch };
+          }
+        });
       // calc the cnt, mean, std dev, min and max
-      const vals = data.map(row => row.y).filter(Number.isFinite);
-      
+
+      const vals = data.map((row) => (row.y)).filter(Number.isFinite);
       const dataset = track.dataset;
       dataset.stats = {};
       dataset.stats.cnt = vals.length;
@@ -1409,8 +1427,10 @@ window.onload = function _onload() {
         }
       }
       // convert to cdf or histogram and calc median and quantiles 
-      if (modeSelect.value !== CHART_TIMESERIES) {
-        const PRECISION_REDUCE = (modeSelect.value === CHART_HISTORGRAM2) ? 2 : 1;
+      if ((modeSelect.value === CHART_CDF) ||
+          (modeSelect.value === CHART_HISTOGRAM)  || 
+          (modeSelect.value === CHART_HISTOGRAM_COARSE)) {
+        const PRECISION_REDUCE = (modeSelect.value === CHART_HISTOGRAM_COARSE) ? 2 : 1;
         const prec = (0 < defField.prec) ? Math.max(1, defField.prec - 1) : 1;
         const xd = (10 ** -prec);
         // 1) extract & optionally round
@@ -1425,7 +1445,7 @@ window.onload = function _onload() {
             hist[x] = (hist[x] || 0) + 1
           });
           // 3) sort unique value
-          let sortValues = Object.keys(hist).map(Number).sort((a, b) => a > b);
+          let sortValues = Object.keys(hist).map(Number).sort((a, b) => a - b);
           // 4) stuff additional zeros in between values / determine the quantiles
           const isCdf = (modeSelect.value === CHART_CDF);
           let xl = sortValues[0] - xd;
@@ -1487,7 +1507,9 @@ window.onload = function _onload() {
       };    
       let annotations = (modeSelect.value === CHART_CDF) ? CHART_CDF_ANNOTAIONS : {};
       if (active && (0 < active.length)) {
-        const axis = (modeSelect.value === CHART_TIMESERIES) ? 'y' : 'x';
+        const axis = ((modeSelect.value === CHART_TIMESERIES) || 
+                      (modeSelect.value === CHART_CUMULATIVE) || 
+                      (modeSelect.value === CHART_DERIVATIVE)) ? 'y' : 'x';
         const index = active[0].datasetIndex;
         const dataset = chart.data.datasets[index];
         if (!dataset.hidden) {
@@ -1575,7 +1597,9 @@ window.onload = function _onload() {
       }
     }
     // make defaults 
-    if (modeSelect.value !== CHART_TIMESERIES) {
+    if ((modeSelect.value === CHART_CDF) ||
+        (modeSelect.value === CHART_HISTOGRAM) ||
+        (modeSelect.value === CHART_HISTOGRAM_COARSE)) {
       minY = 0.00;
       if (modeSelect.value === CHART_CDF) {
         maxY = 1.00;
@@ -1584,10 +1608,10 @@ window.onload = function _onload() {
     // now reset the zoom plugin 
     chart.resetZoom();
     // set new scales
-    if (Number.isFinite(minX)) chart.options.scales.x.min = minX;
-    if (Number.isFinite(maxX)) chart.options.scales.x.max = maxX;
-    if (Number.isFinite(minY)) chart.options.scales.y.min = minY;
-    if (Number.isFinite(maxY)) chart.options.scales.y.max = maxY;
+    chart.options.scales.x.min = Number.isFinite(minX) ? minX : undefined;
+    chart.options.scales.x.max = Number.isFinite(maxX) ? maxX : undefined;
+    chart.options.scales.y.min = Number.isFinite(minY) ? minY : undefined;
+    chart.options.scales.y.max = Number.isFinite(maxY) ? maxY : undefined;
   }
 
   // Helper 
