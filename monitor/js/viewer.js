@@ -461,7 +461,8 @@ window.onload = function _onload() {
     function _tr(field, def, val){
       const unit = def?.unit || '';
       const name = def?.name || field;
-      return '<tr><td>'+name+'</td><td class="right">'+val+'</td><td>'+unit+'</td></tr>';
+      return '<tr><td class="ellipsis" title="'+name+'">'+name+'</td>'+
+                 '<td class="right">'+val+'</td><td>'+unit+'</td></tr>';
     }
   }
  
