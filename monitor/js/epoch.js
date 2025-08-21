@@ -318,18 +318,18 @@ function epochComplete(epoch) {
             A      1/2       3      A/D     3D GNSS fix        
             A      1/2       3      A/D     Combined GNSS/dead reckoning fix  
         */
-        const mapStatus = { 'V': 'BAD' }; // V = data invalid, A = data valid
+        const mapStatus = { 'V': 'NO' }; // V = data invalid, A = data valid
         if (isDef(fields.status) && isDef(mapStatus[fields.status])) {
             fields.fix = mapStatus[fields.status];
         } else if (isDef(fields.quality)) {
-            const map = { 5: 'FLOAT', 4: 'FIXED', 2: 'DGPS', 1: '2D/3D', 6: 'DR' }; 
+            const map = { 5: 'FLOAT', 4: 'FIXED', 2: 'DGPS', 0: 'NO', 1: '2D/3D', 6: 'DR' }; 
             fields.fix = isDef(map[fields.quality]) ? map[fields.quality] : 'NO';
         } else if (isDef(fields.posMode)) {
-            const map = { 'S':'SIM', 'M':'MANUAL', 'F':'FLOAT', 'R':'FIXED', 'D':'DGPS', 'A':'2D/3D', 'E':'DR' }; 
+            const map = { 'N': 'NO', 'S':'SIM', 'M':'MANUAL', 'F':'FLOAT', 'R':'FIXED', 'D':'DGPS', 'A':'2D/3D', 'E':'DR' }; 
             fields.fix = isDef(map[fields.posMode]) ? map[fields.posMode] : 'NO';
         }
         if (isDef(fields.fix) && isDef(fields.navMode) && ("2D/3D" === fields.fix)) {
-            const map = { '3': '3D', '2': '2D' }; 
+            const map = { '3': '3D', '2': '2D', '1':'NO' }; 
             fields.fix = isDef(map[fields.navMode]) ? map[fields.navMode] : fields.fix;
         }
     }

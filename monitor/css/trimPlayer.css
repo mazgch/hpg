@@ -1,0 +1,168 @@
+:root {
+    --bar-pad: 8px;
+    --bar-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+    --rail-h: 10px;
+    --handle-w: 8px;
+    --label-gap: 0px;
+}
+
+/* Sticky wrapper (sticks within its parent) */
+.trimplayer-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 1001;
+    background: #fff;
+    padding-top: var(--bar-pad);
+}
+
+/* Player layout */
+.trimplayer {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    align-items: center;
+}
+
+.trimplayer .controls {
+    display: inline-flex;
+}
+
+.trimplayer .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    color:#fff;
+    background: #c0c0c0;
+    cursor: pointer;
+}
+
+.trimplayer .btn:hover {
+    background: #ff9900;
+}
+
+/* Timeline (slim) */
+.trimplayer .timeline {
+    position: relative;
+    height: 24px;
+    user-select: none;
+    touch-action: none;
+}
+
+.trimplayer .rail {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: var(--rail-h);
+    background: var(--bgnd);
+    border-radius: 999px;
+}
+
+.trimplayer .trim-window {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: var(--rail-h);
+    background: var(--gray);
+    pointer-events: none;
+}
+
+.trimplayer .handle {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: var(--handle-w);
+    height: 20px;
+    background: var(--white);
+    border: 2px solid var(--gray);
+    border-radius: 4px;
+    cursor: ew-resize;
+    touch-action: none;
+    z-index: 3;
+}
+
+.trimplayer .playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--hero);
+    transform: translateX(-50%);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.trimplayer .playhead .knob {
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--hero);
+    border: 1px solid var(--white);
+    pointer-events: auto;
+    cursor: ew-resize;
+}
+
+/* Start/End markers (full span) */
+.trimplayer .end-marker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--gray);
+    opacity: .5;
+}
+
+.trimplayer .end-marker.left {
+    left: 0;
+}
+
+.trimplayer .end-marker.right {
+    right: 0;
+}
+
+/* Floating single label (follows active element) */
+.labels-layer {
+    position: relative;
+    height: calc(0.7em + 4px);
+    margin-top: var(--label-gap);
+    pointer-events: none;
+}
+
+#lblFloating {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    font-size: 0.7em;
+    color: #333;
+    background: #fff;
+    padding: 0px 1px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+.hidden {
+    display: none;
+}
+
+#btnPlayPause .feather-play {
+    display: inline;
+}
+#btnPlayPause.playing .feather-play {
+    display: none;
+}
+#btnPlayPause .feather-pause {
+    display: none;
+}
+#btnPlayPause.playing .feather-pause {
+    display: inline;
+}

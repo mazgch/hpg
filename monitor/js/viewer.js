@@ -16,6 +16,8 @@
     
 "use strict";
 
+import { TrimPlayer } from './app/trimPlayer.js';
+
 // ------------------------------------------------------------------------------------
 /* START OF MODULE */ var UVIEW = (function () {
 // ------------------------------------------------------------------------------------
@@ -101,101 +103,23 @@ window.onload = function _onload() {
     evt.target.value = null;
   });
 
-  // datetime slider and fields 
-  const timeStep = 1000;
-  let timeDisabled = true;
-  const timeFromPicker = document.getElementById('fromTime');
-  timeFromPicker.step = 1;
-  timeFromPicker.addEventListener('change', () => {
-    const datetime = timeFromPicker.valueAsNumber;
-    if (Number.isFinite(datetime)) {
-      if (config.time[0] !== datetime) {
-        config.time[0] = datetime;
-        if (datetime > config.time[1]) {
-          timeFromPicker.valueAsNumber = config.time[1] = datetime;
-        }
-        timeSlider.value( config.time );
-      }
-    }
+  const root = document.getElementById('trimPlayer');
+  const trimPlayer = new TrimPlayer(root);
+  root.addEventListener('trim', (evt) => {
+    config.time = evt.detail;
+    trackTableUpdate();
+    config.tracks.forEach( (track) => { 
+      trackUpdate(track);
+      chartUpdateData(track.dataset);
+      mapUpdateTrack(track); 
+    } );
   });
-
-  const timeToPicker = document.getElementById('toTime');
-  timeToPicker.step = 1;
-  timeToPicker.addEventListener('change', () => { 
-    const datetime = timeToPicker.valueAsNumber;
-    if (Number.isFinite(datetime)) {
-      if (config.time[1] !== datetime) {
-        config.time[1] = datetime;
-        if (datetime < config.time[0]) {
-          timeFromPicker.valueAsNumber = config.time[0] = datetime;
-        }
-        timeSlider.value( config.time );
-      }
-    }
+  root.addEventListener('seek', (evt) => {
+    mapFlyTo(evt.detail, false);
   });
-  const timeToday = Math.round(Date.now() / timeStep) * 1000;
-  const timeSliderContainer = document.getElementById('range-slider');
-  let timeSliderTimer;
-  const timeSlider = rangeSlider(timeSliderContainer, {    
-    min: timeToday-timeStep, max: timeToday+timeStep, 
-    value: [ timeToday-timeStep , timeToday+timeStep ], disabled:timeDisabled, step: timeStep,
-    onInput: (range, userInteraction) => {
-      {
-        if (userInteraction) {
-          if (Number.isFinite(range[0]) && (config.time[0] !== range[0])) {
-            timeFromPicker.valueAsNumber = config.time[0] = range[0];
-          }
-          if (Number.isFinite(range[1]) && (config.time[1] !== range[1])) {
-            timeToPicker.valueAsNumber = config.time[1] = range[1];
-          }
-          if(timeSliderTimer) {
-            clearTimeout(timeSliderTimer);
-            timeSliderTimer = undefined;
-          }
-          timeSliderTimer = setTimeout( () => {
-            trackTableUpdate();
-            config.tracks.forEach( (track) => { 
-              trackUpdate(track);
-              chartUpdateData(track.dataset);
-              mapUpdateTrack(track); 
-              trackTableUpdate();
-            } );
-          }, 500)
-        }
-      }
-    }
+  root.addEventListener('time', (evt) => {
+    mapFlyTo(evt.detail);
   });
-
-  function timeSetRange(range) {
-    config.time = range;
-    timeFromPicker.valueAsNumber = config.time[0];
-    timeToPicker.valueAsNumber = config.time[1];
-    timeSlider.value( config.time );
-  }
-
-  function timeSetBounds(bounds) {
-    const invalidBounds = !(Array.isArray(bounds) && (bounds[0] < bounds[1]));
-    if (invalidBounds !== timeDisabled) {
-      timeSlider.disabled(invalidBounds);
-      timeFromPicker.disabled = invalidBounds;
-      timeToPicker.disabled = invalidBounds;
-      timeDisabled = invalidBounds;
-      if (invalidBounds) {
-        // make look nice if invalid
-        timeSlider.min(timeToday - timeStep);
-        timeSlider.max(timeToday + timeStep);
-        timeSlider.value([timeToday - timeStep, timeToday + timeStep]);
-      }
-    }
-    if (!invalidBounds) {
-      // round the bounds to step size
-      const rounded  = [ Math.floor(bounds[0] / timeStep) * timeStep, 
-                         Math.ceil(bounds[1] / timeStep) * timeStep ];
-      timeSlider.min(rounded[0]);
-      timeSlider.max(rounded[1]);
-      timeSlider.value(config.time); // try to restore the wished range
-    }
-  }
   
   // map
   const mapsContainer = document.getElementById("map");
@@ -418,7 +342,7 @@ window.onload = function _onload() {
             });
             marker.on('mouseover', (evt) => evt.target.setRadius(5) );
             marker.on('mouseout',  (evt) => evt.target.setRadius(3) );
-            marker.on('click', (evt) => mapPopUp(evt.latlng, epoch.fields, track.label));
+            marker.on('click', (evt) => mapPopUp(evt.latlng, epoch, track.label));
             layer.addLayer(marker);
           }
           infoCenter = center;
@@ -453,7 +377,11 @@ window.onload = function _onload() {
     }
   }
 
-  function mapPopUp(center, fields, label) { 
+  function mapPopUp(center, epoch, label) { 
+    const fields = epoch.fields;
+    if (epoch.datetime) {
+      trimPlayer.setCurrent(epoch.datetime);
+    }  
     const popup = L.popup();
     popup.setLatLng(center)
     const rows = Object.entries(fields)
@@ -480,6 +408,16 @@ window.onload = function _onload() {
     }
     if (track.mode !== MODE_HIDDEN) {
       track.layer = mapAddLayer(track);
+    }
+  }
+
+  function  mapFlyTo(datetime, pan = true) {
+    const tracks = config.tracks.filter((track) => !track.hidden);
+    let track = tracks.find((track) => (track.name == TRACK_REFERENCE)) || tracks[0];
+    const epoch = track?.epochs.findLast( (epoch) => ((epoch.datetime < datetime) && epoch.posValid));
+    if (epoch && map._loaded) {
+      const center = [epoch.fields.lat, epoch.fields.lng];
+      (pan ? map.panTo(center, 20) : map.setView(center, 20)); 
     }
   }
   
@@ -514,10 +452,14 @@ window.onload = function _onload() {
       if (json.version === 1.0) {
         (typeof json.field === 'string') && (fieldSelect.value = json.field);
         (typeof json.mode === 'string') && (modeSelect.value = json.mode);
+        chartConfigChange();
         if (Array.isArray(json.time) && (2 === json.time.length)) {
           const range = json.time.map( (time) => new Date(time).getTime() );
           if (Number.isFinite(range[0]) && Number.isFinite(range[1]) && (range[0] < range[1])) {
-            timeSetRange(range);
+            config.time = range;
+            trimPlayer.setBounds(range);
+            trimPlayer.setTrim(range);
+            trimPlayer.setCurrent(range[0]);
           }
         }
         if (Number.isFinite(json.opacity)) {
@@ -734,7 +676,7 @@ window.onload = function _onload() {
     }
   }
 
-// Track 
+  // Track 
   // ------------------------------------------------------------------------------------
 
   function trackRemoveAll() {
@@ -757,8 +699,6 @@ window.onload = function _onload() {
     trackTableUpdate();
     // no track any more 
     trackUpdate();
-    // TODO: is this right here ?
-    timeSetBounds(); // disable 
   }
 
   function trackApplyConfig(tracks) {
@@ -976,7 +916,7 @@ window.onload = function _onload() {
       track.epochs.forEach( (epoch) => { 
         epoch.selTime = epoch.timeValid && ((config.time.length !== 2) ||
               ((config.time[0] <= epoch.datetime) && (config.time[1] >= epoch.datetime)));
-        if (epoch.timeValid) {
+        if (epoch.timeValid && epoch.selFix) {
           minTime = Math.min(minTime, epoch.datetime);
           maxTime = Math.max(maxTime, epoch.datetime);
         }
@@ -1020,7 +960,9 @@ window.onload = function _onload() {
       }
       // now update the tracks 
       trackUpdate(track);
-      timeSetBounds(config.timeBounds);
+      trimPlayer.setBounds(config.timeBounds);
+      trimPlayer.setTrim(config.time);
+      trimPlayer.setCurrent(config.time[0]);
       trackTableUpdate();
       // CHART: add dataset 
       track.dataset = chartAddDataset(track);
@@ -1283,7 +1225,7 @@ window.onload = function _onload() {
         const zoom = Math.min(map.getZoom(), 20);
         const center = [epoch.fields.lat, epoch.fields.lng];
         map.setView( center, zoom );
-        mapPopUp( center, epoch.fields, dataset.track.label);
+        mapPopUp( center, epoch, dataset.track.label);
       }
     }
   }
@@ -1336,6 +1278,7 @@ window.onload = function _onload() {
     if ((modeSelect.value === CHART_TIMESERIES) || 
         (modeSelect.value === CHART_CUMULATIVE) || 
         (modeSelect.value === CHART_DERIVATIVE)) {
+      console.log('change ' + modeSelect.value);
       chart.options.scales.x.title.text = 'Time UTC';
       chart.options.scales.x.ticks.callback = _fmtDateTime;
       chart.options.scales.x.ticks.maxTicksLimit = 10;
@@ -1434,8 +1377,8 @@ window.onload = function _onload() {
           (modeSelect.value === CHART_HISTOGRAM)  || 
           (modeSelect.value === CHART_HISTOGRAM_COARSE)) {
         const PRECISION_REDUCE = (modeSelect.value === CHART_HISTOGRAM_COARSE) ? 2 : 1;
-        const prec = (0 < defField.prec) ? Math.max(1, defField.prec - 1) : 1;
-        const xd = (10 ** -prec);
+        const prec = (0 < defField.prec) ? Math.max(1, defField.prec - PRECISION_REDUCE) : 1;
+        const xd = (10 ** -prec).toFixed(prec);
         // 1) extract & optionally round
         const vals = data
           .filter( (row) => Number.isFinite(row.y) )   // only work with good numbers 
@@ -1451,12 +1394,12 @@ window.onload = function _onload() {
           let sortValues = Object.keys(hist).map(Number).sort((a, b) => a - b);
           // 4) stuff additional zeros in between values / determine the quantiles
           const isCdf = (modeSelect.value === CHART_CDF);
-          let xl = sortValues[0] - xd;
+          let xl = (sortValues[0] - xd).toFixed(prec);
           let y = 0;
           let yCum = 0;
           const dataValues = [];
           sortValues.forEach( (x) => {
-            // push a 0 just after last 
+            // push a 0 just after last
             if ((xl < x) && !isCdf) {
               dataValues.push( { x:xl, y:y } );
             }
@@ -1517,25 +1460,26 @@ window.onload = function _onload() {
         const dataset = chart.data.datasets[index];
         if (!dataset.hidden) {
           const color = dataset.borderColor;
+          const _fmt = chart.options.scales[axis].ticks.callback;
           if (modeSelect.value === CHART_CDF) {
-            if (isDef(dataset.stats.q50)) annotations.q50 = _annotation(axis, dataset.stats.q50, color, `x̃ = ${dataset.stats.q50}` );
-            if (isDef(dataset.stats.q68)) annotations.q68 = _annotation(axis, dataset.stats.q68, color, `Q68 = ${dataset.stats.q68}` );
-            if (isDef(dataset.stats.q95)) annotations.q95 = _annotation(axis, dataset.stats.q95, color, `Q95 = ${dataset.stats.q95}` );
-            if (isDef(dataset.stats.q99)) annotations.q99 = _annotation(axis, dataset.stats.q99, color, `Q99.7 = ${dataset.stats.q99}` );
+            if (isDef(dataset.stats.q50)) annotations.q50 = _annotation(axis, dataset.stats.q50, color, `x̃ = ${_fmt(dataset.stats.q50)}` );
+            if (isDef(dataset.stats.q68)) annotations.q68 = _annotation(axis, dataset.stats.q68, color, `Q68 = ${_fmt(dataset.stats.q68)}` );
+            if (isDef(dataset.stats.q95)) annotations.q95 = _annotation(axis, dataset.stats.q95, color, `Q95 = ${_fmt(dataset.stats.q95)}` );
+            if (isDef(dataset.stats.q99)) annotations.q99 = _annotation(axis, dataset.stats.q99, color, `Q99.7 = ${_fmt(dataset.stats.q99)}` );
           } else {
-            if (isDef(dataset.stats.min)) annotations.min = _annotation(axis, dataset.stats.min, color, `min = ${dataset.stats.min}`);
-            if (isDef(dataset.stats.max)) annotations.max = _annotation(axis, dataset.stats.max, color, `max = ${dataset.stats.max}`);
+            if (isDef(dataset.stats.min)) annotations.min = _annotation(axis, dataset.stats.min, color, `min = ${_fmt(dataset.stats.min)}`);
+            if (isDef(dataset.stats.max)) annotations.max = _annotation(axis, dataset.stats.max, color, `max = ${_fmt(dataset.stats.max)}`);
             if (isDef(dataset.stats.mean)) {
               const field = fieldSelect.value;
               const defField = Epoch.epochFields[field];
               function _fmtVal(v) { return Number(defField.prec ? v.toFixed(defField.prec) : v); }
               if (!isDef(defField.map)) {
-                annotations.mean = _annotation(axis, dataset.stats.mean, color, `μ = ${_fmtVal(dataset.stats.mean)}`);
+                annotations.mean = _annotation(axis, dataset.stats.mean, color, `μ = ${_fmtVal(_fmt(dataset.stats.mean))}`);
                 if (isDef(dataset.stats.std)) {
                   const mps = dataset.stats.mean + dataset.stats.std;
-                  annotations.plus = _annotation(axis, mps, color, `μ+σ = ${_fmtVal(mps)}` );
+                  annotations.plus = _annotation(axis, mps, color, `μ+σ = ${_fmt(mps)}` );
                   const mms = dataset.stats.mean - dataset.stats.std;
-                  annotations.minus = _annotation(axis, mms, color, `μ-σ = ${_fmtVal(mms)}`);
+                  annotations.minus = _annotation(axis, mms, color, `μ-σ = ${_fmt(mms)}`);
                 }
               }
             }

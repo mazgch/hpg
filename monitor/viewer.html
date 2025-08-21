@@ -13,172 +13,231 @@
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   See the License for the specific language governing permissions and
   limitations under the License.
---> 
+-->
 <html lang="en">
-  <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <link rel="profile" href="http://www.w3.org/1999/xhtml/vocab">
-    <meta name="MobileOptimized"  content="width">
-    <meta name="HandheldFriendly" content="true">
-    <meta name="viewport"         content="width=device-width, initial-scale=1.0">
-    <title>mazg.ch - Viewer</title>
-    <meta property="og:site_name" content="mazgch">
-    <meta property="og:type"      content="website">
-    <meta property="og:title"     content="UBX Viewer">
-    <meta property="og:url"       content="http://hpg.mazg.ch">
-    <meta name="twitter:card"     content="summary">
-    <meta name="twitter:site"     content="@mazgch">
-    <meta name="twitter:creator"  content="@mazgch">
-    <meta name="twitter:title"    content="UBX Viewer">
-    <meta name="twitter:url"      content="http://hpg.mazg.ch">
-    <meta name="theme-color"      content="#ffffff">
-    <link rel="canonical"         href="http://hpg.mazg.ch">
-    <link rel="shortlink"         href="http://hpg.mazg.ch">
-    <link rel="icon" href="/favicon.ico" sizes="any">
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <!--link rel="manifest" href="/site.webmanifest"-->
-    <meta charset="UTF-8">
-    <!-- Third party js & css -->
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.29.0/dist/feather.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/pako/1.0.3/pako.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/range-slider-input@2.4/dist/rangeslider.umd.min.js"></script>
-    <!-- leaflet -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
-    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet-src.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/leaflet-area-select@1.1.1/dist/index.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@4.0.0/Control.FullScreen.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@4.0.0/Control.FullScreen.min.js"></script>
-    <!-- chart js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
-    <!-- My own js & css -->
-    <script defer src="js/viewer.js"></script>
-    <script src="js/engine.js"></script>
-    <script src="js/epoch.js"></script>
-    <link rel="stylesheet" href="css/monitor.css" type="text/css" media="all">
-    <link rel="stylesheet" href="css/viewer.css">
-  </head>
-  <body id="dropzone">
-    <div id="drop-overlay">Drop your .ubx GNSS files or .json environment file.</div>
-    <div class="page">
-      <div style="margin-top: 1em; padding-top:1em;" class="section">
-        <svg style="vertical-align:middle; display:inline;" id="mazgch_logo" width="3em" height="3em" viewBox="0 0 600 600" stroke-linecap="round" stroke-width="20" fill="none" stroke="null" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-              <g id="sv">
-                  <path id="sb" stroke="#eb0000" d="m50,300c0,-138.12156 111.87845,-250 250,-250"/>
-                  <circle id="sc" fill="#eb0000" cx="300" cy="50" r="25"/>
-              </g>
-          </defs>
-          <title>mazgch</title>
-          <circle id="rb" fill="#eb0000" cx="300" cy="300" r="200" />
-          <g id="rs">
-              <use id="r1" x="0" y="0" href="#sv" transform="rotate(45 300 300)"/>
-              <use id="r2" x="0" y="0" href="#sv" transform="rotate(165 300 300)"/>
-              <use id="r3" x="0" y="0" href="#sv" transform="rotate(285 300 300)"/>
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <link rel="profile" href="http://www.w3.org/1999/xhtml/vocab">
+  <meta name="MobileOptimized" content="width">
+  <meta name="HandheldFriendly" content="true">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mazg.ch - Viewer</title>
+  <meta property="og:site_name" content="mazgch">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="UBX Viewer">
+  <meta property="og:url" content="http://hpg.mazg.ch">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:site" content="@mazgch">
+  <meta name="twitter:creator" content="@mazgch">
+  <meta name="twitter:title" content="UBX Viewer">
+  <meta name="twitter:url" content="http://hpg.mazg.ch">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="canonical" href="http://hpg.mazg.ch">
+  <link rel="shortlink" href="http://hpg.mazg.ch">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <!--link rel="manifest" href="/site.webmanifest"-->
+  <meta charset="UTF-8">
+  <!-- Third party js & css -->
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.29.0/dist/feather.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/pako/1.0.3/pako.min.js"></script>
+  <!-- leaflet -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet-src.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet-area-select@1.1.1/dist/index.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@4.0.0/Control.FullScreen.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@4.0.0/Control.FullScreen.min.js"></script>
+  <!-- chart js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+  <!-- My own js & css -->
+  <script type="module" defer src="js/viewer.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/epoch.js"></script>
+  <link rel="stylesheet" href="css/monitor.css" type="text/css" media="all">
+  <link rel="stylesheet" href="css/viewer.css">
+  <link rel="stylesheet" type="text/css" href="css/trimPlayer.css" />
+</head>
+
+<body id="dropzone">
+  <div id="drop-overlay">Drop your .ubx GNSS files or .json environment file.</div>
+  <div class="page">
+    <div style="margin-top: 1em; padding-top:1em;" class="section">
+      <svg style="vertical-align:middle; display:inline;" id="mazgch_logo" width="3em" height="3em"
+        viewBox="0 0 600 600" stroke-linecap="round" stroke-width="20" fill="none" stroke="null"
+        xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <g id="sv">
+            <path id="sb" stroke="#eb0000" d="m50,300c0,-138.12156 111.87845,-250 250,-250" />
+            <circle id="sc" fill="#eb0000" cx="300" cy="50" r="25" />
           </g>
-          <g id="w">
-              <circle id="wb" fill="#fff" cx="230" cy="370" r="50" />
-              <g id="ws" stroke="#fff" >
-                  <path id="w1" d="m230,280c50,0 90,40 90,90" />
-                  <path id="w2" d="m230,230c77.5,0 140,62.5 140,140" />
-                  <path id="w3" d="m230,180c105,0 190,85.0 190,190" />
-              </g>
+        </defs>
+        <title>mazgch</title>
+        <circle id="rb" fill="#eb0000" cx="300" cy="300" r="200" />
+        <g id="rs">
+          <use id="r1" x="0" y="0" href="#sv" transform="rotate(45 300 300)" />
+          <use id="r2" x="0" y="0" href="#sv" transform="rotate(165 300 300)" />
+          <use id="r3" x="0" y="0" href="#sv" transform="rotate(285 300 300)" />
+        </g>
+        <g id="w">
+          <circle id="wb" fill="#fff" cx="230" cy="370" r="50" />
+          <g id="ws" stroke="#fff">
+            <path id="w1" d="m230,280c50,0 90,40 90,90" />
+            <path id="w2" d="m230,230c77.5,0 140,62.5 140,140" />
+            <path id="w3" d="m230,180c105,0 190,85.0 190,190" />
           </g>
-        </svg>
-        <h1 style="vertical-align:middle; display:inline">mazg.ch - Viewer</h1>
-        <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
-          <div class="overlay_button" onclick="window.clickLink('https://twitter.com/mazgch/');"                    title="Twitter @mazgch"><i data-feather="twitter"></i></div>
-          <div class="overlay_button" onclick="window.clickLink('https://www.linkedin.com/in/michael-ammann/');"    title="LinkedIn"><i data-feather="linkedin"></i></div>
-          <div class="overlay_button" onclick="window.clickLink('https://github.com/mazgch/hpg');"                  title="Github Project Documentation"><i data-feather="github"></i></div>
-          <div class="overlay_button" onclick="window.clickLink('https://youtube.com/@mazgch?sub_confirmation=1');" title="Youtube"><i data-feather="youtube"></i></div>
-          <div class="overlay_button" onclick="window.clickLink('https://github.com/sponsors/mazgch');"             title="Support my work"><i data-feather="heart"></i></div>
-        </div>
+        </g>
+      </svg>
+      <h1 style="vertical-align:middle; display:inline">mazg.ch - Viewer</h1>
+      <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
+        <div class="overlay_button" onclick="window.clickLink('https://twitter.com/mazgch/');" title="Twitter @mazgch">
+          <i data-feather="twitter"></i></div>
+        <div class="overlay_button" onclick="window.clickLink('https://www.linkedin.com/in/michael-ammann/');"
+          title="LinkedIn"><i data-feather="linkedin"></i></div>
+        <div class="overlay_button" onclick="window.clickLink('https://github.com/mazgch/hpg');"
+          title="Github Project Documentation"><i data-feather="github"></i></div>
+        <div class="overlay_button" onclick="window.clickLink('https://youtube.com/@mazgch?sub_confirmation=1');"
+          title="Youtube"><i data-feather="youtube"></i></div>
+        <div class="overlay_button" onclick="window.clickLink('https://github.com/sponsors/mazgch');"
+          title="Support my work"><i data-feather="heart"></i></div>
       </div>
-      <div class="section">
-          <p style="width: calc(100% - 48px)">
-            This tool visualizes data recorded from one or more GPS/GNSS receivers. You can load multiple files, 
-            view their tracks together on an interactive map, and compare them in a chart. Offsets to a track named  
-            <i>Reference</i> are calculated for accuracy analysis. All processing happens in your browser, 
-            no data is uploaded to any server.
-          </p>
-      </div>
-      <h2>Tracks</h2>
-      <div id="tile_tracks" class="section">
-        <p style="width: calc(100% - 48px)">
-          Load <i data-feather="file-plus" class="icon-inline"></i> multiple <span class="fixed-inline">.ubx</span> files recorderd 
-          with <a target="_blank" href="https://www.u-blox.com/en/product/u-center">u-center</a> or any other 
-          application that captures raw data from a GNSS/GPS receiver. This page uses <span class="fixed-inline">.json</span> environment 
-          file cointaining tracks, places and your configuration. For ease of use drag and drop files to this page. If you like 
-          to share your environment with a friend or colleages, simply downloaded <i data-feather="download" class="icon-inline"></i> 
-          environment file, and share a link to this page alongside.
-        </p>  
-        <ul>
-          <li><b>Change the visibility:</b> Click on the icons in <i data-feather="eye" class="icon-inline"></i>  column
-                  to change the visibility and apperance of the track.</li>
-          <li><b>Name tracks:</b> Loaded tracks can be named individually. For the reference/truth track use the name <span class="fixed-inline">Reference</span>.</li>
-          <li><b>Set color:</b> Use the color selectors to change the line color of any track.</li>
-          <li><b>Set reference:</b> The reference track is used to calculate offests from that reference, 
-                  this is usefull evaluate accuracies.</li>
-          <li><b>Adjust interval:</b> Modify the UTC time interval <input id="fromTime" type="datetime-local" /> 
-                 to <input id="toTime" type="datetime-local" /> by adjusting the slider.<br/><div class="slider" id="range-slider"></div></li>
-        </ul> 
-        
-        <table id="table_tracks" class="table" style="table-layout:auto"></table>
-        <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
-          <input id="loadpicker"  type="file" accept=".gz,.json,.ubx,application/gzip,application/x-gzip,application/json" multiple style="display: none;">
-          <div class="overlay_button" id="load" title="Add multipe .ubx GPS/GNSS files or a .json environment file."><i data-feather="file-plus"></i></div>
-          <div class="overlay_button" id="download" title="Download current environment file. Hold Shift for uncompressed version."><i data-feather="download"></i></div>
-          <div class="overlay_button" id="clear" title="Remove all tracks and places."><i data-feather="trash"></i></div>
-        </div>
     </div>
-      <h2>Map & Places</h2>
-      <div id="tile_map" class="section">
-        <p>
-          Each track is shown as a colored polyline, matching the track's assigned color. Fix quality is indicated by points along 
-          the track, click a point to view details. Info <i data-feather="message-square" class="icon-inline"></i> markers highlight 
-          locations where important errors, warnings or notifications were collected. You can zoom and pan the map using the mouse. 
-          Use the layer control in the top right to switch between base maps and toggle the visibility of places. Places help you 
-          define areas of interest that you like people to revisit. 
-        </p>
-        <ul>
-          <li><b>Zoom to area:</b> Hold <span class="fixed-inline">Shift</span> and drag to select an area to zoom to.</li>
-          <li><b>Define a place:</b> Hold <span class="fixed-inline">Ctrl</span> and drag to to select an area to be defined as a new place.</li>
-          <li><b>Resize to place:</b> Hold <span class="fixed-inline">Ctrl</span> and click on the dashed place rectangle in the map.</li>
-          <li><b>Fit to place:</b> Choose a place from the list <select id="places"></select> or click on a dashed place rectangle in the map.</li>
-          <li>
-            <b>Adjust brightness:</b> Change the base layer opacity <input type="range" id="opacity" min="0" max="0.9" step="0.05" value="0.4" style="vertical-align: middle; height: 0.8em;"> 
-            to improve visibility.
-          </li>
-        </ul>
-        <div class="section framed vresize" id="map"></div>
+    <div class="section">
+      <p style="width: calc(100% - 48px)">
+        This tool visualizes data recorded from one or more GPS/GNSS receivers. You can load multiple files,
+        view their tracks together on an interactive map, and compare them in a chart. Offsets to a track named
+        <i>Reference</i> are calculated for accuracy analysis. All processing happens in your browser,
+        no data is uploaded to any server.
+      </p>
+    </div>
+    <h2>Tracks</h2>
+    <div id="tile_tracks" class="section">
+      <p style="width: calc(100% - 48px)">
+        Load <i data-feather="file-plus" class="icon-inline"></i> multiple <span class="fixed-inline">.ubx</span> files
+        recorderd
+        with <a target="_blank" href="https://www.u-blox.com/en/product/u-center">u-center</a> or any other
+        application that captures raw data from a GNSS/GPS receiver. This page uses <span
+          class="fixed-inline">.json</span> environment
+        file cointaining tracks, places and your configuration. For ease of use drag and drop files to this page. If you
+        like
+        to share your environment with a friend or colleages, simply downloaded <i data-feather="download"
+          class="icon-inline"></i>
+        environment file, and share a link to this page alongside.
+      </p>
+      <ul>
+        <li><b>Change the visibility:</b> Click on the icons in <i data-feather="eye" class="icon-inline"></i> column
+          to change the visibility and apperance of the track.</li>
+        <li><b>Name tracks:</b> Loaded tracks can be named individually. For the reference/truth track use the name
+          <span class="fixed-inline">Reference</span>.</li>
+        <li><b>Set color:</b> Use the color selectors to change the line color of any track.</li>
+        <li><b>Set reference:</b> The reference track is used to calculate offests from that reference,
+          this is usefull evaluate accuracies.</li>
+      </ul>
+
+      <table id="table_tracks" class="table" style="table-layout:auto"></table>
+      <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
+        <input id="loadpicker" type="file" accept=".gz,.json,.ubx,application/gzip,application/x-gzip,application/json"
+          multiple style="display: none;">
+        <div class="overlay_button" id="load" title="Add multipe .ubx GPS/GNSS files or a .json environment file."><i
+            data-feather="file-plus"></i></div>
+        <div class="overlay_button" id="download"
+          title="Download current environment file. Hold Shift for uncompressed version."><i
+            data-feather="download"></i></div>
+        <div class="overlay_button" id="clear" title="Remove all tracks and places."><i data-feather="trash"></i></div>
       </div>
-      <h2>Chart</h2>
-      <div id="tile_chart" class="section">
-        <p>
-          Each track is shown as a colored polyline, matching the track's assigned color.
-          Fix quality and value are shown when you hover over a point. You can zoom and pan the chart using the mouse. 
-        </p>
-        <ul>
-          <li><b>Zoom to area:</b> Hold <span class="fixed-inline">Shift</span> and drag to select an area to zoom to.</li>
-          <li><b>Fit zoom:</b> Click the fit zoom <i data-feather="maximize-2" class="icon-inline"></i> button to reset the zoom to the current data range.</li>
-          <li><b>Choose Y axis:</b> Select a parameter from the list <select id="field"></select> and show as <select id="mode">
+    </div>
+    <!------------------------- Trim Player ------------------------->
+    <div class="trimplayer-sticky">
+      <div class="trimplayer" id="trimPlayer">
+        <div class="controls overlay_control">
+          <button class="overlay_button" id="btnPlayPause" aria-label="Play/Pause" title="Play/Pause">
+            <i data-feather="play"></i>
+            <i data-feather="pause"></i>
+          </button>
+          <button class="overlay_button" id="btnRestart" aria-label="Restart" title="Restart">
+            <i data-feather="rotate-ccw"></i>
+          </button>
+        </div>
+        <div class="timeline" aria-label="Timeline">
+          <div class="rail"></div>
+          <div class="trim-window" id="trimWindow"></div>
+          <div class="handle" id="handleL"></div>
+          <div class="handle" id="handleR" style="left:100%"></div>
+          <div class="playhead" id="playhead" style="left:50%">
+            <div class="knob" id="scrubKnob" title="Drag to scrub"></div>
+          </div>
+          <div class="end-marker left"></div>
+          <div class="end-marker right"></div>
+        </div>
+      </div>
+      <div class="labels-layer">
+        <span id="lblFloating" class="hidden">--:--:--.---</span>
+      </div>
+    </div>
+    <!------------------------- MAP ------------------------->
+    <h2>Map & Places</h2>
+    <div id="tile_map" class="section">
+      <p>
+        Each track is shown as a colored polyline, matching the track's assigned color. Fix quality is indicated by
+        points along
+        the track, click a point to view details. Info <i data-feather="message-square" class="icon-inline"></i> markers
+        highlight
+        locations where important errors, warnings or notifications were collected. You can zoom and pan the map using
+        the mouse.
+        Use the layer control in the top right to switch between base maps and toggle the visibility of places. Places
+        help you
+        define areas of interest that you like people to revisit.
+      </p>
+      <ul>
+        <li><b>Zoom to area:</b> Hold <span class="fixed-inline">Shift</span> and drag to select an area to zoom to.
+        </li>
+        <li><b>Define a place:</b> Hold <span class="fixed-inline">Ctrl</span> and drag to to select an area to be
+          defined as a new place.</li>
+        <li><b>Resize to place:</b> Hold <span class="fixed-inline">Ctrl</span> and click on the dashed place rectangle
+          in the map.</li>
+        <li><b>Fit to place:</b> Choose a place from the list <select id="places"></select> or click on a dashed place
+          rectangle in the map.</li>
+        <li>
+          <b>Adjust brightness:</b> Change the base layer opacity <input type="range" id="opacity" min="0" max="0.9"
+            step="0.05" value="0.4" style="vertical-align: middle; height: 0.8em;">
+          to improve visibility.
+        </li>
+      </ul>
+      <div class="section framed vresize" id="map"></div>
+    </div>
+    <h2>Chart</h2>
+    <div id="tile_chart" class="section">
+      <p>
+        Each track is shown as a colored polyline, matching the track's assigned color.
+        Fix quality and value are shown when you hover over a point. You can zoom and pan the chart using the mouse.
+      </p>
+      <ul>
+        <li><b>Zoom to area:</b> Hold <span class="fixed-inline">Shift</span> and drag to select an area to zoom to.
+        </li>
+        <li><b>Fit zoom:</b> Click the fit zoom <i data-feather="maximize-2" class="icon-inline"></i> button to reset
+          the zoom to the current data range.</li>
+        <li><b>Choose Y axis:</b> Select a parameter from the list <select id="field"></select> and show as <select
+            id="mode">
             <option value="Time series">Time series</option>
             <option value="Cumulative">Cumulative</option>
             <option value="Derivative">Derivative</option>
             <option value="CDF">CDF</option>
             <option value="Histogram">Histogram</option>
           </select></li>
-        </ul>
-        <div class="section framed vresize" style="padding-bottom:10px;">
-          <canvas id="chart" style="padding-left:7px;"></canvas>
-          <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
-            <div class="overlay_button" id="resetZoom" title="Reset zoom to fit content."><i data-feather="maximize-2"></i></div>
-          </div>
+      </ul>
+      <div class="section framed vresize" style="padding-bottom:10px;">
+        <canvas id="chart" style="padding-left:7px;"></canvas>
+        <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
+          <div class="overlay_button" id="resetZoom" title="Reset zoom to fit content."><i
+              data-feather="maximize-2"></i></div>
         </div>
       </div>
+    </div>
     </main>
-  </body>
+</body>
+
 </html>
