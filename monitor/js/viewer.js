@@ -1468,7 +1468,9 @@ window.onload = function _onload() {
       let annotations = (modeSelect.value === CHART_CDF) ? CHART_CDF_ANNOTAIONS : {};
       if (isDef(chart.options.plugins.annotation.annotations.time)) {
           const datetime = chart.options.plugins.annotation.annotations.time.xMin;
-          if (isDef(datetime))annotations.time = _annotation('x', datetime, 'rgba(0,0,0,1)', 'time' );
+          if (isDef(datetime)) {
+            annotations.time = _annotation('x', datetime, '#00000040', 'time' );
+          }
       }
       if (active && (0 < active.length)) {
         const axis = ((modeSelect.value === CHART_TIMESERIES) || 
@@ -1485,9 +1487,9 @@ window.onload = function _onload() {
             if (isDef(dataset.stats.q95)) annotations.q95 = _annotation(axis, dataset.stats.q95, color, `Q95 = ${_fmt(dataset.stats.q95)}` );
             if (isDef(dataset.stats.q99)) annotations.q99 = _annotation(axis, dataset.stats.q99, color, `Q99.7 = ${_fmt(dataset.stats.q99)}` );
           } else {
-            Object.keys(annotations)
-                .filter( (key) => (key != time) )
-                .forEach( (key) => delete annotations[key] );
+            //Object.keys(annotations)
+            //    .filter( (key) => (key != 'time') )
+            //    .forEach( (key) => delete annotations[key] );
             if (isDef(dataset.stats.min)) annotations.min = _annotation(axis, dataset.stats.min, color, `min = ${_fmt(dataset.stats.min)}`);
             if (isDef(dataset.stats.max)) annotations.max = _annotation(axis, dataset.stats.max, color, `max = ${_fmt(dataset.stats.max)}`);
             if (isDef(dataset.stats.mean)) {
@@ -1517,7 +1519,7 @@ window.onload = function _onload() {
     if ((modeSelect.value === CHART_TIMESERIES) || 
         (modeSelect.value === CHART_CUMULATIVE) || 
         (modeSelect.value === CHART_DERIVATIVE)) {
-      chart.options.plugins.annotation.annotations.time = _annotation('x', datetime, 'rgba(0,0,0,1)', 'time' );
+      chart.options.plugins.annotation.annotations.time = _annotation('x', datetime, '#00000040', 'time' );
       chart.update();
     }
   }
