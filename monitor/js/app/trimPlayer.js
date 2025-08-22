@@ -22,7 +22,7 @@ export class TrimPlayer {
 
         // Absolute UTC state (no offsets)
         this.#state = {};
-        this.#state.gap = opts.gap ?? 10_000;
+        this.#state.gap = opts.gap ?? 60_000;
         this.#state.speedUp = 20;
         this.#state.start = opts.start ?? Date.now();
         this.#state.end   = Math.max(opts.end ?? 0, this.#state.start + this.#state.gap);
@@ -55,8 +55,8 @@ export class TrimPlayer {
     }
 
     setTrim(range) {
-        const s = Math.max(this.#state.start, range[0]);
-        const e = Math.min(this.#state.end, range[1]);
+        const s = this.#clampUtc(range[0], this.#state.start, this.#state.end);
+        const e = this.#clampUtc(range[1], this.#state.start, this.#state.end);
         this.#state.trimStart = Math.min(s, e - this.#state.gap);
         this.#state.trimEnd = Math.max(e, s + this.#state.gap);
         this.#state.current = this.#clampUtc(this.#state.current, this.#state.trimStart, this.#state.trimEnd);
@@ -292,7 +292,7 @@ export class TrimPlayer {
 
     #utcLabel(utcMs) {
         const d = new Date(utcMs);
-        return d.toISOString().replace('T', ' ').slice(0, 19);
+        return d.toISOString().replace('T', ' ').slice(0, 23);
     }
 
     #positionFloatingLabel(anchorEl = null) {
