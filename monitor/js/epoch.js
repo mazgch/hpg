@@ -341,8 +341,7 @@ function epochComplete(epoch) {
     }
     if (!isDef(fields.time) && (fields.valid?.validTime == 1) && 
         isDef(fields.hour) && isDef(fields.min) && isDef(fields.sec)) {
-        const sec = fields.sec; // + (isDef(fields.nano) ? fields.nano * 1e-9 : 0); 
-        fields.time = fmtTime(fields.hour, fields.min, sec);
+        fields.time = fmtTime(fields.hour, fields.min, fields.sec, fields.nano);
     }
     // location
     if (!isDef(fields.lng) && isDef(fields.longN) && isDef(fields.longI)) {
@@ -417,22 +416,19 @@ function getTimeItow(itow) {
     return fmtTime(h, m, s);
 }
 
-function fmtTime(h, m, s, prec=3) {
-    const hh = String(h).padStart(2, '0');
-    const mm = String(m).padStart(2, '0');
-    const ss = String(Math.floor(s)).padStart(2, '0');
-    const ms = (s - ss) * 1000;
-    const sss = ((0 < prec) && (ms != 0)) ? '.' + String(Math.round(ms)).padStart(prec, '0') : '';
-    return `${hh}:${mm}:${ss}${sss}`;
+function fmtTime(h, m, s, ns) {
+    let ms = Date.UTC(1980,0,6,h,m,s);
+    if (ns) ms += ns * 1e-6;
+    const datetime = new Date(ms).toISOString();
+    return datetime ? datetime.slice(11,23) : '';
 }
 
 function fmtDate(y, m, d) {
-    const mm = String(m).padStart(2, '0');
-    const dd = String(d).padStart(2, '0');
     y = Number(y);
     y = ((y < 80) ? 2000 : (y < 100) ? 1900 : 0) + y;
-    y = y.toString();
-    return `${y}-${mm}-${dd}`;
+    const ms = Date.UTC(y,m-1,d);
+    const datetime = new Date().toISOString();
+    return datetime ? datetime.slice(0,10) : '';
 }
 
 return { gnssLut: gnssLut, flagsEmoji: flagsEmoji, epochFields: epochFields, 
