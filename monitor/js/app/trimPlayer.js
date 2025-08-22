@@ -51,6 +51,7 @@ export class TrimPlayer {
         this.#state.end = Math.max(this.#state.start + 1, bounds[1]);
         this.#ensureTrimInside();
         this.#render({ source: 'api' });
+        this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
     }
 
     setTrim(range) {
@@ -59,14 +60,14 @@ export class TrimPlayer {
         this.#state.trimStart = Math.min(s, e - this.#state.gap);
         this.#state.trimEnd = Math.max(e, s + this.#state.gap);
         this.#state.current = this.#clampUtc(this.#state.current, this.#state.trimStart, this.#state.trimEnd);
-        this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
         this.#render({ source: 'api' });
+        this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
     }
 
     setCurrent(current) {
         this.#state.current = this.#clampUtc(current, this.#state.trimStart, this.#state.trimEnd);
-        this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
         this.#render({ source: 'api' });
+        this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
     }
 
     play() {
@@ -83,9 +84,9 @@ export class TrimPlayer {
 
     restart() {
         this.#state.current = this.#state.trimStart;
-        this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
         this.pause();
         this.#render({ source: 'api' });
+        this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
     }
 
     // ===== Internals =====

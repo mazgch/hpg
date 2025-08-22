@@ -116,9 +116,11 @@ window.onload = function _onload() {
   });
   root.addEventListener('seek', (evt) => {
     mapFlyTo(evt.detail, false);
+    chartSetTime(evt.detail);
   });
   root.addEventListener('time', (evt) => {
     mapFlyTo(evt.detail);
+    chartSetTime(evt.detail);
   });
   
   // map
@@ -246,9 +248,6 @@ window.onload = function _onload() {
     map.on('mousemove', mapUpdateCoords);
     mapsContainer.addEventListener('mouseleave', mapUpdateTrackLegend)
     map.on("selectarea:selected", (evt) => placeAddBounds(evt.bounds));
-    map.on('baselayerchange', function (e) {
-      console.log('base change' + e.layer.name);;
-    });
   }
   
   function mapUpdateCoords(evt) {
@@ -405,6 +404,7 @@ window.onload = function _onload() {
     if (track.layer) {
       map.removeLayer(track.layer);
       delete track.layer;
+      delete track.crossHair;
     }
     if (track.mode !== MODE_HIDDEN) {
       track.layer = mapAddLayer(track);
@@ -412,13 +412,27 @@ window.onload = function _onload() {
   }
 
   function  mapFlyTo(datetime, pan = true) {
-    const tracks = config.tracks.filter((track) => !track.hidden);
+    const tracks = config.tracks.filter((track) => (track.mode != MODE_HIDDEN));
     let track = tracks.find((track) => (track.name == TRACK_REFERENCE)) || tracks[0];
-    const epoch = track?.epochs.findLast( (epoch) => ((epoch.datetime < datetime) && epoch.posValid));
+    const epoch = track?.epochs.findLast( (epoch) => ((epoch.datetime <= datetime) && epoch.posValid));
     if (epoch && map._loaded) {
       const center = [epoch.fields.lat, epoch.fields.lng];
       (pan ? map.panTo(center, 20) : map.setView(center, 20)); 
     }
+    tracks.forEach((track) => {
+      if (track.layer) {
+        const epoch = track?.epochs.findLast( (epoch) => ((epoch.datetime <= datetime) && epoch.posValid));
+        const center = [epoch.fields.lat, epoch.fields.lng];
+        if (!isDef(track.crossHair)) {
+          const svgIcon = feather.icons.crosshair.toSvg( { stroke: toRGBa(track.color, 0.9), 'stroke-width': 2,  } );
+          const divIcon = L.divIcon( { html: svgIcon, className: '', iconSize: [24, 24], iconAnchor: [12, 12] } );
+          track.crossHair = L.marker(center, { icon: divIcon, riseOnHover: true, } );
+          track.layer.addLayer(track.crossHair);
+        } else {
+          track.crossHair.setLatLng(center);
+        }
+      }
+    })
   }
   
   // Config 
@@ -1229,6 +1243,7 @@ window.onload = function _onload() {
       }
     }
   }
+
   function chartAddDataset(track) {
     const dataset = { 
       label: track.name, borderColor: track.color, 
@@ -1278,7 +1293,6 @@ window.onload = function _onload() {
     if ((modeSelect.value === CHART_TIMESERIES) || 
         (modeSelect.value === CHART_CUMULATIVE) || 
         (modeSelect.value === CHART_DERIVATIVE)) {
-      console.log('change ' + modeSelect.value);
       chart.options.scales.x.title.text = 'Time UTC';
       chart.options.scales.x.ticks.callback = _fmtDateTime;
       chart.options.scales.x.ticks.maxTicksLimit = 10;
@@ -1452,6 +1466,10 @@ window.onload = function _onload() {
         y99: _annotation('y', 0.997, '#00000040', '0.997')
       };    
       let annotations = (modeSelect.value === CHART_CDF) ? CHART_CDF_ANNOTAIONS : {};
+      if (isDef(chart.options.plugins.annotation.annotations.time)) {
+          const datetime = chart.options.plugins.annotation.annotations.time.xMin;
+          if (isDef(datetime))annotations.time = _annotation('x', datetime, 'rgba(0,0,0,1)', 'time' );
+      }
       if (active && (0 < active.length)) {
         const axis = ((modeSelect.value === CHART_TIMESERIES) || 
                       (modeSelect.value === CHART_CUMULATIVE) || 
@@ -1467,6 +1485,9 @@ window.onload = function _onload() {
             if (isDef(dataset.stats.q95)) annotations.q95 = _annotation(axis, dataset.stats.q95, color, `Q95 = ${_fmt(dataset.stats.q95)}` );
             if (isDef(dataset.stats.q99)) annotations.q99 = _annotation(axis, dataset.stats.q99, color, `Q99.7 = ${_fmt(dataset.stats.q99)}` );
           } else {
+            Object.keys(annotations)
+                .filter( (key) => (key != time) )
+                .forEach( (key) => delete annotations[key] );
             if (isDef(dataset.stats.min)) annotations.min = _annotation(axis, dataset.stats.min, color, `min = ${_fmt(dataset.stats.min)}`);
             if (isDef(dataset.stats.max)) annotations.max = _annotation(axis, dataset.stats.max, color, `max = ${_fmt(dataset.stats.max)}`);
             if (isDef(dataset.stats.mean)) {
@@ -1484,32 +1505,42 @@ window.onload = function _onload() {
               }
             }
           }
-        }
+        } 
       }
       /// TODO: try to reuse the hash
       chart.options.plugins.annotation.annotations = annotations;
       chart.update();
     }
+  }
 
-    function _annotation(axis, val, color, label) {
-      const annotation = { type: MODE_LINE, borderColor: color, borderWidth: 1, borderDash: [6, 6] };
-      if (axis === 'x') {
-        annotation.xMin = annotation.xMax = val;
-      } else {
-        annotation.yMin = annotation.yMax = val;
-      }
-      if (label) {
-        const position = (axis === 'y') ? 'start' : 'end';
-        const rotation = (axis === 'x') ? -90 : 0;
-        annotation.label = { 
-          padding:2, display: true, content: label, position: position, 
-          textStrokeColor: 'rgba(255,255,255,1)', textStrokeWidth: 5, font: { weight:'nomal' },
-          backgroundColor: 'rgba(255,255,255,0)', color: color, rotation: rotation 
-        };
-      }
-      return annotation;
+  function chartSetTime(datetime) {
+    if ((modeSelect.value === CHART_TIMESERIES) || 
+        (modeSelect.value === CHART_CUMULATIVE) || 
+        (modeSelect.value === CHART_DERIVATIVE)) {
+      chart.options.plugins.annotation.annotations.time = _annotation('x', datetime, 'rgba(0,0,0,1)', 'time' );
+      chart.update();
     }
   }
+          
+  function _annotation(axis, val, color, label) {
+    const annotation = { type: MODE_LINE, borderColor: color, borderWidth: 1, borderDash: [6, 6] };
+    if (axis === 'x') {
+      annotation.xMin = annotation.xMax = val;
+    } else {
+      annotation.yMin = annotation.yMax = val;
+    }
+    if (label) {
+      const position = (axis === 'y') ? 'start' : 'end';
+      const rotation = (axis === 'x') ? -90 : 0;
+      annotation.label = { 
+        padding:2, display: true, content: label, position: position, 
+        textStrokeColor: 'rgba(255,255,255,1)', textStrokeWidth: 5, font: { weight:'nomal' },
+        backgroundColor: 'rgba(255,255,255,0)', color: color, rotation: rotation 
+      };
+    }
+    return annotation;
+  }
+
  
   function chartResetZoom() {
     // find the bounds 
