@@ -68,7 +68,7 @@ window.onload = function _onload() {
   const EPOCH_FIELDS = [ 
     'date', 'time', 'itow', 
     'fix', 'lat', 'lng', 'height', 'msl', 'pAcc', 'hAcc', 'vAcc', 
-    'speed', 'gSpeed', 'sAcc', 'cAcc', 'hDop', 'pDop', 'numSV', 
+    'speed', 'gSpeed', 'sAcc', 'cogt', 'cAcc', 'hDop', 'pDop', 'numSV', 
     'pErr', 'hErr', 'vErr', 'sErr', 'gsErr'
   ];
   
@@ -246,8 +246,9 @@ window.onload = function _onload() {
     coordControl.onAdd = () => { return map.divInfo; };
     coordControl.addTo(map);
     map.on('mousemove', mapUpdateCoords);
-    mapsContainer.addEventListener('mouseleave', mapUpdateTrackLegend)
-    map.on("selectarea:selected", (evt) => placeAddBounds(evt.bounds));
+    mapsContainer.addEventListener('mouseleave', mapUpdateTrackLegend);
+    map.on("selectarea:selected",  (evt) => { placeAddBounds(evt.bounds); } );
+
   }
   
   function mapUpdateCoords(evt) {
@@ -304,7 +305,7 @@ window.onload = function _onload() {
           .filter((epoch) => epoch.selTime)
           .forEach( (epoch) => {
       // if we are loosing the fix with this epoch 
-      if (addInfos && !epoch.selFixGood && (fixLost === false)) {
+      if (addInfos && !epoch.fixGood && (fixLost === false)) {
         infos.push('Fix lost');
         fixLost = true;
       }
@@ -318,7 +319,7 @@ window.onload = function _onload() {
         infoCenter = undefined;
       }
       // if we are reacquiring a good fix 
-      if (addInfos && epoch.posValid && epoch.selFixGood) {
+      if (addInfos && epoch.posValid && epoch.fixGood) {
         if ((fixLost === true) && addInfos) {
           infos.push('Fix recovered');
         }
@@ -331,7 +332,7 @@ window.onload = function _onload() {
       // populate the the coordinates for the polyline
       if (epoch.posValid) {
         const center = [epoch.fields.lat, epoch.fields.lng];
-        if (((track.mode === MODE_ANYFIX) ? epoch.selFix : epoch.selFixGood)) {
+        if (((track.mode === MODE_ANYFIX) ? epoch.fixValid : epoch.fixGood)) {
           trackCoords.push( center );
           if (addMarkers) {
             // the do marker 
@@ -412,27 +413,34 @@ window.onload = function _onload() {
   }
 
   function  mapFlyTo(datetime, pan = true) {
-    const tracks = config.tracks.filter((track) => (track.mode != MODE_HIDDEN));
-    let track = tracks.find((track) => (track.name == TRACK_REFERENCE)) || tracks[0];
-    const epoch = track?.epochs.findLast( (epoch) => ((epoch.datetime <= datetime) && epoch.posValid));
-    if (epoch && map._loaded) {
-      const center = [epoch.fields.lat, epoch.fields.lng];
-      (pan ? map.panTo(center, 20) : map.setView(center, 20)); 
-    }
-    tracks.forEach((track) => {
+    let center;
+    let refCenter;
+    config.tracks.forEach((track) => {
       if (track.layer) {
         const epoch = track?.epochs.findLast( (epoch) => ((epoch.datetime <= datetime) && epoch.posValid));
-        const center = [epoch.fields.lat, epoch.fields.lng];
-        if (!isDef(track.crossHair)) {
-          const svgIcon = feather.icons.crosshair.toSvg( { stroke: toRGBa(track.color, 0.9), 'stroke-width': 2,  } );
-          const divIcon = L.divIcon( { html: svgIcon, className: '', iconSize: [24, 24], iconAnchor: [12, 12] } );
-          track.crossHair = L.marker(center, { icon: divIcon, riseOnHover: true, } );
-          track.layer.addLayer(track.crossHair);
-        } else {
-          track.crossHair.setLatLng(center);
+        if (epoch) {
+          center = [epoch.fields.lat, epoch.fields.lng];
+          if (track.name == TRACK_REFERENCE) {
+            refCenter = center;
+          }
+          if (!isDef(track.crossHair)) {
+            const svgIcon = feather.icons.crosshair.toSvg( { stroke: toRGBa(track.color, 0.9), 'stroke-width': 2,  } );
+            const divIcon = L.divIcon( { html: svgIcon, className: '', iconSize: [24, 24], iconAnchor: [12, 12] } );
+            track.crossHair = L.marker(center, { icon: divIcon, riseOnHover: true, } );
+            track.layer.addLayer(track.crossHair);
+          } else {
+            track.crossHair.setLatLng(center);
+          }
         }
       }
     })
+    if (!refCenter) {
+      refCenter = center;
+    }
+    if (refCenter && map._loaded) {
+      (pan ? map.panTo(refCenter, 20) : map.setView(refCenter, 20)); 
+    }
+    
   }
   
   // Config 
@@ -632,7 +640,7 @@ window.onload = function _onload() {
         const nePx = map.project(ne, zoom);
         const w = parseInt(Math.abs(nePx.x - swPx.x));
         const h = parseInt(Math.abs(nePx.y - swPx.y));
-        const place = { name:name, size: [ w, h ], bounds:[sw, ne] };
+        const place = { name:name, size: [ w, h ], bounds:[[sw.lat,sw.lng], [ne.lat, ne.lng]] };
         placeAdd(place);
       }
     }
@@ -654,9 +662,9 @@ window.onload = function _onload() {
       marker.place = place;
       marker.on('click', (evt) => {
         const place = evt.target.place;
-        const isOverview = (place.name === PLACE_OVERVIEW);
-        placeChange(isOverview ? undefined : place, evt.originalEvent.ctrlKey);
-        placeSelect.value = isOverview ? PLACE_OVERVIEW : place.name;
+        const isOverview = (placeSelect.value === PLACE_OVERVIEW);
+        placeSelect.value = isOverview ? place.name : PLACE_OVERVIEW;
+        placeChange(isOverview ? place : undefined, evt.originalEvent.ctrlKey);
       });
       place.layer = marker;
       placesLayer.addLayer(marker);
@@ -819,6 +827,7 @@ window.onload = function _onload() {
   
   function trackDefaults(track) {
     // set defaults for basic settings
+    track.name = (track.name === 'truth') ? TRACK_REFERENCE : track.name;
     const defMode = ((track.name === TRACK_REFERENCE)  ? MODE_LINE : MODE_MARKERS);
     const defColor = (track.name === TRACK_REFERENCE)  ? COLOR_REFERENCE : 
                      (track.info?.protoVer)            ? COLOR_UBLOX : COLOR_OTHERS;
@@ -828,17 +837,17 @@ window.onload = function _onload() {
     track.label = trackLabel(track);
     // set epoch flags and determine the datetime bounds
     track.epochs.forEach( (epoch) => {
-      epoch.posValid = isDef(epoch.fields.lat) && isDef(epoch.fields.lng);
+      epoch.fixValid = epoch.fields.fix && (epoch.fields.fix !== 'NO');
+      epoch.fixGood = epoch.fixValid && (epoch.fields.fix !== 'BAD');
       epoch.color = COLOR_FIX[epoch.fields?.fix];
-      epoch.selFix = epoch.fields.fix && (epoch.fields.fix !== 'NO');
-      epoch.selFixGood = epoch.selFix && (epoch.fields.fix !== 'BAD');
       let datetime = Number.NaN;
+      epoch.posValid = epoch.fixValid && isDef(epoch.fields.lat) && isDef(epoch.fields.lng);
       if (isDef(epoch.fields.date) && isDef(epoch.fields.time)) {
         const isoTime = epoch.fields.date + 'T'+ epoch.fields.time + 'Z';
         datetime = new Date(isoTime).getTime();
       }
       // Airoha/MTK is outputting 1.5.1980 as Dates in NMEA, which is GPS week 0, lets ignore the first year
-      epoch.timeValid = Number.isFinite(datetime) && (datetime > 347068800000 /* 31.12.1980 */);
+      epoch.timeValid = epoch.fixValid && Number.isFinite(datetime) && (datetime > 347068800000 /* 31.12.1980 */);
       if (epoch.timeValid) {
         epoch.datetime = datetime;
       }
@@ -928,13 +937,13 @@ window.onload = function _onload() {
     let maxLng  = -Infinity;
     if (track) {
       track.epochs.forEach( (epoch) => { 
-        epoch.selTime = epoch.timeValid && ((config.time.length !== 2) ||
+        epoch.selTime = epoch.timeValid && epoch.fixValid && ((config.time.length !== 2) ||
               ((config.time[0] <= epoch.datetime) && (config.time[1] >= epoch.datetime)));
-        if (epoch.timeValid && epoch.selFix) {
+        if (epoch.timeValid && epoch.fixValid) {
           minTime = Math.min(minTime, epoch.datetime);
           maxTime = Math.max(maxTime, epoch.datetime);
         }
-        if (epoch.selTime && epoch.selFixGood && epoch.posValid) {
+        if (epoch.selTime && epoch.fixGood && epoch.posValid) {
           minLat = Math.min(minLat, epoch.fields.lat);
           maxLat = Math.max(maxLat, epoch.fields.lat);
           minLng = Math.min(minLng, epoch.fields.lng);
@@ -975,6 +984,10 @@ window.onload = function _onload() {
       // now update the tracks 
       trackUpdate(track);
       trimPlayer.setBounds(config.timeBounds);
+      const inBounds = ((config.time[0] >= config.timeBounds[0]) && (config.time[1] <= config.timeBounds[1]))
+      if (!inBounds) {
+        config.time = config.timeBounds;
+      }
       trimPlayer.setTrim(config.time);
       trimPlayer.setCurrent(config.time[0]);
       trackTableUpdate();
@@ -1062,7 +1075,7 @@ window.onload = function _onload() {
       _addTd(tr, track.info?.fwVer || '');
       _addTd(tr, track.info?.protoVer || '');
       _addTd(tr, track.info?.hwVer || track.info?.monHwVer || '');
-      const epochs = track.epochs.filter(epoch => epoch.selTime && epoch.selFixGood);
+      const epochs = track.epochs.filter(epoch => epoch.selTime && epoch.fixGood);
       _addTd(tr, `${epochs.length} / ${track.epochs.length}`);
       
       function _addTd(tr, value) {
@@ -1284,9 +1297,9 @@ window.onload = function _onload() {
     const field = fieldSelect.value;
     const defField = Epoch.epochFields[field];
     const axisName = defField.name + 
-        ((modeSelect.value === CHART_CUMULATIVE) ||
-          (modeSelect.value === CHART_DERIVATIVE) ||
-          !defField.unit) ? '' : (' [' + defField.unit + ']');
+        ( ((modeSelect.value === CHART_CUMULATIVE) ||
+           (modeSelect.value === CHART_DERIVATIVE) ||
+            !defField.unit) ? '' : (' [' + defField.unit + ']'));
     const category = isDef(defField.map) ? Object.keys(defField.map) : undefined;
     const prec = defField.prec;
     
@@ -1299,7 +1312,7 @@ window.onload = function _onload() {
       chart.options.scales.x.ticks.autoSkip = true;
       chart.options.scales.x.ticks.stepSize = undefined;
 
-      chart.options.scales.y.title.text = ((modeSelect.value !== CHART_TIMESERIES) ? modeSelect.value + ' ' : '')  + axisName;
+      chart.options.scales.y.title.text = ((modeSelect.value !== CHART_TIMESERIES) ? modeSelect.value + ' ' : '') + axisName;
       chart.options.scales.y.ticks.callback = _fmtVal;
       chart.options.scales.y.ticks.maxTicksLimit = category ? category.length: undefined;
       chart.options.scales.y.ticks.autoSkip = category ? false : true;
@@ -1325,16 +1338,7 @@ window.onload = function _onload() {
     }
     
     function _fmtDateTime(va) {
-      const datetime = new Date(va);
-      const yr = datetime.getUTCFullYear();
-      const mt = datetime.getUTCMonth()+1;
-      const day = datetime.getUTCDay();
-      const h = datetime.getUTCHours();
-      const m = datetime.getUTCMinutes();
-      const s = datetime.getUTCSeconds() + datetime.getUTCMilliseconds() * 1e-3;
-      const date = Epoch.fmtDate(yr,mt,day);
-      const time = Epoch.fmtTime(h,m,s);
-      return  `${date} ${time}`;
+      return new Date(va). toISOString(). replace('T',' ').slice(0,23);
     }
   }
 
@@ -1355,7 +1359,7 @@ window.onload = function _onload() {
         .filter( (epoch) => (epoch.selTime && epoch.timeValid) )
         .map( (epoch) => { 
           let v = epoch.fields[fieldSelect.value];
-          if (((track.mode === MODE_ANYFIX) ? epoch.selFix : epoch.selFixGood) && (v !== undefined)) {
+          if (((track.mode === MODE_ANYFIX) ? epoch.fixValid : epoch.fixGood) && (v !== undefined)) {
             if (category) {
               v = category.indexOf(v);
               v = (0 <= v) ? v : undefined;

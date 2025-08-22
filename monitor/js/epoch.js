@@ -336,7 +336,6 @@ function epochComplete(epoch) {
     // date / time from UBX
     if (!isDef(fields.date) && (fields.valid?.validDate == 1) && 
         isDef(fields.year) && isDef(fields.month) && isDef(fields.day)) {
-        if (fields.year > 2025) prompt(fields.toString());
         fields.date = fmtDate(fields.year, fields.month, fields.day);
     }
     if (!isDef(fields.time) && (fields.valid?.validTime == 1) && 
@@ -418,7 +417,7 @@ function getTimeItow(itow) {
 
 function fmtTime(h, m, s, ns) {
     let ms = Date.UTC(1980,0,6,h,m,s);
-    if (ns) ms += ns * 1e-6;
+    if (ns) ms += (ns * 1e-6);
     const datetime = new Date(ms).toISOString();
     return datetime ? datetime.slice(11,23) : '';
 }
@@ -427,7 +426,7 @@ function fmtDate(y, m, d) {
     y = Number(y);
     y = ((y < 80) ? 2000 : (y < 100) ? 1900 : 0) + y;
     const ms = Date.UTC(y,m-1,d);
-    const datetime = new Date().toISOString();
+    const datetime = new Date(ms).toISOString();
     return datetime ? datetime.slice(0,10) : '';
 }
 
