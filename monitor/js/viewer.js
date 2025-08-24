@@ -174,7 +174,7 @@ window.onload = function _onload() {
     try {
       const json = configGetJson();
       const bytes = pako.gzip(json);
-      const txt = new TextDecoder().decode(bytes);
+      const txt = Array.from(bytes, b => String.fromCharCode(b)).join('')
       const b64 = btoa(txt);
       localStorage.setItem('json.gz', b64);
     } catch (err) {
@@ -200,7 +200,7 @@ window.onload = function _onload() {
       const b64 = localStorage.getItem('json.gz');
       const binary = atob(b64);
       const bytes = pako.ungzip(binary);
-      json = new TextDecoder().decode(bytes);
+      json = Array.from(bytes, b => String.fromCharCode(b)).join('')
     } catch (err) {
       console.error(err);
     }
@@ -494,7 +494,7 @@ window.onload = function _onload() {
       if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
           bytes = pako.ungzip(bytes);
       }
-      const txt = new TextDecoder().decode(bytes);
+      const txt = Array.from(bytes, b => String.fromCharCode(b)).join('')
       configApply(txt);
     })
   }
@@ -567,7 +567,7 @@ window.onload = function _onload() {
         }
         // if it starts with { we assume it is a json
         if (String.fromCharCode(bytes[0]) === '{') {
-          const txt = new TextDecoder().decode(bytes);
+          const txt = Array.from(bytes, b => String.fromCharCode(b)).join('')
           configApply( txt );
         } else {
           const m = file.name.match(/(?:.*\/)?([^.]+).*$/);
@@ -790,7 +790,7 @@ window.onload = function _onload() {
   }
 
   function trackFromBytes(bytes, track) {
-    const ubxData = new TextDecoder().decode(bytes);
+    const ubxData = Array.from(bytes, b => String.fromCharCode(b)).join('')
     let epochs = [];
     Engine.parseReset()
     Engine.parseAppend(ubxData);
