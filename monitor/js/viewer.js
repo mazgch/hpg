@@ -171,8 +171,15 @@ window.onload = function _onload() {
   trackTableUpdate();
   mapUpdateTrackLegend();
   window.onbeforeunload = function _unload() {
-    const json = configGetJson();
-    localStorage.setItem("json", json);
+    try {
+      const json = configGetJson();
+      const bytes = pako.gzip(json);
+      const txt = new TextDecoder().decode(bytes);
+      const b64 = btoa(txt);
+      localStorage.setItem('json.gz', b64);
+    } catch (err) {
+      console.error(err);
+    }
   }
   const params = new URLSearchParams(window.location.search);
   if (0 < params.size) {
@@ -188,7 +195,15 @@ window.onload = function _onload() {
       }
     });
   } else {
-    const json = localStorage.getItem("json");
+    let json;
+    try {
+      const b64 = localStorage.getItem('json.gz');
+      const binary = atob(b64);
+      const bytes = pako.ungzip(binary);
+      json = new TextDecoder().decode(bytes);
+    } catch (err) {
+      console.error(err);
+    }
     if (json) {
       configApply(json);
     } else {
@@ -207,7 +222,7 @@ window.onload = function _onload() {
     
   // Map
   // ------------------------------------------------------------------------------------
-
+  
   function mapInit() {
     mapsContainer.style.display = "none";
     mapsContainer.className = "map-section";
@@ -224,20 +239,36 @@ window.onload = function _onload() {
     mapSetOpacity(opacitySlider.value);
     const stadiaHost = 'https://tiles.stadiamaps.com/tiles/'
     const stadiaTile = '/{z}/{x}/{y}{r}.{ext}';
-    //const arcGisHost = 
+    const arcGisHost = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
+    const arcGisTile = '/MapServer/tile/{z}/{y}/{x}';
     const swissTopoHost = 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.';
     const swissTopoTile = '/default/current/3857/{z}/{x}/{y}.jpeg';
     const swisstopoBounds = [[45.398181, 5.140242], [48.230651, 11.47757]];
-    const swisstopoSatellite = L.tileLayer(swissTopoHost + 'swissimage'    + swissTopoTile, { maxZoom: 20.5, minZoom: 7.5, bounds: swisstopoBounds } );
-    const swisstopoColor  = L.tileLayer(swissTopoHost + 'pixelkarte-farbe' + swissTopoTile, { maxZoom: 19.5, minZoom: 7.5, bounds: swisstopoBounds } );
-    const swisstopoGray   = L.tileLayer(swissTopoHost + 'pixelkarte-grau'  + swissTopoTile, { maxZoom: 19.5, minZoom: 7.5, bounds: swisstopoBounds } );
-    const esriSatellite   = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20.5 } ).addTo(map);
-    const stadiaSatellite = L.tileLayer(stadiaHost + 'alidade_satellite' + stadiaTile, { maxZoom: 20.5, ext: 'jpg' } );
-    const osmStreet       = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19.5 });
+    const swisstopoSatellite = L.tileLayer(swissTopoHost + 'swissimage'    + swissTopoTile, 
+          { maxZoom: 24, maxNativeZoom: 20, minNativeZoom: 8, bounds: swisstopoBounds } );
+    const swisstopoColor  = L.tileLayer(swissTopoHost + 'pixelkarte-farbe' + swissTopoTile, 
+          { maxZoom: 24, maxNativeZoom: 18, minNativeZoom: 8, bounds: swisstopoBounds } );
+    const swisstopoGray   = L.tileLayer(swissTopoHost + 'pixelkarte-grau'  + swissTopoTile, 
+          { maxZoom: 24, maxNativeZoom: 18, minNativeZoom: 8, bounds: swisstopoBounds } );
+    const esriSatellite   = L.tileLayer(arcGisHost + 'World_Imagery' + arcGisTile, 
+          { maxZoom: 24, maxNativeZoom: 19 } ).addTo(map);
+    const stadiaSatellite = L.tileLayer(stadiaHost + 'alidade_satellite' + stadiaTile, 
+          { maxZoom: 24, maxNativeZoom: 20, ext: 'jpg' } );
+    const osmStreet       = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", 
+          { maxZoom: 24, maxNativeZoom: 19 });   
     baseLayers = { 
       "ESRI World Imagery": esriSatellite, "Stadia Satellite": stadiaSatellite,
       "Swisstopo Satellite":swisstopoSatellite, "Swisstopo Color":swisstopoColor, "Swisstopo Gray":swisstopoGray,
-      "OSM Street": osmStreet };
+      "OSM Street": osmStreet 
+    };
+    if (window.google?.maps) {
+      const googleRoadmap   = L.gridLayer.googleMutant({ type: 'roadmap',   maxZoom: 24 });
+      const googleSatellite = L.gridLayer.googleMutant({ type: 'satellite', maxZoom: 24 });
+      const googleHhybrid   = L.gridLayer.googleMutant({ type: 'hybrid',    maxZoom: 24 });
+      baseLayers['Google Roadmap'] = googleRoadmap;
+      baseLayers['Google Satellite'] = googleSatellite;
+      baseLayers['Google Hybrid'] =  googleHhybrid
+    }
     placesLayer = L.layerGroup().addTo(map);
     layerControl = L.control.layers( baseLayers, { [LAYER_PLACES]: placesLayer } ).addTo(map);
     // add lat lng x y hint
@@ -248,7 +279,6 @@ window.onload = function _onload() {
     map.on('mousemove', mapUpdateCoords);
     mapsContainer.addEventListener('mouseleave', mapUpdateTrackLegend);
     map.on("selectarea:selected",  (evt) => { placeAddBounds(evt.bounds); } );
-
   }
   
   function mapUpdateCoords(evt) {
@@ -417,7 +447,14 @@ window.onload = function _onload() {
     let refCenter;
     config.tracks.forEach((track) => {
       if (track.layer) {
-        const epoch = track?.epochs.findLast( (epoch) => ((epoch.datetime <= datetime) && epoch.posValid));
+
+        const epoch = track?.epochs
+              .filter((epoch) => (epoch.timeValid && epoch.posValid))
+              .reduce((prev, curr) => {
+          const prevDiff = Math.abs(new Date(prev.datetime) - datetime);
+          const currDiff = Math.abs(new Date(curr.datetime) - datetime);
+          return currDiff < prevDiff ? curr : prev;
+        })
         if (epoch) {
           center = [epoch.fields.lat, epoch.fields.lng];
           if (track.name == TRACK_REFERENCE) {
@@ -426,11 +463,15 @@ window.onload = function _onload() {
           if (!isDef(track.crossHair)) {
             const svgIcon = feather.icons.crosshair.toSvg( { stroke: toRGBa(track.color, 0.9), 'stroke-width': 2,  } );
             const divIcon = L.divIcon( { html: svgIcon, className: '', iconSize: [24, 24], iconAnchor: [12, 12] } );
-            track.crossHair = L.marker(center, { icon: divIcon, riseOnHover: true, } );
+            track.crossHair = L.marker(center, { icon: divIcon, interactive: false } );
             track.layer.addLayer(track.crossHair);
           } else {
+            // reuse
             track.crossHair.setLatLng(center);
           }
+        } else {
+          track.layer.removeLayer(track.crossHair);
+          delete track.crossHair;
         }
       }
     })
@@ -451,9 +492,9 @@ window.onload = function _onload() {
     .then( (response) => response.bytes())
     .then( (bytes) => {
       if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
-          bytes = window.pako.ungzip(bytes);
+          bytes = pako.ungzip(bytes);
       }
-      const txt = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
+      const txt = new TextDecoder().decode(bytes);
       configApply(txt);
     })
   }
@@ -522,11 +563,11 @@ window.onload = function _onload() {
         let bytes = new Uint8Array(evt.target.result)
         let txt;
         if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
-          bytes = window.pako.ungzip(bytes);
+          bytes = pako.ungzip(bytes);
         }
         // if it starts with { we assume it is a json
         if (String.fromCharCode(bytes[0]) === '{') {
-          const txt = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
+          const txt = new TextDecoder().decode(bytes);
           configApply( txt );
         } else {
           const m = file.name.match(/(?:.*\/)?([^.]+).*$/);
@@ -547,7 +588,7 @@ window.onload = function _onload() {
     let type = 'application/json';
     let name = 'config.json';
     if (doGzip) {
-      data = window.pako.gzip(data);
+      data = pako.gzip(data);
       type = 'application/x-gzip';
       name += '.gz';
     }
@@ -740,7 +781,7 @@ window.onload = function _onload() {
       .then( (bytes) => {
         // cound be zipped 
         if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
-          bytes = window.pako.ungzip(bytes);
+          bytes = pako.ungzip(bytes);
         }
         if (!trackFromBytes(bytes, track)) {
           alert('No epochs loaded, please check source:\n' + track.url);
@@ -749,7 +790,7 @@ window.onload = function _onload() {
   }
 
   function trackFromBytes(bytes, track) {
-    const ubxData = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
+    const ubxData = new TextDecoder().decode(bytes);
     let epochs = [];
     Engine.parseReset()
     Engine.parseAppend(ubxData);
