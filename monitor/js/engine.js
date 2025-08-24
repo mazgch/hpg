@@ -734,7 +734,7 @@ const spec = {
     'NAV-STATUS': { 
         descr:  'Receiver Navigation Status',
         spec:[  { name:'itow',                  type:'U4', scale:1e-3, unit:'s'     },
-                { name:'gpsFix',                type:'U1',                          }, // 0:no fix, 1:dead reckoning only, 2:2D-fix, 3:3D-fix, 4:GPS + dead reckoning combined, 5:Time only fix
+                { name:'fixType',               type:'U1',                          }, // 0:no fix, 1:dead reckoning only, 2:2D-fix, 3:3D-fix, 4:GPS + dead reckoning combined, 5:Time only fix
                 { name:'flags',                 spec: [
                     { name:'fixOk',             type:'x1'                           },
                     { name:'diffSol',           type:'x1'                           },
