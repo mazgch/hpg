@@ -640,7 +640,7 @@ window.onload = function _onload() {
     const epochs = track.epochs.map( epoch => configEpochJson(epoch) );
     const json = { name:track.name, color:track.color };
     if (track.mode) json.mode = track.mode;
-    if (0 < track.info?.length) json.info = track.info;
+    if (track.info) json.info = track.info;
     if (epochs) json.epochs = epochs;
     return json;
   }
