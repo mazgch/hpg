@@ -250,10 +250,10 @@ td, th {
     height: 1.5em;
 }
 th {
-    border-top:1px solid #bebebe;
+    border-top:1pt solid #bebebe;
 }
 tr, th {
-    border-bottom:1px solid #bebebe;
+    border-bottom:1pt solid #bebebe;
 }
 
 td:first-child, th:first-child {
