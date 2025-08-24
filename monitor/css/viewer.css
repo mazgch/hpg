@@ -140,6 +140,7 @@
   display: inline-block;
   width: 1em;
   height: 1em;
+  margin-bottom: 2px;
   border-radius: 50%;
   background: currentColor;   /* uses text color */
   vertical-align: middle;     /* aligns nicely with text */

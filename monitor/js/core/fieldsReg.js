@@ -84,10 +84,10 @@ const MAP = Object.freeze( {
         'FIXED': { hint: 'RTK fixed',                    color: '#008000' }
     },
     psm: {
-        'DIS':   { hint: 'Disabled',                     color: '#808080' },
+        'DIS':   { hint: 'Disabled',                     color: '#c0c0c0' },
         'INIT':  { hint: 'Initialiszing',                color: '#ff00ff' },
-        'ACQ':   { hint: 'Acquisition',                  color: '#ff00ff' },
-        'TRK':   { hint: 'Tracking',                     color: '#0000ff' },
+        'ACQ':   { hint: 'Acquisition',                  color: '#0000ff' },
+        'TRK':   { hint: 'Tracking',                     color: '#00ffff' },
         'PSM':   { hint: 'PSM',                          color: '#00ff00' },
         'OFF':   { hint: 'Inactive',                     color: '#ff0000' },
     },
