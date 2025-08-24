@@ -3,3 +3,5 @@
 *.svd
 software/debug.cfg
 software/debug_custom.json
+/monitor/ubx
+/hardware/Eagle Base
