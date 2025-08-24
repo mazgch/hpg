@@ -416,8 +416,9 @@ function getTimeItow(itow) {
 }
 
 function fmtTime(h, m, s, ns) {
-    let ms = Date.UTC(1980,0,6,h,m,s);
-    if (ns) ms += (ns * 1e-6);
+    let ms = Date.UTC(1980,0,6,h,m,0);
+    (s) && (ms += (s * 1e3));
+    (ns) && (ms += (ns * 1e-6));
     const datetime = new Date(ms).toISOString();
     return datetime ? datetime.slice(11,23) : '';
 }
