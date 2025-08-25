@@ -75,7 +75,8 @@ window.onload = function _onload() {
     'height', 'msl', 'vAcc', 
     'speed', 'gSpeed', 'sAcc', 'cAcc', 
     'hDop', 'pDop', 'numSV', 
-    'pErr', 'hErr', 'vErr', 'sErr', 'gsErr'
+    'pErr', 'hErr', 'vErr', 'sErr', 'gsErr',
+    'ICC1', 'ICC2', 'ICC3', 'ICC4'
   ];
   
   // UI

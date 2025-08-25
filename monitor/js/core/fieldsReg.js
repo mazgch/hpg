@@ -257,6 +257,10 @@ export const FieldsReg = Object.freeze( {
     vErr       : new Field( 'Vertical reference offset',             { unit:'m',       prec:3 } ),
     pErr       : new Field( '3D reference offset',                   { unit:'m',       prec:3 } ),
     sErr       : new Field( 'Speed reference offset',                { unit:'m/s',     prec:3 } ),
-    gsErr      : new Field( 'Ground speed reference offset',         { unit:'m/s',     prec:3 } )
+    gsErr      : new Field( 'Ground speed reference offset',         { unit:'m/s',     prec:3 } ),
+    ICC1       : new Field( 'Current ICC1',                          { unit:'mA',      prec:6 } ),
+    ICC2       : new Field( 'Current ICC2',                          { unit:'mA',      prec:6 } ),
+    ICC3       : new Field( 'Current ICC3',                          { unit:'mA',      prec:6 } ),
+    ICC4       : new Field( 'Current ICC4',                          { unit:'mA',      prec:6 } )
 } );
 

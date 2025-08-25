@@ -570,7 +570,8 @@ const ProtocolUBX = (function () {
 // [xx]: Array, add optional size xx
 
 const mapCls = {
-    0x01:'NAV',  0x02:'RXM',  0x04:'INF', 0x05:'ACK', 0x06:'CFG', 0x09:'UPD', 0x0A:'MON', 0x0B:'AID', 0x0D:'TIM',
+    0x01:'NAV',  0x02:'RXM',  0x04:'INF', 0x05:'ACK', 0x06:'CFG', 0x08:'TUN', 
+    0x09:'UPD',  0x0A:'MON',  0x0B:'AID', 0x0D:'TIM',
     0x10:'ESF',  0x13:'MGA',  0x21:'LOG', 0x27:'SEC', 0x28:'HNR',
     0xF0:'NMEA', 0xF1:'PUBX', 0xF5:'RTCM',
 }
@@ -595,6 +596,7 @@ const mapMsg = {
                    0x60:'ESRC',      0x61:'DOSC',      0x62:'SMGR',      0x69:'GEOFENCE',  0x70:'DGNSS',
                    0x71:'TMODE3',    0x84:'FIXSEED',   0x85:'DYNSEED',   0x86:'PMS',       0x93:'BATCH',
                    0x8A:'VALSET',    0x8B:'VALGET',    0x8C:'VALDEL',    0x8D:'SLAS',},
+    0x08/*TUN*/: { 0x01:'MEAS', },
     0x09/*SOS*/: { 0x14:'SOS', },
     0x0A/*MON*/: { 0x02:'IO',        0x04:'VER',       0x06:'MSGPP',     0x07:'RXBUF',     0x08:'TXBUF',
                    0x09:'HW',        0x0B:'HW2',       0x21:'RXR',       0x27:'PATCH',     0x28:'GNSS',
@@ -914,6 +916,19 @@ const spec = {
                 { name:'transaction',           type:'U1'                           }, // if (version == 1): 0:Transactionless, 1:(Re)Start deletion transaction, 2: Deletion transaction ongoing, 3: Apply and end a deletion transaction
                 { /*name:'res1',*/              type:'U1'                           },
                 { name:'keys',                  type:'U4[]'                         } ] }, // keys
+// TUN ------------
+    'TUN-MEAS': { 
+        descr:  'Measurements',
+        spec:[  { name:'name',                  type:'S8'                          },
+                { name:'unit',                  type:'S4'                          },
+                { name:'flags',                 type:'U1'                          },
+                { name:'version',               type:'U1'                          },
+                { name:'numMeas',               type:'U2'                          },
+                { name:'meas', repeat:'numMeas', spec: [
+                    { name:'name',              type:'S4'                          },
+                    { name:'unit',              type:'S3'                          },
+                    { name:'type',              type:'U1' /* 0=U8, 1=I8, 2=R8 */   },
+                    { name:'value',             type:'R8' /* union U/I/R8 */       } ] } ] },
 // MON ------------
     'MON-VER': { 
         descr:  'Receiver/Software Version',

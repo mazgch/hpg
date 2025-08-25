@@ -39,7 +39,7 @@ export class Collector {
         this.#completeLocation(this.#fields);
         this.#completeSpeed(this.#fields);
         this.#completeHeight(this.#fields);
-        const fields = Object.entries(this.#fields)
+        const fieldEntries = Object.entries(this.#fields)
                 .filter( ([key, val]) => ( def(val) && keys.includes( key ) && (true !== FieldsReg[key]?.hide)) )
                 .map( ([key, val]) => {
                     if (def(FieldsReg[key])) {
@@ -47,7 +47,8 @@ export class Collector {
                     }
                     return [key, val]; 
                 } );
-        return new Epoch(Object.fromEntries(fields), ((0 < this.#info.length) ? this.#info : undefined) );
+        const fields = Object.fromEntries(fieldEntries);
+        return new Epoch(fields, ((0 < this.#info.length) ? this.#info : undefined) );
     }
 
     clear() {
@@ -58,10 +59,18 @@ export class Collector {
 
     merge(message) {
         def(message.id) && (this.#ids[message.id] = true);  
-        def(message.fields) && this.fieldsMerge(message.fields);
+        def(message.fields) && this.fieldsMerge(message.fields, this.#fields);
         if ((message.name === 'NAV-PVT') && def(message.fields?.flags?.psmState)) {
             const mapPsm = Object.keys(FieldsReg.psm.map);
             this.#fields.psm = mapPsm[message.fields.flags.psmState];
+        }
+        if (message.name === 'TUN-MEAS') {
+            const name = message.fields?.name;
+            message.fields.meas.forEach((meas) => {
+                if ((meas.name === 'avg') && (2 === meas.type)) {
+                    this.#fields[name] = meas.value;
+                }
+            })
         }
         if (def(message.fields?.infTxt)) {
             const m = message.name.match(/^(INF-(ERROR|WARNING|NOTICE)|(G[PN]TXT))$/);
@@ -78,12 +87,12 @@ export class Collector {
         (info) && !infos.includes(info) && infos.push(info);
     }    
    
-    fieldsMerge(fromFields, toFields = this.#fields) {
+    fieldsMerge(fromFields, toFields) {
         Object.entries(fromFields)
             .forEach( ([key, val]) => { 
                 if (typeof fromFields[key] == 'object') {
-                    toFields[key] ??= {};
-                    this.fieldsMerge(fromFields[key], toFields[key]);
+                    //toFields[key] ??= {};
+                    //this.fieldsMerge(fromFields[key], toFields[key]);
                 } else {
                     toFields[key] = val; 
                 }
