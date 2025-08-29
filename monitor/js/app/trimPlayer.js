@@ -89,7 +89,29 @@ export class TrimPlayer {
         this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
     }
 
+    // ===== Save Restore API =====
+
+    toJson(json, timeRange) {
+        const range = timeRange
+            .filter( (time) => Number.isFinite(time) )
+            .map( (time) => new Date(time).toISOString() );
+        (range.length === 2) && (json.time = range);
+    }
+
+    fromJson(json) {
+        if (Array.isArray(json.time) && (2 === json.time.length)) {
+            const range = json.time.map( (time) => new Date(time).getTime() );
+            if (Number.isFinite(range[0]) && Number.isFinite(range[1]) && (range[0] < range[1])) {
+                this.setBounds(range);
+                this.setTrim(range);
+                this.setCurrent(range[0]);
+                return range;
+            }
+        }
+    }
+
     // ===== Internals =====
+
     #bindDom() {
         this.#dom.btnPlayPause = this.#dom.root.querySelector('#btnPlayPause');
         this.#dom.btnRestart = this.#dom.root.querySelector('#btnRestart');

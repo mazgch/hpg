@@ -921,7 +921,8 @@ const spec = {
         descr:  'Measurements',
         spec:[  { name:'name',                  type:'S8'                          },
                 { name:'unit',                  type:'S4'                          },
-                { name:'flags',                 type:'U1'                          },
+                { name:'flags',                 spec: [
+                    {                           type:'x8'                           } ] },
                 { name:'version',               type:'U1'                          },
                 { name:'numMeas',               type:'U2'                          },
                 { name:'meas', repeat:'numMeas', spec: [

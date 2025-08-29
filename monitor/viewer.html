@@ -52,7 +52,7 @@
   <!-- <script src="https://maps.googleapis.com/maps/api/js"></script>-->
   <script src="https://cdn.jsdelivr.net/npm/leaflet.gridlayer.googlemutant@0.15.0/dist/Leaflet.GoogleMutant.min.js"></script>
   <!-- chart js -->
-  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
@@ -208,7 +208,7 @@
           to improve visibility.
         </li>
       </ul>
-      <div class="section framed vresize" id="map"></div>
+      <div class="section framed vresize map-section" id="map"></div>
     </div>
     <h2>Chart</h2>
     <div id="tile_chart" class="section">
@@ -224,10 +224,12 @@
         <li><b>Choose Y axis:</b> Select a parameter from the list <select id="field"></select> and show as <select
             id="mode">
             <option value="Time series">Time series</option>
-            <option value="Cumulative">Cumulative</option>
-            <option value="Derivative">Derivative</option>
-            <option value="CDF">CDF</option>
+            <option value="Cumulative" title="Integrated time series">Cumulative</option>
+            <option value="Derivative" title="Differentiated time series">Derivative</option>
+            <option value="CDF" title="Cumulative distribution function">CDF</option>
             <option value="Histogram">Histogram</option>
+            <option value="Histogram FD" title="Histogram with Freedman–Diaconis bin width & count">Histogram FD</option>
+            <option value="Kernel density" title="Kernel density estimation">Kernel Density</option>
           </select></li>
       </ul>
       <div class="section framed vresize" style="padding-bottom:10px;">

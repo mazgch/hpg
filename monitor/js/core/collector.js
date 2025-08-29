@@ -22,7 +22,9 @@ import { FieldsReg } from './fieldsReg.js';
 
 export class Collector {
     constructor( ) {
-        this.clear();  
+        this.clear();
+        this.#meas = {};
+        this.#voltage = {};
     }
 
     check(message) {
@@ -48,10 +50,23 @@ export class Collector {
                     return [key, val]; 
                 } );
         const fields = Object.fromEntries(fieldEntries);
+
+        // calculate the power consumption
+        let power;
+        Object.entries(this.#voltage).forEach( ([n, v]) => { 
+            if (def(this.#meas[n]?.avg) && def(this.#meas[n]?.cnt)) {   
+                const powerN = v * this.#meas[n].avg / this.#meas[n].cnt;
+                power = (power || 0) + powerN;
+            }
+        } );
+        if (def(power)) {
+            fields.power = Number(power.toFixed(6));
+        }
         return new Epoch(fields, ((0 < this.#info.length) ? this.#info : undefined) );
     }
 
     clear() {
+        this.#meas = {};
         this.#fields = {}; 
         this.#info = []; 
         this.#ids = {};  
@@ -66,15 +81,24 @@ export class Collector {
         }
         if (message.name === 'TUN-MEAS') {
             const name = message.fields?.name;
-            message.fields.meas.forEach((meas) => {
-                if ((meas.name === 'avg') && (2 === meas.type)) {
-                    this.#fields[name] = meas.value;
-                }
-            })
+            const i = message.fields?.meas[2].value; // 0=cnt, 1=time 2=avg
+            const mapV = { ICC1:'vcc', ICC2:'vbat', ICC3:'vio' } 
+            const n = mapV[name];
+            if (n) {
+                this.#meas[n] ??= {}
+                this.#meas[n].cnt = (this.#meas[n].cnt || 0) + 1;
+                this.#meas[n].avg = (this.#meas[n].avg || 0) + i;
+            }
         }
+        // extract configured voltages 
+        let m = message.fields?.infTxt?.match(/nomVoltage_(.*)=(.*)$/);
+        if (m) {
+            this.#voltage[m[1]] = Number( m[2].replace('V','.') );
+        }
+        // get inf texts 
         if (def(message.fields?.infTxt)) {
-            const m = message.name.match(/^(INF-(ERROR|WARNING|NOTICE)|(G[PN]TXT))$/);
-            if (null !== m) {
+            m = message.name.match(/^(INF-(ERROR|WARNING|NOTICE)|(G[PN]TXT))$/);
+            if (m) {
                 const infTxt = ((def(m[2]) && (m[2] !== 'NOTICE')) ? `$(m[2]) `: '') + message.fields.infTxt;
                 this.infMerge(this.#info, infTxt);
             }
@@ -90,9 +114,17 @@ export class Collector {
     fieldsMerge(fromFields, toFields) {
         Object.entries(fromFields)
             .forEach( ([key, val]) => { 
-                if (typeof fromFields[key] == 'object') {
-                    //toFields[key] ??= {};
-                    //this.fieldsMerge(fromFields[key], toFields[key]);
+                if (def(val) && def(toFields[key]) && (typeof val !== typeof toFields[key])) {
+                    console.error('change of field type ' + key + ' from ' + (typeof val) + ' to ' + (typeof toFields[key]));
+                }
+                if (Array.isArray(val)) {
+                    (!Array.isArray(toFields[key])) && (toFields[key] = []);
+                    val.forEach((elem, ix) => {
+                        toFields[key][ix] = elem;
+                    })
+                } else if (typeof val === 'object') {
+                    (typeof toFields[key] !== 'object') && (toFields[key] = {});
+                    this.fieldsMerge(val, toFields[key]);
                 } else {
                     toFields[key] = val; 
                 }
@@ -269,7 +301,9 @@ export class Collector {
     }    
 
     // some protected local vars 
-    #fields;
-    #info;
+    #meas
+    #voltage
+    #fields
+    #info
     #ids
 }

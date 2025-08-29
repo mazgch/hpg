@@ -16,10 +16,14 @@
     
 "use strict";
 
+import { MapView } from './app/mapView.js';
+import { PlacesManager } from './app/placesManager.js';
 import { TrimPlayer } from './app/trimPlayer.js';
+
 import { Track } from './core/track.js';
 import { FieldsReg } from './core/fieldsReg.js';
-import { def, formatDateTime, setAlpha, bytesToString } from './core/utils.js';
+import { Statistics } from './core/statistics.js';
+import { def, formatDateTime, setAlpha, bytesToString, isGzip } from './core/utils.js';
 
 // ------------------------------------------------------------------------------------
 /* START OF MODULE */ var UVIEW = (function () {
@@ -34,26 +38,15 @@ window.clickLink = function _clickLink(link) {
 // ------------------------------------------------------------------------------------
 window.onload = function _onload() {
 
-  // Track mode
-  const MODE_HIDDEN      = 'hidden';
-  const MODE_MARKERS     = 'markers';
-  const MODE_ANYFIX      = 'anyfix';
-  const MODE_LINE        = 'line';
   // chart modes 
-  const CHART_TIMESERIES = 'Time series';
-  const CHART_CUMULATIVE = 'Cumulative';
-  const CHART_DERIVATIVE = 'Derivative';
-  const CHART_CDF        = 'CDF';
-  const CHART_HISTOGRAM  = 'Histogram';
-  const CHART_HISTOGRAM_COARSE = 'Histogram Coarse';
-  // Reseverd words 
-  const PLACE_OVERVIEW   = 'Overview';
-  const TRACK_REFERENCE  = 'Reference';
-  const LAYER_PLACES     = "Places";
+  const CHART_TIMESERIES    = 'Time series';
+  const CHART_CUMULATIVE    = 'Cumulative';
+  const CHART_DERIVATIVE    = 'Derivative';
+  const CHART_CDF           = 'CDF';
+  const CHART_HISTOGRAM     = 'Histogram';
+  const CHART_HISTOGRAM_FD  = 'Histogram FD';
+  const CHART_KDE           = 'Kernel density';
   // track colors
-  const COLOR_REFERENCE  = '#000000';
-  const COLOR_UBLOX      = '#0000ff';
-  const COLOR_OTHERS     = '#ff0000';
   const COLOR_FIX = { 
     undefined: '#00000000',
     'NO':    '#ff0000',
@@ -68,16 +61,6 @@ window.onload = function _onload() {
     'FLOAT': '#00C000', 
     'FIXED': '#008000',
   };
-  const EPOCH_FIELDS = [ 
-    'date', 'time',
-    'fix', 'psm',
-    'lat', 'lng', 'pAcc', 'hAcc',
-    'height', 'msl', 'vAcc', 
-    'speed', 'gSpeed', 'sAcc', 'cAcc', 
-    'hDop', 'pDop', 'numSV', 
-    'pErr', 'hErr', 'vErr', 'sErr', 'gsErr',
-    'ICC1', 'ICC2', 'ICC3', 'ICC4'
-  ];
   
   // UI
   // ------------------------------------------------------------------------------------
@@ -110,48 +93,18 @@ window.onload = function _onload() {
     evt.target.value = null;
   });
 
-  const root = document.getElementById('trimPlayer');
-  const trimPlayer = new TrimPlayer(root);
-  root.addEventListener('trim', (evt) => {
-    config.time = evt.detail;
-    trackTableUpdate();
-    config.tracks.forEach( (track) => { 
-      trackUpdate(track);
-      chartUpdateData(track.dataset);
-      mapUpdateTrack(track); 
-    } );
-  });
-  root.addEventListener('seek', (evt) => {
-    mapFlyTo(evt.detail, false);
-    chartSetTime(evt.detail);
-  });
-  root.addEventListener('time', (evt) => {
-    mapFlyTo(evt.detail);
-    chartSetTime(evt.detail);
-  });
   
-  // map
-  const mapsContainer = document.getElementById("map");
   const downloadConfig = document.getElementById("download");
   downloadConfig.addEventListener('click', configDownloadJson);
-  const placeSelect = document.getElementById("places");
-  placeSelect.addEventListener("change", (evt) => {
-    const name = evt.target.value;
-    const place = config.places.find((place) => (place.name === name));
-    placeChange(place);
-  });
+
   const clearConfig = document.getElementById("clear");
   clearConfig.addEventListener('click', configClear);
-  const opacitySlider = document.getElementById('opacity');
-  opacitySlider.addEventListener('input', (evt) => {
-    mapSetOpacity(evt.target.value);
-  });
   
   // chart
   const fieldSelect = document.getElementById('field');
   fieldSelect.addEventListener("change", (evt) => chartConfigChange() );
   const hiddenFields = ['time','date','itow'];
-  EPOCH_FIELDS.filter((field) => (!hiddenFields.includes(field)) ).forEach( (field) => {
+  Track.EPOCH_FIELDS.filter((field) => (!hiddenFields.includes(field)) ).forEach( (field) => {
     const option = document.createElement("option");
     option.textContent = FieldsReg[field]?.name || field;
     option.value = field;
@@ -166,20 +119,55 @@ window.onload = function _onload() {
   // Application
   // ------------------------------------------------------------------------------------
 
-  let map;
-  let chart;
-  let placesLayer;
-  let baseLayers;
-  let layerControl;
   let config = { places: [], tracks: [], time: [ -Infinity, Infinity ] };
-  mapInit(); 
+  
+  // TrimPlayer
+  const trimControl = document.getElementById('trimPlayer');
+  const trimPlayer = new TrimPlayer(trimControl);
+  trimControl.addEventListener('trim', (evt) => {
+    const timeTrim = evt.detail;
+    config.time = timeTrim;
+    config.tracks.forEach( (track) => { 
+      track.trim(timeTrim);
+      chartUpdateData(track.dataset);
+      if (track.mode !== Track.MODE_HIDDEN) {
+        mapView.removeLayer(track);
+        mapView.addLayer(track);
+      }
+    } );
+    config.posBounds = trackGetPosBounds();
+    trackTableUpdate();
+  });
+  trimControl.addEventListener('seek', (evt) => {
+    const datetime = evt.detail;
+    mapView.flyTo(datetime, false);
+    chartSetTime(datetime);
+  });
+  trimControl.addEventListener('time', (evt) => {
+    const datetime = evt.detail;
+    mapView.flyTo(datetime);
+    chartSetTime(datetime);
+  });
+  
+  // MapView
+  const mapsContainer = document.getElementById("map");
+  const opacitySlider = document.getElementById('opacity');
+  const mapView = new MapView(mapsContainer, opacitySlider, trimPlayer);
+  
+  // PlacesManager
+  const placeSelect = document.getElementById("places");
+  const placeManager = new PlacesManager(placeSelect, mapView);
+  
+  // ChartView
+  let chart;
   chartInit();
-  placeAddOption(PLACE_OVERVIEW);
+
+  
   trackTableUpdate();
-  mapUpdateTrackLegend();
+  
   window.onbeforeunload = function _unload() {
     try {
-      const json = configGetJson();
+      const json = JSON.stringify(configGetJson());
       const bytes = pako.gzip(json);
       const txt = bytesToString(bytes);
       const b64 = btoa(txt);
@@ -196,7 +184,7 @@ window.onload = function _onload() {
         if (url.endsWith('.json')) {
           configFetchJson(url);
         } else if (url.endsWith('.ubx')) {
-          const track = new Track(name, EPOCH_FIELDS, { url:url });
+          const track = new Track(name, Track.EPOCH_FIELDS, { url:url });
           track.fetchUrl(url)
             .then( () => { console.log("trk loaded "); trackAdd(track) } )
             .catch( console.error );
@@ -216,281 +204,9 @@ window.onload = function _onload() {
     if (json) {
       configApply(json);
     } else {
-      if (navigator.geolocation && map) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => { 
-            map.setView([position.coords.latitude, position.coords.longitude], 14, { animate: false })
-            mapsContainer.style.display = 'block';
-          }, 
-          (err) => {},
-          { timeout: 1000 } // Timeout in ms
-        );
-      }
+      mapView.setCurrentPosition();
     }
   }   
-    
-  // Map
-  // ------------------------------------------------------------------------------------
-  
-  function mapInit() {
-    mapsContainer.style.display = "none";
-    mapsContainer.className = "map-section";
-    const resizeObserver = new ResizeObserver(() => {
-      if (map) {
-        map.invalidateSize();
-      }
-    });
-    resizeObserver.observe(mapsContainer);
-    map = L.map(mapsContainer, { fullscreenControl: true, zoomControl: true, zoomSnap: 0.1, wheelPxPerZoomLevel: 20, boxZoom: true });
-    map.selectArea.enable();
-    map.selectArea.setControlKey(true);
-    L.control.scale().addTo(map);
-    mapSetOpacity(opacitySlider.value);
-    const stadiaHost = 'https://tiles.stadiamaps.com/tiles/'
-    const stadiaTile = '/{z}/{x}/{y}{r}.{ext}';
-    const arcGisHost = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
-    const arcGisTile = '/MapServer/tile/{z}/{y}/{x}';
-    const swissTopoHost = 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.';
-    const swissTopoTile = '/default/current/3857/{z}/{x}/{y}.jpeg';
-    const swisstopoBounds = [[45.398181, 5.140242], [48.230651, 11.47757]];
-    const swisstopoSatellite = L.tileLayer(swissTopoHost + 'swissimage'    + swissTopoTile, 
-          { maxZoom: 24, maxNativeZoom: 20, minNativeZoom: 8, bounds: swisstopoBounds } );
-    const swisstopoColor  = L.tileLayer(swissTopoHost + 'pixelkarte-farbe' + swissTopoTile, 
-          { maxZoom: 24, maxNativeZoom: 18, minNativeZoom: 8, bounds: swisstopoBounds } );
-    const swisstopoGray   = L.tileLayer(swissTopoHost + 'pixelkarte-grau'  + swissTopoTile, 
-          { maxZoom: 24, maxNativeZoom: 18, minNativeZoom: 8, bounds: swisstopoBounds } );
-    const esriSatellite   = L.tileLayer(arcGisHost + 'World_Imagery' + arcGisTile, 
-          { maxZoom: 24, maxNativeZoom: 19 } ).addTo(map);
-    const stadiaSatellite = L.tileLayer(stadiaHost + 'alidade_satellite' + stadiaTile, 
-          { maxZoom: 24, maxNativeZoom: 20, ext: 'jpg' } );
-    const osmStreet       = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", 
-          { maxZoom: 24, maxNativeZoom: 19 });   
-    baseLayers = { 
-      "ESRI World Imagery": esriSatellite, "Stadia Satellite": stadiaSatellite,
-      "Swisstopo Satellite":swisstopoSatellite, "Swisstopo Color":swisstopoColor, "Swisstopo Gray":swisstopoGray,
-      "OSM Street": osmStreet 
-    };
-    if (window.google?.maps) {
-      const googleRoadmap   = L.gridLayer.googleMutant({ type: 'roadmap',   maxZoom: 24 });
-      const googleSatellite = L.gridLayer.googleMutant({ type: 'satellite', maxZoom: 24 });
-      const googleHhybrid   = L.gridLayer.googleMutant({ type: 'hybrid',    maxZoom: 24 });
-      baseLayers['Google Roadmap'] = googleRoadmap;
-      baseLayers['Google Satellite'] = googleSatellite;
-      baseLayers['Google Hybrid'] =  googleHhybrid
-    }
-    placesLayer = L.layerGroup().addTo(map);
-    layerControl = L.control.layers( baseLayers, { [LAYER_PLACES]: placesLayer } ).addTo(map);
-    // add lat lng x y hint
-    const coordControl = L.control({ position: 'bottomright' });
-    map.divInfo = L.DomUtil.create('div', 'leaflet-control-coords leaflet-bar');
-    coordControl.onAdd = () => { return map.divInfo; };
-    coordControl.addTo(map);
-    map.on('mousemove', mapUpdateCoords);
-    mapsContainer.addEventListener('mouseleave', mapUpdateTrackLegend);
-    map.on("selectarea:selected", (evt) => { placeAddBounds(evt.bounds); } );
-  }
-  
-  function mapUpdateCoords(evt) {
-    const lat = Number(evt.latlng.lat.toFixed(5));
-    const lng = Number(evt.latlng.lng.toFixed(5));
-    const x = Math.round(evt.containerPoint.x);
-    const y = Math.round(evt.containerPoint.y);
-    map.divInfo.innerHTML = `Lat: ${lat}, y: ${y}<br>Lng: ${lng} x: ${x} `;
-    map.divInfo.style.display = 'block';
-  }
-
-  function mapUpdateTrackLegend() {
-    while (map.divInfo.firstChild) {
-       map.divInfo.removeChild(map.divInfo.lastChild);
-    }
-    if (0 < config.tracks.length) {
-        config.tracks
-          .filter( (track) => (track.mode !== MODE_HIDDEN) )
-          .forEach( (track) => {
-              map.divInfo.appendChild(track.nameHtml('div'));
-        } )
-        map.divInfo.style.display = 'block';
-    } else {
-      map.divInfo.appendChild(document.createTextNode("No tracks"));
-      map.divInfo.style.maxWidth = '300px'
-      map.divInfo.style.display = 'none';
-    }
-  }
-  
-  function mapSetBounds(bounds, size) {
-    const setSize = Array.isArray(size) && (2 === size.length);
-    const wh = setSize ? size.map( (v) => (v + 'px')) : ['',''];
-    mapsContainer.style.display = 'block';
-    if ((mapsContainer.style.width != wh[0]) || (mapsContainer.style.height != wh[1])) { 
-      mapsContainer.style.width = wh[0];
-      mapsContainer.style.height = wh[1];
-      map.invalidateSize(); // Call after changing size
-    }
-    if (Array.isArray(bounds) && (2 === bounds.length) && 
-       (bounds[0][0] < bounds[1][0]) && (bounds[0][1] < bounds[1][1])) {
-     const padding = setSize ? [0,0] : [10, 10];
-     map.fitBounds(bounds, { animate: false, padding: padding } );
-    }
-  }
-
-  function mapSetOpacity(opacity) {
-    const panes = document.getElementsByClassName('leaflet-tile-pane');
-    for (let i = 0; i < panes.length; i++) {
-      panes[i].style.opacity = 1 - opacity;
-    }
-  }
-
-  function mapAddLayer(track) {
-    const addInfos   = (track.mode === MODE_MARKERS) || true; // REACQ / LOST
-    const addMarkers = (track.mode === MODE_MARKERS) || (track.mode === MODE_ANYFIX);
-    // collect an array of cordinates and information for markers
-    let infos = [];
-    let trackCoords = [];
-    let infoCenter;
-    let fixLost;
-    const layer = L.layerGroup();
-    track.epochs
-          .filter((epoch) => epoch.selTime)
-          .forEach( (epoch) => {
-      // if we are loosing the fix with this epoch 
-      if (addInfos && !epoch.fixGood && (fixLost === false)) {
-        infos.push('Fix lost');
-        fixLost = true;
-      }
-      // publish messages if we has a location from before 
-      if (infoCenter && (0 < infos.length)) {
-        // remove any later duplicates 
-        infos.filter((item, index) => infos.indexOf(item) === index);
-        // add the marker to the layer 
-        layer.addLayer( _message(infoCenter, infos, track));
-        infos = [];
-        infoCenter = undefined;
-      }
-      // if we are reacquiring a good fix 
-      if (addInfos && epoch.posValid && epoch.fixGood) {
-        if ((fixLost === true) && addInfos) {
-          infos.push('Fix recovered');
-        }
-        fixLost = false;
-      }
-      // now concatenate the strings 
-      if (epoch.info?.length) {
-        infos = infos.concat(epoch.info);
-      }
-      // populate the the coordinates for the polyline
-      if (epoch.posValid) {
-        const center = [epoch.fields.lat, epoch.fields.lng];
-        if (((track.mode === MODE_ANYFIX) ? epoch.fixValid : epoch.fixGood)) {
-          trackCoords.push( center );
-          if (addMarkers) {
-            // the do marker 
-            const marker = L.circleMarker(center, {
-              className: 'marker', color: epoch.color, fillColor: epoch.color, 
-              radius: 3, weight: 1, opacity: 1, fillOpacity: 0.8
-            });
-            marker.on('mouseover', (evt) => evt.target.setRadius(5) );
-            marker.on('mouseout',  (evt) => evt.target.setRadius(3) );
-            marker.on('click', (evt) => mapPopUp(evt.latlng, epoch, track.nameHtml()));
-            layer.addLayer(marker);
-          }
-          infoCenter = center;
-        } else if (0 < trackCoords.length) {
-          // create segments with gaps
-          layer.addLayer( _polyline(trackCoords) );
-          trackCoords = [];
-        }        
-      } 
-    } )
-    // add the last text marker
-    if (infoCenter && (0 < infos.length)) {
-      layer.addLayer( _message(infoCenter, infos, track));
-    }
-    layer.addLayer( _polyline(trackCoords) );
-    layer.addTo(map);
-    return layer;
-
-    function _polyline( trackCoords ) {
-      const polyline = L.polyline(trackCoords, { className: 'polyline', color: track.color, opacity: 0.6, weight: 2 } );
-      return polyline;
-    }
-
-    function _message(center, infos, track) {
-      const svgIcon = feather.icons['message-square'].toSvg( { fill: setAlpha(track.color, 0.3), stroke: setAlpha(track.color, 0.9) } );
-      const divIcon = L.divIcon( { html: svgIcon, className: '', iconSize: [20, 20], iconAnchor: [2, 22] } );
-      const marker = L.marker(center, { icon: divIcon, riseOnHover: true, } );
-      marker.bindTooltip(track.infosHtml(infos), { direction: 'bottom', });
-      return marker;
-    }
-  }
-
-  function mapPopUp(center, epoch, label) {
-    const fields = epoch.fields;
-    if (epoch.datetime) {
-      trimPlayer.setCurrent(epoch.datetime);
-    }  
-    const div = document.createElement('div');
-    // the title 
-    div.appendChild(label);
-    div.appendChild(epoch.tableHtml(EPOCH_FIELDS));
-    // fire the popup
-    const popup = L.popup();
-    popup.setLatLng(center)
-    popup.setContent(div);
-    popup.openOn(map);
-  }
- 
-  function mapUpdateTrack(track) {
-    if (track.layer) {
-      map.removeLayer(track.layer);
-      delete track.layer;
-      delete track.crossHair;
-    }
-    if (track.mode !== MODE_HIDDEN) {
-      track.layer = mapAddLayer(track);
-    }
-  }
-
-  function  mapFlyTo(datetime, pan = true) {
-    let center;
-    let refCenter;
-    config.tracks.forEach((track) => {
-      if (track.layer) {
-
-        const epoch = track?.epochs
-              .filter((epoch) => (epoch.timeValid && epoch.posValid))
-              .reduce((prev, curr) => {
-          const prevDiff = Math.abs(new Date(prev.datetime) - datetime);
-          const currDiff = Math.abs(new Date(curr.datetime) - datetime);
-          return currDiff < prevDiff ? curr : prev;
-        })
-        if (epoch) {
-          center = [epoch.fields.lat, epoch.fields.lng];
-          if (track.name == TRACK_REFERENCE) {
-            refCenter = center;
-          }
-          if (!def(track.crossHair)) {
-            const svgIcon = feather.icons.crosshair.toSvg( { stroke: setAlpha(track.color, 0.9), 'stroke-width': 2,  } );
-            const divIcon = L.divIcon( { html: svgIcon, className: '', iconSize: [24, 24], iconAnchor: [12, 12] } );
-            track.crossHair = L.marker(center, { icon: divIcon, interactive: false } );
-            track.layer.addLayer(track.crossHair);
-          } else {
-            // reuse
-            track.crossHair.setLatLng(center);
-          }
-        } else {
-          track.layer.removeLayer(track.crossHair);
-          delete track.crossHair;
-        }
-      }
-    })
-    if (!refCenter) {
-      refCenter = center;
-    }
-    if (refCenter && map._loaded) {
-      (pan ? map.panTo(refCenter, 20) : map.setView(refCenter, 20)); 
-    }
-    
-  }
   
   // Config 
   // ------------------------------------------------------------------------------------
@@ -508,7 +224,7 @@ window.onload = function _onload() {
   }
   
   function configClear() {
-    placeRemoveAll();
+    placeManager.clear();
     trackRemoveAll();
   }
 
@@ -524,39 +240,10 @@ window.onload = function _onload() {
         (typeof json.field === 'string') && (fieldSelect.value = json.field);
         (typeof json.mode === 'string') && (modeSelect.value = json.mode);
         chartConfigChange();
-        if (Array.isArray(json.time) && (2 === json.time.length)) {
-          const range = json.time.map( (time) => new Date(time).getTime() );
-          if (Number.isFinite(range[0]) && Number.isFinite(range[1]) && (range[0] < range[1])) {
-            config.time = range;
-            trimPlayer.setBounds(range);
-            trimPlayer.setTrim(range);
-            trimPlayer.setCurrent(range[0]);
-          }
-        }
-        if (Number.isFinite(json.opacity)) {
-          opacitySlider.value = json.opacity;
-          mapSetOpacity(opacitySlider.value);
-        }
-        if (Array.isArray(json.layers)) {
-          Object.entries(baseLayers).forEach( ([name, layer]) => {
-            _setVisible(layer,(-1 !== json.layers.indexOf(name)));
-          } );
-          _setVisible(placesLayer,(-1 !== json.layers.indexOf(LAYER_PLACES)));
-
-          function _setVisible(layer, show) {
-            const isVisible = map.hasLayer(layer);
-            (isVisible && !show) && map.removeLayer(layer);
-            (!isVisible && show) && layer.addTo(map);
-          }
-        }
-        Array.isArray(json.places) && placeApplyConfig(json.places);
+        config.time = trimPlayer.fromJson(json);
         Array.isArray(json.tracks) && trackApplyConfig(json.tracks);
-        if (typeof json.place === 'string') {
-          const place = config.places.find((place) => (place.name === json.place))
-          if (place) {
-            placeChange(place);
-          }
-        }
+        mapView.fromJson(json);
+        placeManager.fromJson(json);
       } else {
         alert('Version '+json.version+'of .json envirionment file not supported or unknown.');
       }
@@ -565,33 +252,30 @@ window.onload = function _onload() {
 
   function configReadFiles(files) {
     Array.from(files).forEach(file => {
-      const name = file.name.toLowerCase();
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        let bytes = new Uint8Array(evt.target.result)
-        let txt;
-        if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
-          bytes = pako.ungzip(bytes);
-        }
-        // if it starts with { we assume it is a json
-        if (String.fromCharCode(bytes[0]) === '{') {
+      if (file.name.match(/json(\.gz)?$/i)) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          let bytes = new Uint8Array(evt.target.result)
+          if (isGzip(bytes)) {
+            bytes = pako.ungzip(bytes);
+          }
           const txt = bytesToString(bytes);
           configApply( txt );
-        } else {
-          const m = file.name.match(/(?:.*\/)?([^.]+).*$/);
-          const name = m ? m[1] : file.name;
-          const track = new Track( name, EPOCH_FIELDS, { file:file.name } );
-          track.addData(bytes);
-          trackAdd(track);
-        } 
-      };
-      reader.readAsArrayBuffer(file);
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        const m = file.name.match(/(?:.*\/)?([^.]+).*$/);
+        const name = m ? m[1] : file.name;
+        const track = new Track( name, Track.EPOCH_FIELDS, { file:file.name } );
+        track.readFile(file)
+          .then( (track) => { trackAdd(track);}  );
+      }
     });
   }
    
   function configDownloadJson(evt) { 
     const doGzip = !evt.shiftKey;
-    let data = configGetJson();
+    let data = JSON.stringify(configGetJson(), null, doGzip ? 0 : 1);
     let type = 'application/json';
     let name = 'config.json';
     if (doGzip) {
@@ -608,33 +292,18 @@ window.onload = function _onload() {
   }
 
   function configGetJson() { 
-    const places = config.places.map( (place) => configPlaceJson(place) );
     const tracks = config.tracks.map( (track) => configTrackJson(track) );
-    const range = config.time
-          .filter( (time) => Number.isFinite(time) )
-          .map( (time) => new Date(time).toISOString() );
-    let layers = [];
-    Object.entries(baseLayers).forEach(([name, layer]) => {
-      map.hasLayer(layer) && layers.push(name);
-    } );
-    map.hasLayer(placesLayer) && layers.push(LAYER_PLACES);
     const json = { 
       comment: `This file can be viewed with ${window.location.protocol}//${window.location.hostname}${window.location.pathname}`, 
       version: 1,
-      place: placeSelect.value, 
-      opacity: opacitySlider.value,
       field: fieldSelect.value, 
       mode: modeSelect.value
     };
-    (Array.isArray(layers) && (0 < layers.length)) && (json.layers = layers);
-    (range.length === 2) && (json.time = range);
-    json.places = places;
     json.tracks = tracks;
-    return JSON.stringify(json, null, 1/*change to 1 for better readability*/);
-  }
-
-  function configPlaceJson(place) {
-    return { name:place.name, size:place.size, zoom:place.zoom, center:place.center };
+    trimPlayer.toJson(json, config.time);
+    mapView.toJson(json);
+    placeManager.toJson(json);
+    return json;
   }
 
   function configTrackJson(track) {
@@ -648,7 +317,7 @@ window.onload = function _onload() {
 
   function configEpochJson(epoch) {
     const json = { fields: {} };
-    EPOCH_FIELDS.forEach((key) => {
+    Track.EPOCH_FIELDS.forEach((key) => {
         if (def(epoch.fields[key])) {
           json.fields[key] = epoch.fields[key];
         }
@@ -657,125 +326,32 @@ window.onload = function _onload() {
     return json;
   }
 
-  // Place 
-  // ------------------------------------------------------------------------------------
-  function placeRemoveAll() {
-    config.places.forEach( (place) => {
-      placesLayer.removeLayer(place.layer);
-      placeSelect.removeChild(place.option);
-    });
-    config.places.length = 0;
-  }
-
-  function placeApplyConfig(places) {
-    placeRemoveAll();
-    if (Array.isArray(places)) {
-      places.forEach( (place) => placeAdd(place) )
-    }
-  }
-
-  function placeAddBounds(bounds) {
-    // maks sure bound are valid in current map area 
-    const sw = bounds.getSouthWest();
-    const ne = bounds.getNorthEast();
-    const mapBounds = map.getBounds();
-    if (mapBounds.contains(sw) && mapBounds.contains(ne)) {
-      const center = bounds.getCenter();
-      const name = prompt('Please name the place.', center.lat.toFixed(6) + ',' + center.lng.toFixed(6));
-      if (name) {
-        const zoom = map.getZoom();
-        const swPx = map.project(sw, zoom);
-        const nePx = map.project(ne, zoom);
-        const w = parseInt(Math.abs(nePx.x - swPx.x));
-        const h = parseInt(Math.abs(nePx.y - swPx.y));
-        const place = { name:name, size: [ w, h ], bounds:[[sw.lat,sw.lng], [ne.lat, ne.lng]] };
-        placeAdd(place);
-      }
-    }
-  }
-
-  function placeAdd(place) {
-    if (!Array.isArray(place.bounds) && Number.isFinite(place.zoom) && 
-          Array.isArray(place.size) && Array.isArray(place.center)) {
-      const div = document.createElement('div');
-      const temp = L.map(div, { center: place.center, zoom: place.zoom });
-      temp._size = L.point(place.size);
-      temp._resetView(L.latLng(place.center), place.zoom);
-      const sw = temp.getBounds().getSouthWest();
-      const ne = temp.getBounds().getNorthEast();
-      place.bounds = [ [sw.lat, sw.lng], [ne.lat, ne.lng] ];
-    }
-    if (Array.isArray(place.bounds)) {
-      const marker = L.rectangle(place.bounds, { className: 'place', dashArray: '5, 5', weight: 2 });
-      marker.place = place;
-      marker.on('click', (evt) => {
-        const place = evt.target.place;
-        const isOverview = (placeSelect.value === PLACE_OVERVIEW);
-        placeSelect.value = isOverview ? place.name : PLACE_OVERVIEW;
-        placeChange(isOverview ? place : undefined, evt.originalEvent.ctrlKey);
-      });
-      place.layer = marker;
-      placesLayer.addLayer(marker);
-      config.places.push(place);
-      placeAddOption(place.name, place);
-    }
-  }
-
-  function placeAddOption(name, place) {
-    const option = document.createElement('option');
-    option.textContent = name;
-    option.value = name;
-    if (place) {
-      option.place = place;
-      place.option = option;
-    }
-    placeSelect.appendChild(option);
-  }
-  
-  function placeChange(place, setSize = false) {
-    let name;
-    if (place === undefined) {
-      name = PLACE_OVERVIEW;
-      mapSetBounds(config.posBounds);
-    } else {
-      name = place.name;
-      mapSetBounds(place.bounds, setSize ? place.size : undefined);
-    }
-    if (placeSelect.value !== name) {
-      placeSelect.value = PLACE_OVERVIEW;
-    }
-  }
-
   // Track 
   // ------------------------------------------------------------------------------------
 
   function trackRemoveAll() {
-    
     // CHART: remove all datasets
     // MAP: remove all layers and update legends  
     config.tracks.forEach( (track) => {
-      if (track.layer) {
-         map.removeLayer(track.layer);
-         delete track.layer;
-      }
+      mapView.removeLayer(track);
       if (track.dataset) {
         chartRemoveDataset(track.dataset);
       }
     } );
     config.tracks.length = 0;
     chart.update();
-    mapUpdateTrackLegend();
+    mapView.updateLegend();
     // TABLE: update
     trackTableUpdate();
     // no track any more 
-    trackUpdate();
+    config.posBounds = trackGetPosBounds();
   }
 
   function trackApplyConfig(jsonTracks) {
     trackRemoveAll();
     if (Array.isArray(jsonTracks)) {
       jsonTracks.forEach( (jsonTrack) => {
-        const track = new Track(jsonTrack.name, EPOCH_FIELDS, jsonTrack);
+        const track = new Track(jsonTrack.name, Track.EPOCH_FIELDS, jsonTrack);
         def(jsonTrack.epochs) && track.addEpochs(jsonTrack.epochs);
         if ((0 === track.epochs.length) && def(track.url)) {
           track.fetchUrl(track.url)
@@ -790,61 +366,53 @@ window.onload = function _onload() {
   
   function trackDefaults(track) {
     // set defaults for basic settings
-    track.name = (track.name === 'truth') ? TRACK_REFERENCE : track.name;
-    const defMode = ((track.name === TRACK_REFERENCE)  ? MODE_LINE : MODE_MARKERS);
-    const defColor = (track.name === TRACK_REFERENCE)  ? COLOR_REFERENCE : 
-                     (track.info?.protoVer)            ? COLOR_UBLOX : COLOR_OTHERS;
+    track.name = (track.name === 'truth') ? Track.TRACK_REFERENCE : track.name;
+    const defMode = ((track.name === Track.TRACK_REFERENCE)  ? Track.MODE_LINE : Track.MODE_MARKERS);
+    const defColor = (track.name === Track.TRACK_REFERENCE)  ? Track.COLOR_REFERENCE : 
+                     (track.info?.protoVer)            ? Track.COLOR_UBLOX : Track.COLOR_OTHERS;
     // apply if not set otherwise
     track.color = track.color ?? defColor;
     track.mode = track.mode ?? defMode;
   } 
   
   function trackUpdateReferenceErrors( track ) {
-    const refTrack = config.tracks.find((track) => (track.name === TRACK_REFERENCE));
+    const refTrack = config.tracks.find((track) => (track.name === Track.TRACK_REFERENCE));
     const refEpochs = (refTrack !== track) ? refTrack?.epochs : undefined;
     track.epochs.forEach( (epoch) => epoch.calcRefError(refEpochs) );
   }
   
-  function trackUpdate(track) {
+  function trackGetPosBounds() {
     // now we get new bounds
-    let minTime =  Infinity;
-    let maxTime = -Infinity;
     let minLat  =  Infinity;
     let maxLat  = -Infinity;
     let minLng  =  Infinity;
     let maxLng  = -Infinity;
-    if (track) {
-      track.epochs.forEach( (epoch) => { 
-        epoch.color = FieldsReg.fix?.color(epoch.fields.fix); // to do 
-        epoch.selTime = epoch.timeValid && epoch.fixValid && ((config.time.length !== 2) ||
-              ((config.time[0] <= epoch.datetime) && (config.time[1] >= epoch.datetime)));
-        if (epoch.timeValid && epoch.fixValid) {
-          minTime = Math.min(minTime, epoch.datetime);
-          maxTime = Math.max(maxTime, epoch.datetime);
-        }
-        if (epoch.selTime && epoch.fixGood && epoch.posValid) {
-          minLat = Math.min(minLat, epoch.fields.lat);
-          maxLat = Math.max(maxLat, epoch.fields.lat);
-          minLng = Math.min(minLng, epoch.fields.lng);
-          maxLng = Math.max(maxLng, epoch.fields.lng);
-        }
-      } );
-      track.timeBounds = [ minTime, maxTime ];
-      track.posBounds = [ [ minLat, minLng ], [ maxLat, maxLng] ];
-    }
     // propagate bounds to the config
     config.tracks
-        .filter( (track) => (track.mode !== MODE_HIDDEN) )
+        .filter( (track) => (track.mode !== Track.MODE_HIDDEN) )
         .forEach( (track) => {
-      minTime = Math.min(minTime, track.timeBounds[0]);
-      maxTime = Math.max(maxTime, track.timeBounds[1]); 
-      minLat = Math.min(minLat, track.posBounds[0][0]);
-      maxLat = Math.max(maxLat, track.posBounds[1][0]);
-      minLng = Math.min(minLng, track.posBounds[0][1]);
-      maxLng = Math.max(maxLng, track.posBounds[1][1]);
+      const posBounds = track.boundsPos();
+      minLat = Math.min(minLat, posBounds[0][0]);
+      maxLat = Math.max(maxLat, posBounds[1][0]);
+      minLng = Math.min(minLng, posBounds[0][1]);
+      maxLng = Math.max(maxLng, posBounds[1][1]);
     } );
-    config.timeBounds = [ minTime, maxTime ];
-    config.posBounds = [ [ minLat, minLng ], [ maxLat, maxLng ] ];
+    return [ [ minLat, minLng ], [ maxLat, maxLng ] ];
+  }
+
+  function trackGetTimeBounds() {
+    // now we get new bounds
+    let minTime =  Infinity;
+    let maxTime = -Infinity;
+    // propagate bounds to the config
+    config.tracks
+        .filter( (track) => (track.mode !== Track.MODE_HIDDEN) )
+        .forEach( (track) => {
+      const timeBounds = track.boundsTime();
+      minTime = Math.min(minTime, timeBounds[0]);
+      maxTime = Math.max(maxTime, timeBounds[1]); 
+    } );
+    return [ minTime, maxTime ];
   }
 
   function trackAdd(track) {
@@ -853,15 +421,8 @@ window.onload = function _onload() {
       // this is part of adding the tack
       config.tracks.push(track);
       trackDefaults(track);
-      if (track.name == TRACK_REFERENCE) {
-        config.tracks.forEach( (track) => { 
-            trackUpdateReferenceErrors(track); 
-        } );
-      } else {
-        trackUpdateReferenceErrors(track);
-      }
-      // now update the tracks 
-      trackUpdate(track);
+      // now we propagte the time bounds a global so we can reset the trim player
+      config.timeBounds = trackGetTimeBounds()
       trimPlayer.setBounds(config.timeBounds);
       const inBounds = ((config.time[0] >= config.timeBounds[0]) && (config.time[1] <= config.timeBounds[1]))
       if (!inBounds) {
@@ -869,15 +430,26 @@ window.onload = function _onload() {
       }
       trimPlayer.setTrim(config.time);
       trimPlayer.setCurrent(config.time[0]);
+      track.trim(config.time);
+      config.posBounds = trackGetPosBounds();
+      // now update the tracks 
+      if (track.name === Track.TRACK_REFERENCE) {
+        config.tracks.forEach( (track) => { 
+            trackUpdateReferenceErrors(track);
+            chartUpdateData(track);
+        } );
+      } else {
+        trackUpdateReferenceErrors(track);
+      }
       trackTableUpdate();
       // CHART: add dataset 
       track.dataset = chartAddDataset(track);
       // MAP: add layer
-      if (track.mode !== MODE_HIDDEN) {
-        track.layer = mapAddLayer(track);
+      if (track.mode !== Track.MODE_HIDDEN) {
+        mapView.addLayer(track);
       }
       // bound may have changed 
-      placeChange();
+      placeManager.change();
       return true;
     }
     return false;
@@ -966,11 +538,11 @@ window.onload = function _onload() {
     
       function _icon(mode) {
         let icon;
-        if (mode === MODE_HIDDEN) {
+        if (mode === Track.MODE_HIDDEN) {
           icon = feather.icons['eye-off'].toSvg( { class:'icon-inline' } );
-        } else if (mode === MODE_MARKERS) {
+        } else if (mode === Track.MODE_MARKERS) {
           icon = feather.icons['git-commit'].toSvg( { class:'icon-inline', fill:COLOR_FIX['3D']} )
-        } else if (mode === MODE_ANYFIX) {
+        } else if (mode === Track.MODE_ANYFIX) {
           icon = feather.icons['share-2'].toSvg( { class:'icon-inline', fill:COLOR_FIX['BAD']} )
         } else {
           icon = '〜';
@@ -980,22 +552,25 @@ window.onload = function _onload() {
 
       function _modeChange(track) {
         // DATA: track mode
-        track.mode = (track.mode === MODE_HIDDEN)  ? MODE_LINE :
-                     (track.mode === MODE_LINE)    ? MODE_MARKERS :
-                     (track.mode === MODE_MARKERS) ? MODE_ANYFIX : 
-                                                     MODE_HIDDEN;
+        track.mode = (track.mode === Track.MODE_HIDDEN)  ? Track.MODE_LINE :
+                     (track.mode === Track.MODE_LINE)    ? Track.MODE_MARKERS :
+                     (track.mode === Track.MODE_MARKERS) ? Track.MODE_ANYFIX : 
+                                                           Track.MODE_HIDDEN;
         // CHART: update chart with its dataset
-        track.dataset.hidden = (track.mode === MODE_HIDDEN) && (0 < track.dataset.data.length);
+        track.dataset.hidden = (track.mode === Track.MODE_HIDDEN) && (0 < track.dataset.data.length);
         chart.update();
-        // MAP: rebuidl track and legend
-        mapUpdateTrack(track);
-        mapUpdateTrackLegend();
+        // MAP: rebuild track and legend
+        mapView.removeLayer(track);
+        if (track.mode !== Track.MODE_HIDDEN) {
+          mapView.addLayer(track);
+        }
+        mapView.updateLegend();
       } 
 
       function _nameChange(track, newName) {
         if (track.name !== newName) { 
           delete Object.assign(config.tracks, {[newName]: config.tracks[track.name] })[newName];
-          const refErrUpd = (track.name === TRACK_REFERENCE) || (newName === TRACK_REFERENCE);
+          const refErrUpd = (track.name === Track.TRACK_REFERENCE) || (newName === Track.TRACK_REFERENCE);
           // DATA: update name and reference errors  
           track.name = newName;
           if (refErrUpd) {
@@ -1011,8 +586,11 @@ window.onload = function _onload() {
             chart.update();
           }
           // MAP: change the name of marker, popup and legend
-          mapUpdateTrack(track);
-          mapUpdateTrackLegend();
+          mapView.removeLayer(track);
+        if (track.mode !== Track.MODE_HIDDEN) {
+            mapView.addLayer(track);
+          }
+          mapView.updateLegend();
         }
       }
 
@@ -1024,8 +602,11 @@ window.onload = function _onload() {
           track.dataset.borderColor = track.color;
           chart.update();
           // MAP: change the color ployline, marker, popup and legend
-          mapUpdateTrack(track);
-          mapUpdateTrackLegend();
+          mapView.removeLayer(track);
+          if (track.mode !== Track.MODE_HIDDEN) {
+            mapView.addLayer(track);
+          }
+          mapView.updateLegend();
         }
       } 
     }
@@ -1126,17 +707,18 @@ window.onload = function _onload() {
       const dataset = e.chart.data.datasets[pt.datasetIndex];
       const epoch = dataset.data[pt.index].epoch;
       if (epoch?.posValid) {
-        const zoom = Math.min(map.getZoom(), 20);
-        const center = [epoch.fields.lat, epoch.fields.lng];
-        map.setView( center, zoom );
-        mapPopUp( center, epoch, dataset.track.nameHtml());
+        if (epoch.datetime) {
+          trimPlayer.setCurrent(epoch.datetime);
+        }  
+        mapView.flyTo( epoch.datetime, false );
       }
     }
   }
 
   function chartAddDataset(track) {
     const dataset = { 
-      label: track.name, borderColor: track.color, 
+      label: track.name, borderColor: setAlpha(track.color,0.8),
+      //fill:true, backgroundColor: setAlpha(track.color, 0.01),
       track: track,
       data: [],
       hidden: true, spanGaps: false, showLine: true,
@@ -1154,10 +736,12 @@ window.onload = function _onload() {
     chartUpdateData(dataset);
     
     function _pointColor(ctx) {
-      return ctx.dataset.data[ctx.dataIndex]?.epoch?.color || track.color; 
+      const color = ctx.dataset.data[ctx.dataIndex]?.epoch?.color || track.color;
+      return setAlpha(color, 1); 
     }
     function _pointBackgroundColor(ctx) { 
-      return setAlpha(_pointColor(ctx), 0.8);
+      const color = ctx.dataset.data[ctx.dataIndex]?.epoch?.color || track.color;
+      return setAlpha(color, 0.8);
     }
     return dataset;
   }
@@ -1178,7 +762,6 @@ window.onload = function _onload() {
            (modeSelect.value === CHART_DERIVATIVE) ||
             !defField.unit) ? '' : (' [' + defField.unit + ']'));
     const category = def(defField.map) ? Object.keys(defField.map) : undefined;
-    const prec = defField.prec;
     
     if ((modeSelect.value === CHART_TIMESERIES) || 
         (modeSelect.value === CHART_CUMULATIVE) || 
@@ -1211,7 +794,7 @@ window.onload = function _onload() {
     chart.data.datasets.forEach( (dataset) => chartUpdateData(dataset) );
 
     function _fmtVal(v) { 
-      return category ? category[v] : defField.format(v); 
+      return category ? category[Math.round(v)] : defField.format(v); 
     }
   }
 
@@ -1229,97 +812,62 @@ window.onload = function _onload() {
       let c = 0;
       let l; 
       let data = track.epochs
-        .filter( (epoch) => (epoch.selTime && epoch.timeValid) )
+        .filter( (epoch) => (epoch.selTime) )
         .map( (epoch) => { 
           let v = epoch.fields[fieldSelect.value];
-          if (((track.mode === MODE_ANYFIX) ? epoch.fixValid : epoch.fixGood) && (v !== undefined)) {
+          if (epoch.timeValid && ((track.mode === Track.MODE_ANYFIX) || epoch.fixGood) && def(v)) {
             if (category) {
               v = category.indexOf(`${v}`);
-              v = (0 <= v) ? v : undefined;
+              v = (0 <= v) ? v : null;
             } 
             c += v;
-            const d = Number.isFinite(l) ? (v - l) : undefined;
+            const d = Number.isFinite(l) ? (v - l) : null;
             l = v;
-            let y = (modeSelect.value === CHART_CUMULATIVE) ? (category ? undefined : c) : 
-                      (modeSelect.value === CHART_DERIVATIVE) ? (category ? undefined : d) : v;
+            let y = (modeSelect.value === CHART_CUMULATIVE) ? (category ? null : c) : 
+                    (modeSelect.value === CHART_DERIVATIVE) ? (category ? null : d) : v;
             //y = Number.isFinite(y) ? defField.format(y) : y;
             return { x: epoch.datetime, y: y, epoch:epoch };
           } else {
             l = undefined;
-            return { x: epoch.datetime, y: undefined, epoch:epoch };
+            return { x: null, y: null, epoch:epoch };
           }
         });
-      // calc the cnt, mean, std dev, min and max
-
+      
       const vals = data.map((row) => (row.y)).filter(Number.isFinite);
-      const dataset = track.dataset;
-      dataset.stats = {};
-      dataset.stats.cnt = vals.length;
-      if (0 < vals.length) {
-        dataset.stats.min = Math.min(... vals);
-        dataset.stats.max = Math.max(... vals);
-        dataset.stats.mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-        if (1 < vals.length) {
-          dataset.stats.std = Math.sqrt(vals.reduce((s, x) => s + (x - dataset.stats.mean) ** 2, 0) / vals.length);
+      dataset.stats = new Statistics(vals);
+      if (!chartXisTime()) {
+        // convert to cdf or histogram and calc median and quantiles 
+        if (category) {
+          if (modeSelect.value === CHART_HISTOGRAM) {
+            data = dataset.stats.histogram2();
+            //dataset.pointRadius = 5;
+            //dataset.borderWidth = 0;
+          } else {
+            data = [];
+          }
+          data = data.map((row) => { return { 
+            x:row.x, 
+            y:chart.options.scales.y.ticks.callback(row.y)
+          } } );
+        } else {
+          if (modeSelect.value === CHART_CDF) {
+            data = dataset.stats.cdf(512);
+          } else if (modeSelect.value === CHART_HISTOGRAM) {
+            data = dataset.stats.histogram(512);
+          } else if (modeSelect.value === CHART_HISTOGRAM_FD) {
+            data = dataset.stats.histogram(/*freedmanDiaconis*/);
+          } else if (modeSelect.value === CHART_KDE) {
+            data = dataset.stats.kde(/*silvermanBandwidth*/);
+          } else {
+            data = [];
+          }
+          data = data.map((row) => { return { 
+            x:chart.options.scales.x.ticks.callback(row.x), 
+            y:chart.options.scales.y.ticks.callback(row.y)
+          } } );
         }
       }
-      // convert to cdf or histogram and calc median and quantiles 
-      if ((modeSelect.value === CHART_CDF) ||
-          (modeSelect.value === CHART_HISTOGRAM)  || 
-          (modeSelect.value === CHART_HISTOGRAM_COARSE)) {
-        const PRECISION_REDUCE = (modeSelect.value === CHART_HISTOGRAM_COARSE) ? 2 : 1;
-        const prec = (0 < defField.prec) ? Math.max(1, defField.prec - PRECISION_REDUCE) : 1;
-        const xd = (10 ** -prec).toFixed(prec);
-        // 1) extract & optionally round
-        const vals = data
-          .filter( (row) => Number.isFinite(row.y) )   // only work with good numbers 
-          .map( (row) => Number(row.y.toFixed(prec)) ) // reduce precision 
-        const len = vals.length;
-        if (0 < len) {
-          // 2) frequency by value
-          const hist = {};
-          vals.forEach( (x) => { 
-            hist[x] = (hist[x] || 0) + 1
-          });
-          // 3) sort unique value
-          let sortValues = Object.keys(hist).map(Number).sort((a, b) => a - b);
-          // 4) stuff additional zeros in between values / determine the quantiles
-          const isCdf = (modeSelect.value === CHART_CDF);
-          let xl = (sortValues[0] - xd).toFixed(prec);
-          let y = 0;
-          let yCum = 0;
-          const dataValues = [];
-          sortValues.forEach( (x) => {
-            // push a 0 just after last
-            if ((xl < x) && !isCdf) {
-              dataValues.push( { x:xl, y:y } );
-            }
-            // push a 0 just before current 
-            const xn = x - xd;
-            if (xl < xn) {
-              dataValues.push( { x:xn, y:y } );
-            }
-            y = hist[x] || 0;
-            yCum += y;
-            // capture the cdf values in the hash
-            const cdf = yCum / len;
-            dataset.stats.q50 ??= cdf >= 0.500 ? x : dataset.stats.q50;
-            dataset.stats.q68 ??= cdf >= 0.680 ? x : dataset.stats.q68;
-            dataset.stats.q95 ??= cdf >= 0.950 ? x : dataset.stats.q95;
-            dataset.stats.q99 ??= cdf >= 0.997 ? x : dataset.stats.q99;
-            // select the new y value
-            y = isCdf ? cdf : (y / len);
-            dataValues.push( { x:x, y:y } );
-            y = isCdf ? y : 0;
-            xl = x + xd;
-          });
-          dataValues.push( { x:xl, y:y } );
-          data = dataValues;
-        } else { 
-          data.length = 0;
-        }
-      }
-      dataset.hidden = (0 === data.length) || (track.mode === MODE_HIDDEN);
+      dataset.hidden = (0 === data.length) || (track.mode === Track.MODE_HIDDEN);
       dataset.data.length = 0;
       if (data.length) {
         dataset.data.push.apply(dataset.data, data);
@@ -1350,9 +898,7 @@ window.onload = function _onload() {
           }
       }
       if (active && (0 < active.length)) {
-        const axis = ((modeSelect.value === CHART_TIMESERIES) || 
-                      (modeSelect.value === CHART_CUMULATIVE) || 
-                      (modeSelect.value === CHART_DERIVATIVE)) ? 'y' : 'x';
+        const axis = (chartXisTime()) ? 'y' : 'x';
         const index = active[0].datasetIndex;
         const dataset = chart.data.datasets[index];
         if (!dataset.hidden) {
@@ -1371,10 +917,10 @@ window.onload = function _onload() {
               const defField = FieldsReg[field];
               if (!def(defField.map)) {
                 annotations.mean = _annotation(axis, dataset.stats.mean, color, `μ = ${_fmt(dataset.stats.mean)}`);
-                if (def(dataset.stats.std)) {
-                  const mps = dataset.stats.mean + dataset.stats.std;
+                if (def(dataset.stats.sigma)) {
+                  const mps = dataset.stats.mean + dataset.stats.sigma;
                   annotations.plus = _annotation(axis, mps, color, `μ+σ = ${_fmt(mps)}` );
-                  const mms = dataset.stats.mean - dataset.stats.std;
+                  const mms = dataset.stats.mean - dataset.stats.sigma;
                   annotations.minus = _annotation(axis, mms, color, `μ-σ = ${_fmt(mms)}`);
                 }
               }
@@ -1389,16 +935,14 @@ window.onload = function _onload() {
   }
 
   function chartSetTime(datetime) {
-    if ((modeSelect.value === CHART_TIMESERIES) || 
-        (modeSelect.value === CHART_CUMULATIVE) || 
-        (modeSelect.value === CHART_DERIVATIVE)) {
+    if (chartXisTime()) {
       chart.options.plugins.annotation.annotations.time = _annotation('x', datetime, '#00000040', 'time' );
       chart.update();
     }
   }
           
   function _annotation(axis, val, color, label) {
-    const annotation = { type: MODE_LINE, borderColor: color, borderWidth: 1, borderDash: [6, 6] };
+    const annotation = { type: Track.MODE_LINE, borderColor: color, borderWidth: 1, borderDash: [6, 6] };
     if (axis === 'x') {
       annotation.xMin = annotation.xMax = val;
     } else {
@@ -1440,21 +984,18 @@ window.onload = function _onload() {
     const defField = FieldsReg[fieldSelect.value];
     if (defField.map) {
       // make it fixed size
-      if (modeSelect.value === CHART_TIMESERIES) {
+      if (chartXisTime()) {
         minY = 0; 
         maxY = Object.keys(defField.map).length - 1;
       } else {
         minX = 0; 
         maxX = Object.keys(defField.map).length - 1;
       }
-    }
-    // make defaults 
-    if ((modeSelect.value === CHART_CDF) ||
-        (modeSelect.value === CHART_HISTOGRAM) ||
-        (modeSelect.value === CHART_HISTOGRAM_COARSE)) {
-      minY = 0.00;
+    } 
+    if (!chartXisTime()) {
+      minY = 0;
       if (modeSelect.value === CHART_CDF) {
-        maxY = 1.00;
+        maxY = 1;
       } 
     }
     // now reset the zoom plugin 
@@ -1465,7 +1006,15 @@ window.onload = function _onload() {
     chart.options.scales.y.min = Number.isFinite(minY) ? minY : undefined;
     chart.options.scales.y.max = Number.isFinite(maxY) ? maxY : undefined;
   }
+  
+  function chartXisTime() {
+    return (modeSelect.value === CHART_TIMESERIES) || 
+           (modeSelect.value === CHART_CUMULATIVE) || 
+           (modeSelect.value === CHART_DERIVATIVE);
+  } 
+
 }
+
 
 // ------------------------------------------------------------------------------------
 return { }; })(); // UVIEW mdoule end

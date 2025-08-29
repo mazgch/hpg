@@ -71,8 +71,8 @@ const COLORS = Object.freeze( {
 const MAP = Object.freeze( {
     fix: {
         'NO':    { hint: 'No fix',                       color: '#ff0000' },
-        'BAD':   { hint: 'Invalid fix',                  color: '#ff0000' },
         'SIM':   { hint: 'Simulation',                   color: '#ff0000' },
+        'BAD':   { hint: 'Invalid fix',                  color: '#0000ff' },
         'DR':    { hint: 'Dead reckoning only',          color: '#ff00ff' },
         '2D':    { hint: '2D fix',                       color: '#00ffff' },
         '2D/3D': { hint: '2D/3D fix',                    color: '#00ff00' },
@@ -258,9 +258,6 @@ export const FieldsReg = Object.freeze( {
     pErr       : new Field( '3D reference offset',                   { unit:'m',       prec:3 } ),
     sErr       : new Field( 'Speed reference offset',                { unit:'m/s',     prec:3 } ),
     gsErr      : new Field( 'Ground speed reference offset',         { unit:'m/s',     prec:3 } ),
-    ICC1       : new Field( 'Current ICC1',                          { unit:'mA',      prec:6 } ),
-    ICC2       : new Field( 'Current ICC2',                          { unit:'mA',      prec:6 } ),
-    ICC3       : new Field( 'Current ICC3',                          { unit:'mA',      prec:6 } ),
-    ICC4       : new Field( 'Current ICC4',                          { unit:'mA',      prec:6 } )
+    power      : new Field( 'Power consumption',                     { unit:'mW',      prec:6 } ),
 } );
 

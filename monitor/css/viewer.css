@@ -17,10 +17,10 @@
  #map, .vresize {
   resize: vertical;
   min-height:200px;
-  resize: vertical;
   height: 40vh;
 	overflow: clip;
 	overflow-anchor: none;
+  outline: none;
 }
 
 #drop-overlay {

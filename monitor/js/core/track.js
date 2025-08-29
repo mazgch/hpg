@@ -16,7 +16,7 @@
 
 "use strict";
 
-import { def } from './utils.js';
+import { def, bytesToString, isGzip } from './utils.js';
 import { Epoch } from './epoch.js';
 import { Collector } from './collector.js';
 
@@ -33,24 +33,50 @@ export class Track {
     }
 
     async fetchUrl(url) {
-        const response = await fetch(url);
-        // maybe we could consume bytes on the go  
-        const bytes = await response.bytes();
-        return this.addData(bytes);
-    }
-
-    addData(data) {
-        if (data instanceof Uint8Array) {
-            if ((data[0] === 0x1f) && (data[1] === 0x8b)) {
-                data = window.pako.ungzip(data);
-            }
-        }
-        if (typeof data !== 'string') {
-            data = Array.from(data, (byte) => (String.fromCharCode(byte))).join('');
-        }
-        this.appendData(data);
+        const res = await fetch(url);
+        const reader = res.body.getReader();
+        return this.read(reader);
     }
     
+    async readFile(file) {
+        const reader = file.stream().getReader();
+        return this.read(reader);
+    }
+    
+    async read(reader) {
+        const { value, done } = await reader.read();
+        if (isGzip(value)) {
+            // setup inflator and decoding callbacks
+            const inflator = new pako.Inflate({ to: 'uint8array' });
+            inflator.onData = (value) => {
+                const txt = bytesToString(value);
+                if (txt) this.appendData(txt);
+            };
+            inflator.onError = (err) => { 
+                console.error('inflate error:', err);
+            };
+            // push data though inflator 
+            inflator.push(value, false);
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                inflator.push(value, false);
+            }
+            inflator.push(Uint8Array(0), true);
+        } else {
+            // read data directly and decode 
+            const txt = bytesToString(value);
+            if (txt) this.appendData(txt);
+            while (!done) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                const txt = bytesToString(value)
+                if (txt) this.appendData(txt);
+            }
+        }
+        return this;
+    }
+
     addEpochs(epochs) {
         epochs.forEach( (epoch) => {
             const fields = Object.fromEntries(
@@ -126,10 +152,10 @@ export class Track {
             this.bounds.datetime.max = Math.max(epoch.datetime, this.bounds.datetime.max);
         }
         if (epoch.posValid) {
-            this.bounds.lat.min = Math.min(epoch.datetime, this.bounds.lat.min);
-            this.bounds.lat.max = Math.max(epoch.datetime, this.bounds.lat.max);
-            this.bounds.lng.min = Math.min(epoch.datetime, this.bounds.lng.min);
-            this.bounds.lng.max = Math.max(epoch.datetime, this.bounds.lng.max);
+            this.bounds.lat.min = Math.min(epoch.fields.lat, this.bounds.lat.min);
+            this.bounds.lat.max = Math.max(epoch.fields.lat, this.bounds.lat.max);
+            this.bounds.lng.min = Math.min(epoch.fields.lng, this.bounds.lng.min);
+            this.bounds.lng.max = Math.max(epoch.fields.lng, this.bounds.lng.max);
         }
     }
 
@@ -141,20 +167,22 @@ export class Track {
         return [ this.bounds.datetime.min, this.bounds.datetime.max];
     }
 
-    trim( range, good ) {
+    trim( range ) {
         let minLat  =  Infinity;
         let minLng  =  Infinity;
         let maxLat  = -Infinity;
         let maxLng  = -Infinity;
         this.epochs.forEach( (epoch) => { 
-            epoch.selTime = epoch.timeValid && (epoch.datetime >= range[0]) && (epoch.datetime <= range[0]);
-            if (epoch.selTime) {
+            epoch.selTime = epoch.timeValid && (epoch.datetime >= range[0]) && (epoch.datetime <= range[1]);
+            if (epoch.selTime & epoch.posValid) {
                 minLat = Math.min(minLat, epoch.fields.lat);
                 minLng = Math.min(minLng, epoch.fields.lng);
                 maxLat = Math.max(maxLat, epoch.fields.lat);
                 maxLng = Math.max(maxLng, epoch.fields.lng);
             }
         } );
+        this.bounds.lat = { min:minLat, max:maxLat };
+        this.bounds.lng = { min:minLng, max:maxLng };
         return [ [ minLat, minLng ], [ maxLat, maxLng] ];
     }
 
@@ -200,6 +228,28 @@ export class Track {
         }
     }
 
+    static MODE_HIDDEN  = 'hidden';
+    static MODE_MARKERS = 'markers';
+    static MODE_ANYFIX  = 'anyfix';
+    static MODE_LINE    = 'line';
+
+    static TRACK_REFERENCE = 'Reference';
+
+    static COLOR_REFERENCE     = '#000000';
+    static COLOR_UBLOX         = '#0000ff';
+    static COLOR_OTHERS        = '#ff0000';
+
+    static EPOCH_FIELDS = [ 
+    'date', 'time',
+    'fix', 'psm',
+    'lat', 'lng', 'pAcc', 'hAcc',
+    'height', 'msl', 'vAcc', 
+    'speed', 'gSpeed', 'sAcc', 'cAcc', 
+    'hDop', 'pDop', 'numSV', 
+    'pErr', 'hErr', 'vErr', 'sErr', 'gsErr',
+    'power'
+  ];
+  
     // some protected local vars 
     #collector
     #keys

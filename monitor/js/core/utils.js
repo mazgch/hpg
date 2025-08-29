@@ -60,5 +60,10 @@ export function setAlpha(hexColor, alpha = 1) {
 }
 
 export function bytesToString(bytes) {
-    return Array.from(bytes, b => String.fromCharCode(b)).join('');
+    return Array.from(bytes, byte => String.fromCharCode(byte)).join('');
+}
+
+export function isGzip(value) {
+    return (value instanceof Uint8Array) && (2 <= value?.length) && 
+           (value[0] === 0x1f) && (value[1] === 0x8b);
 }
