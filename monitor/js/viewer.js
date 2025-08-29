@@ -83,7 +83,6 @@ window.onload = function _onload() {
     configReadFiles(evt.target.files);
     evt.target.value = null;
   });
-
   
   const downloadConfig = document.getElementById("download");
   downloadConfig.addEventListener('click', configDownloadJson);
@@ -120,7 +119,18 @@ window.onload = function _onload() {
     mapView.flyTo(datetime);
     chartView.setTime(datetime);
   });
-  
+  const cropButton = document.getElementById("btnCrop");
+  cropButton.addEventListener('click', (evt) => {
+    config.tracks.map((track) => {
+      const epochs = track.epochs.filter( (epoch) => epoch.selTime );
+      track.epochs = epochs;
+      chartView.updateDataset(track);
+      mapView.updateLayer(track); 
+      trimPlayer.setBounds(config.time);
+    })
+
+  });
+
   // MapView
   const mapsContainer = document.getElementById("map");
   const opacitySlider = document.getElementById('opacity');
@@ -135,8 +145,8 @@ window.onload = function _onload() {
   const fieldSelect = document.getElementById('field');
   const modeSelect = document.getElementById('mode');
   const chartView = new ChartView(chartContainer, fieldSelect, modeSelect, trimPlayer, mapView);
-  const resetZoom = document.getElementById('resetZoom');
-  resetZoom.addEventListener("click", (evt) => chartView.resetZoom() );
+  const resetZoomButton = document.getElementById('resetZoom');
+  resetZoomButton.addEventListener("click", (evt) => chartView.resetZoom() );
 
   trackTableUpdate();
   
