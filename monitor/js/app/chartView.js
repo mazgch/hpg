@@ -1,0 +1,493 @@
+/*
+ * Copyright 2022 by Michael Ammann (@mazgch)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+"use strict";
+
+import { Track } from '../core/track.js';
+import { FieldsReg } from '../core/fieldsReg.js';
+import { def, formatDateTime, setAlpha } from '../core/utils.js';
+import { Statistics } from '../core/statistics.js';
+
+export class ChartView {
+    constructor(container, fieldSelect, modeSelect, trimPlayer, mapView) {
+        this.#container = container;
+        this.#container.addEventListener('mouseout', (evt) => this.#updateAnnotation(evt));
+    
+        this.#fieldSelect = fieldSelect
+        fieldSelect.addEventListener("change", (evt) => this.configChange() );
+        const hiddenFields = ['time','date','itow'];
+        Track.EPOCH_FIELDS.filter((field) => (!hiddenFields.includes(field)) ).forEach( (field) => {
+            const option = document.createElement("option");
+            option.textContent = FieldsReg[field]?.name || field;
+            option.value = field;
+            fieldSelect.appendChild(option);
+        })
+        
+        this.#modeSelect = modeSelect;
+        modeSelect.addEventListener("change", (evt) => this.configChange() );
+    
+        this.chart = new Chart(container, {
+            type: 'scatter',
+            data: { datasets: [] },
+            options: {
+                onHover: (evt, active) => this.#updateAnnotation(evt, active),
+                onLeave: (evt, active) => this.#updateAnnotation(evt, active),
+                onClick: (evt) => this.#chartOnClick(evt),
+                responsive: true, maintainAspectRatio: false, animation: false,
+                interaction: { intersect: false, mode: 'nearest' },
+                layout: {  padding: { left: 10, right: 10 + 10 + 24, top: 10, bottom: 10 } },
+                transitions: { active: { animation: { duration: 0 } }, resize: { animation: { duration: 0 } }  },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        title: { display: true },
+                        ticks: { font: { size: 10 }, maxRotation: 0, autoSkipPadding: 10, beginAtZero: false }
+                    },
+                    x: {
+                        type: 'linear',
+                        title: { display: true, },
+                        ticks: { font: { size: 10 }, maxRotation: 0, autoSkipPadding: 10, beginAtZero: false }
+                    }
+                },
+                plugins: {
+                    annotation: { annotations: {} },
+                    legend: {
+                        enabled: true,
+                        labels: {
+                            boxWidth: 20, boxHeight: 0,
+                            filter: (legendItem) => (!legendItem.hidden)
+                        },
+                        onClick: (evt) => evt.stopPropagation()
+                    },
+                    tooltip: {
+                        usePointStyle: false, displayColors: false,
+                        backgroundColor: 'rgba(245,245,245,0.8)',
+                        bodyColor: '#000', bodyFont: { size: 10 },
+                        borderColor: '#888', borderWidth: 1, cornerRadius: 0,
+                        callbacks: { label: (ctx) => this.#toolTipTitle(ctx), afterLabel: (ctx) => this.#toolTipText(ctx) }
+                    },
+                    zoom: {
+                        pan: { enabled: true, mode: 'xy' },
+                        zoom: {
+                            mode: 'xy',
+                            pinch: { enabled: true },
+                            wheel: { enabled: true, modifierKey: 'shift' },
+                            drag: { enabled: true, modifierKey: 'shift', borderWidth: 2 }
+                        }
+                    }
+                }
+            }
+        });
+        this.#trimPlayer = trimPlayer;
+        this.#mapView = mapView;
+        
+        this.configChange(); // initial change
+    }
+
+    // ===== Public API =====
+
+    addDataset(track) {
+        const chart = this.chart;
+        const dataset = {
+            label: track.name, borderColor: setAlpha(track.color, 0.8),
+            track: track,
+            data: [],
+            hidden: true, spanGaps: false, showLine: true,
+            borderCapStyle: 'round', borderJoinStyle: 'bevel',
+            borderWidth: 2,
+            pointRadius: 0, pointBorderWidth: 0,
+            pointBorderColor: this.#pointColor,
+            pointBackgroundColor: this.#pointBackgroundColor,
+            pointHoverRadius: 5, pointHoverBorderWidth: 1,
+            pointHoverBorderColor: this.#pointColor,
+            pointHoverBackgroundColor: this.#pointBackgroundColor,
+        };
+        chart.data.datasets.push(dataset);
+        track.dataset = dataset;
+        this.#calcDataset(dataset);
+        this.#updateAnnotation();
+        this.resetZoom();
+        chart.update();
+    }
+
+    removeDataset(track) {
+        if (track.dataset) {
+            const chart = this.chart;
+            const ix = chart.data.datasets.indexOf(track.dataset);
+            if (ix !== -1) {
+                chart.data.datasets.splice(ix, 1);
+            }
+            delete track.dataset;
+        }
+    }
+
+    updateDataset(track) {
+        if (track.dataset) {
+            track.dataset.label = track.name;
+            track.dataset.borderColor = track.color;
+            track.dataset.hidden = (track.mode === Track.MODE_HIDDEN) && (0 < track.dataset.data.length);
+            this.chart.update();
+        }
+    }
+
+    setTime(datetime) {
+        const chart = this.chart;
+        if (this.#xIsTime()) {
+            const annotation = ChartView.#annotation('x', datetime, '#00000040', 'time');
+            chart.options.plugins.annotation.annotations.time = annotation;
+            chart.update();
+        }
+    }
+
+    configChange() {
+        const chart = this.chart;
+        // update the data from epoch
+        const field = this.#fieldSelect.value;
+        const mode = this.#modeSelect.value;
+        const defField = FieldsReg[field];
+        const axisName = defField.name +
+            (((mode === ChartView.CHART_CUMULATIVE) ||
+              (mode === ChartView.CHART_DERIVATIVE) ||
+              !defField.unit) ? '' : (' [' + defField.unit + ']'));
+        const category = def(defField.map) ? Object.keys(defField.map) : undefined;
+
+        if (this.#xIsTime()) {
+            chart.options.scales.x.title.text = 'Time UTC';
+            chart.options.scales.x.ticks.callback = formatDateTime;
+            chart.options.scales.x.ticks.maxTicksLimit = 10;
+            chart.options.scales.x.ticks.autoSkip = true;
+            chart.options.scales.x.ticks.stepSize = undefined;
+
+            chart.options.scales.y.title.text = ((mode !== ChartView.CHART_TIMESERIES) ? modeSelect.value + ' ' : '') + axisName;
+            chart.options.scales.y.ticks.callback = _fmtVal;
+            chart.options.scales.y.ticks.maxTicksLimit = category ? category.length : undefined;
+            chart.options.scales.y.ticks.autoSkip = category ? false : true;
+            chart.options.scales.y.ticks.stepSize = category ? 1 : undefined;
+        } else {
+            chart.options.scales.x.title.text = axisName;
+            chart.options.scales.x.ticks.callback = _fmtVal;
+            chart.options.scales.x.ticks.maxTicksLimit = category ? category.length : undefined;
+            chart.options.scales.x.ticks.autoSkip = category ? false : true;
+            chart.options.scales.x.ticks.stepSize = category ? 1 : undefined;
+
+            chart.options.scales.y.title.text = (mode === ChartView.CHART_CDF) ? 'Cumulative density' : 'Density';
+            chart.options.scales.y.ticks.callback = (v) => Number(v.toFixed(5));
+            chart.options.scales.y.ticks.maxTicksLimit = undefined;
+            chart.options.scales.y.ticks.autoSkip = true;
+            chart.options.scales.y.ticks.stepSize = undefined;
+        }
+
+        chart.data.datasets.forEach((dataset) => 
+            this.#calcDataset(dataset)
+        );
+        this.#updateAnnotation();
+        this.resetZoom();
+        chart.update();
+   
+        function _fmtVal(v) {
+            return category ? category[Math.round(v)] : defField.format(v);
+        }
+    }
+
+    resetZoom() {
+        const chart = this.chart;
+        // find the bounds 
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+        chart.data.datasets
+            .filter((dataset) => (!dataset.hidden))
+            .forEach((dataset) => {
+                dataset.data.forEach((row) => {
+                    if (Number.isFinite(row.x)) {
+                        minX = Math.min(minX, row.x);
+                        maxX = Math.max(maxX, row.x);
+                    }
+                    if (Number.isFinite(row.y)) {
+                        minY = Math.min(minY, row.y);
+                        maxY = Math.max(maxY, row.y);
+                    }
+                })
+            });
+        // category fields are fixed
+        const field = this.#fieldSelect.value;
+        const mode = this.#modeSelect.value;
+        const defField = FieldsReg[field];
+        if (defField.map) {
+            // make it fixed size
+            if (this.#xIsTime()) {
+                minY = 0;
+                maxY = Object.keys(defField.map).length - 1;
+            } else {
+                minX = 0;
+                maxX = Object.keys(defField.map).length - 1;
+            }
+        }
+        if (!this.#xIsTime()) {
+            minY = 0;
+            if (mode === ChartView.CHART_CDF) {
+                maxY = 1;
+            }
+        }
+        // now reset the zoom plugin 
+        chart.resetZoom();
+        // set new scales
+        chart.options.scales.x.min = Number.isFinite(minX) ? minX : undefined;
+        chart.options.scales.x.max = Number.isFinite(maxX) ? maxX : undefined;
+        chart.options.scales.y.min = Number.isFinite(minY) ? minY : undefined;
+        chart.options.scales.y.max = Number.isFinite(maxY) ? maxY : undefined;
+    }
+
+    // ===== Save Restore API =====
+
+    fromJson(json) {
+        (typeof json.field === 'string') && (this.#fieldSelect.value = json.field);
+        (typeof json.mode === 'string') && (this.#modeSelect.value = json.mode);
+        this.configChange();
+    }
+
+    toJson(json) {
+        json.field = this.#fieldSelect.value;
+        json.mode = this.#modeSelect.value;
+    }
+
+    // ===== Internals =====
+
+    #chartOnClick(evt) {
+        const chart = evt.chart;
+        const elems = chart.getElementsAtEventForMode(evt, "nearest", { intersect: false });
+        if (0 < elems.length) {
+            const pt = elems[0];
+            const dataset = chart.data.datasets[pt.datasetIndex];
+            const epoch = dataset.data[pt.index].epoch;
+            if (epoch?.posValid) {
+                if (epoch.datetime) {
+                    this.#trimPlayer.setCurrent(epoch.datetime);
+                }
+                this.#mapView.flyTo(epoch.datetime, false);
+            }
+        }
+    }
+
+    #calcDataset(dataset) {
+        const chart = this.chart;
+        // update the data from epoch
+        const field = this.#fieldSelect.value;
+        const mode = this.#modeSelect.value;
+        const defField = FieldsReg[field];
+        const category = def(defField.map) ? Object.keys(defField.map) : undefined;
+        // created the chart data
+        let c = 0;
+        let l;
+        const track = dataset.track;
+        let data = track.epochs
+            .filter((epoch) => (epoch.selTime))
+            .map((epoch) => {
+                let v = epoch.fields[field];
+                if (epoch.timeValid && ((track.mode === Track.MODE_ANYFIX) || epoch.fixGood) && def(v)) {
+                    if (category) {
+                        v = category.indexOf(`${v}`);
+                        v = (0 <= v) ? v : null;
+                    }
+                    c += v;
+                    const d = Number.isFinite(l) ? (v - l) : null;
+                    l = v;
+                    let y = (mode === ChartView.CHART_CUMULATIVE) ? (category ? null : c) :
+                            (mode === ChartView.CHART_DERIVATIVE) ? (category ? null : d) : v;
+                    //y = Number.isFinite(y) ? defField.format(y) : y;
+                    return { x: epoch.datetime, y: y, epoch: epoch };
+                } else {
+                    l = undefined;
+                    return { x: null, y: null, epoch: epoch };
+                }
+            });
+
+        const vals = data.map((row) => (row.y)).filter(Number.isFinite);
+        dataset.stats = new Statistics(vals);
+        if (!this.#xIsTime()) {
+            // convert to cdf or histogram and calc median and quantiles 
+            if (category) {
+                if (mode === ChartView.CHART_HISTOGRAM) {
+                    data = dataset.stats.histogram2();
+                    //dataset.pointRadius = 5;
+                    //dataset.borderWidth = 0;
+                } else {
+                    data = [];
+                }
+                data = data.map((row) => {
+                    return {
+                        x: row.x,
+                        y: chart.options.scales.y.ticks.callback(row.y)
+                    }
+                });
+            } else {
+                if (mode === ChartView.CHART_CDF) {
+                    data = dataset.stats.cdf(512);
+                } else if (mode === ChartView.CHART_HISTOGRAM) {
+                    data = dataset.stats.histogram(512);
+                } else if (mode === ChartView.CHART_HISTOGRAM_FD) {
+                    data = dataset.stats.histogram(/*freedmanDiaconis*/);
+                } else if (mode === ChartView.CHART_KDE) {
+                    data = dataset.stats.kde(/*silvermanBandwidth*/);
+                } else {
+                    data = [];
+                }
+                data = data.map((row) => {
+                    return {
+                        x: chart.options.scales.x.ticks.callback(row.x),
+                        y: chart.options.scales.y.ticks.callback(row.y)
+                    }
+                });
+            }
+        }
+        dataset.hidden = (0 === data.length) || (track.mode === Track.MODE_HIDDEN);
+        dataset.data.length = 0;
+        if (data.length) {
+            dataset.data.push.apply(dataset.data, data);
+        }
+    }
+
+    #updateAnnotation(evt, active) {
+        const chart = this.chart;
+        if (chart) {
+            const mode = this.#modeSelect.value;
+            const CHART_CDF_ANNOTAIONS = {
+                y50: ChartView.#annotation('y', 0.500, '#00000040', '0.5'),
+                y68: ChartView.#annotation('y', 0.680, '#00000040', '0.68'),
+                y95: ChartView.#annotation('y', 0.950, '#00000040', '0.95'),
+                y99: ChartView.#annotation('y', 0.997, '#00000040', '0.997')
+            };
+            let annotations = (mode === ChartView.CHART_CDF) ? CHART_CDF_ANNOTAIONS : {};
+            if (def(chart.options.plugins.annotation.annotations.time)) {
+                const datetime = chart.options.plugins.annotation.annotations.time.xMin;
+                if (def(datetime)) {
+                    annotations.time = ChartView.#annotation('x', datetime, '#00000040', 'time');
+                }
+            }
+            if (active && (0 < active.length)) {
+                const axis = (this.#xIsTime()) ? 'y' : 'x';
+                const index = active[0].datasetIndex;
+                const dataset = chart.data.datasets[index];
+                if (!dataset.hidden) {
+                    const color = dataset.borderColor;
+                    const _fmt = chart.options.scales[axis].ticks.callback;
+                    if (mode === ChartView.CHART_CDF) {
+                        if (def(dataset.stats.q50)) annotations.q50 = ChartView.#annotation(axis, dataset.stats.q50, color, `x̃ = ${_fmt(dataset.stats.q50)}`);
+                        if (def(dataset.stats.q68)) annotations.q68 = ChartView.#annotation(axis, dataset.stats.q68, color, `Q68 = ${_fmt(dataset.stats.q68)}`);
+                        if (def(dataset.stats.q95)) annotations.q95 = ChartView.#annotation(axis, dataset.stats.q95, color, `Q95 = ${_fmt(dataset.stats.q95)}`);
+                        if (def(dataset.stats.q99)) annotations.q99 = ChartView.#annotation(axis, dataset.stats.q99, color, `Q99.7 = ${_fmt(dataset.stats.q99)}`);
+                    } else {
+                        if (def(dataset.stats.min)) annotations.min = ChartView.#annotation(axis, dataset.stats.min, color, `min = ${_fmt(dataset.stats.min)}`);
+                        if (def(dataset.stats.max)) annotations.max = ChartView.#annotation(axis, dataset.stats.max, color, `max = ${_fmt(dataset.stats.max)}`);
+                        if (def(dataset.stats.mean)) {
+                            const field = this.#fieldSelect.value;
+                            const defField = FieldsReg[field];
+                            if (!def(defField.map)) {
+                                annotations.mean = ChartView.#annotation(axis, dataset.stats.mean, color, `μ = ${_fmt(dataset.stats.mean)}`);
+                                if (def(dataset.stats.sigma)) {
+                                    const mps = dataset.stats.mean + dataset.stats.sigma;
+                                    annotations.plus = ChartView.#annotation(axis, mps, color, `μ+σ = ${_fmt(mps)}`);
+                                    const mms = dataset.stats.mean - dataset.stats.sigma;
+                                    annotations.minus = ChartView.#annotation(axis, mms, color, `μ-σ = ${_fmt(mms)}`);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            /// TODO: try to reuse the hash
+            chart.options.plugins.annotation.annotations = annotations;
+            chart.update();
+        }
+    }
+
+    #xIsTime() {
+        const mode = this.#modeSelect.value;
+        return (mode === ChartView.CHART_TIMESERIES) ||
+               (mode === ChartView.CHART_CUMULATIVE) ||
+               (mode === ChartView.CHART_DERIVATIVE);
+    } 
+
+    #pointColor(ctx) {
+        const dataset = ctx.dataset;
+        const color = dataset.data[ctx.dataIndex]?.epoch?.color || dataset.borderColor;
+        return setAlpha(color, 1);
+    }
+
+    #pointBackgroundColor(ctx) {
+        const dataset = ctx.dataset;
+        const color = dataset.data[ctx.dataIndex]?.epoch?.color || dataset.borderColor;
+        return setAlpha(color, 0.8);
+    }
+
+    static #annotation(axis, val, color, label) {
+        const annotation = { type: Track.MODE_LINE, borderColor: color, borderWidth: 1, borderDash: [6, 6] };
+        if (axis === 'x') {
+            annotation.xMin = annotation.xMax = val;
+        } else {
+            annotation.yMin = annotation.yMax = val;
+        }
+        if (label) {
+            const position = (axis === 'y') ? 'start' : 'end';
+            const rotation = (axis === 'x') ? -90 : 0;
+            annotation.label = {
+                padding: 2, display: true, content: label, position: position,
+                textStrokeColor: 'rgba(255,255,255,1)', textStrokeWidth: 5, font: { weight: 'nomal' },
+                backgroundColor: 'rgba(255,255,255,0)', color: color, rotation: rotation
+            };
+        }
+        return annotation;
+    }
+
+    #toolTipTitle(context) {
+        return context.dataset.label;
+    }
+
+    #toolTipText(context) {
+        const field = this.#fieldSelect.value
+        const defField = FieldsReg[field];
+        const unit = (defField.unit ? ' ' + defField.unit : '')
+        const category = defField.map ? Object.keys(defField.map) : undefined;
+        if (this.#xIsTime()) {
+            const txtX = context.chart.options.scales.x.title.text;
+            const txtY = defField.name;
+            const valX = context.chart.options.scales.x.ticks.callback(context.raw.x);
+            const valY = (category ? category[context.raw.y] : context.raw.y) + unit;
+            return `${txtY}: ${valY}\n${txtX}: ${valX}`;
+        } else {
+            const txtX = defField.name;
+            const txtY = context.chart.options.scales.y.title.text;
+            const valX = (category ? category[context.raw.x] : context.raw.x) + unit;
+            const valY = context.chart.options.scales.y.ticks.callback(context.raw.y);
+            return `${txtY}: ${valY}\n${txtX}: ${valX}`;
+        }
+    }
+
+    static CHART_TIMESERIES    = 'Time series';
+    static CHART_CUMULATIVE    = 'Cumulative';
+    static CHART_DERIVATIVE    = 'Derivative';
+    static CHART_CDF           = 'CDF';
+    static CHART_HISTOGRAM     = 'Histogram';
+    static CHART_HISTOGRAM_FD  = 'Histogram FD';
+    static CHART_KDE           = 'Kernel density';
+
+    #container
+    #trimPlayer
+    #mapView
+    #fieldSelect
+    #modeSelect
+}

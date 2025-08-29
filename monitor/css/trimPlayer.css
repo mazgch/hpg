@@ -17,14 +17,15 @@
 
 /* Player layout */
 .trimplayer {
-    display: grid;
-    grid-template-columns: auto 1fr;
+    display: flex;
+    justify-content: space-between;
     gap: 10px;
     align-items: center;
 }
 
 .trimplayer .controls {
     display: inline-flex;
+    flex: 0 0 auto;
 }
 
 .trimplayer .btn {
@@ -46,6 +47,8 @@
 
 /* Timeline (slim) */
 .trimplayer .timeline {
+    flex: 1;
+    text-align: center;
     position: relative;
     height: 24px;
     user-select: none;

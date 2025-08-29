@@ -278,6 +278,14 @@ export class MapView {
         }
     }
 
+    updateLayer(track) {
+        this.removeLayer(track);
+        if (track.mode !== Track.MODE_HIDDEN) {
+         this.addLayer(track);
+        }
+        this.updateLegend();
+    }
+
     updateLegend() {
         const div = this.#divInfo;
         while (div.firstChild) {

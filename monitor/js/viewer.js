@@ -17,13 +17,12 @@
 "use strict";
 
 import { MapView } from './app/mapView.js';
+import { ChartView } from './app/chartView.js';
 import { PlacesManager } from './app/placesManager.js';
 import { TrimPlayer } from './app/trimPlayer.js';
 
 import { Track } from './core/track.js';
-import { FieldsReg } from './core/fieldsReg.js';
-import { Statistics } from './core/statistics.js';
-import { def, formatDateTime, setAlpha, bytesToString, isGzip } from './core/utils.js';
+import { def, bytesToString, isGzip } from './core/utils.js';
 
 // ------------------------------------------------------------------------------------
 /* START OF MODULE */ var UVIEW = (function () {
@@ -38,14 +37,6 @@ window.clickLink = function _clickLink(link) {
 // ------------------------------------------------------------------------------------
 window.onload = function _onload() {
 
-  // chart modes 
-  const CHART_TIMESERIES    = 'Time series';
-  const CHART_CUMULATIVE    = 'Cumulative';
-  const CHART_DERIVATIVE    = 'Derivative';
-  const CHART_CDF           = 'CDF';
-  const CHART_HISTOGRAM     = 'Histogram';
-  const CHART_HISTOGRAM_FD  = 'Histogram FD';
-  const CHART_KDE           = 'Kernel density';
   // track colors
   const COLOR_FIX = { 
     undefined: '#00000000',
@@ -99,22 +90,6 @@ window.onload = function _onload() {
 
   const clearConfig = document.getElementById("clear");
   clearConfig.addEventListener('click', configClear);
-  
-  // chart
-  const fieldSelect = document.getElementById('field');
-  fieldSelect.addEventListener("change", (evt) => chartConfigChange() );
-  const hiddenFields = ['time','date','itow'];
-  Track.EPOCH_FIELDS.filter((field) => (!hiddenFields.includes(field)) ).forEach( (field) => {
-    const option = document.createElement("option");
-    option.textContent = FieldsReg[field]?.name || field;
-    option.value = field;
-    fieldSelect.appendChild(option);
-  })
-  fieldSelect.value = 'height';
-  const modeSelect = document.getElementById('mode');
-  modeSelect.addEventListener("change", (evt) => chartConfigChange() );
-  const resetZoom = document.getElementById('resetZoom');
-  resetZoom.addEventListener("click", chartResetZoom);
 
   // Application
   // ------------------------------------------------------------------------------------
@@ -129,11 +104,8 @@ window.onload = function _onload() {
     config.time = timeTrim;
     config.tracks.forEach( (track) => { 
       track.trim(timeTrim);
-      chartUpdateData(track.dataset);
-      if (track.mode !== Track.MODE_HIDDEN) {
-        mapView.removeLayer(track);
-        mapView.addLayer(track);
-      }
+      chartView.updateDataset(track);
+      mapView.updateLayer(track);
     } );
     config.posBounds = trackGetPosBounds();
     trackTableUpdate();
@@ -141,12 +113,12 @@ window.onload = function _onload() {
   trimControl.addEventListener('seek', (evt) => {
     const datetime = evt.detail;
     mapView.flyTo(datetime, false);
-    chartSetTime(datetime);
+    chartView.setTime(datetime);
   });
   trimControl.addEventListener('time', (evt) => {
     const datetime = evt.detail;
     mapView.flyTo(datetime);
-    chartSetTime(datetime);
+    chartView.setTime(datetime);
   });
   
   // MapView
@@ -159,10 +131,13 @@ window.onload = function _onload() {
   const placeManager = new PlacesManager(placeSelect, mapView);
   
   // ChartView
-  let chart;
-  chartInit();
+  const chartContainer = document.getElementById("chart");
+  const fieldSelect = document.getElementById('field');
+  const modeSelect = document.getElementById('mode');
+  const chartView = new ChartView(chartContainer, fieldSelect, modeSelect, trimPlayer, mapView);
+  const resetZoom = document.getElementById('resetZoom');
+  resetZoom.addEventListener("click", (evt) => chartView.resetZoom() );
 
-  
   trackTableUpdate();
   
   window.onbeforeunload = function _unload() {
@@ -237,11 +212,9 @@ window.onload = function _onload() {
     }
     if (typeof json === 'object') {
       if (json.version === 1.0) {
-        (typeof json.field === 'string') && (fieldSelect.value = json.field);
-        (typeof json.mode === 'string') && (modeSelect.value = json.mode);
-        chartConfigChange();
         config.time = trimPlayer.fromJson(json);
         Array.isArray(json.tracks) && trackApplyConfig(json.tracks);
+        chartView.fromJson(json);
         mapView.fromJson(json);
         placeManager.fromJson(json);
       } else {
@@ -296,11 +269,10 @@ window.onload = function _onload() {
     const json = { 
       comment: `This file can be viewed with ${window.location.protocol}//${window.location.hostname}${window.location.pathname}`, 
       version: 1,
-      field: fieldSelect.value, 
-      mode: modeSelect.value
     };
     json.tracks = tracks;
     trimPlayer.toJson(json, config.time);
+    chartView.toJson(json);
     mapView.toJson(json);
     placeManager.toJson(json);
     return json;
@@ -333,13 +305,11 @@ window.onload = function _onload() {
     // CHART: remove all datasets
     // MAP: remove all layers and update legends  
     config.tracks.forEach( (track) => {
+      chartView.removeDataset(track);
       mapView.removeLayer(track);
-      if (track.dataset) {
-        chartRemoveDataset(track.dataset);
-      }
     } );
     config.tracks.length = 0;
-    chart.update();
+    chartView.chart.update();
     mapView.updateLegend();
     // TABLE: update
     trackTableUpdate();
@@ -436,14 +406,14 @@ window.onload = function _onload() {
       if (track.name === Track.TRACK_REFERENCE) {
         config.tracks.forEach( (track) => { 
             trackUpdateReferenceErrors(track);
-            chartUpdateData(track);
+            chartView.updateDataset(track);
         } );
       } else {
         trackUpdateReferenceErrors(track);
       }
       trackTableUpdate();
       // CHART: add dataset 
-      track.dataset = chartAddDataset(track);
+      chartView.addDataset(track);
       // MAP: add layer
       if (track.mode !== Track.MODE_HIDDEN) {
         mapView.addLayer(track);
@@ -557,14 +527,9 @@ window.onload = function _onload() {
                      (track.mode === Track.MODE_MARKERS) ? Track.MODE_ANYFIX : 
                                                            Track.MODE_HIDDEN;
         // CHART: update chart with its dataset
-        track.dataset.hidden = (track.mode === Track.MODE_HIDDEN) && (0 < track.dataset.data.length);
-        chart.update();
+        chartView.updateDataset(track);
         // MAP: rebuild track and legend
-        mapView.removeLayer(track);
-        if (track.mode !== Track.MODE_HIDDEN) {
-          mapView.addLayer(track);
-        }
-        mapView.updateLegend();
+        mapView.updateLayer(track);
       } 
 
       function _nameChange(track, newName) {
@@ -581,16 +546,9 @@ window.onload = function _onload() {
             trackUpdateReferenceErrors(track);
           }
           // CHART: update the name in the dataset
-          if (track.dataset) {
-            track.dataset.label = newName;
-            chart.update();
-          }
+          chartView.updateDataset(track);
           // MAP: change the name of marker, popup and legend
-          mapView.removeLayer(track);
-        if (track.mode !== Track.MODE_HIDDEN) {
-            mapView.addLayer(track);
-          }
-          mapView.updateLegend();
+          mapView.updateLayer(track);
         }
       }
 
@@ -599,420 +557,13 @@ window.onload = function _onload() {
           // DATA: update color 
           track.color = newColor;
           // CHART: update the map and chart colors 
-          track.dataset.borderColor = track.color;
-          chart.update();
+          chartView.updateDataset(track);
           // MAP: change the color ployline, marker, popup and legend
-          mapView.removeLayer(track);
-          if (track.mode !== Track.MODE_HIDDEN) {
-            mapView.addLayer(track);
-          }
-          mapView.updateLegend();
+          mapView.updateLayer(track);
         }
       } 
     }
   }
-
-  // Chart 
-  // ------------------------------------------------------------------------------------
-
-  function chartInit() {
-    const chartContainer = document.getElementById("chart");
-    chartContainer.addEventListener( 'mouseout', chartUpdateAnnotation);
-    chart = new Chart(chartContainer, {
-      type: 'scatter',
-      data: {
-        datasets: []
-      },
-      options: { 
-        onHover: chartUpdateAnnotation,
-        onLeave: chartUpdateAnnotation,
-        onClick: chartOnClick,
-        responsive: true, maintainAspectRatio: false, animation: false,
-        interaction: { intersect: false, mode: 'nearest' },
-        layout: { padding: { left: 10, right: 10+10+24, top: 10, bottom: 10 } },
-        transitions: { active: { animation: { duration: 0 } }, resize: { animation: { duration: 0 } } },
-        plugins: {
-          annotation: {  annotations: {} },
-          legend: {
-            enabled: true,
-            labels: { 
-              boxWidth: 20, boxHeight: 0,
-              filter: (legendItem) => (!legendItem.hidden)
-            }, 
-            onClick: (evt) => evt.stopPropagation()
-          },
-          tooltip: {
-            usePointStyle: false, displayColors: false,
-            backgroundColor: 'rgba(245,245,245,0.8)',
-            bodyColor: '#000',  bodyFont: { size: 10 },
-            borderColor: '#888', borderWidth: 1, cornerRadius: 0,
-            callbacks: { label: _toolTipTitle,  afterLabel: _toolTipText, }
-          },
-          zoom: {
-            pan: { enabled: true, mode: 'xy' },
-            zoom: {
-              mode: 'xy',
-              pinch: { enabled: true },
-              wheel: { enabled: true, modifierKey: 'shift' },
-              drag:  { enabled: true, modifierKey: 'shift', borderWidth: 2 }
-            }
-          }
-        },
-        scales: { 
-          y: { 
-            type: 'linear',
-            title: { display: true },
-            ticks: { font:{ size:10 }, maxRotation:0, autoSkipPadding:10, beginAtZero: false }
-          },
-          x: { 
-            type: 'linear',
-            title: { display: true, },
-            ticks: { font:{ size:10 }, maxRotation:0, autoSkipPadding:10, beginAtZero: false }
-          }
-        }
-      }
-    });
-    chartConfigChange(); // initial change
-
-    function _toolTipTitle(context) {
-      return context.dataset.label;
-    }
-    
-    function _toolTipText(context) {
-      const defField = FieldsReg[fieldSelect.value];
-      const unit = (defField.unit ? ' ' + defField.unit : '')
-      const category = defField.map ? Object.keys(defField.map) : undefined;
-      if ((modeSelect.value === CHART_TIMESERIES) || 
-          (modeSelect.value === CHART_CUMULATIVE) ||
-          (modeSelect.value === CHART_DERIVATIVE)) {
-        const txtX = context.chart.options.scales.x.title.text;
-        const txtY = defField.name;
-        const valX = context.chart.options.scales.x.ticks.callback(context.raw.x);
-        const valY = (category ? category[context.raw.y] : context.raw.y) + unit;
-        return `${txtY}: ${valY}\n${txtX}: ${valX}`;
-      } else {
-        const txtX = defField.name;
-        const txtY = context.chart.options.scales.y.title.text;
-        const valX = (category ? category[context.raw.x] : context.raw.x) + unit;
-        const valY = context.chart.options.scales.y.ticks.callback(context.raw.y);
-        return `${txtY}: ${valY}\n${txtX}: ${valX}`;
-      }
-    }
-  }
-
-  function chartOnClick(e) {
-    const elems = e.chart.getElementsAtEventForMode(e, "nearest", {intersect:false} );
-    if (0 < elems.length) {
-      const pt = elems[0];
-      const dataset = e.chart.data.datasets[pt.datasetIndex];
-      const epoch = dataset.data[pt.index].epoch;
-      if (epoch?.posValid) {
-        if (epoch.datetime) {
-          trimPlayer.setCurrent(epoch.datetime);
-        }  
-        mapView.flyTo( epoch.datetime, false );
-      }
-    }
-  }
-
-  function chartAddDataset(track) {
-    const dataset = { 
-      label: track.name, borderColor: setAlpha(track.color,0.8),
-      //fill:true, backgroundColor: setAlpha(track.color, 0.01),
-      track: track,
-      data: [],
-      hidden: true, spanGaps: false, showLine: true,
-      borderCapStyle: 'round', borderJoinStyle: 'bevel',
-      borderWidth: 2,
-      pointRadius: 0, pointBorderWidth: 0,
-      pointBorderColor: _pointColor,
-      pointBackgroundColor: _pointBackgroundColor,
-      pointHoverRadius: 5, pointHoverBorderWidth: 1,
-      pointHoverBorderColor: _pointColor,
-      pointHoverBackgroundColor: _pointBackgroundColor,
-    };
-    chart.data.datasets.push( dataset );
-    track.dataset = dataset;
-    chartUpdateData(dataset);
-    
-    function _pointColor(ctx) {
-      const color = ctx.dataset.data[ctx.dataIndex]?.epoch?.color || track.color;
-      return setAlpha(color, 1); 
-    }
-    function _pointBackgroundColor(ctx) { 
-      const color = ctx.dataset.data[ctx.dataIndex]?.epoch?.color || track.color;
-      return setAlpha(color, 0.8);
-    }
-    return dataset;
-  }
-
-  function chartRemoveDataset(dataset) { 
-    const ix = chart.data.datasets.indexOf(dataset);
-    if (ix !== -1) {
-      chart.data.datasets.splice(ix, 1);
-    }
-  }
-
-  function chartConfigChange() { 
-    // update the data from epoch
-    const field = fieldSelect.value;
-    const defField = FieldsReg[field];
-    const axisName = defField.name + 
-        ( ((modeSelect.value === CHART_CUMULATIVE) ||
-           (modeSelect.value === CHART_DERIVATIVE) ||
-            !defField.unit) ? '' : (' [' + defField.unit + ']'));
-    const category = def(defField.map) ? Object.keys(defField.map) : undefined;
-    
-    if ((modeSelect.value === CHART_TIMESERIES) || 
-        (modeSelect.value === CHART_CUMULATIVE) || 
-        (modeSelect.value === CHART_DERIVATIVE)) {
-      chart.options.scales.x.title.text = 'Time UTC';
-      chart.options.scales.x.ticks.callback = formatDateTime;
-      chart.options.scales.x.ticks.maxTicksLimit = 10;
-      chart.options.scales.x.ticks.autoSkip = true;
-      chart.options.scales.x.ticks.stepSize = undefined;
-
-      chart.options.scales.y.title.text = ((modeSelect.value !== CHART_TIMESERIES) ? modeSelect.value + ' ' : '') + axisName;
-      chart.options.scales.y.ticks.callback = _fmtVal;
-      chart.options.scales.y.ticks.maxTicksLimit = category ? category.length: undefined;
-      chart.options.scales.y.ticks.autoSkip = category ? false : true;
-      chart.options.scales.y.ticks.stepSize = category ? 1 : undefined;
-    } else {
-      chart.options.scales.x.title.text = axisName;
-      chart.options.scales.x.ticks.callback = _fmtVal;
-      chart.options.scales.x.ticks.maxTicksLimit = category ? category.length: undefined;
-      chart.options.scales.x.ticks.autoSkip = category ? false : true;
-      chart.options.scales.x.ticks.stepSize = category ? 1 : undefined;
-
-      chart.options.scales.y.title.text = (modeSelect.value === CHART_CDF) ? 'Cumulative density' : 'Density';
-      chart.options.scales.y.ticks.callback = (v) => Number(v.toFixed(5));
-      chart.options.scales.y.ticks.maxTicksLimit = undefined;
-      chart.options.scales.y.ticks.autoSkip = true;
-      chart.options.scales.y.ticks.stepSize = undefined;
-    } 
-
-    chart.data.datasets.forEach( (dataset) => chartUpdateData(dataset) );
-
-    function _fmtVal(v) { 
-      return category ? category[Math.round(v)] : defField.format(v); 
-    }
-  }
-
-  function chartUpdateData(dataset) {
-    // update the data from epoch
-    const field = fieldSelect.value;
-    const defField = FieldsReg[field];
-    const category = def(defField.map) ? Object.keys(defField.map) : undefined;
-    // TODO *************** fix above 
-    
-    config.tracks
-          .filter( (track) => ((dataset === undefined) || (dataset === track.dataset)))
-          .forEach( (track) => {
-      // created the chart data
-      let c = 0;
-      let l; 
-      let data = track.epochs
-        .filter( (epoch) => (epoch.selTime) )
-        .map( (epoch) => { 
-          let v = epoch.fields[fieldSelect.value];
-          if (epoch.timeValid && ((track.mode === Track.MODE_ANYFIX) || epoch.fixGood) && def(v)) {
-            if (category) {
-              v = category.indexOf(`${v}`);
-              v = (0 <= v) ? v : null;
-            } 
-            c += v;
-            const d = Number.isFinite(l) ? (v - l) : null;
-            l = v;
-            let y = (modeSelect.value === CHART_CUMULATIVE) ? (category ? null : c) : 
-                    (modeSelect.value === CHART_DERIVATIVE) ? (category ? null : d) : v;
-            //y = Number.isFinite(y) ? defField.format(y) : y;
-            return { x: epoch.datetime, y: y, epoch:epoch };
-          } else {
-            l = undefined;
-            return { x: null, y: null, epoch:epoch };
-          }
-        });
-      
-      const vals = data.map((row) => (row.y)).filter(Number.isFinite);
-      dataset.stats = new Statistics(vals);
-      if (!chartXisTime()) {
-        // convert to cdf or histogram and calc median and quantiles 
-        if (category) {
-          if (modeSelect.value === CHART_HISTOGRAM) {
-            data = dataset.stats.histogram2();
-            //dataset.pointRadius = 5;
-            //dataset.borderWidth = 0;
-          } else {
-            data = [];
-          }
-          data = data.map((row) => { return { 
-            x:row.x, 
-            y:chart.options.scales.y.ticks.callback(row.y)
-          } } );
-        } else {
-          if (modeSelect.value === CHART_CDF) {
-            data = dataset.stats.cdf(512);
-          } else if (modeSelect.value === CHART_HISTOGRAM) {
-            data = dataset.stats.histogram(512);
-          } else if (modeSelect.value === CHART_HISTOGRAM_FD) {
-            data = dataset.stats.histogram(/*freedmanDiaconis*/);
-          } else if (modeSelect.value === CHART_KDE) {
-            data = dataset.stats.kde(/*silvermanBandwidth*/);
-          } else {
-            data = [];
-          }
-          data = data.map((row) => { return { 
-            x:chart.options.scales.x.ticks.callback(row.x), 
-            y:chart.options.scales.y.ticks.callback(row.y)
-          } } );
-        }
-      }
-      dataset.hidden = (0 === data.length) || (track.mode === Track.MODE_HIDDEN);
-      dataset.data.length = 0;
-      if (data.length) {
-        dataset.data.push.apply(dataset.data, data);
-      }
-    });
-    // create the annotaions
-    chartUpdateAnnotation();
-    // change axis to fit new data
-    chartResetZoom();
-    // finally redraw
-    chart.update();
-  }
-
-  // add annotaions to the chart
-  function chartUpdateAnnotation(evt, active/*,chart*/) {
-    if (chart) {
-      const CHART_CDF_ANNOTAIONS = {
-        y50: _annotation('y', 0.500, '#00000040', '0.5' ),
-        y68: _annotation('y', 0.680, '#00000040', '0.68' ),
-        y95: _annotation('y', 0.950, '#00000040', '0.95' ),
-        y99: _annotation('y', 0.997, '#00000040', '0.997')
-      };    
-      let annotations = (modeSelect.value === CHART_CDF) ? CHART_CDF_ANNOTAIONS : {};
-      if (def(chart.options.plugins.annotation.annotations.time)) {
-          const datetime = chart.options.plugins.annotation.annotations.time.xMin;
-          if (def(datetime)) {
-            annotations.time = _annotation('x', datetime, '#00000040', 'time' );
-          }
-      }
-      if (active && (0 < active.length)) {
-        const axis = (chartXisTime()) ? 'y' : 'x';
-        const index = active[0].datasetIndex;
-        const dataset = chart.data.datasets[index];
-        if (!dataset.hidden) {
-          const color = dataset.borderColor;
-          const _fmt = chart.options.scales[axis].ticks.callback;
-          if (modeSelect.value === CHART_CDF) {
-            if (def(dataset.stats.q50)) annotations.q50 = _annotation(axis, dataset.stats.q50, color, `x̃ = ${_fmt(dataset.stats.q50)}` );
-            if (def(dataset.stats.q68)) annotations.q68 = _annotation(axis, dataset.stats.q68, color, `Q68 = ${_fmt(dataset.stats.q68)}` );
-            if (def(dataset.stats.q95)) annotations.q95 = _annotation(axis, dataset.stats.q95, color, `Q95 = ${_fmt(dataset.stats.q95)}` );
-            if (def(dataset.stats.q99)) annotations.q99 = _annotation(axis, dataset.stats.q99, color, `Q99.7 = ${_fmt(dataset.stats.q99)}` );
-          } else {
-            if (def(dataset.stats.min)) annotations.min = _annotation(axis, dataset.stats.min, color, `min = ${_fmt(dataset.stats.min)}`);
-            if (def(dataset.stats.max)) annotations.max = _annotation(axis, dataset.stats.max, color, `max = ${_fmt(dataset.stats.max)}`);
-            if (def(dataset.stats.mean)) {
-              const field = fieldSelect.value;
-              const defField = FieldsReg[field];
-              if (!def(defField.map)) {
-                annotations.mean = _annotation(axis, dataset.stats.mean, color, `μ = ${_fmt(dataset.stats.mean)}`);
-                if (def(dataset.stats.sigma)) {
-                  const mps = dataset.stats.mean + dataset.stats.sigma;
-                  annotations.plus = _annotation(axis, mps, color, `μ+σ = ${_fmt(mps)}` );
-                  const mms = dataset.stats.mean - dataset.stats.sigma;
-                  annotations.minus = _annotation(axis, mms, color, `μ-σ = ${_fmt(mms)}`);
-                }
-              }
-            }
-          }
-        } 
-      }
-      /// TODO: try to reuse the hash
-      chart.options.plugins.annotation.annotations = annotations;
-      chart.update();
-    }
-  }
-
-  function chartSetTime(datetime) {
-    if (chartXisTime()) {
-      chart.options.plugins.annotation.annotations.time = _annotation('x', datetime, '#00000040', 'time' );
-      chart.update();
-    }
-  }
-          
-  function _annotation(axis, val, color, label) {
-    const annotation = { type: Track.MODE_LINE, borderColor: color, borderWidth: 1, borderDash: [6, 6] };
-    if (axis === 'x') {
-      annotation.xMin = annotation.xMax = val;
-    } else {
-      annotation.yMin = annotation.yMax = val;
-    }
-    if (label) {
-      const position = (axis === 'y') ? 'start' : 'end';
-      const rotation = (axis === 'x') ? -90 : 0;
-      annotation.label = { 
-        padding:2, display: true, content: label, position: position, 
-        textStrokeColor: 'rgba(255,255,255,1)', textStrokeWidth: 5, font: { weight:'nomal' },
-        backgroundColor: 'rgba(255,255,255,0)', color: color, rotation: rotation 
-      };
-    }
-    return annotation;
-  }
- 
-  function chartResetZoom() {
-    // find the bounds 
-    let minX =  Infinity;
-    let maxX = -Infinity;
-    let minY =  Infinity;
-    let maxY = -Infinity;
-    chart.data.datasets
-      .filter( (dataset) => (!dataset.hidden) )
-      .forEach( (dataset) => {
-        dataset.data.forEach( (row) => {
-          if (Number.isFinite(row.x)) {
-            minX = Math.min(minX, row.x);
-            maxX = Math.max(maxX, row.x);
-          }
-          if (Number.isFinite(row.y)) {
-            minY = Math.min(minY, row.y);
-            maxY = Math.max(maxY, row.y);
-          }
-        } )
-    } );
-    // category fields are fixed
-    const defField = FieldsReg[fieldSelect.value];
-    if (defField.map) {
-      // make it fixed size
-      if (chartXisTime()) {
-        minY = 0; 
-        maxY = Object.keys(defField.map).length - 1;
-      } else {
-        minX = 0; 
-        maxX = Object.keys(defField.map).length - 1;
-      }
-    } 
-    if (!chartXisTime()) {
-      minY = 0;
-      if (modeSelect.value === CHART_CDF) {
-        maxY = 1;
-      } 
-    }
-    // now reset the zoom plugin 
-    chart.resetZoom();
-    // set new scales
-    chart.options.scales.x.min = Number.isFinite(minX) ? minX : undefined;
-    chart.options.scales.x.max = Number.isFinite(maxX) ? maxX : undefined;
-    chart.options.scales.y.min = Number.isFinite(minY) ? minY : undefined;
-    chart.options.scales.y.max = Number.isFinite(maxY) ? maxY : undefined;
-  }
-  
-  function chartXisTime() {
-    return (modeSelect.value === CHART_TIMESERIES) || 
-           (modeSelect.value === CHART_CUMULATIVE) || 
-           (modeSelect.value === CHART_DERIVATIVE);
-  } 
-
 }
 
 

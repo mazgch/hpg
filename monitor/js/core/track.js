@@ -240,15 +240,14 @@ export class Track {
     static COLOR_OTHERS        = '#ff0000';
 
     static EPOCH_FIELDS = [ 
-    'date', 'time',
-    'fix', 'psm',
-    'lat', 'lng', 'pAcc', 'hAcc',
-    'height', 'msl', 'vAcc', 
-    'speed', 'gSpeed', 'sAcc', 'cAcc', 
-    'hDop', 'pDop', 'numSV', 
-    'pErr', 'hErr', 'vErr', 'sErr', 'gsErr',
-    'power'
-  ];
+        'date', 'time',
+        'fix', 'psm', 'power',
+        'lat', 'lng', 'pAcc', 'hAcc',
+        'height', 'msl', 'vAcc', 
+        'speed', 'gSpeed', 'sAcc', 'cAcc', 
+        'hDop', 'pDop', 'numSV', 
+        'pErr', 'hErr', 'vErr', 'sErr', 'gsErr',
+    ];
   
     // some protected local vars 
     #collector
