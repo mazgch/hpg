@@ -17,6 +17,16 @@
 
 "use strict";
 
+export function log(...args) {
+    const stack = new Error().stack.split("\n");
+    const text = stack.slice(1).map((str) => {
+        const m = str.match(/^([^@]*)@.*\/([^\/]+)\.js(:\d*)/);;
+        return (m) ? `${m[2]}:${m[1]||m[3]}` : str; 
+    }).reverse().join(' ');
+    const time = formatTime(Date.now());
+    console.log.apply(console, [ time, ...args/*, text*/]);
+}
+
 export function def(value) {
     return (undefined !== value) && (null !== value);
 }

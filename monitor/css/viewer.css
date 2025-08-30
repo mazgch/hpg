@@ -21,6 +21,7 @@
 	overflow: clip;
 	overflow-anchor: none;
   outline: none;
+  padding-bottom: 10px;
 }
 
 #drop-overlay {
@@ -38,7 +39,8 @@
 }
 
 .map-section .leaflet-control-zoom, 
-.map-section .leaflet-control-layers {
+.map-section .leaflet-control-layers,
+.map-section .leaflet-control-simpleMapScreenshoter {
   opacity: 0;
   transition: opacity 0.2s ease-in-out;
   pointer-events: none; /* prevents clicking controls when hidden */

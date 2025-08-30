@@ -17,12 +17,13 @@
 "use strict";
 
 import { MapView } from './app/mapView.js';
+//import { MapView } from './app/olMapView.js';
 import { ChartView } from './app/chartView.js';
 import { PlacesManager } from './app/placesManager.js';
 import { TrimPlayer } from './app/trimPlayer.js';
 
 import { Track } from './core/track.js';
-import { def, bytesToString, isGzip } from './core/utils.js';
+import { def, bytesToString, isGzip, log } from './core/utils.js';
 
 // ------------------------------------------------------------------------------------
 /* START OF MODULE */ var UVIEW = (function () {
@@ -103,8 +104,8 @@ window.onload = function _onload() {
     config.time = timeTrim;
     config.tracks.forEach( (track) => { 
       track.trim(timeTrim);
-      chartView.updateDataset(track);
       mapView.updateLayer(track);
+      chartView.updateDataset(track);
     } );
     config.posBounds = trackGetPosBounds();
     trackTableUpdate();
@@ -122,31 +123,44 @@ window.onload = function _onload() {
   const cropButton = document.getElementById("btnCrop");
   cropButton.addEventListener('click', (evt) => {
     config.tracks.map((track) => {
-      const epochs = track.epochs.filter( (epoch) => epoch.selTime );
-      track.epochs = epochs;
-      chartView.updateDataset(track);
+      track.crop();
       mapView.updateLayer(track); 
+      chartView.updateDataset(track);
       trimPlayer.setBounds(config.time);
     })
-
+    trackTableUpdate();
   });
 
   // MapView
   const mapsContainer = document.getElementById("map");
   const opacitySlider = document.getElementById('opacity');
-  const mapView = new MapView(mapsContainer, opacitySlider, trimPlayer);
+  const mapView = new MapView(mapsContainer, opacitySlider);
+  mapsContainer.addEventListener('epoch', (evt) => {
+    const epoch = evt.detail;
+    if (epoch.timeValid) {
+      trimPlayer.setCurrent(epoch.datetime);
+    }
+  });
   
   // PlacesManager
   const placeSelect = document.getElementById("places");
   const placeManager = new PlacesManager(placeSelect, mapView);
   
   // ChartView
-  const chartContainer = document.getElementById("chart");
   const fieldSelect = document.getElementById('field');
   const modeSelect = document.getElementById('mode');
-  const chartView = new ChartView(chartContainer, fieldSelect, modeSelect, trimPlayer, mapView);
+  const chartContainer = document.getElementById("chart");
+  const chartView = new ChartView(chartContainer, fieldSelect, modeSelect);
+  chartContainer.addEventListener('epoch', (evt) => {
+    const epoch = evt.detail;
+    if (epoch.timeValid) {
+      trimPlayer.setCurrent(epoch.datetime);
+    }
+  });
   const resetZoomButton = document.getElementById('resetZoom');
-  resetZoomButton.addEventListener("click", (evt) => chartView.resetZoom() );
+  resetZoomButton.addEventListener("click", (evt) => {
+    chartView.resetZoom();
+  });
 
   trackTableUpdate();
   
@@ -161,17 +175,19 @@ window.onload = function _onload() {
       console.error(err);
     }
   }
+  
   const params = new URLSearchParams(window.location.search);
   if (0 < params.size) {
     params.forEach( (url, name) => {
       if (url) {
         const url = url.toLowerCase();
         if (url.endsWith('.json')) {
+          log(`config ${url}`)
           configFetchJson(url);
         } else if (url.endsWith('.ubx')) {
           const track = new Track(name, Track.EPOCH_FIELDS, { url:url });
           track.fetchUrl(url)
-            .then( () => { console.log("trk loaded "); trackAdd(track) } )
+            .then( () => { trackAdd(track) } )
             .catch( console.error );
         }
       }
@@ -223,10 +239,10 @@ window.onload = function _onload() {
     if (typeof json === 'object') {
       if (json.version === 1.0) {
         config.time = trimPlayer.fromJson(json);
-        Array.isArray(json.tracks) && trackApplyConfig(json.tracks);
-        chartView.fromJson(json);
-        mapView.fromJson(json);
         placeManager.fromJson(json);
+        mapView.fromJson(json);
+        chartView.fromJson(json);
+        Array.isArray(json.tracks) && trackApplyConfig(json.tracks);
       } else {
         alert('Version '+json.version+'of .json envirionment file not supported or unknown.');
       }
@@ -275,16 +291,16 @@ window.onload = function _onload() {
   }
 
   function configGetJson() { 
-    const tracks = config.tracks.map( (track) => configTrackJson(track) );
     const json = { 
       comment: `This file can be viewed with ${window.location.protocol}//${window.location.hostname}${window.location.pathname}`, 
       version: 1,
     };
-    json.tracks = tracks;
     trimPlayer.toJson(json, config.time);
-    chartView.toJson(json);
-    mapView.toJson(json);
     placeManager.toJson(json);
+    mapView.toJson(json);
+    chartView.toJson(json);
+    const tracks = config.tracks.map( (track) => configTrackJson(track) );
+    json.tracks = tracks;
     return json;
   }
 
@@ -315,12 +331,12 @@ window.onload = function _onload() {
     // CHART: remove all datasets
     // MAP: remove all layers and update legends  
     config.tracks.forEach( (track) => {
-      chartView.removeDataset(track);
       mapView.removeLayer(track);
+      chartView.removeDataset(track);
     } );
     config.tracks.length = 0;
-    chartView.chart.update();
     mapView.updateLegend();
+    chartView.chart.update();
     // TABLE: update
     trackTableUpdate();
     // no track any more 
@@ -332,12 +348,12 @@ window.onload = function _onload() {
     if (Array.isArray(jsonTracks)) {
       jsonTracks.forEach( (jsonTrack) => {
         const track = new Track(jsonTrack.name, Track.EPOCH_FIELDS, jsonTrack);
-        def(jsonTrack.epochs) && track.addEpochs(jsonTrack.epochs);
-        if ((0 === track.epochs.length) && def(track.url)) {
+        if (!def(jsonTrack.epochs) && def(track.url)) {
           track.fetchUrl(track.url)
             .then( () => { trackAdd(track); } )
             .catch( console.error )
         } else {
+          track.addEpochs(jsonTrack.epochs)
           trackAdd(track);
         }
       } );
@@ -416,18 +432,16 @@ window.onload = function _onload() {
       if (track.name === Track.TRACK_REFERENCE) {
         config.tracks.forEach( (track) => { 
             trackUpdateReferenceErrors(track);
-            chartView.updateDataset(track);
-        } );
+        });
+        chartView.configChange();
       } else {
         trackUpdateReferenceErrors(track);
       }
-      trackTableUpdate();
-      // CHART: add dataset 
-      chartView.addDataset(track);
-      // MAP: add layer
       if (track.mode !== Track.MODE_HIDDEN) {
         mapView.addLayer(track);
+        chartView.addDataset(track);
       }
+      trackTableUpdate();
       // bound may have changed 
       placeManager.change();
       return true;
@@ -536,10 +550,8 @@ window.onload = function _onload() {
                      (track.mode === Track.MODE_LINE)    ? Track.MODE_MARKERS :
                      (track.mode === Track.MODE_MARKERS) ? Track.MODE_ANYFIX : 
                                                            Track.MODE_HIDDEN;
-        // CHART: update chart with its dataset
-        chartView.updateDataset(track);
-        // MAP: rebuild track and legend
         mapView.updateLayer(track);
+        chartView.updateDataset(track);
       } 
 
       function _nameChange(track, newName) {
@@ -548,17 +560,17 @@ window.onload = function _onload() {
           const refErrUpd = (track.name === Track.TRACK_REFERENCE) || (newName === Track.TRACK_REFERENCE);
           // DATA: update name and reference errors  
           track.name = newName;
+          mapView.updateLayer(track);
           if (refErrUpd) {
             config.tracks.forEach( (track) => { 
               trackUpdateReferenceErrors(track); 
             } );
+            chartView.configChange();
           } else {
             trackUpdateReferenceErrors(track);
+            // CHART: update the name in the dataset
+            chartView.updateDataset(track);
           }
-          // CHART: update the name in the dataset
-          chartView.updateDataset(track);
-          // MAP: change the name of marker, popup and legend
-          mapView.updateLayer(track);
         }
       }
 
@@ -566,10 +578,8 @@ window.onload = function _onload() {
         if (track.color !== newColor) {
           // DATA: update color 
           track.color = newColor;
-          // CHART: update the map and chart colors 
-          chartView.updateDataset(track);
-          // MAP: change the color ployline, marker, popup and legend
           mapView.updateLayer(track);
+          chartView.updateDataset(track);
         }
       } 
     }

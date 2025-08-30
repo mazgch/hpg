@@ -16,7 +16,7 @@
 
 "use strict";
 
-import { def, bytesToString, isGzip } from './utils.js';
+import { def, bytesToString, isGzip, log } from './utils.js';
 import { Epoch } from './epoch.js';
 import { Collector } from './collector.js';
 
@@ -33,51 +33,65 @@ export class Track {
     }
 
     async fetchUrl(url) {
+        log('fetch', this.name)
         const res = await fetch(url);
+        const size = res.headers.get("content-length");
         const reader = res.body.getReader();
-        return this.read(reader);
+        return this.read(reader, size);
     }
     
     async readFile(file) {
+        log('read', this.name)
+        const size = file.size; 
         const reader = file.stream().getReader();
-        return this.read(reader);
+        return this.read(reader, size);
     }
     
-    async read(reader) {
+    async read(reader, size) {
+        let cnt = 0;
         const { value, done } = await reader.read();
-        if (isGzip(value)) {
-            // setup inflator and decoding callbacks
-            const inflator = new pako.Inflate({ to: 'uint8array' });
-            inflator.onData = (value) => {
+        if (!done) {
+            cnt += value.length;
+            if (isGzip(value)) {
+                // setup inflator and decoding callbacks
+                const inflator = new pako.Inflate({ to: 'uint8array' });
+                inflator.onData = (value) => {
+                    const txt = bytesToString(value);
+                    if (txt) this.appendData(txt);
+                    log('read', this.name, Number((100*cnt/size).toFixed(1)), this.epochs.length);
+                };
+                inflator.onError = (err) => { 
+                    console.error('inflate error:', err);
+                };
+                // push data though inflator 
+                inflator.push(value, false);
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    cnt += value.length;
+                    inflator.push(value, false);
+                }
+                inflator.push(Uint8Array(0), true);
+            } else {
+                // read data directly and decode 
                 const txt = bytesToString(value);
                 if (txt) this.appendData(txt);
-            };
-            inflator.onError = (err) => { 
-                console.error('inflate error:', err);
-            };
-            // push data though inflator 
-            inflator.push(value, false);
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                inflator.push(value, false);
-            }
-            inflator.push(Uint8Array(0), true);
-        } else {
-            // read data directly and decode 
-            const txt = bytesToString(value);
-            if (txt) this.appendData(txt);
-            while (!done) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                const txt = bytesToString(value)
-                if (txt) this.appendData(txt);
+                log('read', this.name, Number((100*cnt/size).toFixed(1)), this.epochs.length);
+                while (!done) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    cnt += value.length;
+                    const txt = bytesToString(value)
+                    if (txt) this.appendData(txt);
+                    log('read', this.name, Number((100*cnt/size).toFixed(1)), this.epochs.length);
+                }
             }
         }
         return this;
     }
 
     addEpochs(epochs) {
+        log('epochs', this.name)
         epochs.forEach( (epoch) => {
             const fields = Object.fromEntries(
                 Object.entries(epoch.fields)
@@ -157,6 +171,20 @@ export class Track {
             this.bounds.lng.min = Math.min(epoch.fields.lng, this.bounds.lng.min);
             this.bounds.lng.max = Math.max(epoch.fields.lng, this.bounds.lng.max);
         }
+    }
+
+    crop() {
+        const epochs = this.epochs.filter( (epoch) => epoch.selTime );
+        let dateMin =  Infinity;
+        let dateMax = -Infinity;
+        epochs.forEach((epoch) => {
+            if (epoch.timeValid) {
+                dateMin = Math.min(epoch.datetime, dateMin);
+                dateMin = Math.max(epoch.datetime, dateMax);
+            }
+        });
+        this.bounds.datetime = { min:dateMin, max: dateMax };
+        this.epochs = epochs;
     }
 
     boundsPos() {

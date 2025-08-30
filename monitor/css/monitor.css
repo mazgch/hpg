@@ -416,7 +416,9 @@ td dt {
 /* ---- map ---- */
 
 .overlay_ctrl,
-.ol-control {
+.ol-control,
+.ol-scale-line,
+.ol-overviewmap {
     position: absolute;
     background-color: rgba(255,255,255,.4);
     border-radius: 4px;
@@ -503,9 +505,12 @@ td dt {
 }
 
 .ol-rotate {
-    top:calc(1.5em + 5*24px + 4*4px + 3px);
+    /*top:calc(1.5em + 5*24px + 4*4px + 3px);
     left:0.5em;
-    right:auto;
+    right:auto;*/
+    top:calc(1.5em + 24px + 3px);
+    right:0.5em;
+    left:auto;
 }
 
 .ol-options {

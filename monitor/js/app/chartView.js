@@ -18,11 +18,11 @@
 
 import { Track } from '../core/track.js';
 import { FieldsReg } from '../core/fieldsReg.js';
-import { def, formatDateTime, setAlpha } from '../core/utils.js';
+import { def, formatDateTime, setAlpha, log } from '../core/utils.js';
 import { Statistics } from '../core/statistics.js';
 
 export class ChartView {
-    constructor(container, fieldSelect, modeSelect, trimPlayer, mapView) {
+    constructor(container, fieldSelect, modeSelect) {
         this.#container = container;
         this.#container.addEventListener('mouseout', (evt) => this.#updateAnnotation(evt));
     
@@ -91,9 +91,6 @@ export class ChartView {
                 }
             }
         });
-        this.#trimPlayer = trimPlayer;
-        this.#mapView = mapView;
-        
         this.configChange(); // initial change
     }
 
@@ -101,6 +98,7 @@ export class ChartView {
 
     addDataset(track) {
         const chart = this.chart;
+        log(`ChartView add`, track.name);
         const dataset = {
             label: track.name, borderColor: setAlpha(track.color, 0.8),
             track: track,
@@ -117,7 +115,7 @@ export class ChartView {
         };
         chart.data.datasets.push(dataset);
         track.dataset = dataset;
-        this.#calcDataset(dataset);
+        this.calcDataset(dataset);
         this.#updateAnnotation();
         this.resetZoom();
         chart.update();
@@ -126,21 +124,29 @@ export class ChartView {
     removeDataset(track) {
         if (track.dataset) {
             const chart = this.chart;
+            log('ChartView remove', track.name);
             const ix = chart.data.datasets.indexOf(track.dataset);
             if (ix !== -1) {
                 chart.data.datasets.splice(ix, 1);
             }
             delete track.dataset;
+            chart.update();
         }
     }
 
     updateDataset(track) {
         if (track.dataset) {
+            this.removeDataset(track);
+            if (track.mode !== Track.MODE_HIDDEN) {
+                this.addDataset(track);
+            }
+        }
+      /*if (track.dataset) {
             track.dataset.label = track.name;
             track.dataset.borderColor = track.color;
             track.dataset.hidden = (track.mode === Track.MODE_HIDDEN) && (0 < track.dataset.data.length);
             this.chart.update();
-        }
+        }*/
     }
 
     setTime(datetime) {
@@ -191,7 +197,7 @@ export class ChartView {
         }
 
         chart.data.datasets.forEach((dataset) => 
-            this.#calcDataset(dataset)
+            this.calcDataset(dataset)
         );
         this.#updateAnnotation();
         this.resetZoom();
@@ -274,16 +280,11 @@ export class ChartView {
             const pt = elems[0];
             const dataset = chart.data.datasets[pt.datasetIndex];
             const epoch = dataset.data[pt.index].epoch;
-            if (epoch?.posValid) {
-                if (epoch.datetime) {
-                    this.#trimPlayer.setCurrent(epoch.datetime);
-                }
-                this.#mapView.flyTo(epoch.datetime, false);
-            }
+            this.#emit('epoch', epoch);
         }
     }
 
-    #calcDataset(dataset) {
+    calcDataset(dataset) {
         const chart = this.chart;
         // update the data from epoch
         const field = this.#fieldSelect.value;
@@ -294,6 +295,7 @@ export class ChartView {
         let c = 0;
         let l;
         const track = dataset.track;
+        log('ChartView calc', track.name);
         let data = track.epochs
             .filter((epoch) => (epoch.selTime))
             .map((epoch) => {
@@ -477,6 +479,10 @@ export class ChartView {
         }
     }
 
+    #emit(name, detail) {
+        this.#container.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+    }
+
     static CHART_TIMESERIES    = 'Time series';
     static CHART_CUMULATIVE    = 'Cumulative';
     static CHART_DERIVATIVE    = 'Derivative';
@@ -486,8 +492,6 @@ export class ChartView {
     static CHART_KDE           = 'Kernel density';
 
     #container
-    #trimPlayer
-    #mapView
     #fieldSelect
     #modeSelect
 }

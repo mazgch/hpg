@@ -16,17 +16,14 @@
 
 "use strict";
 
-import { def } from '../core/utils.js';
-
-const PLACE_OVERVIEW = 'Overview';
-const LAYER_PLACES   = "Places";
+import { def, log } from '../core/utils.js';
 
 export class PlacesManager {
 
     constructor(select, mapView) {
         this.#places = [];
         this.#select = select;
-        this.#addOption(PLACE_OVERVIEW);
+        this.#addOption(PlacesManager.PLACE_OVERVIEW);
         // add change event to select
         this.#select.addEventListener('change', (evt) => {
             this.change(evt.target.value);
@@ -34,20 +31,35 @@ export class PlacesManager {
         // add place selection by Ctrl Key
         this.#mapView = mapView;
         const map = mapView.map;
-        map.selectArea.enable();
-        map.selectArea.setControlKey(true);
-        map.on("selectarea:selected", (evt) => { 
-            this.addFromBounds(evt.bounds);
-        } );
-        this.#layer = L.layerGroup();
-        mapView.layerControl.addOverlay(this.#layer, LAYER_PLACES);
+        if (map.selectArea) {
+            // leaflet
+            map.selectArea.enable();
+            map.selectArea.setControlKey(true);
+            map.on("selectarea:selected", (evt) => { 
+                this.addFromBounds(evt.bounds);
+            } );
+            this.#layer = L.layerGroup();
+            mapView.layerControl.addOverlay(this.#layer, PlacesManager.LAYER_PLACES);
+        } else {
+            // openlayers
+            const dragBox = new ol.interaction.DragBox({
+                condition: ol.events.condition.platformModifierKeyOnly
+            });
+            map.addInteraction(dragBox);
+            dragBox.on('boxend', () => {
+                const geom = dragBox.getGeometry();
+                const extent = geom.getExtent(); 
+                const extentLonLat = ol.proj.transformExtent(extent, 'EPSG:3857', 'EPSG:4326');
+                //this.addFromBounds(extentLonLat);
+            });
+        }
     }
 
     // ===== Public API =====
 
     clear() {
         // remove the option and map marker
-        console.log(`PlacesManager clear`);
+        log('PlacesManager clear');
         this.#places.forEach( (place) => {
             this.#layer.removeLayer(place.marker);
             this.#select.removeChild(place.option);
@@ -97,7 +109,7 @@ export class PlacesManager {
         }
 
         if (Array.isArray(bounds)) {
-            console.log(`PlacesManager add ${place.name}`);
+            log('PlacesManager add', place.name);
             const marker = L.rectangle(place.bounds, { className: 'place', dashArray: '5, 5', weight: 2 });
             marker.place = place;
             marker.on('click', (evt) => {
@@ -120,12 +132,12 @@ export class PlacesManager {
             place = this.#places.find((place) => (place.name === name));
         }
         if (!def(place)) {
-            name = PLACE_OVERVIEW;
-            console.log(`PlacesManager change Overview`);
+            name = PlacesManager.PLACE_OVERVIEW;
+            log('PlacesManager change', name);
             this.#mapView.setOverview();
         } else {
             name = place.name;
-            console.log(`PlacesManager change ${name}`);
+            log('PlacesManager change', name);
             this.#mapView.setBounds(place.bounds, setSize ? place.size : undefined);
         }
         if (this.#select.value !== name) {
@@ -141,7 +153,7 @@ export class PlacesManager {
             json.places.forEach((place) => this.add( place ) );
         }
         this.change(json.place);
-        const show = json.layers?.includes(LAYER_PLACES);
+        const show = json.layers?.includes(PlacesManager.LAYER_PLACES);
         this.#mapView.setVisible(this.#layer, show);
     }
 
@@ -179,6 +191,9 @@ export class PlacesManager {
         const ne = bounds.getNorthEast();
         return [[sw.lat, sw.lng], [ne.lat, ne.lng]];
     }
+
+    static PLACE_OVERVIEW = 'Overview';
+    static LAYER_PLACES   = "Places";
 
     #select
     #layer

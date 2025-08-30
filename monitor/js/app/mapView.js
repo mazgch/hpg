@@ -17,12 +17,12 @@
 "use strict";
 
 import { Track } from '../core/track.js';
-import { def, setAlpha } from '../core/utils.js';
+import { def, setAlpha, log } from '../core/utils.js';
 
 export class MapView {
-    constructor(container, opacitySlider, trimPlayer) {
-        this.container = container;
-        container.style.display = "none";
+    constructor(container, opacitySlider) {
+        this.#container = container;
+        container.style.display = 'block';
         container.className = "map-section";
         // map
         const map = L.map(container, {
@@ -46,13 +46,21 @@ export class MapView {
         coordControl.addTo(map);
         map.on('mousemove', (evt) => this.#updateCoords(evt));
         container.addEventListener('mouseleave', (evt) => this.updateLegend());
+
+        const screenshoter = L.simpleMapScreenshoter({
+            hideElementsWithSelectors: ['.leaflet-control-container'], // hide controls
+            cropImageByInnerWH: true,           // use map inner size
+            mimeType: 'image/png',              // exported type
+            caption: null,                      // or {text:'My Map', font:'14px sans-serif', fillStyle:'#000'}
+            preventDownload: false              // set true if you want to handle the blob yourself
+        }).addTo(map);
+
         // opacity 
         this.#opacitySlider = opacitySlider;
         opacitySlider.addEventListener('input', (evt) => {
             this.setOpacity(evt.target.value);
         });
         this.setOpacity(opacitySlider.value);
-        this.#trimPlayer = trimPlayer;
         // layers
         this.updateLegend();
     }
@@ -66,7 +74,7 @@ export class MapView {
     }
 
     setBounds(bounds, size) {
-        const container = this.container;
+        const container = this.#container;
         const map = this.map;
         const setSize = Array.isArray(size) && (2 === size.length);
         const wh = setSize ? size.map((v) => (v + 'px')) : ['', ''];
@@ -114,9 +122,7 @@ export class MapView {
     }
 
     popUp(center, epoch, label) {
-        if (epoch.datetime) {
-            this.#trimPlayer.setCurrent(epoch.datetime);
-        }
+        this.#emit('epoch', epoch);
         const div = document.createElement('div');
         // the title 
         div.appendChild(label);
@@ -175,7 +181,7 @@ export class MapView {
         if (navigator.geolocation && this.map) {
             navigator.geolocation.getCurrentPosition((position) => {
                 this.map.setView([position.coords.latitude, position.coords.longitude], 14, { animate: false })
-                this.container.style.display = 'block';
+                this.#container.style.display = 'block';
             },
                 (err) => { },
                 { timeout: 1000 } // Timeout in ms
@@ -192,7 +198,10 @@ export class MapView {
         let trackCoords = [];
         let infoCenter;
         let fixLost;
-        const layer = L.layerGroup( );
+        // we have to use an SVG renderer to capture images of our map overlays (we will not use for palces)
+        const svgRenderer = L.svg( { padding: 0.5 } ); 
+        const layer = L.layerGroup( {renderer: svgRenderer } );
+        log('MapView add', track.name);
         track.epochs
             .filter((epoch) => epoch.selTime)
             .forEach((epoch) => {
@@ -227,8 +236,9 @@ export class MapView {
                     if (((track.mode === Track.MODE_ANYFIX) ? epoch.fixValid : epoch.fixGood)) {
                         trackCoords.push(center);
                         if (addMarkers) {
-                            // the do marker 
+                            // the dot marker 
                             const marker = L.circleMarker(center, {
+                                renderer: svgRenderer,
                                 className: 'marker', color: epoch.color, fillColor: epoch.color,
                                 radius: 3, weight: 1, opacity: 1, fillOpacity: 0.8
                             } );
@@ -257,6 +267,7 @@ export class MapView {
 
         function _polyline(trackCoords) {
             const polyline = L.polyline(trackCoords, {
+                renderer: svgRenderer,
                 className: 'polyline', color: track.color, opacity: 0.6, weight: 2
             } );
             return polyline;
@@ -265,7 +276,7 @@ export class MapView {
         function _message(center, infos, track) {
             const svgIcon = feather.icons['message-square'].toSvg({ fill: setAlpha(track.color, 0.3), stroke: setAlpha(track.color, 0.9) });
             const divIcon = L.divIcon({ html: svgIcon, className: '', iconSize: [20, 20], iconAnchor: [2, 22] });
-            const marker = L.marker(center, { icon: divIcon, riseOnHover: true, });
+            const marker = L.marker(center, { renderer: svgRenderer, icon: divIcon, riseOnHover: true, });
             marker.bindTooltip(track.infosHtml(infos), { direction: 'bottom', });
             return marker;
         }
@@ -273,6 +284,7 @@ export class MapView {
 
     removeLayer(track) {
         if (track.layer) {
+            log('MapView remove',track.name);
             this.map.removeLayer(track.layer);
             delete track.layer;
         }
@@ -368,8 +380,12 @@ export class MapView {
         return baseLayers;
     }
 
+    #emit(name, detail) {
+        this.#container.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+    }
+
+    #container
+    #opacitySlider
     #divInfo
     #baseLayers
-    #trimPlayer
-    #opacitySlider
 }

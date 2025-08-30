@@ -40,17 +40,20 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <!--link rel="manifest" href="/site.webmanifest"-->
   <meta charset="UTF-8">
-  <!-- Third party js & css -->
-  <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.29.0/dist/feather.min.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.29.0/dist/feather.min.js"></script>
   <script src="https://cdn.jsdelivr.net/pako/1.0.3/pako.min.js"></script>
   <!-- leaflet -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
+  <link href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet-src.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-area-select@1.1.1/dist/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet-simple-map-screenshoter@0.5.0/dist/leaflet-simple-map-screenshoter.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@4.0.0/Control.FullScreen.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@4.0.0/Control.FullScreen.min.js"></script>
   <!-- <script src="https://maps.googleapis.com/maps/api/js"></script>-->
   <script src="https://cdn.jsdelivr.net/npm/leaflet.gridlayer.googlemutant@0.15.0/dist/Leaflet.GoogleMutant.min.js"></script>
+  <!-- openlayers -->
+  <link href="https://cdn.jsdelivr.net/npm/ol@7.2.2/ol.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/ol@7.2.2/dist/ol.min.js"></script>
   <!-- chart js -->
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
@@ -59,8 +62,8 @@
   <!-- My own js & css -->
   <script type="module" defer src="js/viewer.js"></script>
   <script src="js/engine.js"></script>
-  <link rel="stylesheet" href="css/monitor.css" type="text/css" media="all">
-  <link rel="stylesheet" href="css/viewer.css">
+  <link rel="stylesheet" type="text/css" href="css/monitor.css">
+  <link rel="stylesheet" type="text/css" href="css/viewer.css">
   <link rel="stylesheet" type="text/css" href="css/trimPlayer.css" />
 </head>
 
@@ -237,7 +240,7 @@
             <option value="Kernel density" title="Kernel density estimation">Kernel Density</option>
           </select></li>
       </ul>
-      <div class="section framed vresize" style="padding-bottom:10px;">
+      <div class="section vresize" style="padding-bottom:10px;">
         <canvas id="chart" style="padding-left:7px;"></canvas>
         <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
           <div class="overlay_button" id="resetZoom" title="Reset zoom to fit content."><i

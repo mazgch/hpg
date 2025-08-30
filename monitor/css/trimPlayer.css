@@ -13,6 +13,8 @@
     z-index: 1001;
     background: #fff;
     padding-top: var(--bar-pad);
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 /* Player layout */
@@ -51,8 +53,6 @@
     text-align: center;
     position: relative;
     height: 24px;
-    user-select: none;
-    touch-action: none;
 }
 
 .trimplayer .rail {
@@ -138,6 +138,8 @@
     height: calc(0.7em + 4px);
     margin-top: var(--label-gap);
     pointer-events: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 #lblFloating {
