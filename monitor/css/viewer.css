@@ -146,3 +146,41 @@
   vertical-align: middle;
   margin-right: 4px;
 }
+
+.xscroll {
+  width: 100%;
+  overflow-x: auto;
+  position: relative;
+}
+
+.xscroll table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.xscroll th,
+.xscroll td {
+  white-space: nowrap;
+  background: #fff;
+}
+
+.xscroll th:first-child,
+.xscroll td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+/*  box-shadow: 2px 0 5px rgba(0,0,0,0.1) */
+}
+
+.xscroll th:last-child,
+.xscroll td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+/*  box-shadow: -2px 0 5px rgba(0,0,0,0.1) */
+}
+
+.xscroll tr:hover td,
+.xscroll tr:hover th {
+    background:#f0f0f0;
+}
