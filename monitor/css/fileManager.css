@@ -40,6 +40,10 @@
   cursor: default;
 }
 
+.chip-name {
+  font-weight: bold;
+}
+
 .filemanager-popup {
   position: absolute;
   background: rgba(255, 255, 255, 1);
@@ -48,10 +52,14 @@
   border-radius: 3px;
   padding: 8px 10px;
   box-shadow: 0 6px 16px rgba(0,0,0,0.15);
-  min-width: 260px;
+  min-width: 150px;
   max-width: 360px;
 }
-.filemanager-popup.hidden { display: none; }
+
+.filemanager-popup.hidden { 
+  display: none; 
+}
+
 .filemanager-popup-arrow {
   position: absolute;
   top: -6px;

@@ -68,6 +68,7 @@ export class TrimPlayer {
 
     setCurrent(current) {
         this.#state.current = this.#clampUtc(current, this.#state.trimStart, this.#state.trimEnd);
+        this.#state.playing = false;
         this.#render({ source: 'api' });
         this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
     }
@@ -153,6 +154,7 @@ export class TrimPlayer {
         this.#dom.timeline.addEventListener('pointerdown', (e) => {
             if (e.target.closest('.handle') || e.target.closest('.knob')) return;
             this.#state.scrubbing = true;
+            this.#state.playing = false;
             this.#dom.timeline.setPointerCapture(e.pointerId);
             this.#state.current = this.#snapUtcToTrim(this.#pxToUtc(e.clientX));
             this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
@@ -178,6 +180,7 @@ export class TrimPlayer {
         this.#dom.scrubKnob.addEventListener('pointerdown', (e) => {
             e.preventDefault(); e.stopPropagation();
             this.#state.scrubbing = true;
+            this.#state.playing = false;
             this.#dom.scrubKnob.setPointerCapture(e.pointerId);
             this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
             const move = (ev) => { 
@@ -285,7 +288,7 @@ export class TrimPlayer {
 
     // ===== Utils =====
     #emit(name, detail) {
-        this.#dom.root.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+        this.#dom.root.dispatchEvent(new CustomEvent(name, { detail }));
     }
 
     #duration() {

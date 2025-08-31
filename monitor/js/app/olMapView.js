@@ -523,7 +523,7 @@ export class MapView {
     }
 
     #emit(name, detail) {
-        this.#container.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+        this.#container.dispatchEvent(new CustomEvent(name, { detail }));
     }
     
     #container

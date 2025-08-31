@@ -25,6 +25,7 @@ import { TrimPlayer } from './app/trimPlayer.js';
 import { FileManager } from './app/fileManager.js';
 
 import { Track } from './core/track.js';
+import { Epoch } from './core/epoch.js';
 import { def, bytesToString, isGzip, log } from './core/utils.js';
 
 // ------------------------------------------------------------------------------------
@@ -92,8 +93,11 @@ window.onload = function _onload() {
   });
   fileControl.addEventListener('change', (evt) => {
     const track = evt.detail;
-    mapView.updateLayer(track);
-    chartView.updateDataset(track);
+    if (track instanceof Track) {
+      tableView.updateColumns(config.tracks);
+      mapView.updateLayer(track);
+      chartView.updateDataset(track);
+    }
   });
 
   // TrimPlayer
@@ -114,7 +118,7 @@ window.onload = function _onload() {
     config.tracks.forEach((track) => {
       track.setTime(datetime); 
     });
-    tableView.tableUpdate(config.tracks);
+    tableView.updateColumns(config.tracks);
     mapView.flyTo(datetime, false);
     chartView.setTime(datetime);
   });
@@ -123,7 +127,7 @@ window.onload = function _onload() {
     config.tracks.forEach((track) => {
       track.setTime(datetime); 
     });
-    tableView.tableUpdate(config.tracks);
+    tableView.updateColumns(config.tracks);
     mapView.flyTo(datetime);
     chartView.setTime(datetime);
   });
@@ -131,7 +135,7 @@ window.onload = function _onload() {
   cropButton.addEventListener('click', (evt) => {
     config.tracks.map((track) => {
       track.crop();
-      tableView.tableUpdate(config.tracks);
+      tableView.updateColumns(config.tracks);
       mapView.updateLayer(track); 
       chartView.updateDataset(track);
       trimPlayer.setBounds(config.time);
@@ -144,7 +148,7 @@ window.onload = function _onload() {
   const mapView = new MapView(mapsContainer, opacitySlider);
   mapsContainer.addEventListener('epoch', (evt) => {
     const epoch = evt.detail;
-    if (epoch.timeValid) {
+    if ((epoch instanceof Epoch) && epoch.timeValid) {
       trimPlayer.setCurrent(epoch.datetime);
     }
   });
@@ -160,7 +164,7 @@ window.onload = function _onload() {
   const chartView = new ChartView(chartContainer, fieldSelect, modeSelect);
   chartContainer.addEventListener('epoch', (evt) => {
     const epoch = evt.detail;
-    if (epoch.timeValid) {
+    if ((epoch instanceof Epoch) && epoch.timeValid) {
       trimPlayer.setCurrent(epoch.datetime);
     }
   });
@@ -172,7 +176,20 @@ window.onload = function _onload() {
   // TableView
   const tableContainer = document.getElementById("table");
   const tableView = new TableView(tableContainer);
-  
+  tableContainer.addEventListener("field", (evt) => {
+    const field = evt.detail;
+    if (field) {
+      chartView.setField(field);
+      chartView.configChange();
+    }
+  });
+
+  // ------------------------------------------------------------------------------------
+  // ------------------------------------------------------------------------------------
+  // CLEAN mess below up 
+  // ------------------------------------------------------------------------------------
+  // ------------------------------------------------------------------------------------
+
   window.onbeforeunload = function _unload() {
     try {
       const json = JSON.stringify(configGetJson());

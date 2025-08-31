@@ -17,7 +17,7 @@
 "use strict";
 
 import { Track } from '../core/track.js';
-import { def, setAlpha, log } from '../core/utils.js';
+import { def, setAlpha, log, formatDateTime } from '../core/utils.js';
 
 export class MapView {
     constructor(container, opacitySlider) {
@@ -40,13 +40,14 @@ export class MapView {
         this.#baseLayers = MapView.#defaultBaseLayers();
         Object.values(this.#baseLayers)[0].addTo(map);
         this.layerControl = L.control.layers(this.#baseLayers).addTo(map);
+        /*
         const coordControl = L.control({ position: 'bottomright' });
         this.#divInfo = L.DomUtil.create('div', 'leaflet-control-coords leaflet-bar');
         coordControl.onAdd = () => { return this.#divInfo; };
         coordControl.addTo(map);
         map.on('mousemove', (evt) => this.#updateCoords(evt));
         container.addEventListener('mouseleave', (evt) => this.updateLegend());
-
+        */
         const screenshoter = L.simpleMapScreenshoter({
             hideElementsWithSelectors: ['.leaflet-control-container'], // hide controls
             cropImageByInnerWH: true,           // use map inner size
@@ -119,20 +120,6 @@ export class MapView {
         for (let i = 0; i < panes.length; i++) {
             panes[i].style.opacity = 1 - opacity;
         }
-    }
-
-    popUp(center, epoch, label) {
-        this.#emit('epoch', epoch);
-        return;
-        const div = document.createElement('div');
-        // the title 
-        div.appendChild(label);
-        div.appendChild(epoch.tableHtml(Track.EPOCH_FIELDS));
-        // fire the popup
-        const popup = L.popup();
-        popup.setLatLng(center)
-        popup.setContent(div);
-        popup.openOn(this.map);
     }
 
     flyTo(datetime, pan = true) {
@@ -242,9 +229,11 @@ export class MapView {
                                 className: 'marker', color: epoch.color, fillColor: epoch.color,
                                 radius: 3, weight: 1, opacity: 1, fillOpacity: 0.8
                             } );
+                            marker.epoch = epoch;
+                            marker.bindTooltip(() => _toolTip(track, epoch), { } );
                             marker.on('mouseover', (evt) => evt.target.setRadius(5));
                             marker.on('mouseout', (evt) => evt.target.setRadius(3));
-                            marker.on('click', (evt) => this.popUp(evt.latlng, epoch, track.nameHtml()));
+                            marker.on('click', (evt) => this.#emit('epoch', evt.target.epoch));
                             layer.addLayer(marker);
                         }
                         infoCenter = center;
@@ -268,6 +257,7 @@ export class MapView {
         function _polyline(trackCoords) {
             const polyline = L.polyline(trackCoords, {
                 renderer: svgRenderer,
+                interactive: false,
                 className: 'polyline', color: track.color, opacity: 0.6, weight: 2
             } );
             return polyline;
@@ -280,6 +270,24 @@ export class MapView {
             marker.bindTooltip(track.infosHtml(infos), { direction: 'bottom', });
             return marker;
         }
+
+        function _toolTip(track, epoch) {
+            const div = document.createElement('div');
+            div.appendChild(track.nameHtml());
+            const lat = epoch.fields.lat;
+            const lng = epoch.fields.lng;
+            const time = formatDateTime(epoch.datetime);
+            const divLat = document.createElement('div');
+            divLat.textContent = `Latitude: ${lat}`;
+            div.appendChild(divLat);
+            const divLon = document.createElement('div');
+            divLon.textContent = `Longitude: ${lng}`;
+            div.appendChild(divLon);
+            const divTime = document.createElement('div');
+            divTime.textContent = `Time UTC: ${time}`;
+            div.appendChild(divTime);
+            return div; 
+        }   
     }
 
     removeLayer(track) {
@@ -300,17 +308,19 @@ export class MapView {
 
     updateLegend() {
         const div = this.#divInfo;
-        while (div.firstChild) {
-            div.removeChild(div.lastChild);
-        }
-        this.map.eachLayer((layer) => {
-            const track = layer.track;
-            if (track) {
-                div.appendChild(track.nameHtml('div'));
+        if (div) {
+            while (div.firstChild) {
+                div.removeChild(div.lastChild);
             }
-        });
-        div.style.maxWidth = '300px'
-        div.style.display = (0 < div.childNodes.length) ? 'block' : 'none';
+            this.map.eachLayer((layer) => {
+                const track = layer.track;
+                if (track) {
+                    div.appendChild(track.nameHtml('div'));
+                }
+            });
+            div.style.maxWidth = '300px'
+            div.style.display = (0 < div.childNodes.length) ? 'block' : 'none';
+        }
     }
 
     // ===== Save Restore API =====
@@ -335,13 +345,15 @@ export class MapView {
     
     #updateCoords(evt) {
         const div = this.#divInfo;
-        const lat = Number(evt.latlng.lat.toFixed(5));
-        const lng = Number(evt.latlng.lng.toFixed(5));
-        const pt = evt.containerPoint;
-        const x = Math.round(pt.x);
-        const y = Math.round(pt.y);
-        div.innerHTML = `Lat: ${lat}, y: ${y}<br>Lng: ${lng} x: ${x} `;
-        div.style.display = 'block';
+        if (div) {
+            const lat = Number(evt.latlng.lat.toFixed(5));
+            const lng = Number(evt.latlng.lng.toFixed(5));
+            const pt = evt.containerPoint;
+            const x = Math.round(pt.x);
+            const y = Math.round(pt.y);
+            div.innerHTML = `Lat: ${lat}, y: ${y}<br>Lng: ${lng} x: ${x} `;
+            div.style.display = 'block';
+        }
     }
 
     static #defaultBaseLayers() {
@@ -381,7 +393,7 @@ export class MapView {
     }
 
     #emit(name, detail) {
-        this.#container.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+        this.#container.dispatchEvent(new CustomEvent(name, { detail }));
     }
 
     #container

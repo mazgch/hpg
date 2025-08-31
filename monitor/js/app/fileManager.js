@@ -233,7 +233,7 @@ export class FileManager {
         input.style.cursor = 'pointer';
         input.type = "color";
         input.value = track.color;
-        input.addEventListener('change', () => {
+        input.addEventListener('change', (evt) => {
             evt.preventDefault();
             evt.stopPropagation();
             const color = input.value;
@@ -250,6 +250,8 @@ export class FileManager {
         td.style.cursor = 'pointer';
         td.innerHTML = track.modeIcon();
         td.addEventListener('click', (evt) => {
+            evt.preventDefault();
+            evt.stopPropagation();
             track.mode = (track.mode === Track.MODE_HIDDEN)  ? Track.MODE_LINE :
                          (track.mode === Track.MODE_LINE)    ? Track.MODE_MARKERS :
                          (track.mode === Track.MODE_MARKERS) ? Track.MODE_ANYFIX :
@@ -261,7 +263,7 @@ export class FileManager {
     }
 
     #emit(name, detail) {
-        this.#container.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+        this.#container.dispatchEvent(new CustomEvent(name, { detail }));
     }
 
     #container

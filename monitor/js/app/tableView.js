@@ -26,8 +26,9 @@ export class TableView {
     }
 
     // ===== Public API =====
-    tableUpdate(tracks) {
+    updateColumns(tracks) {
         // header
+        const filteredTracks = tracks.filter((track) => (track.mode !== Track.MODE_HIDDEN));
         const thead = document.createElement('thead');
         table.appendChild(thead);
         const tr = document.createElement('tr');
@@ -35,7 +36,7 @@ export class TableView {
         const thP = document.createElement('th');
         thP.textContent = 'Parameter';
         tr.appendChild(thP);
-        tracks.forEach( (track) => {
+        filteredTracks.forEach( (track) => {
             const thV = document.createElement('th');
             thV.className = 'right';
             thV.appendChild(track.nameHtml());
@@ -49,28 +50,35 @@ export class TableView {
         const tbody = document.createElement('tbody');
         table.appendChild(tbody);
         Track.EPOCH_FIELDS.forEach((field) => {
-            // each row
-            const reg = FieldsReg[field];
-            const tr = document.createElement('tr');
-            const tdName = document.createElement('td');
-            tdName.className = "ellipsis";
-            if (reg.name) {
-                tdName.title = reg.name;
-                tdName.textContent = reg.name;
-            }
-            tr.appendChild(tdName);
-            tracks.forEach( (track) => {
-                const tdFormated = document.createElement('td');
-                tdFormated.className = "right";
-                if (def(track.currentEpoch?.fields?.[field])) {
-                    tdFormated.appendChild(reg.formatHtml(track.currentEpoch.fields[field]));
+            const foundIx = filteredTracks.findIndex( (track) => def(track.currentEpoch?.fields?.[field]));
+            if (true /*always*/ || -1 !== foundIx) {
+                // each row
+                const reg = FieldsReg[field];
+                const tr = document.createElement('tr');
+                const tdName = document.createElement('td');
+                tdName.className = "ellipsis";
+                if (reg.name) {
+                    tdName.title = reg.name;
+                    tdName.textContent = reg.name;
                 }
-                tr.appendChild(tdFormated);
-            } );
-            const tdUnit = document.createElement('td');
-            reg.unit && (tdUnit.textContent = reg.unit);
-            tr.appendChild(tdUnit);
-            tbody.appendChild(tr);
+                tdName.style.cursor = 'pointer';
+                tdName.addEventListener('click', (evt) => {
+                    this.#emit('field', field);
+                });
+                tr.appendChild(tdName);
+                filteredTracks.forEach( (track) => {
+                    const tdFormated = document.createElement('td');
+                    tdFormated.className = "right";
+                    if (def(track.currentEpoch?.fields?.[field])) {
+                        tdFormated.appendChild(reg.formatHtml(track.currentEpoch.fields[field]));
+                    }
+                    tr.appendChild(tdFormated);
+                } );
+                const tdUnit = document.createElement('td');
+                reg.unit && (tdUnit.textContent = reg.unit);
+                tr.appendChild(tdUnit);
+                tbody.appendChild(tr);
+            }
         } );
         this.#container.replaceChildren(thead, tbody);
     }
@@ -78,6 +86,11 @@ export class TableView {
     // ===== Save Restore API =====
 
     // ===== Internals =====
+
+    // ===== Utils =====
+    #emit(name, detail) {
+        this.#container.dispatchEvent(new CustomEvent(name, { detail } ));
+    }
 
     #container
 }

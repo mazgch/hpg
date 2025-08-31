@@ -26,15 +26,15 @@ export class ChartView {
         this.#container = container;
         this.#container.addEventListener('mouseout', (evt) => this.#updateAnnotation(evt));
     
-        this.#fieldSelect = fieldSelect
+        this.#fieldSelect = fieldSelect;
         fieldSelect.addEventListener("change", (evt) => this.configChange() );
-        const hiddenFields = ['time','date','itow'];
-        Track.EPOCH_FIELDS.filter((field) => (!hiddenFields.includes(field)) ).forEach( (field) => {
+        Track.EPOCH_FIELDS.filter((field) => (!ChartView.FIELDS_HIDDEN.includes(field)) ).forEach( (field) => {
             const option = document.createElement("option");
             option.textContent = FieldsReg[field]?.name || field;
             option.value = field;
             fieldSelect.appendChild(option);
         })
+        fieldSelect.value = 'msl';
         
         this.#modeSelect = modeSelect;
         modeSelect.addEventListener("change", (evt) => this.configChange() );
@@ -141,12 +141,6 @@ export class ChartView {
         if (track.mode !== Track.MODE_HIDDEN) {
             this.addDataset(track);
         }
-      /*if (track.dataset) {
-            track.dataset.label = track.name;
-            track.dataset.borderColor = track.color;
-            track.dataset.hidden = (track.mode === Track.MODE_HIDDEN) && (0 < track.dataset.data.length);
-            this.chart.update();
-        }*/
     }
 
     setTime(datetime) {
@@ -155,6 +149,24 @@ export class ChartView {
             const annotation = ChartView.#annotation('x', datetime, 'rgb(255, 76, 0)');
             chart.options.plugins.annotation.annotations.time = annotation;
             chart.update();
+        }
+    }
+
+    setField(field) {
+        const select = this.#fieldSelect;
+        const options = Array.from(select.options);
+        const value = options.find((opt) => (opt.value === field))?.value;
+        if (def(value)) {
+            select.value = value;
+        }
+    }
+
+    setMode(mode) {
+        const select = this.#modeSelect;
+        const options = Array.from(select.options);
+        const value = options.find((opt) => (opt.value === mode))?.value;
+        if (def(value)) {
+            select.value = value;
         }
     }
 
@@ -173,7 +185,7 @@ export class ChartView {
         if (this.#xIsTime()) {
             chart.options.scales.x.title.text = 'Time UTC';
             chart.options.scales.x.ticks.callback = formatDateTime;
-            chart.options.scales.x.ticks.maxTicksLimit = 10;
+            chart.options.scales.x.ticks.maxTicksLimit = 8;
             chart.options.scales.x.ticks.autoSkip = true;
             chart.options.scales.x.ticks.stepSize = undefined;
 
@@ -182,7 +194,7 @@ export class ChartView {
             chart.options.scales.y.ticks.maxTicksLimit = category ? category.length : undefined;
             chart.options.scales.y.ticks.autoSkip = category ? false : true;
             chart.options.scales.y.ticks.stepSize = category ? 1 : undefined;
-        } else {
+        } else if (mode !== ChartView.CHART_FFT) {
             chart.options.scales.x.title.text = axisName;
             chart.options.scales.x.ticks.callback = _fmtVal;
             chart.options.scales.x.ticks.maxTicksLimit = category ? category.length : undefined;
@@ -191,6 +203,18 @@ export class ChartView {
 
             chart.options.scales.y.title.text = (mode === ChartView.CHART_CDF) ? 'Cumulative density' : 'Density';
             chart.options.scales.y.ticks.callback = (v) => Number(v.toFixed(5));
+            chart.options.scales.y.ticks.maxTicksLimit = undefined;
+            chart.options.scales.y.ticks.autoSkip = true;
+            chart.options.scales.y.ticks.stepSize = undefined;
+        } else  {
+            chart.options.scales.x.title.text = "Frequency Hz";
+            chart.options.scales.x.ticks.callback = (v) => Number(v.toFixed(7));
+            chart.options.scales.x.ticks.maxTicksLimit = undefined;
+            chart.options.scales.x.ticks.autoSkip = true;
+            chart.options.scales.x.ticks.stepSize = undefined;
+
+            chart.options.scales.y.title.text = 'Amplitude dB';
+            chart.options.scales.y.ticks.callback = (v) => Number(v.toFixed(7));
             chart.options.scales.y.ticks.maxTicksLimit = undefined;
             chart.options.scales.y.ticks.autoSkip = true;
             chart.options.scales.y.ticks.stepSize = undefined;
@@ -261,8 +285,8 @@ export class ChartView {
     // ===== Save Restore API =====
 
     fromJson(json) {
-        (typeof json.field === 'string') && (this.#fieldSelect.value = json.field);
-        (typeof json.mode === 'string') && (this.#modeSelect.value = json.mode);
+        (typeof json.field === 'string') && this.setField(json.field);
+        (typeof json.mode === 'string') && this.setMode(json.mode);
         this.configChange();
     }
 
@@ -318,7 +342,8 @@ export class ChartView {
                 }
             });
 
-        const vals = data.map((row) => (row.y)).filter(Number.isFinite);
+        const valsFilt = data.filter((row) => Number.isFinite(row.y));
+        const vals = valsFilt.map((row) => (row.y));
         dataset.stats = new Statistics(vals);
         if (!this.#xIsTime()) {
             // convert to cdf or histogram and calc median and quantiles 
@@ -345,6 +370,9 @@ export class ChartView {
                     data = dataset.stats.histogram(/*freedmanDiaconis*/);
                 } else if (mode === ChartView.CHART_KDE) {
                     data = dataset.stats.kde(/*silvermanBandwidth*/);
+                } else if (mode === ChartView.CHART_FFT) {
+                    const times = valsFilt.map((row) => (row.x/1000));
+                    data = dataset.stats.fft(times);
                 } else {
                     data = [];
                 }
@@ -374,37 +402,39 @@ export class ChartView {
                 y99: ChartView.#annotation('y', 0.997, '#00000040', '0.997')
             };
             let annotations = (mode === ChartView.CHART_CDF) ? CHART_CDF_ANNOTAIONS : {};
-            if (def(chart.options.plugins.annotation.annotations.time)) {
-                const datetime = chart.options.plugins.annotation.annotations.time.xMin;
-                if (def(datetime)) {
-                    annotations.time = ChartView.#annotation('x', datetime, 'rgb(255, 76, 0)');
+            if (mode !== ChartView.CHART_FFT) {
+                if (def(chart.options.plugins.annotation.annotations.time)) {
+                    const datetime = chart.options.plugins.annotation.annotations.time.xMin;
+                    if (def(datetime)) {
+                        annotations.time = ChartView.#annotation('x', datetime, 'rgb(255, 76, 0)');
+                    }
                 }
-            }
-            if (active && (0 < active.length)) {
-                const axis = (this.#xIsTime()) ? 'y' : 'x';
-                const index = active[0].datasetIndex;
-                const dataset = chart.data.datasets[index];
-                if (!dataset.hidden) {
-                    const color = dataset.borderColor;
-                    const _fmt = chart.options.scales[axis].ticks.callback;
-                    if (mode === ChartView.CHART_CDF) {
-                        if (def(dataset.stats.q50)) annotations.q50 = ChartView.#annotation(axis, dataset.stats.q50, color, `x̃ = ${_fmt(dataset.stats.q50)}`);
-                        if (def(dataset.stats.q68)) annotations.q68 = ChartView.#annotation(axis, dataset.stats.q68, color, `Q68 = ${_fmt(dataset.stats.q68)}`);
-                        if (def(dataset.stats.q95)) annotations.q95 = ChartView.#annotation(axis, dataset.stats.q95, color, `Q95 = ${_fmt(dataset.stats.q95)}`);
-                        if (def(dataset.stats.q99)) annotations.q99 = ChartView.#annotation(axis, dataset.stats.q99, color, `Q99.7 = ${_fmt(dataset.stats.q99)}`);
-                    } else {
-                        if (def(dataset.stats.min)) annotations.min = ChartView.#annotation(axis, dataset.stats.min, color, `min = ${_fmt(dataset.stats.min)}`);
-                        if (def(dataset.stats.max)) annotations.max = ChartView.#annotation(axis, dataset.stats.max, color, `max = ${_fmt(dataset.stats.max)}`);
-                        if (def(dataset.stats.mean)) {
-                            const field = this.#fieldSelect.value;
-                            const defField = FieldsReg[field];
-                            if (!def(defField.map)) {
-                                annotations.mean = ChartView.#annotation(axis, dataset.stats.mean, color, `μ = ${_fmt(dataset.stats.mean)}`);
-                                if (def(dataset.stats.sigma)) {
-                                    const mps = dataset.stats.mean + dataset.stats.sigma;
-                                    annotations.plus = ChartView.#annotation(axis, mps, color, `μ+σ = ${_fmt(mps)}`);
-                                    const mms = dataset.stats.mean - dataset.stats.sigma;
-                                    annotations.minus = ChartView.#annotation(axis, mms, color, `μ-σ = ${_fmt(mms)}`);
+                if (active && (0 < active.length)) {
+                    const axis = (this.#xIsTime()) ? 'y' : 'x';
+                    const index = active[0].datasetIndex;
+                    const dataset = chart.data.datasets[index];
+                    if (!dataset.hidden) {
+                        const color = dataset.borderColor;
+                        const _fmt = chart.options.scales[axis].ticks.callback;
+                        if (mode === ChartView.CHART_CDF) {
+                            if (def(dataset.stats.q50)) annotations.q50 = ChartView.#annotation(axis, dataset.stats.q50, color, `x̃ = ${_fmt(dataset.stats.q50)}`);
+                            if (def(dataset.stats.q68)) annotations.q68 = ChartView.#annotation(axis, dataset.stats.q68, color, `Q68 = ${_fmt(dataset.stats.q68)}`);
+                            if (def(dataset.stats.q95)) annotations.q95 = ChartView.#annotation(axis, dataset.stats.q95, color, `Q95 = ${_fmt(dataset.stats.q95)}`);
+                            if (def(dataset.stats.q99)) annotations.q99 = ChartView.#annotation(axis, dataset.stats.q99, color, `Q99.7 = ${_fmt(dataset.stats.q99)}`);
+                        } else {
+                            if (def(dataset.stats.min)) annotations.min = ChartView.#annotation(axis, dataset.stats.min, color, `min = ${_fmt(dataset.stats.min)}`);
+                            if (def(dataset.stats.max)) annotations.max = ChartView.#annotation(axis, dataset.stats.max, color, `max = ${_fmt(dataset.stats.max)}`);
+                            if (def(dataset.stats.mean)) {
+                                const field = this.#fieldSelect.value;
+                                const defField = FieldsReg[field];
+                                if (!def(defField.map)) {
+                                    annotations.mean = ChartView.#annotation(axis, dataset.stats.mean, color, `μ = ${_fmt(dataset.stats.mean)}`);
+                                    if (def(dataset.stats.sigma)) {
+                                        const mps = dataset.stats.mean + dataset.stats.sigma;
+                                        annotations.plus = ChartView.#annotation(axis, mps, color, `μ+σ = ${_fmt(mps)}`);
+                                        const mms = dataset.stats.mean - dataset.stats.sigma;
+                                        annotations.minus = ChartView.#annotation(axis, mms, color, `μ-σ = ${_fmt(mms)}`);
+                                    }
                                 }
                             }
                         }
@@ -460,6 +490,7 @@ export class ChartView {
     }
 
     #toolTipText(context) {
+        const mode = this.#modeSelect.value;
         const field = this.#fieldSelect.value
         const defField = FieldsReg[field];
         const unit = (defField.unit ? ' ' + defField.unit : '')
@@ -470,19 +501,25 @@ export class ChartView {
             const valX = context.chart.options.scales.x.ticks.callback(context.raw.x);
             const valY = (category ? category[context.raw.y] : context.raw.y) + unit;
             return `${txtY}: ${valY}\n${txtX}: ${valX}`;
-        } else {
+        } else if (mode !== ChartView.CHART_FFT) {
             const txtX = defField.name;
             const txtY = context.chart.options.scales.y.title.text;
             const valX = (category ? category[context.raw.x] : context.raw.x) + unit;
             const valY = context.chart.options.scales.y.ticks.callback(context.raw.y);
             return `${txtY}: ${valY}\n${txtX}: ${valX}`;
+        } else {
+            const valX = context.chart.options.scales.x.ticks.callback(context.raw.x);
+            const valY = context.chart.options.scales.y.ticks.callback(context.raw.y);
+            return `Amplitude: ${valY} dB\nFrequency: ${valX} Hz`;
         }
     }
 
     #emit(name, detail) {
-        this.#container.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
+        this.#container.dispatchEvent(new CustomEvent(name, { detail }));
     }
 
+    static FIELDS_HIDDEN       = ['time','date','itow'];
+        
     static CHART_TIMESERIES    = 'Time series';
     static CHART_CUMULATIVE    = 'Cumulative';
     static CHART_DERIVATIVE    = 'Derivative';
@@ -490,7 +527,8 @@ export class ChartView {
     static CHART_HISTOGRAM     = 'Histogram';
     static CHART_HISTOGRAM_FD  = 'Histogram FD';
     static CHART_KDE           = 'Kernel density';
-
+    static CHART_FFT           = 'FFT';
+    
     #container
     #fieldSelect
     #modeSelect

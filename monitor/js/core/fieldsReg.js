@@ -200,7 +200,7 @@ export const FieldsReg = Object.freeze( {
     wno        : new Field( 'GPS week number',                       { unit:'s',       prec:3, hint:'weeks since 1980-01-06 modulo 1024' } ),
     itow       : new Field( 'GPS time of week',                      { unit:'s',       prec:3, hint:'offset by leap seconds to UTC' } ),
     fix        : new Field( 'Position fix',                          { map:MAP.fix            } ),
-    psm        : new Field( 'Power Save',                            { map:MAP.psm            } ),
+    psm        : new Field( 'Power save mode',                       { map:MAP.psm            } ),
     ecefX      : new Field( 'ECEF X coordinate',                     { unit:'m',       prec:3 } ),
     ecefY      : new Field( 'ECEF Y coordinate',                     { unit:'m',       prec:3 } ),
     ecefZ      : new Field( 'ECEF Z coordinate',                     { unit:'m',       prec:3 } ),

@@ -227,6 +227,64 @@ export class Statistics {
         return out;
     }
 
+
+    fft(ts, opt = {}) {
+        const data = this.#data; 
+        const mu = this.mean;
+        const xs = data.map(y => y - mu); 
+        if (ts.length < 4) [];
+        // effective Nyquist via median dt
+        const dts = [];
+        for (let i = 1; i < ts.length; i++) {
+            dts.push(ts[i] - ts[i - 1]);
+        }
+        dts.sort((a, b) => a - b);
+        const dt = dts[Math.floor(dts.length / 2)] || (ts.at(-1) - ts[0]) / (ts.length - 1);
+        const fNy = 0.5 / (dt || 1);
+        const nfreq = opt.nfreq || Math.min(2048, Math.ceil(5 * xs.length));
+        const fmax = opt.fmax ?? fNy;
+        const fmin = opt.fmin ?? 0;
+        const freq = new Float64Array(nfreq);
+        for (let k = 0; k < nfreq; k++) {
+            freq[k] = fmin + (fmax - fmin) * k / (nfreq - 1 || 1);
+        }
+        // normalized LS -> amplitude-like
+        const amp = new Float64Array(nfreq);
+        const varx = xs.reduce((s, v) => s + v * v, 0);
+        const twoPI = 2 * Math.PI;
+        for (let k = 0; k < nfreq; k++) {
+            const w = twoPI * freq[k];
+            // tau per Scargle
+            let c2wt = 0, s2wt = 0;
+            for (let i = 0; i < ts.length; i++) { 
+                const a = 2 * w * ts[i]; 
+                c2wt += Math.cos(a); 
+                s2wt += Math.sin(a); 
+            }
+            const tau = (w === 0) ? 0 : 0.5 * Math.atan2(s2wt, c2wt) / w;
+            let xc = 0, xs_ = 0, cc = 0, ss = 0;
+            for (let i = 0; i < ts.length; i++) {
+                const wt = w * (ts[i] - tau);
+                const c = Math.cos(wt), s = Math.sin(wt);
+                xc += xs[i] * c; 
+                xs_ += xs[i] * s; 
+                cc += c * c; 
+                ss += s * s;
+            }
+            const P = ((xc * xc) / cc + (xs_ * xs_) / ss) / varx;
+            amp[k] = Math.sqrt(P * varx * 4 / ts.length);
+        }
+        const out = new Array(nfreq);
+        for (let i = 0; i < nfreq; i++) {
+            out[i] = {
+                x: freq[i],// * dt / 2,
+                y: amp[i]
+            };
+        }
+        // fs_eff: 1 / dt
+        return out;
+    }
+
     // --- Quantile with linear interpolation (Hyndman & Fan type 7)
     #quantile(p) {
         let quantile = NaN;

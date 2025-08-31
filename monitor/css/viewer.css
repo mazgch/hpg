@@ -123,7 +123,6 @@
 }
 
 .ellipsis {
-  max-width: 15ch;          /* limit to ~20 characters */
   white-space: nowrap;      /* keep on one line */
   overflow: hidden;         /* hide overflow */
   text-overflow: ellipsis;  /* show "…" when clipped */

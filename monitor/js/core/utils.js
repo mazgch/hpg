@@ -52,6 +52,11 @@ export function formatDateTime(utcMs) {
     return utcTxt.replace('T', ' ').slice(0, 23);
 }
 
+export function formatDateTimeShort(utcMs) {
+    const utcTxt = new Date(utcMs).toISOString();
+    return utcTxt.replace('T', ' ').slice(0, 19);
+}
+
 export function formatDate(utcMs) {
     const utcTxt = new Date(utcMs).toISOString();
     return utcTxt.slice(0, 10);
