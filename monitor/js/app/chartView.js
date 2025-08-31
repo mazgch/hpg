@@ -137,9 +137,9 @@ export class ChartView {
     updateDataset(track) {
         if (track.dataset) {
             this.removeDataset(track);
-            if (track.mode !== Track.MODE_HIDDEN) {
-                this.addDataset(track);
-            }
+        }
+        if (track.mode !== Track.MODE_HIDDEN) {
+            this.addDataset(track);
         }
       /*if (track.dataset) {
             track.dataset.label = track.name;
@@ -152,7 +152,7 @@ export class ChartView {
     setTime(datetime) {
         const chart = this.chart;
         if (this.#xIsTime()) {
-            const annotation = ChartView.#annotation('x', datetime, '#00000040', 'time');
+            const annotation = ChartView.#annotation('x', datetime, 'rgb(255, 76, 0)');
             chart.options.plugins.annotation.annotations.time = annotation;
             chart.update();
         }
@@ -177,7 +177,7 @@ export class ChartView {
             chart.options.scales.x.ticks.autoSkip = true;
             chart.options.scales.x.ticks.stepSize = undefined;
 
-            chart.options.scales.y.title.text = ((mode !== ChartView.CHART_TIMESERIES) ? modeSelect.value + ' ' : '') + axisName;
+            chart.options.scales.y.title.text = ((mode !== ChartView.CHART_TIMESERIES) ? mode + ' ' : '') + axisName;
             chart.options.scales.y.ticks.callback = _fmtVal;
             chart.options.scales.y.ticks.maxTicksLimit = category ? category.length : undefined;
             chart.options.scales.y.ticks.autoSkip = category ? false : true;
@@ -377,7 +377,7 @@ export class ChartView {
             if (def(chart.options.plugins.annotation.annotations.time)) {
                 const datetime = chart.options.plugins.annotation.annotations.time.xMin;
                 if (def(datetime)) {
-                    annotations.time = ChartView.#annotation('x', datetime, '#00000040', 'time');
+                    annotations.time = ChartView.#annotation('x', datetime, 'rgb(255, 76, 0)');
                 }
             }
             if (active && (0 < active.length)) {
@@ -447,7 +447,7 @@ export class ChartView {
             const position = (axis === 'y') ? 'start' : 'end';
             const rotation = (axis === 'x') ? -90 : 0;
             annotation.label = {
-                padding: 2, display: true, content: label, position: position,
+                padding: 2, display: true, content: label||'', position: position,
                 textStrokeColor: 'rgba(255,255,255,1)', textStrokeWidth: 5, font: { weight: 'nomal' },
                 backgroundColor: 'rgba(255,255,255,0)', color: color, rotation: rotation
             };

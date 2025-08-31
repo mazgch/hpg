@@ -13,8 +13,6 @@
     z-index: 1001;
     background: #fff;
     padding-top: var(--bar-pad);
-    -webkit-user-select: none;
-    user-select: none;
 }
 
 /* Player layout */
@@ -23,6 +21,8 @@
     justify-content: space-between;
     gap: 10px;
     align-items: center;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .trimplayer .controls {

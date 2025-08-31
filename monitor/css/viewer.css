@@ -79,15 +79,6 @@
   fill-opacity: 0.05;
 }
 
-.dash {
-  display: inline-block;
-  width: 20px;
-  height: 2px;
-  margin-inline: 4px;
-  margin-bottom: calc(0.5em-1px);
-  vertical-align: middle;
-}
-
 .icon-inline {
   width: 0.9em;
   height: 0.9em;
@@ -146,4 +137,13 @@
   border-radius: 50%;
   background: currentColor;   /* uses text color */
   vertical-align: middle;     /* aligns nicely with text */
+}
+
+.dash {
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 4px;
 }

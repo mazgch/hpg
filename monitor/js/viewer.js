@@ -19,8 +19,10 @@
 import { MapView } from './app/mapView.js';
 //import { MapView } from './app/olMapView.js';
 import { ChartView } from './app/chartView.js';
+import { TableView } from './app/tableView.js';
 import { PlacesManager } from './app/placesManager.js';
 import { TrimPlayer } from './app/trimPlayer.js';
+import { FileManager } from './app/fileManager.js';
 
 import { Track } from './core/track.js';
 import { def, bytesToString, isGzip, log } from './core/utils.js';
@@ -74,28 +76,26 @@ window.onload = function _onload() {
     configReadFiles(evt.dataTransfer.files);
     evt.preventDefault();
   });
-  // load button
-  const loadPicker = document.getElementById('loadpicker');
-  const loadFiles = document.getElementById("load");
-  loadFiles.addEventListener('click', () => {
-    loadPicker.click();
-  });
-  loadPicker.addEventListener('change', (evt) => { 
-    configReadFiles(evt.target.files);
-    evt.target.value = null;
-  });
-  
-  const downloadConfig = document.getElementById("download");
-  downloadConfig.addEventListener('click', configDownloadJson);
-
-  const clearConfig = document.getElementById("clear");
-  clearConfig.addEventListener('click', configClear);
 
   // Application
   // ------------------------------------------------------------------------------------
 
   let config = { places: [], tracks: [], time: [ -Infinity, Infinity ] };
   
+  // FileManager
+  const fileControl = document.getElementById('fileManager');
+  const fileManager = new FileManager({
+    container: fileControl,
+    onLoadFiles: (files) => configReadFiles(files),
+    onDownload: (evt) => configDownloadJson(evt),
+    onClear: () => configClear()
+  });
+  fileControl.addEventListener('change', (evt) => {
+    const track = evt.detail;
+    mapView.updateLayer(track);
+    chartView.updateDataset(track);
+  });
+
   // TrimPlayer
   const trimControl = document.getElementById('trimPlayer');
   const trimPlayer = new TrimPlayer(trimControl);
@@ -108,15 +108,22 @@ window.onload = function _onload() {
       chartView.updateDataset(track);
     } );
     config.posBounds = trackGetPosBounds();
-    trackTableUpdate();
   });
   trimControl.addEventListener('seek', (evt) => {
     const datetime = evt.detail;
+    config.tracks.forEach((track) => {
+      track.setTime(datetime); 
+    });
+    tableView.tableUpdate(config.tracks);
     mapView.flyTo(datetime, false);
     chartView.setTime(datetime);
   });
   trimControl.addEventListener('time', (evt) => {
     const datetime = evt.detail;
+    config.tracks.forEach((track) => {
+      track.setTime(datetime); 
+    });
+    tableView.tableUpdate(config.tracks);
     mapView.flyTo(datetime);
     chartView.setTime(datetime);
   });
@@ -124,11 +131,11 @@ window.onload = function _onload() {
   cropButton.addEventListener('click', (evt) => {
     config.tracks.map((track) => {
       track.crop();
+      tableView.tableUpdate(config.tracks);
       mapView.updateLayer(track); 
       chartView.updateDataset(track);
       trimPlayer.setBounds(config.time);
     })
-    trackTableUpdate();
   });
 
   // MapView
@@ -161,8 +168,10 @@ window.onload = function _onload() {
   resetZoomButton.addEventListener("click", (evt) => {
     chartView.resetZoom();
   });
-
-  trackTableUpdate();
+  
+  // TableView
+  const tableContainer = document.getElementById("table");
+  const tableView = new TableView(tableContainer);
   
   window.onbeforeunload = function _unload() {
     try {
@@ -335,10 +344,9 @@ window.onload = function _onload() {
       chartView.removeDataset(track);
     } );
     config.tracks.length = 0;
+    fileManager.setTracks(config.tracks);
     mapView.updateLegend();
     chartView.chart.update();
-    // TABLE: update
-    trackTableUpdate();
     // no track any more 
     config.posBounds = trackGetPosBounds();
   }
@@ -402,7 +410,7 @@ window.onload = function _onload() {
     let maxTime = -Infinity;
     // propagate bounds to the config
     config.tracks
-        .filter( (track) => (track.mode !== Track.MODE_HIDDEN) )
+        //.filter( (track) => (track.mode !== Track.MODE_HIDDEN) )
         .forEach( (track) => {
       const timeBounds = track.boundsTime();
       minTime = Math.min(minTime, timeBounds[0]);
@@ -441,151 +449,13 @@ window.onload = function _onload() {
         mapView.addLayer(track);
         chartView.addDataset(track);
       }
-      trackTableUpdate();
-      // bound may have changed 
       placeManager.change();
+      fileManager.setTracks(config.tracks);
       return true;
     }
     return false;
   } 
-
-  function trackTableUpdate() {
-    const iconShow = feather.icons['eye'].toSvg({class:'icon-inline'});
-    const table = document.getElementById('table_tracks');
-    while (table.firstChild) {
-        table.removeChild(table.firstChild);
-    }
-    const tbody = document.createElement('tbody');
-    table.appendChild(tbody);
-    const tr = document.createElement('tr');
-    let th = document.createElement('th');
-    th.className = 'center';
-    th.innerHTML = iconShow;
-    tr.appendChild(th);
-    const cols = [ "Track Name", "Color", "Module", "Firmware", "Protocol", "Hardware", "Epochs" ];
-    cols.forEach(col => {
-      th = document.createElement('th');
-      th.textContent = col;
-      tr.appendChild(th);
-    });
-    tbody.appendChild(tr);
-    config.tracks
-          .sort( (trackA, trackB) => trackA.name.localeCompare(trackB.name) )
-          .forEach( (track) => {
-            const tr = _getTr(track);
-            tbody.appendChild(tr);
-          } );
-
-    function _getTr(track) {
-      const tr = document.createElement('tr');
-      // Icon
-      const tdIcon = document.createElement('td');
-      tdIcon.className = 'center';
-      tdIcon.style.cursor = 'pointer';
-      tdIcon.innerHTML = _icon(track.mode);
-      tdIcon.addEventListener('click', (evt) => {
-        _modeChange(track);
-        tdIcon.innerHTML = _icon(track.mode);
-      } );
-      tr.appendChild(tdIcon);
-      // Name
-      const tdName = document.createElement('td');
-      const nameInput = document.createElement('input');
-      nameInput.type = 'text';
-      nameInput.value = track.name;
-      nameInput.addEventListener("keyup", (evt) => {
-        if (evt.key === "Enter") {
-          nameInput.blur();
-        }
-      } );
-      nameInput.addEventListener("blur", (evt) => {
-        _nameChange(track, evt.target.value);
-      } );
-      tdName.appendChild(nameInput);
-      tr.appendChild(tdName);
-      // Color Pickers
-      const tdColor = document.createElement('td');
-      const colorInput = document.createElement('input');
-      colorInput.type = 'color';
-      colorInput.value =  track.color;
-      colorInput.style.cursor = 'pointer';
-      nameInput.track = track;
-      colorInput.addEventListener("change", (evt) => {
-        _colorChange(track, evt.target.value);
-      });
-      tdColor.appendChild(colorInput);
-      tr.appendChild(tdColor);
-      // infos 
-      _addTd(tr, track.info?.module || '');
-      _addTd(tr, track.info?.fwVer || '');
-      _addTd(tr, track.info?.protoVer || '');
-      _addTd(tr, track.info?.hwVer || track.info?.monHwVer || '');
-      const epochs = track.epochs.filter(epoch => epoch.selTime && epoch.fixGood);
-      _addTd(tr, `${epochs.length} / ${track.epochs.length}`);
-      
-      function _addTd(tr, value) {
-        const td = document.createElement('td');
-        td.textContent = value;
-        tr.appendChild(td);
-      }
-      return tr;
-    
-      function _icon(mode) {
-        let icon;
-        if (mode === Track.MODE_HIDDEN) {
-          icon = feather.icons['eye-off'].toSvg( { class:'icon-inline' } );
-        } else if (mode === Track.MODE_MARKERS) {
-          icon = feather.icons['git-commit'].toSvg( { class:'icon-inline', fill:COLOR_FIX['3D']} )
-        } else if (mode === Track.MODE_ANYFIX) {
-          icon = feather.icons['share-2'].toSvg( { class:'icon-inline', fill:COLOR_FIX['BAD']} )
-        } else {
-          icon = '〜';
-        }
-        return icon;
-      }
-
-      function _modeChange(track) {
-        // DATA: track mode
-        track.mode = (track.mode === Track.MODE_HIDDEN)  ? Track.MODE_LINE :
-                     (track.mode === Track.MODE_LINE)    ? Track.MODE_MARKERS :
-                     (track.mode === Track.MODE_MARKERS) ? Track.MODE_ANYFIX : 
-                                                           Track.MODE_HIDDEN;
-        mapView.updateLayer(track);
-        chartView.updateDataset(track);
-      } 
-
-      function _nameChange(track, newName) {
-        if (track.name !== newName) { 
-          delete Object.assign(config.tracks, {[newName]: config.tracks[track.name] })[newName];
-          const refErrUpd = (track.name === Track.TRACK_REFERENCE) || (newName === Track.TRACK_REFERENCE);
-          // DATA: update name and reference errors  
-          track.name = newName;
-          mapView.updateLayer(track);
-          if (refErrUpd) {
-            config.tracks.forEach( (track) => { 
-              trackUpdateReferenceErrors(track); 
-            } );
-            chartView.configChange();
-          } else {
-            trackUpdateReferenceErrors(track);
-            // CHART: update the name in the dataset
-            chartView.updateDataset(track);
-          }
-        }
-      }
-
-      function _colorChange(track, newColor) {
-        if (track.color !== newColor) {
-          // DATA: update color 
-          track.color = newColor;
-          mapView.updateLayer(track);
-          chartView.updateDataset(track);
-        }
-      } 
-    }
-  }
 }
-
 
 // ------------------------------------------------------------------------------------
 return { }; })(); // UVIEW mdoule end

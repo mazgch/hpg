@@ -123,6 +123,7 @@ export class MapView {
 
     popUp(center, epoch, label) {
         this.#emit('epoch', epoch);
+        return;
         const div = document.createElement('div');
         // the title 
         div.appendChild(label);
@@ -189,10 +190,9 @@ export class MapView {
         }
     }
 
-
     addLayer(track) {
-        const addMarkers = (track.mode === Track.MODE_MARKERS);
-        const addInfos = (track.mode === Track.MODE_MARKERS) || (track.mode === Track.MODE_ANYFIX);
+        const addInfos = (track.mode === Track.MODE_MARKERS);
+        const addMarkers = (track.mode === Track.MODE_MARKERS) || (track.mode === Track.MODE_ANYFIX);
         // collect an array of cordinates and information for markers
         let infos = [];
         let trackCoords = [];

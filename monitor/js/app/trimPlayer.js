@@ -16,6 +16,8 @@
 
 "use strict";
 
+import { formatDateTime } from '../core/utils.js';
+
 export class TrimPlayer {
     constructor(root, opts = {}) {
         this.#dom = { root:root }
@@ -37,7 +39,7 @@ export class TrimPlayer {
         this.#bindControls();
         this.#bindInteractions();
         this.#render({ source: 'init' });
-        this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
+        this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
         this.#loop();
 
         window.addEventListener('resize', () => this.#positionFloatingLabel());
@@ -51,7 +53,7 @@ export class TrimPlayer {
         this.#state.end = Math.max(this.#state.start + 1, bounds[1]);
         this.#ensureTrimInside();
         this.#render({ source: 'api' });
-        this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
+        this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
     }
 
     setTrim(range) {
@@ -61,13 +63,13 @@ export class TrimPlayer {
         this.#state.trimEnd = Math.max(e, s + this.#state.gap);
         this.#state.current = this.#clampUtc(this.#state.current, this.#state.trimStart, this.#state.trimEnd);
         this.#render({ source: 'api' });
-        this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
+        this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
     }
 
     setCurrent(current) {
         this.#state.current = this.#clampUtc(current, this.#state.trimStart, this.#state.trimEnd);
         this.#render({ source: 'api' });
-        this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
+        this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
     }
 
     play() {
@@ -86,7 +88,7 @@ export class TrimPlayer {
         this.#state.current = this.#state.trimStart;
         this.pause();
         this.#render({ source: 'api' });
-        this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
+        this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
     }
 
     // ===== Save Restore API =====
@@ -138,7 +140,7 @@ export class TrimPlayer {
         if (this.#dom.btnRestart) {
             this.#dom.btnRestart.addEventListener('click', () => {
                 this.#state.current = this.#state.trimStart;
-                this.#showFloatingAt(this.#dom.handleL, this.#utcLabel(this.#state.current));
+                this.#showFloatingAt(this.#dom.handleL, formatDateTime(this.#state.current));
                 this.#state.playing = false;
                 this.#emit('play', false);
                 this.#render({ source: 'button' });
@@ -153,13 +155,13 @@ export class TrimPlayer {
             this.#state.scrubbing = true;
             this.#dom.timeline.setPointerCapture(e.pointerId);
             this.#state.current = this.#snapUtcToTrim(this.#pxToUtc(e.clientX));
-            this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
+            this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
             this.#render({ source: 'scrub' });
         });
         this.#dom.timeline.addEventListener('pointermove', (e) => {
             if (!this.#state.scrubbing) return;
             this.#state.current = this.#snapUtcToTrim(this.#pxToUtc(e.clientX));
-            this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
+            this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
             this.#render({ source: 'scrub' });
         });
         this.#dom.timeline.addEventListener('pointerup', (e) => {
@@ -168,7 +170,7 @@ export class TrimPlayer {
             if (this.#state.scrubbing) {
                 this.#state.scrubbing = false;
                 this.#emit('seek', this.#state.current);
-                this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
+                this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
             }
         });
 
@@ -177,11 +179,11 @@ export class TrimPlayer {
             e.preventDefault(); e.stopPropagation();
             this.#state.scrubbing = true;
             this.#dom.scrubKnob.setPointerCapture(e.pointerId);
-            this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
+            this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
             const move = (ev) => { 
                 const utc = this.#pxToUtc(ev.clientX);
                 this.#state.current = this.#snapUtcToTrim(utc); 
-                this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current)); 
+                this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current)); 
                 this.#render({ source: 'scrub' }); 
             };
             const up = (ev) => {
@@ -190,7 +192,7 @@ export class TrimPlayer {
                 window.removeEventListener('pointerup', up);
                 this.#state.scrubbing = false;
                 this.#emit('seek', this.#state.current);
-                this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
+                this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
             };
             window.addEventListener('pointermove', move);
             window.addEventListener('pointerup', up);
@@ -211,12 +213,12 @@ export class TrimPlayer {
                     const maxLeft = this.#state.trimEnd - this.#state.gap;
                     this.#state.trimStart = this.#clampUtc(utc, this.#state.start, maxLeft);
                     if (this.#state.current < this.#state.trimStart) this.#state.current = this.#state.trimStart;
-                    this.#showFloatingAt(this.#dom.handleL, this.#utcLabel(this.#state.trimStart));
+                    this.#showFloatingAt(this.#dom.handleL, formatDateTime(this.#state.trimStart));
                 } else {
                     const minRight = this.#state.trimStart + this.#state.gap;
                     this.#state.trimEnd = this.#clampUtc(utc, minRight, this.#state.end);
                     if (this.#state.current > this.#state.trimEnd) this.#state.current = this.#state.trimEnd;
-                    this.#showFloatingAt(this.#dom.handleR, this.#utcLabel(this.#state.trimEnd));
+                    this.#showFloatingAt(this.#dom.handleR, formatDateTime(this.#state.trimEnd));
                 }
                 this.#render({ source: 'trim' });
             };
@@ -225,7 +227,7 @@ export class TrimPlayer {
                 window.removeEventListener('pointermove', move);
                 window.removeEventListener('pointerup', up);
                 this.#emit('trim', [ this.#state.trimStart,this.#state.trimEnd ]);
-                this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
+                this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
             };
             window.addEventListener('pointermove', move);
             window.addEventListener('pointerup', up);
@@ -250,7 +252,7 @@ export class TrimPlayer {
         }
         // Maintain label at active element
         if (this.#state.scrubbing || this.#state.playing) {
-            this.#showFloatingAt(this.#dom.playhead, this.#utcLabel(this.#state.current));
+            this.#showFloatingAt(this.#dom.playhead, formatDateTime(this.#state.current));
         }
         // Emit timeupdate with UTC
         this.#emit('time', this.#state.current);
@@ -310,11 +312,6 @@ export class TrimPlayer {
 
     #clampUtc(x, min, max) {
         return Math.min(max, Math.max(min, x));
-    }
-
-    #utcLabel(utcMs) {
-        const d = new Date(utcMs);
-        return d.toISOString().replace('T', ' ').slice(0, 23);
     }
 
     #positionFloatingLabel(anchorEl = null) {

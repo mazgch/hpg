@@ -158,12 +158,14 @@ input {
     -webkit-transition: all .25s ease;
     -o-transition: all .25s ease;
     transition: all .25s ease;
-    font-size: 1rem;
+    font-size: inherit;
+    font-weight: inherit;
     box-sizing: border-box;
 }
 
 input[type="datetime-local"],
-td input {
+td input,
+th input {
     border-color: transparent;
 }
 

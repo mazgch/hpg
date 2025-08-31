@@ -49,6 +49,7 @@
   <script src="https://cdn.jsdelivr.net/npm/leaflet-simple-map-screenshoter@0.5.0/dist/leaflet-simple-map-screenshoter.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@4.0.0/Control.FullScreen.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@4.0.0/Control.FullScreen.min.js"></script>
+  
   <!-- <script src="https://maps.googleapis.com/maps/api/js"></script>-->
   <script src="https://cdn.jsdelivr.net/npm/leaflet.gridlayer.googlemutant@0.15.0/dist/Leaflet.GoogleMutant.min.js"></script>
   <!-- openlayers -->
@@ -65,6 +66,7 @@
   <link rel="stylesheet" type="text/css" href="css/monitor.css">
   <link rel="stylesheet" type="text/css" href="css/viewer.css">
   <link rel="stylesheet" type="text/css" href="css/trimPlayer.css" />
+  <link rel="stylesheet" type="text/css" href="css/fileManager.css" />
 </head>
 
 <body id="dropzone">
@@ -117,42 +119,28 @@
         <i>Reference</i> are calculated for accuracy analysis. All processing happens in your browser,
         no data is uploaded to any server.
       </p>
-    </div>
-    <h2>Tracks</h2>
-    <div id="tile_tracks" class="section">
-      <p style="width: calc(100% - 48px)">
+       <p style="width: calc(100% - 48px)">
         Load <i data-feather="file-plus" class="icon-inline"></i> multiple <span class="fixed-inline">.ubx</span> files
-        recorderd
-        with <a target="_blank" href="https://www.u-blox.com/en/product/u-center">u-center</a> or any other
-        application that captures raw data from a GNSS/GPS receiver. This page uses <span
-          class="fixed-inline">.json</span> environment
-        file cointaining tracks, places and your configuration. For ease of use drag and drop files to this page. If you
-        like
-        to share your environment with a friend or colleages, simply downloaded <i data-feather="download"
-          class="icon-inline"></i>
-        environment file, and share a link to this page alongside.
+        recorderd with <a target="_blank" href="https://www.u-blox.com/en/product/u-center">u-center</a> or any other 
+        application that captures raw data from a GNSS/GPS receiver. For ease of use, drag and drop files to this page. 
+        If you like to share your environment with a friend or colleages, simply downloaded 
+        <i data-feather="download" class="icon-inline"></i> environment file in <span class="fixed-inline">.json</span> 
+        format, and share a link to this page.
+      </p>
+      <p>
+        Each track is shown as a colored polyline, matching the track's assigned color. Fix quality is indicated by
+        points along the track. Info <i data-feather="message-square" class="icon-inline"></i> markers highlight
+        locations where important errors, warnings or notifications were collected. You can zoom and pan the map using
+        the mouse. Places help you define areas of interest that you like people to revisit.
       </p>
       <ul>
-        <li><b>Change the visibility:</b> Click on the icons in <i data-feather="eye" class="icon-inline"></i> column
-          to change the visibility and apperance of the track.</li>
-        <li><b>Name tracks:</b> Loaded tracks can be named individually. For the reference/truth track use the name
-          <span class="fixed-inline">Reference</span>.</li>
-        <li><b>Set color:</b> Use the color selectors to change the line color of any track.</li>
-        <li><b>Set reference:</b> The reference track is used to calculate offests from that reference,
-          this is usefull evaluate accuracies.</li>
+        <li><b>Define a place:</b> Hold <span class="fixed-inline">Ctrl</span> and drag to to select an area on the map 
+          to be defined as a new place.</li>
+        <li><b>Resize to place:</b> Hold <span class="fixed-inline">Ctrl</span> and click on the dashed place rectangle
+          in the map.</li>
+        <li><b>Zoom to area:</b> Hold <span class="fixed-inline">Shift</span> and drag to select an area to zoom to.
+        </li>
       </ul>
-
-      <table id="table_tracks" class="table" style="table-layout:auto"></table>
-      <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
-        <input id="loadpicker" type="file" accept=".gz,.json,.ubx,application/gzip,application/x-gzip,application/json"
-          multiple style="display: none;">
-        <div class="overlay_button" id="load" title="Add multipe .ubx GPS/GNSS files or a .json environment file."><i
-            data-feather="file-plus"></i></div>
-        <div class="overlay_button" id="download"
-          title="Download current environment file. Hold Shift for uncompressed version."><i
-            data-feather="download"></i></div>
-        <div class="overlay_button" id="clear" title="Remove all tracks and places."><i data-feather="trash"></i></div>
-      </div>
     </div>
     <!------------------------- Trim Player ------------------------->
     <div class="trimplayer-sticky">
@@ -186,67 +174,42 @@
       <div class="labels-layer">
         <span id="lblFloating" class="hidden">--:--:--.---</span>
       </div>
+      <div class="filemanager" id="fileManager" >
+        <!-- Populated by FileManager -->
+      </div>
     </div>
     <!------------------------- MAP ------------------------->
-    <h2>Map & Places</h2>
     <div id="tile_map" class="section">
-      <p>
-        Each track is shown as a colored polyline, matching the track's assigned color. Fix quality is indicated by
-        points along
-        the track, click a point to view details. Info <i data-feather="message-square" class="icon-inline"></i> markers
-        highlight
-        locations where important errors, warnings or notifications were collected. You can zoom and pan the map using
-        the mouse.
-        Use the layer control in the top right to switch between base maps and toggle the visibility of places. Places
-        help you
-        define areas of interest that you like people to revisit.
-      </p>
-      <ul>
-        <li><b>Zoom to area:</b> Hold <span class="fixed-inline">Shift</span> and drag to select an area to zoom to.
-        </li>
-        <li><b>Define a place:</b> Hold <span class="fixed-inline">Ctrl</span> and drag to to select an area to be
-          defined as a new place.</li>
-        <li><b>Resize to place:</b> Hold <span class="fixed-inline">Ctrl</span> and click on the dashed place rectangle
-          in the map.</li>
-        <li><b>Fit to place:</b> Choose a place from the list <select id="places"></select> or click on a dashed place
-          rectangle in the map.</li>
-        <li>
-          <b>Adjust brightness:</b> Change the base layer opacity <input type="range" id="opacity" min="0" max="0.9"
-            step="0.05" value="0.4" style="vertical-align: middle; height: 0.8em;">
-          to improve visibility.
-        </li>
-      </ul>
       <div class="section framed vresize map-section" id="map"></div>
     </div>
-    <h2>Chart</h2>
+    <!------------------------- MAP ------------------------->
+    <div id="tile_cfg" class="section">
+      Visualize <select id="field"></select> as 
+        <select id="mode">
+          <option value="Time series">Time series</option>
+          <option value="Cumulative" title="Integrated time series">Cumulative</option>
+          <option value="Derivative" title="Differentiated time series">Derivative</option>
+          <option value="CDF" title="Cumulative distribution function">CDF</option>
+          <option value="Histogram">Histogram</option>
+          <option value="Histogram FD" title="Histogram with Freedman–Diaconis bin width & count">Histogram FD</option>
+          <option value="Kernel density" title="Kernel density estimation">Kernel Density</option>
+        </select>
+        set place <select id="places"></select> or adjust opacity <input type="range" id="opacity" min="0" max="0.9"
+      step="0.05" value="0.4" style="vertical-align: middle; height: 0.8em;"> 
+    </div>
+    <!------------------------ CHART ------------------------>
     <div id="tile_chart" class="section">
-      <p>
-        Each track is shown as a colored polyline, matching the track's assigned color.
-        Fix quality and value are shown when you hover over a point. You can zoom and pan the chart using the mouse.
-      </p>
-      <ul>
-        <li><b>Zoom to area:</b> Hold <span class="fixed-inline">Shift</span> and drag to select an area to zoom to.
-        </li>
-        <li><b>Fit zoom:</b> Click the fit zoom <i data-feather="maximize-2" class="icon-inline"></i> button to reset
-          the zoom to the current data range.</li>
-        <li><b>Choose Y axis:</b> Select a parameter from the list <select id="field"></select> and show as <select
-            id="mode">
-            <option value="Time series">Time series</option>
-            <option value="Cumulative" title="Integrated time series">Cumulative</option>
-            <option value="Derivative" title="Differentiated time series">Derivative</option>
-            <option value="CDF" title="Cumulative distribution function">CDF</option>
-            <option value="Histogram">Histogram</option>
-            <option value="Histogram FD" title="Histogram with Freedman–Diaconis bin width & count">Histogram FD</option>
-            <option value="Kernel density" title="Kernel density estimation">Kernel Density</option>
-          </select></li>
-      </ul>
-      <div class="section vresize" style="padding-bottom:10px;">
+      <div class="section framed vresize" style="padding-bottom:10px;">
         <canvas id="chart" style="padding-left:7px;"></canvas>
         <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
           <div class="overlay_button" id="resetZoom" title="Reset zoom to fit content."><i
               data-feather="maximize-2"></i></div>
         </div>
       </div>
+    </div>
+    <!------------------------ TABLE ------------------------>
+    <div id="tile_table" class="section">
+      <table id="table" class="table" style="table-layout:auto"></table>
     </div>
     </main>
 </body>

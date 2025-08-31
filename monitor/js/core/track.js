@@ -90,6 +90,17 @@ export class Track {
         return this;
     }
 
+    setTime(datetime) {
+        const epoch = this.epochs
+                .filter((epoch) => (epoch.timeValid && epoch.posValid))
+                .reduce((prev, curr) => {
+                    const prevDiff = Math.abs(new Date(prev.datetime) - datetime);
+                    const currDiff = Math.abs(new Date(curr.datetime) - datetime);
+                    return currDiff < prevDiff ? curr : prev;
+                })
+        this.currentEpoch = epoch;
+    }
+
     addEpochs(epochs) {
         log('epochs', this.name)
         epochs.forEach( (epoch) => {
@@ -107,6 +118,7 @@ export class Track {
     clear() {
         this.info   = {};
         this.epochs = [];
+        delete this.currentEpoch;
         this.bounds = { 
             lat:      { min:Infinity, max: -Infinity },
             lng:      { min:Infinity, max: -Infinity },
@@ -156,6 +168,21 @@ export class Track {
             div.appendChild(document.createElement('br'));
         })
         return div;
+    }
+
+    modeIcon() {
+        let icon;
+        const mode = this.mode;
+        if (mode === Track.MODE_HIDDEN) {
+            icon = feather.icons['eye-off'].toSvg( { class:'icon-inline' } );
+        } else if (mode === Track.MODE_MARKERS) {
+            icon = feather.icons['git-commit'].toSvg( { class:'icon-inline', fill:'#00ff00'} )
+        } else if (mode === Track.MODE_ANYFIX) {
+            icon = feather.icons['share-2'].toSvg( { class:'icon-inline', fill:'#ff0000'} )
+        } else {
+            icon = '〜';
+        }
+        return icon;
     }
 
 
