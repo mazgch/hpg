@@ -148,11 +148,11 @@ export class MapView {
                 delete layer.crossHair;
             }
         })
-        if (map._loaded && (0 < latlngs.length)) {
-            const reqBounds = L.latLngBounds(latlngs).pad(0.3);
-            const currentBounds = map.getBounds();
-            const maxZoom = Math.max(19, map.getZoom());
-            if (currentBounds.contains(reqBounds)) {
+        const curBounds = this.#getBounds();
+        if (0 < latlngs.length) {
+            const reqBounds = L.latLngBounds(latlngs).pad(0.2);
+            const maxZoom = curBounds ? Math.max(19, map.getZoom()) : 19;
+            if (curBounds?.contains(reqBounds)) {
                 const center = reqBounds.getCenter();
                 (pan ? map.panTo(center, maxZoom) : map.setView(center, maxZoom ));
             } else {
@@ -186,14 +186,13 @@ export class MapView {
         const layer = L.layerGroup( {renderer: svgRenderer } );
         log('MapView add', track.name);
         track.epochs
-            .filter((epoch) => epoch.selTime)
             .forEach((epoch) => {
                 // if we are loosing the fix with this epoch 
-                if (addInfos && !epoch.fixGood && (fixLost === false)) {
+                if (addInfos && !epoch.fixGood && epoch.selTime && (fixLost === false)) {
                     infos.push('Fix lost');
                     fixLost = true;
                 }
-                // publish messages if we has a location from before 
+                // publish messages if we have a location from before 
                 if (infoCenter && (0 < infos.length)) {
                     // remove any later duplicates 
                     infos.filter((item, index) => infos.indexOf(item) === index);
@@ -203,7 +202,7 @@ export class MapView {
                     infoCenter = undefined;
                 }
                 // if we are reacquiring a good fix 
-                if (addInfos && epoch.posValid && epoch.fixGood) {
+                if (addInfos && epoch.posValid && epoch.fixGood && epoch.selTime) {
                     if (fixLost === true) {
                         infos.push('Fix recovered');
                     }
@@ -214,30 +213,28 @@ export class MapView {
                     infos = infos.concat(epoch.info);
                 }
                 // populate the the coordinates for the polyline
-                if (epoch.posValid) {
+                if (epoch.posValid && epoch.selTime && ((track.mode === Track.MODE_ANYFIX) ? epoch.fixValid : epoch.fixGood)) {
                     const center = [epoch.fields.lat, epoch.fields.lng];
-                    if (((track.mode === Track.MODE_ANYFIX) ? epoch.fixValid : epoch.fixGood)) {
-                        trackCoords.push(center);
-                        if (addMarkers) {
-                            // the dot marker 
-                            const marker = L.circleMarker(center, {
-                                renderer: svgRenderer,
-                                className: 'marker', color: epoch.color, fillColor: epoch.color,
-                                radius: 3, weight: 1, opacity: 1, fillOpacity: 0.8
-                            } );
-                            marker.epoch = epoch;
-                            marker.bindTooltip(() => _toolTip(track, epoch), { } );
-                            marker.on('mouseover', (evt) => evt.target.setRadius(5));
-                            marker.on('mouseout', (evt) => evt.target.setRadius(3));
-                            marker.on('click', (evt) => this.#emit('epoch', evt.target.epoch));
-                            layer.addLayer(marker);
-                        }
-                        infoCenter = center;
-                    } else if (0 < trackCoords.length) {
-                        // create segments with gaps
-                        layer.addLayer(_polyline(trackCoords));
-                        trackCoords = [];
+                    trackCoords.push(center);
+                    if (addMarkers) {
+                        // the dot marker 
+                        const marker = L.circleMarker(center, {
+                            renderer: svgRenderer,
+                            className: 'marker', color: epoch.color, fillColor: epoch.color,
+                            radius: 3, weight: 1, opacity: 1, fillOpacity: 0.8
+                        } );
+                        marker.epoch = epoch;
+                        marker.bindTooltip(() => _toolTip(track, epoch), { } );
+                        marker.on('mouseover', (evt) => evt.target.setRadius(5));
+                        marker.on('mouseout', (evt) => evt.target.setRadius(3));
+                        marker.on('click', (evt) => this.#emit('epoch', evt.target.epoch));
+                        layer.addLayer(marker);
                     }
+                    infoCenter = center;
+                } else if (0 < trackCoords.length) {
+                    // create segments with gaps
+                    layer.addLayer(_polyline(trackCoords));
+                    trackCoords = [];
                 }
             })
         // add the last text marker
@@ -249,6 +246,10 @@ export class MapView {
         layer.track = track;
         track.layer = layer;
         this.updateLegend();
+        const bounds = this.#getBounds();
+        if (!bounds) {
+            this.setOverview();
+        }
 
         function _polyline(trackCoords) {
             const polyline = L.polyline(trackCoords, {
@@ -387,6 +388,11 @@ export class MapView {
         }
         return baseLayers;
     }
+
+    #getBounds() {
+        try { return this.map.getBounds(); } catch (err) { }
+    }
+
 
     #emit(name, detail) {
         this.#container.dispatchEvent(new CustomEvent(name, { detail }));

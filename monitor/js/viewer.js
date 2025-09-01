@@ -371,7 +371,6 @@ window.onload = function _onload() {
     config.tracks.length = 0;
     fileManager.setTracks(config.tracks);
     mapView.updateLegend();
-    chartView.chart.update();
     // no track any more 
     config.posBounds = trackGetPosBounds();
   }

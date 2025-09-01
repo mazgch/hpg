@@ -145,6 +145,7 @@ export class ChartView {
 
     setTime(datetime) {
         const chart = this.chart;
+        const mode = this.#modeSelect.value;
         if (ChartView.CHARTS_TIME.includes(mode)) {
             const annotation = ChartView.#annotation('x', datetime, 'rgb(255, 76, 0)');
             chart.options.plugins.annotation.annotations.time = annotation;
@@ -217,12 +218,14 @@ export class ChartView {
             chart.options.scales.y.ticks.stepSize = undefined;
         }
 
-        chart.data.datasets.forEach((dataset) => 
-            this.calcDataset(dataset)
-        );
-        this.#updateAnnotation();
-        this.resetZoom();
-        chart.update();
+        if (0 < chart.data.datasets.length) {
+            chart.data.datasets.forEach((dataset) => 
+                this.calcDataset(dataset)
+            );
+            this.#updateAnnotation();
+            this.resetZoom();
+            chart.update();
+        }
    
         function _fmtVal(v) {
             return category ? category[Math.round(v)] : defField.format(v);
