@@ -145,7 +145,7 @@ export class Field {
         tdFormated.appendChild(this.formatHtml(val));
         tr.appendChild(tdFormated);
         const tdUnit = document.createElement('td');
-        this.unit && (tdUnit.textContent = this.unit);
+        tdUnit.innerHTML = this.unit || '&nbsp;';
         tr.appendChild(tdUnit);
         return tr;
     }

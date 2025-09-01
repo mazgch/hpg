@@ -236,7 +236,8 @@ input {
 
 /* --- table --- */
 .table, .dbtable {
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     border: none;
     margin: 0;
     width: 100%;
@@ -252,10 +253,10 @@ td, th {
     height: 1.5em;
 }
 th {
-    border-top:1pt solid #bebebe;
+    border-top:1px solid #bebebe;
 }
-tr, th {
-    border-bottom:1pt solid #bebebe;
+td, th {
+    border-bottom:1px solid #bebebe;
 }
 
 td:first-child, th:first-child {

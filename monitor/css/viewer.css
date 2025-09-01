@@ -154,7 +154,6 @@
 }
 
 .xscroll table {
-  border-collapse: collapse;
   width: 100%;
 }
 
@@ -182,5 +181,5 @@
 
 .xscroll tr:hover td,
 .xscroll tr:hover th {
-    background:#f0f0f0;
+  background:#f0f0f0;
 }

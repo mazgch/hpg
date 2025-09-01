@@ -23,6 +23,7 @@ import { def } from '../core/utils.js';
 export class TableView {
     constructor(container) {
         this.#container = container;
+        this.updateColumns([])
     }
 
     // ===== Public API =====
@@ -75,7 +76,7 @@ export class TableView {
                     tr.appendChild(tdFormated);
                 } );
                 const tdUnit = document.createElement('td');
-                reg.unit && (tdUnit.textContent = reg.unit);
+                tdUnit.innerHTML = reg.unit || '&nbsp;';
                 tr.appendChild(tdUnit);
                 tbody.appendChild(tr);
             }

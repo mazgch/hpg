@@ -132,7 +132,7 @@ export class FileManager {
         this.popup.innerHTML = "";
     }
 
-    #showPopupForTrack(track, anchorEl) {
+    #showPopupForTrack(track, chip) {
         clearTimeout(this.#hideTid);
 
         const epochsGood = (track.epochs || []).filter((e) => e.selTime && e.fixGood).length;
@@ -143,7 +143,7 @@ export class FileManager {
         tbl.className = 'table';
 
         const rows = [
-            ["Color", this.#color(track, 'td')],
+            ["Color", this.#color(track, 'td', chip)],
             ["Mode", this.#mode(track, 'td')],
             ["Module", info.module],
             ["Firmware", info.fwVer],
@@ -186,7 +186,7 @@ export class FileManager {
 
         // Position the popup under the bar, roughly under the hovered chip
         const barRect = this.#container.getBoundingClientRect();
-        const chipRect = anchorEl.getBoundingClientRect();
+        const chipRect = chip.getBoundingClientRect();
         const left = Math.max(barRect.left, Math.min(barRect.right, (chipRect.left + chipRect.right) / 2)) - barRect.left;
         this.popup.style.left = `${left - 100}px`;
         this.popup.style.top = `${barRect.height + 5}px`;
@@ -217,7 +217,7 @@ export class FileManager {
         return td;
     }
 
-    #color(track, tx = 'td') {
+    #color(track, tx = 'td', chip) {
         const td = document.createElement(tx);
         td.style.position = 'relative';
         const line = document.createElement("span");
@@ -239,6 +239,9 @@ export class FileManager {
             const color = input.value;
             track.color = color;
             line.style.backgroundColor = color;
+            const chipLine = chip.firstChild;
+            chipLine.style.backgroundColor = color;
+            // todo change the chip and its color
             this.#emit('change', track);
         });
         td.appendChild(input);
