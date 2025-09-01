@@ -232,7 +232,7 @@ export class Statistics {
         const data = this.#data; 
         const mu = this.mean;
         const xs = data.map(y => y - mu); 
-        if (ts.length < 4) [];
+        if ((ts.length < 4) || (0 === this.range)) return [];
         // effective Nyquist via median dt
         const dts = [];
         for (let i = 1; i < ts.length; i++) {
