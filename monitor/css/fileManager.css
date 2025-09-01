@@ -16,7 +16,7 @@
 
 .filemanager-left .overlay_button { 
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   align-items: center;
   justify-content: flex-start;    /* default: fill from left */
@@ -32,7 +32,6 @@
 .track-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   padding: 3px 8px;
   border: 1px solid #e0e0e0;
   border-radius: 999px;
@@ -48,11 +47,10 @@
   position: absolute;
   background: rgba(255, 255, 255, 1);
   font-size: 0.7em;
-  border: 1px solid #eee;
+  border: 1px solid #ccc;
   border-radius: 3px;
   padding: 8px 10px;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.15);
-  min-width: 150px;
+  box-shadow: 2px 6px 16px rgba(0,0,0,0.3);
   max-width: 360px;
 }
 
@@ -67,7 +65,7 @@
   width: 10px;
   height: 10px;
   background: rgba(255, 255, 255, 1);
-  border-left: 1px solid #eee;
-  border-top: 1px solid #eee;
+  border-left: 1px solid #ccc;
+  border-top: 1px solid #ccc;
   transform: rotate(45deg);
 }

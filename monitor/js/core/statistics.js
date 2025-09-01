@@ -275,10 +275,12 @@ export class Statistics {
             amp[k] = Math.sqrt(P * varx * 4 / ts.length);
         }
         const out = new Array(nfreq);
+        const _amp = opt.linear ? (v) => (v) : 
+                                  (v) => (20 * Math.log10(Math.max(v,1e-12)));
         for (let i = 0; i < nfreq; i++) {
             out[i] = {
                 x: freq[i],// * dt / 2,
-                y: amp[i]
+                y: _amp(amp[i])
             };
         }
         // fs_eff: 1 / dt

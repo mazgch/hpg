@@ -145,7 +145,7 @@ export class ChartView {
 
     setTime(datetime) {
         const chart = this.chart;
-        if (this.#xIsTime()) {
+        if (ChartView.CHARTS_TIME.includes(mode)) {
             const annotation = ChartView.#annotation('x', datetime, 'rgb(255, 76, 0)');
             chart.options.plugins.annotation.annotations.time = annotation;
             chart.update();
@@ -176,25 +176,22 @@ export class ChartView {
         const field = this.#fieldSelect.value;
         const mode = this.#modeSelect.value;
         const defField = FieldsReg[field];
-        const axisName = defField.name +
-            (((mode === ChartView.CHART_CUMULATIVE) ||
-              (mode === ChartView.CHART_DERIVATIVE) ||
-              !defField.unit) ? '' : (' [' + defField.unit + ']'));
+        const axisName = defField.name + def(defField.unit) ? (' [' + defField.unit + ']') : '';
         const category = def(defField.map) ? Object.keys(defField.map) : undefined;
 
-        if (this.#xIsTime()) {
+        if (ChartView.CHARTS_TIME.includes(mode)) {
             chart.options.scales.x.title.text = 'Time UTC';
             chart.options.scales.x.ticks.callback = formatDateTime;
             chart.options.scales.x.ticks.maxTicksLimit = 8;
             chart.options.scales.x.ticks.autoSkip = true;
             chart.options.scales.x.ticks.stepSize = undefined;
 
-            chart.options.scales.y.title.text = ((mode !== ChartView.CHART_TIMESERIES) ? mode + ' ' : '') + axisName;
+            chart.options.scales.y.title.text = ((mode !== ChartView.CHART_TIMESERIES) ? `${mode} ${axisName}` : '');
             chart.options.scales.y.ticks.callback = _fmtVal;
             chart.options.scales.y.ticks.maxTicksLimit = category ? category.length : undefined;
             chart.options.scales.y.ticks.autoSkip = category ? false : true;
             chart.options.scales.y.ticks.stepSize = category ? 1 : undefined;
-        } else if (mode !== ChartView.CHART_FFT) {
+        } else if (ChartView.CHARTS_DIST.includes(mode)) {
             chart.options.scales.x.title.text = axisName;
             chart.options.scales.x.ticks.callback = _fmtVal;
             chart.options.scales.x.ticks.maxTicksLimit = category ? category.length : undefined;
@@ -206,14 +203,14 @@ export class ChartView {
             chart.options.scales.y.ticks.maxTicksLimit = undefined;
             chart.options.scales.y.ticks.autoSkip = true;
             chart.options.scales.y.ticks.stepSize = undefined;
-        } else  {
+        } else if (ChartView.CHARTS_FREQ.includes(mode)) {
             chart.options.scales.x.title.text = "Frequency Hz";
             chart.options.scales.x.ticks.callback = (v) => Number(v.toFixed(7));
             chart.options.scales.x.ticks.maxTicksLimit = undefined;
             chart.options.scales.x.ticks.autoSkip = true;
             chart.options.scales.x.ticks.stepSize = undefined;
 
-            chart.options.scales.y.title.text = 'Amplitude dB';
+            chart.options.scales.y.title.text = (mode === ChartView.CHART_FFT_DB) ? 'Amplitude dB' : 'Amplitude';
             chart.options.scales.y.ticks.callback = (v) => Number(v.toFixed(7));
             chart.options.scales.y.ticks.maxTicksLimit = undefined;
             chart.options.scales.y.ticks.autoSkip = true;
@@ -259,7 +256,7 @@ export class ChartView {
         const defField = FieldsReg[field];
         if (defField.map) {
             // make it fixed size
-            if (this.#xIsTime()) {
+            if (ChartView.CHARTS_TIME.includes(mode)) {
                 minY = 0;
                 maxY = Object.keys(defField.map).length - 1;
             } else {
@@ -267,8 +264,10 @@ export class ChartView {
                 maxX = Object.keys(defField.map).length - 1;
             }
         }
-        if (!this.#xIsTime()) {
-            minY = 0;
+        if (!ChartView.CHARTS_TIME.includes(mode)) {
+            if (mode !== ChartView.CHART_FFT_DB)  {
+                minY = 0;
+            }
             if (mode === ChartView.CHART_CDF) {
                 maxY = 1;
             }
@@ -345,7 +344,7 @@ export class ChartView {
         const valsFilt = data.filter((row) => Number.isFinite(row.y));
         const vals = valsFilt.map((row) => (row.y));
         dataset.stats = new Statistics(vals);
-        if (!this.#xIsTime()) {
+        if (!ChartView.CHARTS_TIME.includes(mode)) {
             // convert to cdf or histogram and calc median and quantiles 
             if (category) {
                 if (mode === ChartView.CHART_HISTOGRAM) {
@@ -370,9 +369,10 @@ export class ChartView {
                     data = dataset.stats.histogram(/*freedmanDiaconis*/);
                 } else if (mode === ChartView.CHART_KDE) {
                     data = dataset.stats.kde(/*silvermanBandwidth*/);
-                } else if (mode === ChartView.CHART_FFT) {
-                    const times = valsFilt.map((row) => (row.x/1000));
-                    data = dataset.stats.fft(times);
+                } else if ((mode === ChartView.CHART_FFT) || 
+                           (mode === ChartView.CHART_FFT_DB)) {
+                    const times = valsFilt.map((row) => (row.x/1000)); // get matching times
+                    data = dataset.stats.fft(times, { linear:(mode === ChartView.CHART_FFT) });
                 } else {
                     data = [];
                 }
@@ -395,22 +395,20 @@ export class ChartView {
         const chart = this.chart;
         if (chart) {
             const mode = this.#modeSelect.value;
-            const CHART_CDF_ANNOTAIONS = {
-                y50: ChartView.#annotation('y', 0.500, '#00000040', '0.5'),
-                y68: ChartView.#annotation('y', 0.680, '#00000040', '0.68'),
-                y95: ChartView.#annotation('y', 0.950, '#00000040', '0.95'),
-                y99: ChartView.#annotation('y', 0.997, '#00000040', '0.997')
-            };
-            let annotations = (mode === ChartView.CHART_CDF) ? CHART_CDF_ANNOTAIONS : {};
-            if (mode !== ChartView.CHART_FFT) {
-                if (def(chart.options.plugins.annotation.annotations.time)) {
-                    const datetime = chart.options.plugins.annotation.annotations.time.xMin;
-                    if (def(datetime)) {
-                        annotations.time = ChartView.#annotation('x', datetime, 'rgb(255, 76, 0)');
-                    }
+            let annotations = {};
+            if (!ChartView.CHARTS_FREQ.includes(mode)) {
+                if (mode === ChartView.CHART_CDF) {
+                    annotations.y50 = ChartView.#annotation('y', 0.500, '#00000040', '0.5');
+                    annotations.y68 = ChartView.#annotation('y', 0.680, '#00000040', '0.68');
+                    annotations.y95 = ChartView.#annotation('y', 0.950, '#00000040', '0.95');
+                    annotations.y99 = ChartView.#annotation('y', 0.997, '#00000040', '0.997');
+                }
+                const timeAnnotation = chart.options.plugins.annotation.annotations?.time;
+                if (def(timeAnnotation)) {
+                    annotations.time = timeAnnotation; // maintain time annotation
                 }
                 if (active && (0 < active.length)) {
-                    const axis = (this.#xIsTime()) ? 'y' : 'x';
+                    const axis = ChartView.CHARTS_TIME.includes(mode) ? 'y' : 'x';
                     const index = active[0].datasetIndex;
                     const dataset = chart.data.datasets[index];
                     if (!dataset.hidden) {
@@ -446,13 +444,6 @@ export class ChartView {
             chart.update();
         }
     }
-
-    #xIsTime() {
-        const mode = this.#modeSelect.value;
-        return (mode === ChartView.CHART_TIMESERIES) ||
-               (mode === ChartView.CHART_CUMULATIVE) ||
-               (mode === ChartView.CHART_DERIVATIVE);
-    } 
 
     #pointColor(ctx) {
         const dataset = ctx.dataset;
@@ -495,22 +486,23 @@ export class ChartView {
         const defField = FieldsReg[field];
         const unit = (defField.unit ? ' ' + defField.unit : '')
         const category = defField.map ? Object.keys(defField.map) : undefined;
-        if (this.#xIsTime()) {
+        if (ChartView.CHARTS_TIME.includes(mode)) {
             const txtX = context.chart.options.scales.x.title.text;
             const txtY = defField.name;
             const valX = context.chart.options.scales.x.ticks.callback(context.raw.x);
             const valY = (category ? category[context.raw.y] : context.raw.y) + unit;
             return `${txtY}: ${valY}\n${txtX}: ${valX}`;
-        } else if (mode !== ChartView.CHART_FFT) {
+        } else if (ChartView.CHARTS_DIST.includes(mode)) {
             const txtX = defField.name;
             const txtY = context.chart.options.scales.y.title.text;
             const valX = (category ? category[context.raw.x] : context.raw.x) + unit;
             const valY = context.chart.options.scales.y.ticks.callback(context.raw.y);
             return `${txtY}: ${valY}\n${txtX}: ${valX}`;
-        } else {
+        } else if (ChartView.CHARTS_FREQ.includes(mode)){
             const valX = context.chart.options.scales.x.ticks.callback(context.raw.x);
             const valY = context.chart.options.scales.y.ticks.callback(context.raw.y);
-            return `Amplitude: ${valY} dB\nFrequency: ${valX} Hz`;
+            const unit = (mode === ChartView.CHART_FFT) ? '' : ' dB';
+            return `Amplitude: ${valY}${unit}\nFrequency: ${valX} Hz`;
         }
     }
 
@@ -525,9 +517,22 @@ export class ChartView {
     static CHART_DERIVATIVE    = 'Derivative';
     static CHART_CDF           = 'CDF';
     static CHART_HISTOGRAM     = 'Histogram';
-    static CHART_HISTOGRAM_FD  = 'Histogram FD';
+    static CHART_HISTOGRAM_FD  = 'Histogram (FD)';
     static CHART_KDE           = 'Kernel density';
-    static CHART_FFT           = 'FFT';
+    static CHART_FFT           = 'Fourier';
+    static CHART_FFT_DB        = 'Fourier (dB)';
+
+    static CHARTS_TIME = [ 
+        ChartView.CHART_TIMESERIES, 
+        ChartView.CHART_CUMULATIVE, ChartView.CHART_DERIVATIVE 
+    ];
+    static CHARTS_DIST = [ 
+        ChartView.CHART_CDF,        ChartView.CHART_KDE,
+        ChartView.CHART_HISTOGRAM,  ChartView.CHART_HISTOGRAM_FD 
+    ];
+    static CHARTS_FREQ = [ 
+        ChartView.CHART_FFT,        ChartView.CHART_FFT_DB 
+    ];
     
     #container
     #fieldSelect

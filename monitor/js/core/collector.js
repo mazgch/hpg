@@ -135,12 +135,15 @@ export class Collector {
         if (!def(fields.fix)) {
             let fix;
             const fixOk = { 0:'BAD' }; 
-            const fixType = { 5: 'TIME', 4: '3D+DR', 3: '3D', 2: '2D', 1: 'DR', 0:'NO' }; 
             const carrSol = { 1: 'FLOAT', 2: 'FIXED' }; 
+            const diffSol = { 1: 'DGPS' }; 
+            const fixType = { 5: 'TIME', 4: '3D+DR', 3: '3D', 2: '2D', 1: 'DR', 0:'NO' }; 
             if ((0 !== fields.fixType) && def(fix = fixOk[fields.flags?.fixOk])) {
-                fields.fix = fix;
-            } else if (def(fix = carrSol[fields.flags?.carrSol])) {
-                fields.fix = fix;
+                fields.fix = fix; // downgrade !ok fixes to BAD
+            } else if (def(fix = carrSol[fields.flags?.carrSol]) && (2 <= fields.fixType)) {
+                fields.fix = fix; // upgrade RTK fixes to FLOAT/FIXED
+            } else if (def(fix = diffSol[fields.flags?.diffSol]) && (3 === fields.fixType)) {
+                fields.fix = fix; // upgrade 3D fixes to DGPS
             } else if (def(fix = fixType[fields.fixType])) {
                 fields.fix = fix;
             }

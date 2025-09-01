@@ -92,11 +92,19 @@ window.onload = function _onload() {
     onClear: () => configClear()
   });
   fileControl.addEventListener('change', (evt) => {
-    const track = evt.detail;
+    const track = evt.detail?.track;
     if (track instanceof Track) {
-      tableView.updateColumns(config.tracks);
       mapView.updateLayer(track);
-      chartView.updateDataset(track);
+      const recalc =  evt.detail?.recalc;
+      if (recalc) {
+        config.tracks.forEach( (trk) => {
+          trackUpdateReferenceErrors(trk); 
+          chartView.updateDataset(trk);
+        });
+      } else {
+        chartView.updateDataset(track);
+      }
+      tableView.updateColumns(config.tracks);
     }
   });
 

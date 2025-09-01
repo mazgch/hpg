@@ -124,44 +124,40 @@ export class MapView {
 
     flyTo(datetime, pan = true) {
         const map = this.map;
-        let center;
-        let refCenter;
+        const latlngs = [];
         map.eachLayer((layer) => {
             const track = layer.track;
-            if (track) {
-                const epoch = track?.epochs
-                    .filter((epoch) => (epoch.timeValid && epoch.posValid))
-                    .reduce((prev, curr) => {
-                        const prevDiff = Math.abs(new Date(prev.datetime) - datetime);
-                        const currDiff = Math.abs(new Date(curr.datetime) - datetime);
-                        return currDiff < prevDiff ? curr : prev;
-                    })
-                if (epoch) {
-                    center = [epoch.fields.lat, epoch.fields.lng];
-                    if (track.name == Track.TRACK_REFERENCE) {
-                        refCenter = center;
-                    }
-                    if (!def(layer.crossHair)) {
-                        const svgIcon = feather.icons.crosshair.toSvg({ stroke: setAlpha(track.color, 0.9), 'stroke-width': 2, });
-                        const divIcon = L.divIcon({ html: svgIcon, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
-                        layer.crossHair = L.marker(center, { icon: divIcon, interactive: false });
-                        layer.addLayer(layer.crossHair);
-                    } else {
-                        // reuse
-                        layer.crossHair.setLatLng(center);
-                    }
+            let epoch;
+            if (track && (track.mode !== Track.MODE_HIDDEN)) {
+                epoch = track.currentEpoch;
+            }
+            if (epoch) {
+                const center = [epoch.fields.lat, epoch.fields.lng];
+                latlngs.push(center);
+                if (!def(layer.crossHair)) {
+                    const svgIcon = feather.icons.crosshair.toSvg({ stroke: setAlpha(track.color, 0.9), 'stroke-width': 2, });
+                    const divIcon = L.divIcon({ html: svgIcon, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
+                    layer.crossHair = L.marker(center, { icon: divIcon, interactive: false });
+                    layer.addLayer(layer.crossHair);
                 } else {
-                    layer.removeLayer(layer.crossHair);
-                    delete layer.crossHair;
+                    // reuse
+                    layer.crossHair.setLatLng(center);
                 }
+            } else if (layer.crossHair) {
+                layer.removeLayer(layer.crossHair);
+                delete layer.crossHair;
             }
         })
-        if (!refCenter) {
-            refCenter = center;
-        }
-        if (refCenter && map._loaded) {
-            const zoom = Math.max(19, map.getZoom());
-            (pan ? map.panTo(refCenter, zoom) : map.setView(refCenter, zoom));
+        if (map._loaded && (0 < latlngs.length)) {
+            const reqBounds = L.latLngBounds(latlngs).pad(0.3);
+            const currentBounds = map.getBounds();
+            const maxZoom = Math.max(19, map.getZoom());
+            if (currentBounds.contains(reqBounds)) {
+                const center = reqBounds.getCenter();
+                (pan ? map.panTo(center, maxZoom) : map.setView(center, maxZoom ));
+            } else {
+                map.fitBounds(reqBounds, { animate: pan, maxZoom: maxZoom });
+            }
         }
     }
 

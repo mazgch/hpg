@@ -38,7 +38,7 @@ export class FileManager {
         this.#hidePopup();
     }
 
-    // ===== Internals =====
+    // ===== GUI Internals =====
 
     #renderShell() {
         const bar = this.#container;
@@ -61,7 +61,9 @@ export class FileManager {
             evt.preventDefault();
             evt.stopPropagation();
             const files = evt.target.files;
-            if (files && files.length && this.onLoadFiles) this.onLoadFiles(files);
+            if (files && files.length && this.onLoadFiles) {
+                this.onLoadFiles(files);
+            }
             evt.target.value = null;
         });
 
@@ -100,23 +102,19 @@ export class FileManager {
         const tracks = this.tracks || [];
         this.right.innerHTML = "";
         tracks
-            .slice()
             .sort((a, b) => a.name.localeCompare(b.name))
             .forEach((track) => {
                 const chip = document.createElement("div");
                 chip.className = "track-chip";
-
+                chip.style.opacity = (track.mode === Track.MODE_HIDDEN) ? 0.5 : 1.0;
                 const line = document.createElement("span");
                 line.className = "dash";
                 line.style.background = track.color;
-
                 const name = document.createElement("span");
                 name.className = "chip-name";
-                name.textContent = track.name || "(unnamed)";
-
+                name.textContent = track.name || "(unnamed)"
                 chip.append(line, name);
                 this.right.appendChild(chip);
-
                 chip.addEventListener("mouseenter", () => this.#showPopupForTrack(track, chip));
                 chip.addEventListener("mouseleave", () => this.#hidePopupSoon());
             });
@@ -134,16 +132,13 @@ export class FileManager {
 
     #showPopupForTrack(track, chip) {
         clearTimeout(this.#hideTid);
-
         const epochsGood = (track.epochs || []).filter((e) => e.selTime && e.fixGood).length;
         const epochsTotal = (track.epochs || []).length;
         const info = track.info || {};
-
         const tbl = document.createElement("table");
         tbl.className = 'table';
-
         const rows = [
-            ["Color", this.#color(track, 'td', chip)],
+            ["Color", this.#color(track, 'td')],
             ["Mode", this.#mode(track, 'td')],
             ["Module", info.module],
             ["Firmware", info.fwVer],
@@ -184,19 +179,28 @@ export class FileManager {
         this.popup.append(arrow, tbl);
         this.popup.classList.remove("hidden");
 
-        // Position the popup under the bar, roughly under the hovered chip
+        // Position the popup relative to the hovered chip (inside the bar)
+        const GAP = 8; // px gap below the chip
         const barRect = this.#container.getBoundingClientRect();
         const chipRect = chip.getBoundingClientRect();
-        const left = Math.max(barRect.left, Math.min(barRect.right, (chipRect.left + chipRect.right) / 2)) - barRect.left;
-        this.popup.style.left = `${left - 100}px`;
-        this.popup.style.top = `${barRect.height + 5}px`;
-
-        // Keep shown if the mouse moves into the popup
+        this.popup.style.left = '0px';
+        this.popup.style.top = '0px';
+        const popupRect = this.popup.getBoundingClientRect();
+        let left = chipRect.left - barRect.left + (chipRect.width - popupRect.width) / 2;
+        left = Math.max(8, Math.min(left, barRect.width - popupRect.width - 8));
+        const top = chipRect.bottom - barRect.top + GAP;
+        this.popup.style.left = `${Math.round(left)}px`;
+        this.popup.style.top = `${Math.round(top)}px`;
+        const chipCenterInPopup = (chipRect.left + chipRect.width / 2) - (barRect.left + left);
+        const arrowWidth = arrow.offsetWidth || 12; // fallback if not yet measured
+        const arrowHalf = arrowWidth / 2;
+        const arrowMin = arrowHalf + 4;
+        const arrowMax = popupRect.width - arrowHalf - 4;
+        const arrowLeft = Math.max(arrowMin, Math.min(chipCenterInPopup, arrowMax)) - arrowHalf;
+        arrow.style.left = `${Math.round(arrowLeft)}px`;
         this.popup.onmouseenter = () => clearTimeout(this.#hideTid);
         this.popup.onmouseleave = () => this.#hidePopupSoon();
     }
-
-    // ===== Internals =====
 
     #name(track, tx = 'td') {
         const td = document.createElement(tx);
@@ -210,14 +214,17 @@ export class FileManager {
         });
         input.addEventListener("blur", (evt) => {
             const name = evt.target.value;
+            const recalc = (name       === Track.TRACK_REFERENCE) || 
+                           (track.name === Track.TRACK_REFERENCE);
             track.name = name;
-            this.#emit('change', track);
+            this.#renderChips();
+            this.#emit('change', { track, recalc } );
         });
         td.appendChild(input);
         return td;
     }
 
-    #color(track, tx = 'td', chip) {
+    #color(track, tx = 'td') {
         const td = document.createElement(tx);
         td.style.position = 'relative';
         const line = document.createElement("span");
@@ -228,6 +235,8 @@ export class FileManager {
         input.style.left = 0;
         input.style.top = 0;
         input.style.right = 0;
+        input.style.height = '100%';
+        input.style.width = '100%';
         input.style.opacity = 0;
         input.style.position = 'absolute';
         input.style.cursor = 'pointer';
@@ -239,10 +248,8 @@ export class FileManager {
             const color = input.value;
             track.color = color;
             line.style.backgroundColor = color;
-            const chipLine = chip.firstChild;
-            chipLine.style.backgroundColor = color;
-            // todo change the chip and its color
-            this.#emit('change', track);
+            this.#renderChips();
+            this.#emit('change', { track });
         });
         td.appendChild(input);
         return td;
@@ -260,12 +267,15 @@ export class FileManager {
                          (track.mode === Track.MODE_MARKERS) ? Track.MODE_ANYFIX :
                                                                Track.MODE_HIDDEN;
             td.innerHTML = track.modeIcon();
-            this.#emit('change', track);
+            this.#renderChips();
+            this.#emit('change', { track } );
         });
         return td;
     }
 
-    #emit(name, detail) {
+    // ===== Internals =====
+
+    #emit(name, detail ) {
         this.#container.dispatchEvent(new CustomEvent(name, { detail }));
     }
 
