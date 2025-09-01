@@ -100,13 +100,13 @@ export class ChartView {
         const chart = this.chart;
         log(`ChartView add`, track.name);
         const dataset = {
-            label: track.name, borderColor: setAlpha(track.color, 0.8),
+            label: track.name, 
             track: track,
             data: [],
             hidden: true, spanGaps: false, showLine: true,
             borderCapStyle: 'round', borderJoinStyle: 'bevel',
-            borderWidth: 2,
-            pointRadius: 0, pointBorderWidth: 0,
+            borderWidth: 2, borderColor: setAlpha(track.color, 0.8),
+            pointRadius: 0, pointColor: setAlpha(track.color,1), pointBorderWidth: 0,
             pointBorderColor: this.#pointColor,
             pointBackgroundColor: this.#pointBackgroundColor,
             pointHoverRadius: 5, pointHoverBorderWidth: 1,
@@ -456,14 +456,14 @@ export class ChartView {
 
     #pointColor(ctx) {
         const dataset = ctx.dataset;
-        const color = dataset.data[ctx.dataIndex]?.epoch?.color || dataset.borderColor;
-        return setAlpha(color, 1);
+        const color = dataset.data[ctx.dataIndex]?.epoch?.color;;
+        return def(color) ? setAlpha(color, 1) : dataset.pointColor;
     }
 
     #pointBackgroundColor(ctx) {
         const dataset = ctx.dataset;
-        const color = dataset.data[ctx.dataIndex]?.epoch?.color || dataset.borderColor;
-        return setAlpha(color, 0.8);
+        const color = dataset.data[ctx.dataIndex]?.epoch?.color;;
+        return  def(color) ? setAlpha(color, 0.8) : dataset.borderColor;
     }
 
     static #annotation(axis, val, color, label) {
