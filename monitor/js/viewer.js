@@ -62,7 +62,7 @@ window.onload = function _onload() {
             track.setTime(datetime);
         });
         tableView.updateColumns(fileManager.tracks);
-        mapView.flyTo(datetime, false);
+        mapView.flyTo(false); // will use track.currentEpoch
         chartView.setTime(datetime);
     });
     trimControl.addEventListener('time', (evt) => {
@@ -71,7 +71,7 @@ window.onload = function _onload() {
             track.setTime(datetime);
         });
         tableView.updateColumns(fileManager.tracks);
-        mapView.flyTo(datetime);
+        mapView.flyTo(); // will use track.currentEpoch
         chartView.setTime(datetime);
     });
     const cropButton = document.getElementById("btnCrop");

@@ -122,7 +122,7 @@ export class MapView {
         }
     }
 
-    flyTo(datetime, pan = true) {
+    flyTo(pan = true) {
         const map = this.map;
         const latlngs = [];
         map.eachLayer((layer) => {
@@ -134,18 +134,18 @@ export class MapView {
             if (epoch) {
                 const center = [epoch.fields.lat, epoch.fields.lng];
                 latlngs.push(center);
-                if (!def(layer.crossHair)) {
+                if (!def(track.crossHair)) {
                     const svgIcon = feather.icons.crosshair.toSvg({ stroke: setAlpha(track.color, 0.9), 'stroke-width': 2, });
                     const divIcon = L.divIcon({ html: svgIcon, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
-                    layer.crossHair = L.marker(center, { icon: divIcon, interactive: false });
-                    layer.addLayer(layer.crossHair);
+                    track.crossHair = L.marker(center, { icon: divIcon, interactive: false });
+                    track.crossHair.addTo(this.map);
                 } else {
                     // reuse
-                    layer.crossHair.setLatLng(center);
+                    track.crossHair.setLatLng(center);
                 }
-            } else if (layer.crossHair) {
-                layer.removeLayer(layer.crossHair);
-                delete layer.crossHair;
+            } else if (track?.crossHair) {
+                map.removeLayer(track.crossHair);
+                delete track.crossHair;
             }
         })
         const curBounds = this.#getBounds();
@@ -288,9 +288,14 @@ export class MapView {
     }
 
     removeLayer(track) {
-        if (track.layer) {
+        if (track.crossHair) {
+            this.map.removeLayer(track.crossHair);
+            delete track.crossHair;
+        }
+        const layer = track.layer;
+        if (layer) {
             log('MapView remove',track.name);
-            this.map.removeLayer(track.layer);
+            this.map.removeLayer(layer);
             delete track.layer;
             this.updateLegend();
         }

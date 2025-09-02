@@ -33,7 +33,7 @@ export class Track {
     }
 
     async fetchUrl(url, progressCallback) {
-        log('fetch', this.name)
+        log('Track fetchUrl', this.name)
         const res = await fetch(url);
         const size = res.headers.get("content-length");
         const reader = res.body.getReader();
@@ -41,7 +41,7 @@ export class Track {
     }
     
     async readFile(file, progressCallback) {
-        log('read', this.name)
+        log('Track readFile', this.name)
         const size = file.size; 
         const reader = file.stream().getReader();
         return this.read(reader, size, progressCallback);
