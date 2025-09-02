@@ -135,7 +135,7 @@ export class MapView {
                 const center = [epoch.fields.lat, epoch.fields.lng];
                 latlngs.push(center);
                 if (!def(track.crossHair)) {
-                    const svgIcon = feather.icons.crosshair.toSvg({ stroke: setAlpha(track.color, 0.9), 'stroke-width': 2, });
+                    const svgIcon = feather.icons.crosshair.toSvg({ stroke: track.color, 'stroke-width': 2, });
                     const divIcon = L.divIcon({ html: svgIcon, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
                     track.crossHair = L.marker(center, { icon: divIcon, interactive: false });
                     layer.addLayer(track.crossHair);
