@@ -407,7 +407,7 @@ export class ChartView {
                 }
                 const datetime = chart.options.plugins.annotation.annotations?.time?.xMax;
                 if (def(datetime)) {
-                    chart.options.plugins.annotation.annotations.time = this.#timeAnnotation(datetime);
+                    annotations.time = this.#timeAnnotation(datetime);
                 }
                 if (active && (0 < active.length)) {
                     const axis = ChartView.CHARTS_TIME.includes(mode) ? 'y' : 'x';
