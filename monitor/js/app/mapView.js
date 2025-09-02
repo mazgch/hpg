@@ -27,6 +27,7 @@ export class MapView {
         // map
         const map = L.map(container, {
             preferCanvas: true, attributionControl: false, fullscreenControl: true, 
+            zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false,
             zoomControl: true, zoomSnap: 0.1, wheelPxPerZoomLevel: 20, boxZoom: true
         });
         this.map = map;
@@ -128,7 +129,8 @@ export class MapView {
         map.eachLayer((layer) => {
             const track = layer.track;
             let epoch;
-            if (track && (track.mode !== Track.MODE_HIDDEN)) {
+            // how to handle loading tracks
+            if (track && !def(track.progress) && (track.mode !== Track.MODE_HIDDEN)) {
                 epoch = track.currentEpoch;
             }
             if (epoch) {

@@ -453,13 +453,13 @@ export class ChartView {
 
     #pointColor(ctx) {
         const dataset = ctx.dataset;
-        const color = dataset.data[ctx.dataIndex]?.epoch?.color;;
+        const color = dataset.data[ctx.dataIndex]?.epoch?.color;
         return def(color) ? setAlpha(color, 1) : dataset.pointColor;
     }
 
     #pointBackgroundColor(ctx) {
         const dataset = ctx.dataset;
-        const color = dataset.data[ctx.dataIndex]?.epoch?.color;;
+        const color = dataset.data[ctx.dataIndex]?.epoch?.color;
         return  def(color) ? setAlpha(color, 0.8) : dataset.borderColor;
     }
 
