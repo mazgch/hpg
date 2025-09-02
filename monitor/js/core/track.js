@@ -49,17 +49,20 @@ export class Track {
     
     async read(reader, size, progressCallback) {
         let cnt = 0;
+        let infCnt = 0;
+        this.progress = 0;
         let { value, done } = await reader.read();
         if (!done) {
+            // progress / yield
             cnt += value.length;
+            this.progress = Math.round(100 * cnt / size);
+            if (progressCallback) await progressCallback(cnt, size);
             if (isGzip(value)) {
-                let gzCnt = 0;
                 // setup inflator and decoding callbacks
                 const inflator = new pako.Inflate({ to: 'uint8array' });
-                inflator.onData = (value) => {
-                    gzCnt += value.length;
-                    if (progressCallback) progressCallback(cnt, size, gzCnt);
-                    const txt = bytesToString(value);
+                inflator.onData = (infValue) => {
+                    infCnt += infValue.length;
+                    const txt = bytesToString(infValue);
                     if (txt) this.appendData(txt);
                 };
                 inflator.onError = (err) => { 
@@ -70,29 +73,36 @@ export class Track {
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
-                    cnt += value.length;
                     inflator.push(value, false);
+                    // progress / yield
+                    cnt += value.length;
+                    this.progress = Math.round(100 * cnt / size);
+                    if (progressCallback) await progressCallback(cnt, size, infCnt);
                 }
                 inflator.push(new Uint8Array(0), true);
             } else {
                 // read data directly and decode 
-                if (progressCallback) progressCallback(cnt, size);
                 const txt = bytesToString(value);
                 if (txt) this.appendData(txt);
                 while (!done) {
                     const { value, done } = await reader.read();
                     if (done) break;
-                    cnt += value.length;
-                    if (progressCallback) progressCallback(cnt, size);
                     const txt = bytesToString(value);
                     if (txt) this.appendData(txt);
+                    // progress / yield
+                    cnt += value.length;
+                    this.progress = Math.round(100 * cnt / size);
+                    if (progressCallback) await progressCallback(cnt, size, infCnt);
                 }
             }
         }
+        // progress / yield
+        delete this.progress;
+        if (progressCallback) await progressCallback(cnt, size, infCnt); 
         return this;
     }
 
-    setTime(datetime) {
+   setTime(datetime) {
         const epoch = this.epochs
                 .filter((epoch) => (epoch.timeValid && epoch.posValid))
                 .reduce((prev, curr) => {

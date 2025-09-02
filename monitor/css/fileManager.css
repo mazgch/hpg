@@ -30,6 +30,8 @@
 }
 
 .track-chip {
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   padding: 3px 8px;
@@ -39,7 +41,20 @@
   cursor: default;
 }
 
-.chip-name {
+.track-chip .chip-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background-color: rgba(144, 238, 144, 0.6);
+  z-index: 0;
+  transition: width 0.2s ease;
+}
+
+.track-chip .dash,
+.track-chip .chip-name {
+  position: relative;
+  z-index: 1;
   font-weight: bold;
 }
 
@@ -50,6 +65,7 @@
   border: 1px solid #ccc;
   border-radius: 3px;
   padding: 8px 10px;
+  z-index: 1;
   box-shadow: 2px 6px 16px rgba(0,0,0,0.3);
   max-width: 360px;
 }

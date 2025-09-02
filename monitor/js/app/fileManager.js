@@ -38,24 +38,25 @@ export class FileManager {
         if (0 < params.size) {
             params.forEach((url, name) => {
                 if (url) {
-                    const url = url.toLowerCase();
                     if (url.match(/json(\.gz)?$/i)) {
                         fetch(url)
                             .then((response) => response.bytes())
                             .then((bytes) => {
-                                if (isGzip(bytes[0])) {
+                                if (isGzip(bytes)) {
                                     bytes = pako.ungzip(bytes);
                                 }
                                 const json = bytesToString(bytes);
                                 this.onFromJson(json);
                             })
-                    } else if (url.endsWith('.ubx')) {
+                            .catch((err) => console.error('FileManager readUrl', name, err));
+                    } else if (url.match(/ubx(\.gz)?$/i)) {
                         const track = new Track(name, Track.EPOCH_FIELDS, { url: url });
-                        track.fetchUrl(url, (cnt,size,gzsize) => log("FileManager readUrl ", name, cnt, size, gzsize))
+                        this.tracks.push(track);
+                        track.fetchUrl(url, (cnt,size,gzsize) => this.progress(track, cnt, size, gzsize))
                             .then(() => { 
                                 this.add(track) 
                             })
-                            .catch(console.error);
+                            .catch((err) => console.error('FileManager readUrl', name, err));
                     }
                 }
             });
@@ -82,10 +83,12 @@ export class FileManager {
                 const m = file.name.match(/(?:.*\/)?([^.]+).*$/);
                 const name = m ? m[1] : file.name;
                 const track = new Track(name, Track.EPOCH_FIELDS, { file: file.name });
-                track.readFile(file, (cnt,size,gzsize) => log("FileManager readFile ", name, cnt, size, gzsize))
+                this.tracks.push(track);
+                track.readFile(file, (cnt,size,gzsize) => this.progress(track, cnt, size, gzsize))
                     .then((track) => { 
                         this.add(track); 
-                    });
+                    })
+                    .catch((err) => console.error('FileManager readFiles', name, err));
             }
         });
     }
@@ -151,6 +154,18 @@ export class FileManager {
         this.#renderChips();
     }
 
+    async progress(track, cnt, size, infCnt) { 
+        this.#renderChips();
+        log("FileManager progress", track.progress, cnt, size, infCnt);
+        return new Promise((resolve) => {
+            if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(() => resolve());
+            } else {
+                Promise.resolve().then(resolve);
+            }
+        });
+    }
+
     add(track) {
         track.name     =   track.name.match(/^truth/i) ? Track.TRACK_REFERENCE : track.name;
         const defMode  = ((track.name === Track.TRACK_REFERENCE) ? Track.MODE_LINE : Track.MODE_MARKERS);
@@ -170,7 +185,7 @@ export class FileManager {
             track.calcRefError(this.refTrack.epochs);
         }
         // finally add it
-        this.tracks.push(track);
+        //this.tracks.push(track);
         this.#renderChips();
         this.#emit('add', track);
     }
@@ -361,7 +376,13 @@ export class FileManager {
             .forEach((track) => {
                 const chip = document.createElement("div");
                 chip.className = "track-chip";
-                chip.style.opacity = (track.mode === Track.MODE_HIDDEN) ? 0.5 : 1.0;
+                chip.style.opacity = (track.progress && (track.mode === Track.MODE_HIDDEN)) ? 0.5 : 1.0;
+                if (track.progress !== undefined && track.progress < 100) {
+                    const progress = document.createElement("div");
+                    progress.className = "chip-progress";
+                    progress.style.width = `${track.progress}%`;
+                    chip.appendChild(progress);
+                }
                 const line = document.createElement("span");
                 line.className = "dash";
                 line.style.background = track.color;
