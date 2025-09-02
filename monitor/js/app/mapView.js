@@ -292,6 +292,7 @@ export class MapView {
             log('MapView remove',track.name);
             this.map.removeLayer(track.layer);
             delete track.layer;
+            this.updateLegend();
         }
     }
 
@@ -323,9 +324,11 @@ export class MapView {
     // ===== Save Restore API =====
 
     fromJson(json) {
-        Object.entries(this.#baseLayers).forEach(([name, layer]) => {
-            this.setVisible(layer, json.layers.includes(name));
-        });
+        if (Array.isArray(json.layers)) {
+            Object.entries(this.#baseLayers).forEach(([name, layer]) => {
+                this.setVisible(layer, json.layers.includes(name));
+            });
+        }
         this.#opacitySlider.value = json.opacity;
     }
 
@@ -390,7 +393,11 @@ export class MapView {
     }
 
     #getBounds() {
-        try { return this.map.getBounds(); } catch (err) { }
+        try { 
+            return this.map.getBounds(); 
+        } catch (err) {
+            //console.error('MapView getBounds', err);
+        }
     }
 
 

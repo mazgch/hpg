@@ -118,7 +118,7 @@ export class ChartView {
         this.calcDataset(dataset);
         this.#updateAnnotation();
         this.resetZoom();
-        chart.update();
+        this.#update();
     }
 
     removeDataset(track) {
@@ -130,7 +130,7 @@ export class ChartView {
                 chart.data.datasets.splice(ix, 1);
             }
             delete track.dataset;
-            chart.update();
+            this.#update();
         }
     }
 
@@ -147,9 +147,8 @@ export class ChartView {
         const chart = this.chart;
         const mode = this.#modeSelect.value;
         if (ChartView.CHARTS_TIME.includes(mode)) {
-            const annotation = ChartView.#annotation('x', datetime, 'rgb(255, 76, 0)');
-            chart.options.plugins.annotation.annotations.time = annotation;
-            chart.update();
+            chart.options.plugins.annotation.annotations.time =  this.#timeAnnotation(datetime);
+            this.#update();
         }
     }
 
@@ -224,7 +223,7 @@ export class ChartView {
             );
             this.#updateAnnotation();
             this.resetZoom();
-            chart.update();
+            this.#update();
         }
    
         function _fmtVal(v) {
@@ -406,9 +405,9 @@ export class ChartView {
                     annotations.y95 = ChartView.#annotation('y', 0.950, '#00000040', '0.95');
                     annotations.y99 = ChartView.#annotation('y', 0.997, '#00000040', '0.997');
                 }
-                const timeAnnotation = chart.options.plugins.annotation.annotations?.time;
-                if (def(timeAnnotation)) {
-                    annotations.time = timeAnnotation; // maintain time annotation
+                const datetime = chart.options.plugins.annotation.annotations?.time?.xMax;
+                if (def(datetime)) {
+                    chart.options.plugins.annotation.annotations.time = this.#timeAnnotation(datetime);
                 }
                 if (active && (0 < active.length)) {
                     const axis = ChartView.CHARTS_TIME.includes(mode) ? 'y' : 'x';
@@ -442,10 +441,14 @@ export class ChartView {
                     }
                 }
             }
-            /// TODO: try to reuse the hash
+
             chart.options.plugins.annotation.annotations = annotations;
-            chart.update();
+            this.#update();
         }
+    }
+
+    #timeAnnotation(datetime) {
+        return ChartView.#annotation('x', datetime, 'rgb(255, 76, 0)')
     }
 
     #pointColor(ctx) {
@@ -458,6 +461,14 @@ export class ChartView {
         const dataset = ctx.dataset;
         const color = dataset.data[ctx.dataIndex]?.epoch?.color;;
         return  def(color) ? setAlpha(color, 0.8) : dataset.borderColor;
+    }
+
+    #update() {
+        try {
+            this.chart.update();
+        } catch (err) {
+            console.error('ChartView update',err);
+        }
     }
 
     static #annotation(axis, val, color, label) {

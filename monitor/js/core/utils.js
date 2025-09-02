@@ -27,6 +27,12 @@ export function log(...args) {
     console.log.apply(console, [ time, ...args/*, text*/]);
 }
 
+export function assert(condition, message) {
+    if (!condition) {
+        throw new Error(message||'assert failure');
+    }
+}
+
 export function def(value) {
     return (undefined !== value) && (null !== value);
 }
@@ -80,5 +86,6 @@ export function bytesToString(bytes) {
 
 export function isGzip(value) {
     return (value instanceof Uint8Array) && (2 <= value?.length) && 
-           (value[0] === 0x1f) && (value[1] === 0x8b);
+        (value[0] === 0x1f) && (value[1] === 0x8b);
 }
+

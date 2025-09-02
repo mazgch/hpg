@@ -88,7 +88,7 @@ export class PlacesManager {
     }
 
     add(place) {
-        const bounds = place.bounds;
+        let bounds = place.bounds;
         if (!Array.isArray(bounds) &&
             Number.isFinite(place.zoom) &&
             Array.isArray(place.size) &&
@@ -97,7 +97,6 @@ export class PlacesManager {
             const zoom = place.zoom;
             const size = L.point(place.size);
             const center = L.latLng(place.center);
-
             const half = size.divideBy(2);
             const map = this.#mapView.map;
             const centerPx = map.project(center, zoom);
@@ -105,12 +104,11 @@ export class PlacesManager {
             const nePx = centerPx.add(half);
             const sw = map.unproject(swPx, zoom);
             const ne = map.unproject(nePx, zoom);
-            bounds = this.#toBounds(L.latLngBounds(sw, ne));
+            bounds = [[sw.lat, sw.lng], [ne.lat, ne.lng]];
         }
-
         if (Array.isArray(bounds)) {
             log('PlacesManager add', place.name);
-            const marker = L.rectangle(place.bounds, { className: 'place', dashArray: '5, 5', weight: 2 });
+            const marker = L.rectangle(bounds, { className: 'place', dashArray: '5, 5', weight: 2 });
             marker.place = place;
             marker.on('click', (evt) => {
                 const place = evt.target.place;
@@ -149,12 +147,14 @@ export class PlacesManager {
 
     fromJson(json) {
         this.clear();
-        if (Array.isArray(json.places)) {
-            json.places.forEach((place) => this.add( place ) );
+        if (json) {
+            if (Array.isArray(json.places)) {
+                json.places.forEach((place) => this.add( place ) );
+            }
+            this.change(json.place);
+            const show = json.layers?.includes(PlacesManager.LAYER_PLACES);
+            this.#mapView.setVisible(this.#layer, show);
         }
-        this.change(json.place);
-        const show = json.layers?.includes(PlacesManager.LAYER_PLACES);
-        this.#mapView.setVisible(this.#layer, show);
     }
 
     toJson(json) {

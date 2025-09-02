@@ -17,25 +17,282 @@ http://www.apache.org/licenses/LICENSE-2.0
 "use strict";
 
 import { Track } from '../core/track.js'
+import { def, log, bytesToString, isGzip } from '../core/utils.js';
 
 export class FileManager {
     constructor(opts = {}) {
+        this.tracks = [];
         this.#container = opts.container;
-        this.onLoadFiles = opts.onLoadFiles;
-        this.onDownload = opts.onDownload;
-        this.onClear = opts.onClear;
+        
+        this.onFromJson = opts.onFromJson;
+        this.onToJson = opts.onToJson;
+        
 
         if (!this.#container) throw new Error("FileManager requires a container");
-
         this.#renderShell();
     }
 
-    // ===== Public API =====
+    // ===== Public API Config =====
 
-    setTracks(tracks = []) {
-        this.tracks = tracks;
+    readUrl(params) {
+        if (0 < params.size) {
+            params.forEach((url, name) => {
+                if (url) {
+                    const url = url.toLowerCase();
+                    if (url.match(/json(\.gz)?$/i)) {
+                        fetch(url)
+                            .then((response) => response.bytes())
+                            .then((bytes) => {
+                                if (isGzip(bytes[0])) {
+                                    bytes = pako.ungzip(bytes);
+                                }
+                                const json = bytesToString(bytes);
+                                this.onFromJson(json);
+                            })
+                    } else if (url.endsWith('.ubx')) {
+                        const track = new Track(name, Track.EPOCH_FIELDS, { url: url });
+                        track.fetchUrl(url, (cnt,size,gzsize) => log("FileManager readUrl ", name, cnt, size, gzsize))
+                            .then(() => { 
+                                this.add(track) 
+                            })
+                            .catch(console.error);
+                    }
+                }
+            });
+            return true;
+        } else {
+            return false;
+        }
+    }
+    
+    readFiles(files) {
+        Array.from(files).forEach(file => {
+            if (file.name.match(/json(\.gz)?$/i)) {
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    let bytes = new Uint8Array(evt.target.result)
+                    if (isGzip(bytes)) {
+                        bytes = pako.ungzip(bytes);
+                    }
+                    const json = bytesToString(bytes);
+                    this.onFromJson(json);
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                const m = file.name.match(/(?:.*\/)?([^.]+).*$/);
+                const name = m ? m[1] : file.name;
+                const track = new Track(name, Track.EPOCH_FIELDS, { file: file.name });
+                track.readFile(file, (cnt,size,gzsize) => log("FileManager readFile ", name, cnt, size, gzsize))
+                    .then((track) => { 
+                        this.add(track); 
+                    });
+            }
+        });
+    }
+
+    // ===== Public API Download =====
+
+    downloadJson(doGzip) {
+        const json = this.onToJson();
+        let data = JSON.stringify(json, null, doGzip ? 0 : 1);
+        let type = 'application/json';
+        let name = 'config.json';
+        if (doGzip) {
+            data = pako.gzip(data);
+            type = 'application/x-gzip';
+            name += '.gz';
+        }
+        const blob = new Blob([data], { type: type });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);;
+        link.download = name;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
+    // ===== Public API Local Storage =====
+
+    readLocal() {
+        try {
+            const b64 = localStorage.getItem('json.gz');
+            const binary = atob(b64);
+            const bytes = pako.ungzip(binary);
+            const json = bytesToString(bytes);
+            this.onFromJson(json);
+            return true;
+        } catch (err) {
+            console.error(err);
+            return false;
+        }
+    }
+
+    writeLocal() {
+        try {
+            const json = this.onToJson();
+            const jsonTxt = JSON.stringify(json);
+            const bytes = pako.gzip(jsonTxt);
+            const txt = bytesToString(bytes);
+            const b64 = btoa(txt);
+            localStorage.setItem('json.gz', b64);
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    // ===== Public API Tracks =====
+
+    clear() {
+        log('FileManager clear');
+        this.tracks.forEach((track, ix) => {
+            this.#emit('remove', track);
+        });
+        delete this.refTrack;
+        this.tracks.length = 0;
         this.#renderChips();
-        this.#hidePopup();
+    }
+
+    add(track) {
+        track.name     =   track.name.match(/^truth/i) ? Track.TRACK_REFERENCE : track.name;
+        const defMode  = ((track.name === Track.TRACK_REFERENCE) ? Track.MODE_LINE : Track.MODE_MARKERS);
+        const defColor =  (track.name === Track.TRACK_REFERENCE) ? Track.COLOR_REFERENCE :
+                          (track.info?.protoVer) ? Track.COLOR_UBLOX : Track.COLOR_OTHERS;
+        track.color = track.color ?? defColor;
+        track.mode = track.mode ?? defMode;
+        log('FileManager add', track.name);
+        // update refercne errors and indicate changes of tracks 
+        if (track.name === Track.TRACK_REFERENCE) {
+            this.refTrack = track;
+            this.tracks.forEach((trk) => {
+                trk.calcRefError(track /* = reference */ );
+                this.#emit('update', trk );
+            });
+        } else if(this.refTrack) {
+            track.calcRefError(this.refTrack.epochs);
+        }
+        // finally add it
+        this.tracks.push(track);
+        this.#renderChips();
+        this.#emit('add', track);
+    }
+    
+    update(track) {
+        let refChange;
+        log('FileManager update', track.name);
+        if ((track.name === Track.TRACK_REFERENCE) && (track !== this.refTrack)) {
+            this.refTrack = track;
+            refChange = true;
+        } else if (track === this.refTrack) {
+            delete this.refTrack;
+            refChange = true;
+        }
+        this.#renderChips();
+        if (refChange) {
+            this.tracks.forEach((trk) => {
+                trk.calcRefError(this.refTrack);
+                this.#emit('update', trk );
+            });
+        } else {
+            this.#emit('update', track );
+        }
+    }
+
+    remove(track) {
+        log('FileManager remove', track.name);
+        this.#emit('remove', track);
+        if (track === this.refTrack) {
+            delete this.refTrack;
+        }
+        const ix = this.tracks.findIndex((trk) => (trk === track));
+        if (-1 !== ix) {
+            this.tracks.splice(ix, 1);
+            this.#renderChips();
+            this.#hidePopup();
+        }
+    }
+
+    getPosBounds() {
+        // now we get new bounds
+        let minLat = Infinity;
+        let maxLat = -Infinity;
+        let minLng = Infinity;
+        let maxLng = -Infinity;
+        // propagate bounds to the config
+        this.tracks
+            .filter((track) => (track.mode !== Track.MODE_HIDDEN))
+            .forEach((track) => {
+                const posBounds = track.boundsPos();
+                minLat = Math.min(minLat, posBounds[0][0]);
+                maxLat = Math.max(maxLat, posBounds[1][0]);
+                minLng = Math.min(minLng, posBounds[0][1]);
+                maxLng = Math.max(maxLng, posBounds[1][1]);
+            });
+        return [[minLat, minLng], [maxLat, maxLng]];
+    }
+
+    getTimeBounds() {
+        // now we get new bounds
+        let minTime = Infinity;
+        let maxTime = -Infinity;
+        // propagate bounds to the config
+        this.tracks
+            //.filter( (track) => (track.mode !== Track.MODE_HIDDEN) )
+            .forEach((track) => {
+                const timeBounds = track.boundsTime();
+                minTime = Math.min(minTime, timeBounds[0]);
+                maxTime = Math.max(maxTime, timeBounds[1]);
+            });
+        return [minTime, maxTime];
+    }
+
+    // ===== Save Restore API =====
+
+    fromJson(json) {
+        this.clear();
+        if (Array.isArray(json?.tracks)) {
+            json.tracks.forEach((trkJson) => {
+                const track = new Track(trkJson.name, Track.EPOCH_FIELDS, trkJson);
+                if (def(trkJson.epochs)) {
+                    track.addEpochs(trkJson.epochs);
+                    this.add(track);
+                } else if (def(track.url)) {
+                    track.fetchUrl(track.url)
+                        .then(() => { 
+                            this.add(track);
+                         })
+                        .catch(console.error);
+                }
+            });
+        }
+    }
+
+    toJson(json) {
+        const tracks = [];
+        this.tracks.forEach((track) => {
+            tracks.push( this.#trackJson(track) );
+        });
+        if (tracks) json.tracks = tracks;
+    }
+
+    // ===== Internals =====
+
+    #trackJson(track) {
+        const epochs = track.epochs.map(epoch => this.#epochJson(epoch));
+        const json = { name: track.name, color: track.color };
+        if (track.mode) json.mode = track.mode;
+        if (track.info) json.info = track.info;
+        if (epochs) json.epochs = epochs;
+        return json;
+    }
+
+    #epochJson(epoch) {
+        const json = { fields: {} };
+        Track.EPOCH_FIELDS.forEach((key) => {
+            if (def(epoch.fields[key])) {
+                json.fields[key] = epoch.fields[key];
+            }
+        });
+        if (epoch.info) json.info = epoch.info;
+        return json;
     }
 
     // ===== GUI Internals =====
@@ -61,8 +318,8 @@ export class FileManager {
             evt.preventDefault();
             evt.stopPropagation();
             const files = evt.target.files;
-            if (files && files.length && this.onLoadFiles) {
-                this.onLoadFiles(files);
+            if (files && files.length) {
+                this.readFiles(files);
             }
             evt.target.value = null;
         });
@@ -72,20 +329,18 @@ export class FileManager {
         this.btnLoad.className = "overlay_button";
         this.btnLoad.title = "Add .ubx files or a .json environment file";
         this.btnLoad.innerHTML = feather.icons['file-plus'].toSvg();
-        this.btnLoad.addEventListener("click", () => this.input.click());
+        this.btnLoad.addEventListener("click", (evt) => this.input.click());
 
         this.btnDownload = document.createElement("button");
         this.btnDownload.className = "overlay_button";
         this.btnDownload.title = "Download current environment (hold Shift for uncompressed)";
         this.btnDownload.innerHTML = feather.icons.download.toSvg();
-        this.btnDownload.addEventListener("click", (evt) => this.onDownload && this.onDownload(evt));
-
+        this.btnDownload.addEventListener("click", (evt) => this.downloadJson(!evt.shiftKey));
         this.btnClear = document.createElement("button");
         this.btnClear.className = "overlay_button";
         this.btnClear.title = "Remove all tracks and places";
         this.btnClear.innerHTML = feather.icons.trash.toSvg();
-        this.btnClear.addEventListener("click", () => this.onClear && this.onClear());
-
+        this.btnClear.addEventListener("click", (evt) => this.onFromJson());
         this.left.append(this.input, this.btnLoad, this.btnDownload, this.btnClear);
 
         // Right: track chips
@@ -118,6 +373,7 @@ export class FileManager {
                 chip.addEventListener("mouseenter", () => this.#showPopupForTrack(track, chip));
                 chip.addEventListener("mouseleave", () => this.#hidePopupSoon());
             });
+        this.#hidePopup();
     }
 
     #hidePopupSoon() {
@@ -217,8 +473,7 @@ export class FileManager {
             const recalc = (name       === Track.TRACK_REFERENCE) || 
                            (track.name === Track.TRACK_REFERENCE);
             track.name = name;
-            this.#renderChips();
-            this.#emit('change', { track, recalc } );
+            this.update(track);
         });
         td.appendChild(input);
         return td;
@@ -248,8 +503,7 @@ export class FileManager {
             const color = input.value;
             track.color = color;
             line.style.backgroundColor = color;
-            this.#renderChips();
-            this.#emit('change', { track });
+            this.update(track);
         });
         td.appendChild(input);
         return td;
@@ -267,8 +521,7 @@ export class FileManager {
                          (track.mode === Track.MODE_MARKERS) ? Track.MODE_ANYFIX :
                                                                Track.MODE_HIDDEN;
             td.innerHTML = track.modeIcon();
-            this.#renderChips();
-            this.#emit('change', { track } );
+            this.update(track);
         });
         return td;
     }

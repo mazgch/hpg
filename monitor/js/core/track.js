@@ -16,7 +16,7 @@
 
 "use strict";
 
-import { def, bytesToString, isGzip, log } from './utils.js';
+import { def, log, bytesToString, isGzip } from './utils.js';
 import { Epoch } from './epoch.js';
 import { Collector } from './collector.js';
 
@@ -32,33 +32,35 @@ export class Track {
         def(opt.info)  && (this.info  = opt.info);
     }
 
-    async fetchUrl(url) {
+    async fetchUrl(url, progressCallback) {
         log('fetch', this.name)
         const res = await fetch(url);
         const size = res.headers.get("content-length");
         const reader = res.body.getReader();
-        return this.read(reader, size);
+        return this.read(reader, size, progressCallback);
     }
     
-    async readFile(file) {
+    async readFile(file, progressCallback) {
         log('read', this.name)
         const size = file.size; 
         const reader = file.stream().getReader();
-        return this.read(reader, size);
+        return this.read(reader, size, progressCallback);
     }
     
-    async read(reader, size) {
+    async read(reader, size, progressCallback) {
         let cnt = 0;
-        const { value, done } = await reader.read();
+        let { value, done } = await reader.read();
         if (!done) {
             cnt += value.length;
             if (isGzip(value)) {
+                let gzCnt = 0;
                 // setup inflator and decoding callbacks
                 const inflator = new pako.Inflate({ to: 'uint8array' });
                 inflator.onData = (value) => {
+                    gzCnt += value.length;
+                    if (progressCallback) progressCallback(cnt, size, gzCnt);
                     const txt = bytesToString(value);
                     if (txt) this.appendData(txt);
-                    log('read', this.name, Number((100*cnt/size).toFixed(1)), this.epochs.length);
                 };
                 inflator.onError = (err) => { 
                     console.error('inflate error:', err);
@@ -71,19 +73,19 @@ export class Track {
                     cnt += value.length;
                     inflator.push(value, false);
                 }
-                inflator.push(Uint8Array(0), true);
+                inflator.push(new Uint8Array(0), true);
             } else {
                 // read data directly and decode 
+                if (progressCallback) progressCallback(cnt, size);
                 const txt = bytesToString(value);
                 if (txt) this.appendData(txt);
-                log('read', this.name, Number((100*cnt/size).toFixed(1)), this.epochs.length);
                 while (!done) {
                     const { value, done } = await reader.read();
                     if (done) break;
                     cnt += value.length;
-                    const txt = bytesToString(value)
+                    if (progressCallback) progressCallback(cnt, size);
+                    const txt = bytesToString(value);
                     if (txt) this.appendData(txt);
-                    log('read', this.name, Number((100*cnt/size).toFixed(1)), this.epochs.length);
                 }
             }
         }
@@ -102,7 +104,7 @@ export class Track {
     }
 
     addEpochs(epochs) {
-        log('epochs', this.name)
+        log('Track addEpochs', this.name)
         epochs.forEach( (epoch) => {
             const fields = Object.fromEntries(
                 Object.entries(epoch.fields)
@@ -114,6 +116,13 @@ export class Track {
             throw new Error('No epochs loaded');
         }
     }
+
+    calcRefError(track /* = reference */ ) {
+        const refEpochs = (track !== this) ? track?.epochs : undefined;
+        this.epochs.forEach( (epoch) => {
+            epoch.calcRefError(refEpochs);
+        });
+    } 
 
     clear() {
         this.info   = {};
