@@ -138,13 +138,13 @@ export class MapView {
                     const svgIcon = feather.icons.crosshair.toSvg({ stroke: setAlpha(track.color, 0.9), 'stroke-width': 2, });
                     const divIcon = L.divIcon({ html: svgIcon, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
                     track.crossHair = L.marker(center, { icon: divIcon, interactive: false });
-                    track.crossHair.addTo(this.map);
+                    layer.addLayer(track.crossHair);
                 } else {
                     // reuse
                     track.crossHair.setLatLng(center);
                 }
             } else if (track?.crossHair) {
-                map.removeLayer(track.crossHair);
+                layer.removeLayer(track.crossHair);
                 delete track.crossHair;
             }
         })
@@ -288,13 +288,13 @@ export class MapView {
     }
 
     removeLayer(track) {
-        if (track.crossHair) {
-            this.map.removeLayer(track.crossHair);
-            delete track.crossHair;
-        }
         const layer = track.layer;
         if (layer) {
             log('MapView remove',track.name);
+            if (track.crossHair) {
+                layer.removeLayer(track.crossHair);
+                delete track.crossHair;
+            }
             this.map.removeLayer(layer);
             delete track.layer;
             this.updateLegend();
