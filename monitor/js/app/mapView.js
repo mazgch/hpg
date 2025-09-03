@@ -26,7 +26,7 @@ export class MapView {
         container.className = "map-section";
         // map
         const map = L.map(container, {
-            preferCanvas: false, attributionControl: false, fullscreenControl: true, 
+            preferCanvas: true, attributionControl: false, fullscreenControl: true, 
             zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false,
             zoomControl: true, zoomSnap: 0.1, wheelPxPerZoomLevel: 20, boxZoom: true
         });
@@ -41,14 +41,7 @@ export class MapView {
         this.#baseLayers = MapView.#defaultBaseLayers();
         Object.values(this.#baseLayers)[0].addTo(map);
         this.layerControl = L.control.layers(this.#baseLayers).addTo(map);
-        /*
-        const coordControl = L.control({ position: 'bottomright' });
-        this.#divInfo = L.DomUtil.create('div', 'leaflet-control-coords leaflet-bar');
-        coordControl.onAdd = () => { return this.#divInfo; };
-        coordControl.addTo(map);
-        map.on('mousemove', (evt) => this.#updateCoords(evt));
-        container.addEventListener('mouseleave', (evt) => this.updateLegend());
-        */
+        
         const screenshoter = L.simpleMapScreenshoter({
             hideElementsWithSelectors: ['.leaflet-control-container'], // hide controls
             cropImageByInnerWH: true,           // use map inner size
@@ -63,8 +56,6 @@ export class MapView {
             this.setOpacity(evt.target.value);
         });
         this.setOpacity(opacitySlider.value);
-        // layers
-        this.updateLegend();
     }
 
     // ===== Public API =====
@@ -139,8 +130,8 @@ export class MapView {
                 if (!def(track.crossHair)) {
                     const svgIcon = feather.icons.crosshair.toSvg({ stroke: track.color(), 'stroke-width': 2, });
                     const divIcon = L.divIcon({ html: svgIcon, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
-                    track.crossHair = L.marker(center, { icon: divIcon, interactive: false });
-                    layer.addLayer(track.crossHair);
+                    track.crossHair = L.marker(center, { icon: divIcon, interactive: false, zIndexOffset: 100 });
+                    track.crossHair.addTo(map);
                 } else {
                     // reuse
                     track.crossHair.setLatLng(center);
@@ -247,7 +238,6 @@ export class MapView {
         layer.addTo(this.map);
         layer.track = track;
         track.layer = layer;
-        this.updateLegend();
         const bounds = this.#getBounds();
         if (!bounds) {
             this.setOverview();
@@ -294,38 +284,20 @@ export class MapView {
         const layer = track.layer;
         if (layer) {
             log('MapView remove',track.name);
-            if (track.crossHair) {
-                layer.removeLayer(track.crossHair);
-                delete track.crossHair;
-            }
             this.map.removeLayer(layer);
             delete track.layer;
-            this.updateLegend();
+        }
+        const crossHair = track.crossHair;
+        if (crossHair) {
+            this.map.removeLayer(crossHair);
+            delete track.crossHair;
         }
     }
 
     updateLayer(track) {
         this.removeLayer(track);
         if (track.mode !== Track.MODE_HIDDEN) {
-         this.addLayer(track);
-        }
-        this.updateLegend();
-    }
-
-    updateLegend() {
-        const div = this.#divInfo;
-        if (div) {
-            while (div.firstChild) {
-                div.removeChild(div.lastChild);
-            }
-            this.map.eachLayer((layer) => {
-                const track = layer.track;
-                if (track) {
-                    div.appendChild(track.nameHtml('div'));
-                }
-            });
-            div.style.maxWidth = '300px'
-            div.style.display = (0 < div.childNodes.length) ? 'block' : 'none';
+            this.addLayer(track);
         }
     }
 
