@@ -23,12 +23,21 @@ import { Collector } from './collector.js';
 export class Track {
     constructor(name, keys, opt = {} ) {
         this.clear();
+        name = name.match(/^(truth|reference)/i) ? Track.TRACK_REFERENCE : name;
         this.name = name;
+        const isRef = (name === Track.TRACK_REFERENCE);
+        this.mode =  def(opt.mode)  ? opt.mode : 
+                     (isRef)        ? Track.MODE_LINE : 
+                                      Track.MODE_MARKERS;
+        
         this.#keys = keys;
+        if (def(opt.color)) {
+            this.#color = opt.color;
+        } else if (isRef) {
+            this.#color = Track.COLOR_REFERENCE;
+        } 
         def(opt.url)   && (this.url   = opt.url);
         def(opt.file)  && (this.file  = opt.file);
-        def(opt.color) && (this.color = opt.color);
-        def(opt.mode)  && (this.mode  = opt.mode);
         def(opt.info)  && (this.info  = opt.info);
     }
 
@@ -173,7 +182,7 @@ export class Track {
         div.style.whiteSpace = 'nowrap'; 
         const span = document.createElement('span');
         span.className = 'dash';
-        span.style.backgroundColor = this.color;
+        span.style.backgroundColor = this.color();
         div.appendChild(span);
         div.appendChild(document.createTextNode(this.name));
         return div;
@@ -187,6 +196,14 @@ export class Track {
             div.appendChild(document.createElement('br'));
         })
         return div;
+    }
+
+    color(color) {
+        def(color) && (this.#color = color);
+        return def(this.#color)         ? this.#color : 
+               def(this.info?.protoVer) ? Track.COLOR_UBLOX : 
+               !def(this.progress)      ? Track.COLOR_OTHERS :
+                                          Track.COLOR_UNKNOWN;
     }
 
     modeIcon() {
@@ -327,4 +344,5 @@ export class Track {
     // some protected local vars 
     #collector
     #keys
+    #color
 }

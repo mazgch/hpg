@@ -417,7 +417,7 @@ export class ChartView {
                     const index = active[0].datasetIndex;
                     const dataset = chart.data.datasets[index];
                     if (!dataset.hidden) {
-                        const color = dataset.track.color || Track.COLOR_UNKNOWN;
+                        const color = dataset.track.color();
                         const _fmt = chart.options.scales[axis].ticks.callback;
                         if (mode === ChartView.CHART_CDF) {
                             if (def(dataset.stats.q50)) annotations.q50 = ChartView.#annotation(axis, dataset.stats.q50, color, `x̃ = ${_fmt(dataset.stats.q50)}`);
@@ -455,7 +455,7 @@ export class ChartView {
     }
 
     #datasetColor(ctx) {
-        return ctx.dataset.track?.color || Track.COLOR_UNKNOWN;
+        return ctx.dataset.track?.color();
     }
 
     #pointColor(ctx) {
@@ -472,7 +472,7 @@ export class ChartView {
     #generateLabels(chart) {
         return chart.data.datasets.map((dataset, ix) => {
             const track = dataset.track;
-            const color = track.color || Track.COLOR_UNKNOWN;
+            const color = track.color();
             return {
                 text: track.name,
                 fillStyle: color,

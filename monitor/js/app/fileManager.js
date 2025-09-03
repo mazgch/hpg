@@ -26,7 +26,6 @@ export class FileManager {
         
         this.onFromJson = opts.onFromJson;
         this.onToJson = opts.onToJson;
-        
 
         if (!this.#container) throw new Error("FileManager requires a container");
         this.#renderShell();
@@ -167,14 +166,8 @@ export class FileManager {
     }
 
     add(track) {
-        track.name     =   track.name.match(/^truth/i) ? Track.TRACK_REFERENCE : track.name;
-        const defMode  = ((track.name === Track.TRACK_REFERENCE) ? Track.MODE_LINE : Track.MODE_MARKERS);
-        const defColor =  (track.name === Track.TRACK_REFERENCE) ? Track.COLOR_REFERENCE :
-                          (track.info?.protoVer) ? Track.COLOR_UBLOX : Track.COLOR_OTHERS;
-        track.color = track.color ?? defColor;
-        track.mode = track.mode ?? defMode;
-        log('FileManager add', track.name);
-        // update refercne errors and indicate changes of tracks 
+       log('FileManager add', track.name);
+        // update reference errors and indicate changes of tracks 
         if (track.name === Track.TRACK_REFERENCE) {
             this.refTrack = track;
             this.tracks.forEach((trk) => {
@@ -185,7 +178,6 @@ export class FileManager {
             track.calcRefError(this.refTrack);
         }
         // finally add it
-        //this.tracks.push(track);
         this.#renderChips();
         this.#emit('add', track);
     }
@@ -213,15 +205,19 @@ export class FileManager {
 
     remove(track) {
         log('FileManager remove', track.name);
-        this.#emit('remove', track);
-        if (track === this.refTrack) {
-            delete this.refTrack;
-        }
         const ix = this.tracks.findIndex((trk) => (trk === track));
         if (-1 !== ix) {
             this.tracks.splice(ix, 1);
             this.#renderChips();
             this.#hidePopup();
+            this.#emit('remove', track);
+            if (track === this.refTrack) {
+                delete this.refTrack;
+                this.tracks.forEach((trk) => {
+                    trk.calcRefError();
+                    this.#emit('update', trk );
+                })
+            }
         }
     }
 
@@ -292,7 +288,7 @@ export class FileManager {
 
     #trackJson(track) {
         const epochs = track.epochs.map(epoch => this.#epochJson(epoch));
-        const json = { name: track.name, color: track.color };
+        const json = { name: track.name, color: track.color() };
         if (track.mode) json.mode = track.mode;
         if (track.info) json.info = track.info;
         if (epochs) json.epochs = epochs;
@@ -385,7 +381,7 @@ export class FileManager {
                 }
                 const line = document.createElement("span");
                 line.className = "dash";
-                line.style.background = track.color || Track.COLOR_UNKNOWN;
+                line.style.background = track.color();
                 const name = document.createElement("span");
                 name.className = "chip-name";
                 name.textContent = track.name || "(unnamed)"
@@ -415,23 +411,24 @@ export class FileManager {
         const tbl = document.createElement("table");
         tbl.className = 'table';
         const rows = [
-            ["Color", this.#color(track, 'td')],
-            ["Mode", this.#mode(track, 'td')],
+            ["Color", this.#tdColor(track)],
+            ["Mode", this.#tdMode(track)],
             ["Module", info.module],
             ["Firmware", info.fwVer],
             ["Protocol", info.protoVer],
             ["Extension", info.extVer],
             ["Hardware", info.hwVer || info.monHwVer],
             ["Epochs", `${epochsGood} / ${epochsTotal}`],
+            ['Remove', this.#tdRemove(track)]
         ];
 
-        tbl.appendChild(_row('Name', this.#name(track, 'th'), 'th'))
+        tbl.appendChild(_row('Name', this.#thName(track), 'th'))
         rows.forEach(([n, v], ix) => {
             if (v) {
                 tbl.appendChild(_row(n, v));
             }
         });
-
+        
         function _row(n, v, tx = 'td') {
             const tr = document.createElement('tr');
             n = _tx(n, tx);
@@ -479,8 +476,8 @@ export class FileManager {
         this.popup.onmouseleave = () => this.#hidePopupSoon();
     }
 
-    #name(track, tx = 'td') {
-        const td = document.createElement(tx);
+    #thName(track) {
+        const td = document.createElement('th');
         const input = document.createElement('input');
         input.type = 'text';
         input.value = track.name;
@@ -500,12 +497,13 @@ export class FileManager {
         return td;
     }
 
-    #color(track, tx = 'td') {
-        const td = document.createElement(tx);
+    #tdColor(track) {
+        const td = document.createElement('td');
         td.style.position = 'relative';
         const line = document.createElement("span");
         line.className = 'dash';
-        line.style.backgroundColor = track.color;
+        const color = track.color();
+        line.style.backgroundColor = color;
         td.appendChild(line);
         const input = document.createElement("input");
         input.style.left = 0;
@@ -517,12 +515,12 @@ export class FileManager {
         input.style.position = 'absolute';
         input.style.cursor = 'pointer';
         input.type = "color";
-        input.value = track.color;
+        input.value = color;
         input.addEventListener('change', (evt) => {
             evt.preventDefault();
             evt.stopPropagation();
             const color = input.value;
-            track.color = color;
+            track.color(color);
             line.style.backgroundColor = color;
             this.update(track);
         });
@@ -530,8 +528,8 @@ export class FileManager {
         return td;
     }
 
-    #mode(track, tx = 'td') {
-        const td = document.createElement(tx);
+    #tdMode(track) {
+        const td = document.createElement('td');
         td.style.cursor = 'pointer';
         td.innerHTML = track.modeIcon();
         td.addEventListener('click', (evt) => {
@@ -543,6 +541,19 @@ export class FileManager {
                                                                Track.MODE_HIDDEN;
             td.innerHTML = track.modeIcon();
             this.update(track);
+        });
+        return td;
+    }
+    
+    #tdRemove(track) {
+        const td = document.createElement('td');
+        td.style.cursor = 'pointer';
+        td.innerHTML = feather.icons.trash.toSvg({ class:'icon-inline' });
+        td.addEventListener('click', (evt) => {
+            evt.preventDefault();
+            evt.stopPropagation();
+            this.remove(track);
+            this.#hidePopup();
         });
         return td;
     }

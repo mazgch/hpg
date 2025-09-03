@@ -271,7 +271,7 @@ export class MapView {
             if (track.name === Track.TRACK_REFERENCE) refCenter = center;
             if (!def(lyr.crossHair)) {
                 const f = new ol.Feature(new ol.geom.Point(ol.proj.fromLonLat([lng, lat])));
-                const svg = feather.icons['crosshair'].toSvg({ stroke: setAlpha(track.color, 0.9) });
+                const svg = feather.icons['crosshair'].toSvg({ stroke: setAlpha(track.color(), 0.9) });
                 const svgUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
                 f.setStyle(new ol.style.Style({
                     image: new ol.style.Icon({ src: svgUrl, anchor: [0.5, 0.5], anchorXUnits: 'fraction', anchorYUnits: 'fraction', scale: 1 }),
@@ -332,10 +332,10 @@ export class MapView {
         let trackCoords = []; // array of [lon,lat] (note order!)
         let infoCenter;       // [lon,lat]
         let fixLost;
-
+        const color = track.color();
         const svg = feather.icons['message-square'].toSvg({
-            fill: setAlpha(track.color, 0.3),
-            stroke: setAlpha(track.color, 0.9)
+            fill: setAlpha(color, 0.3),
+            stroke: setAlpha(color, 0.9)
         });
         const svgUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
         const msgStyle = new ol.style.Style({
@@ -343,7 +343,7 @@ export class MapView {
             zIndex: 30
         });
         const segStyle = new ol.style.Style({
-            stroke: new ol.style.Stroke({ color: setAlpha(track.color, 0.6), width: 2 }),
+            stroke: new ol.style.Stroke({ color: setAlpha(color, 0.6), width: 2 }),
             zIndex: 20
         })
 

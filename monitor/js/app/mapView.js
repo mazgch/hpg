@@ -26,7 +26,7 @@ export class MapView {
         container.className = "map-section";
         // map
         const map = L.map(container, {
-            preferCanvas: true, attributionControl: false, fullscreenControl: true, 
+            preferCanvas: false, attributionControl: false, fullscreenControl: true, 
             zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false,
             zoomControl: true, zoomSnap: 0.1, wheelPxPerZoomLevel: 20, boxZoom: true
         });
@@ -137,7 +137,7 @@ export class MapView {
                 const center = [epoch.fields.lat, epoch.fields.lng];
                 latlngs.push(center);
                 if (!def(track.crossHair)) {
-                    const svgIcon = feather.icons.crosshair.toSvg({ stroke: track.color, 'stroke-width': 2, });
+                    const svgIcon = feather.icons.crosshair.toSvg({ stroke: track.color(), 'stroke-width': 2, });
                     const divIcon = L.divIcon({ html: svgIcon, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
                     track.crossHair = L.marker(center, { icon: divIcon, interactive: false });
                     layer.addLayer(track.crossHair);
@@ -257,13 +257,14 @@ export class MapView {
             const polyline = L.polyline(trackCoords, {
                 renderer: svgRenderer,
                 interactive: false,
-                className: 'polyline', color: track.color, opacity: 0.6, weight: 2
+                className: 'polyline', color: track.color(), opacity: 0.6, weight: 2
             } );
             return polyline;
         }
 
         function _message(center, infos, track) {
-            const svgIcon = feather.icons['message-square'].toSvg({ fill: setAlpha(track.color, 0.3), stroke: setAlpha(track.color, 0.9) });
+            const color = track.color();
+            const svgIcon = feather.icons['message-square'].toSvg({ fill: setAlpha(color, 0.3), stroke: setAlpha(color, 0.9) });
             const divIcon = L.divIcon({ html: svgIcon, className: '', iconSize: [20, 20], iconAnchor: [2, 22] });
             const marker = L.marker(center, { renderer: svgRenderer, icon: divIcon, riseOnHover: true, });
             marker.bindTooltip(track.infosHtml(infos), { direction: 'bottom', });
