@@ -74,10 +74,12 @@ export function formatTime(utcMs) {
 }
 
 export function setAlpha(hexColor, alpha = 1) {
-    const r = parseInt(hexColor.slice(1, 3), 16);
-    const g = parseInt(hexColor.slice(3, 5), 16);
-    const b = parseInt(hexColor.slice(5, 7), 16);
-    return `rgba(${r},${g},${b},${alpha})`;
+    if (hexColor?.[0] === "#") {
+        const r = parseInt(hexColor.slice(1, 3), 16);
+        const g = parseInt(hexColor.slice(3, 5), 16);
+        const b = parseInt(hexColor.slice(5, 7), 16);
+        return `rgba(${r},${g},${b},${alpha})`;
+    }
 }
 
 export function bytesToString(bytes) {

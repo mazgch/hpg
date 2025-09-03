@@ -182,7 +182,7 @@ export class FileManager {
                 this.#emit('update', trk );
             });
         } else if(this.refTrack) {
-            track.calcRefError(this.refTrack.epochs);
+            track.calcRefError(this.refTrack);
         }
         // finally add it
         //this.tracks.push(track);
