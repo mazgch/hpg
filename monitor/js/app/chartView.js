@@ -68,7 +68,8 @@ export class ChartView {
                         enabled: true,
                         labels: {
                             boxWidth: 20, boxHeight: 0,
-                            filter: (legendItem) => (!legendItem.hidden)
+                            filter: (legendItem) => (!legendItem.hidden),
+                            generateLabels: (chart) => this.#generateLabels(chart)
                         },
                         onClick: (evt) => evt.stopPropagation()
                     },
@@ -100,18 +101,21 @@ export class ChartView {
         const chart = this.chart;
         log(`ChartView add`, track.name);
         const dataset = {
-            label: track.name, 
             track: track,
             data: [],
-            hidden: true, spanGaps: false, showLine: true,
-            borderCapStyle: 'round', borderJoinStyle: 'bevel',
-            borderWidth: 2, borderColor: setAlpha(track.color, 0.8),
-            pointRadius: 0, pointColor: setAlpha(track.color,1), pointBorderWidth: 0,
-            pointBorderColor: this.#pointColor,
-            pointBackgroundColor: this.#pointBackgroundColor,
-            pointHoverRadius: 5, pointHoverBorderWidth: 1,
-            pointHoverBorderColor: this.#pointColor,
-            pointHoverBackgroundColor: this.#pointBackgroundColor,
+            hidden: true, 
+            showLine: true,
+            spanGaps: false,
+            borderCapStyle: 'round', 
+            borderJoinStyle: 'bevel',
+            borderWidth: ChartView.LINE_WIDTH, 
+            borderColor: (ctx) => this.#datasetColor(ctx), 
+            pointRadius: 0, 
+            pointBorderWidth: 0, 
+            pointHoverRadius: ChartView.HOVER_RADIUS, 
+            pointHoverBorderWidth: 1,
+            pointHoverBorderColor: (ctx) => this.#pointColor(ctx),
+            pointHoverBackgroundColor: (ctx) => this.#pointBackgroundColor(ctx),
         };
         chart.data.datasets.push(dataset);
         track.dataset = dataset;
@@ -333,8 +337,8 @@ export class ChartView {
                     c += v;
                     const d = Number.isFinite(l) ? (v - l) : null;
                     l = v;
-                    let y = (mode === ChartView.CHART_CUMULATIVE) ? (category ? null : c) :
-                            (mode === ChartView.CHART_DERIVATIVE) ? (category ? null : d) : v;
+                    let y = (mode === ChartView.CHART_CUMULATIVE) ? (category ? null : Number(defField.format(c))) :
+                            (mode === ChartView.CHART_DERIVATIVE) ? (category ? null : Number(defField.format(d))) : v;
                     //y = Number.isFinite(y) ? defField.format(y) : y;
                     return { x: epoch.datetime, y: y, epoch: epoch };
                 } else {
@@ -351,8 +355,6 @@ export class ChartView {
             if (category) {
                 if (mode === ChartView.CHART_HISTOGRAM) {
                     data = dataset.stats.histogram2();
-                    //dataset.pointRadius = 5;
-                    //dataset.borderWidth = 0;
                 } else {
                     data = [];
                 }
@@ -400,10 +402,11 @@ export class ChartView {
             let annotations = {};
             if (!ChartView.CHARTS_FREQ.includes(mode)) {
                 if (mode === ChartView.CHART_CDF) {
-                    annotations.y50 = ChartView.#annotation('y', 0.500, '#00000040', '0.5');
-                    annotations.y68 = ChartView.#annotation('y', 0.680, '#00000040', '0.68');
-                    annotations.y95 = ChartView.#annotation('y', 0.950, '#00000040', '0.95');
-                    annotations.y99 = ChartView.#annotation('y', 0.997, '#00000040', '0.997');
+                    const color = ChartView.COLOR_GRAY;
+                    annotations.y50 = ChartView.#annotation('y', 0.500, color, '0.5');
+                    annotations.y68 = ChartView.#annotation('y', 0.680, color, '0.68');
+                    annotations.y95 = ChartView.#annotation('y', 0.950, color, '0.95');
+                    annotations.y99 = ChartView.#annotation('y', 0.997, color, '0.997');
                 }
                 const datetime = chart.options.plugins.annotation.annotations?.time?.xMax;
                 if (def(datetime)) {
@@ -414,7 +417,7 @@ export class ChartView {
                     const index = active[0].datasetIndex;
                     const dataset = chart.data.datasets[index];
                     if (!dataset.hidden) {
-                        const color = dataset.borderColor;
+                        const color = dataset.track.color || Track.COLOR_UNKNOWN;
                         const _fmt = chart.options.scales[axis].ticks.callback;
                         if (mode === ChartView.CHART_CDF) {
                             if (def(dataset.stats.q50)) annotations.q50 = ChartView.#annotation(axis, dataset.stats.q50, color, `x̃ = ${_fmt(dataset.stats.q50)}`);
@@ -448,19 +451,37 @@ export class ChartView {
     }
 
     #timeAnnotation(datetime) {
-        return ChartView.#annotation('x', datetime, 'rgb(255, 76, 0)')
+        return ChartView.#annotation('x', datetime, ChartView.COLOR_TIME);
+    }
+
+    #datasetColor(ctx) {
+        return ctx.dataset.track?.color || Track.COLOR_UNKNOWN;
     }
 
     #pointColor(ctx) {
         const dataset = ctx.dataset;
-        const color = dataset.data[ctx.dataIndex]?.epoch?.color;
-        return def(color) ? setAlpha(color, 1) : dataset.pointColor;
+        const epochColor = dataset.data[ctx.dataIndex]?.epoch?.color;
+        return epochColor || this.#datasetColor(ctx);
     }
 
     #pointBackgroundColor(ctx) {
-        const dataset = ctx.dataset;
-        const color = dataset.data[ctx.dataIndex]?.epoch?.color;
-        return  def(color) ? setAlpha(color, 0.8) : dataset.borderColor;
+        const color = this.#pointColor(ctx);
+        return setAlpha(color, 0.8);
+    }
+
+    #generateLabels(chart) {
+        return chart.data.datasets.map((dataset, ix) => {
+            const track = dataset.track;
+            const color = track.color || Track.COLOR_UNKNOWN;
+            return {
+                text: track.name,
+                fillStyle: color,
+                strokeStyle: color,
+                lineWidth: ChartView.LINE_WIDTH,
+                hidden: dataset.hidden,
+                datasetIndex: ix
+            };
+        });
     }
 
     #update() {
@@ -483,38 +504,38 @@ export class ChartView {
             const rotation = (axis === 'x') ? -90 : 0;
             annotation.label = {
                 padding: 2, display: true, content: label||'', position: position,
-                textStrokeColor: 'rgba(255,255,255,1)', textStrokeWidth: 5, font: { weight: 'nomal' },
-                backgroundColor: 'rgba(255,255,255,0)', color: color, rotation: rotation
+                textStrokeColor: '#ffffffff', textStrokeWidth: 5, font: { weight: 'nomal' },
+                backgroundColor: '#00000000', color: color, rotation: rotation
             };
         }
         return annotation;
     }
 
-    #toolTipTitle(context) {
-        return context.dataset.label;
+    #toolTipTitle(ctx) {
+        return ctx.dataset.track.name;
     }
 
-    #toolTipText(context) {
+    #toolTipText(ctx) {
         const mode = this.#modeSelect.value;
         const field = this.#fieldSelect.value
         const defField = FieldsReg[field];
         const unit = (defField.unit ? ' ' + defField.unit : '')
         const category = defField.map ? Object.keys(defField.map) : undefined;
         if (ChartView.CHARTS_TIME.includes(mode)) {
-            const txtX = context.chart.options.scales.x.title.text;
+            const txtX = ctx.chart.options.scales.x.title.text;
             const txtY = defField.name;
-            const valX = context.chart.options.scales.x.ticks.callback(context.raw.x);
-            const valY = (category ? category[context.raw.y] : context.raw.y) + unit;
+            const valX = ctx.chart.options.scales.x.ticks.callback(ctx.raw.x);
+            const valY = (category ? category[ctx.raw.y] : ctx.raw.y) + unit;
             return `${txtY}: ${valY}\n${txtX}: ${valX}`;
         } else if (ChartView.CHARTS_DIST.includes(mode)) {
             const txtX = defField.name;
-            const txtY = context.chart.options.scales.y.title.text;
-            const valX = (category ? category[context.raw.x] : context.raw.x) + unit;
-            const valY = context.chart.options.scales.y.ticks.callback(context.raw.y);
+            const txtY = ctx.chart.options.scales.y.title.text;
+            const valX = (category ? category[ctx.raw.x] : ctx.raw.x) + unit;
+            const valY = ctx.chart.options.scales.y.ticks.callback(ctx.raw.y);
             return `${txtY}: ${valY}\n${txtX}: ${valX}`;
         } else if (ChartView.CHARTS_FREQ.includes(mode)){
-            const valX = context.chart.options.scales.x.ticks.callback(context.raw.x);
-            const valY = context.chart.options.scales.y.ticks.callback(context.raw.y);
+            const valX = ctx.chart.options.scales.x.ticks.callback(ctx.raw.x);
+            const valY = ctx.chart.options.scales.y.ticks.callback(ctx.raw.y);
             const unit = (mode === ChartView.CHART_FFT) ? '' : ' dB';
             return `Amplitude: ${valY}${unit}\nFrequency: ${valX} Hz`;
         }
@@ -548,6 +569,11 @@ export class ChartView {
         ChartView.CHART_FFT,        ChartView.CHART_FFT_DB 
     ];
     
+    static LINE_WIDTH   = 2;
+    static HOVER_RADIUS = 5;
+    static COLOR_TIME   = '#ff4c00';
+    static COLOR_GRAY   = '#808080';
+
     #container
     #fieldSelect
     #modeSelect

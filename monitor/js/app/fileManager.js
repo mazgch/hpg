@@ -385,7 +385,7 @@ export class FileManager {
                 }
                 const line = document.createElement("span");
                 line.className = "dash";
-                line.style.background = track.color;
+                line.style.background = track.color || Track.COLOR_UNKNOWN;
                 const name = document.createElement("span");
                 name.className = "chip-name";
                 name.textContent = track.name || "(unnamed)"

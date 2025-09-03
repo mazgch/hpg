@@ -312,6 +312,7 @@ export class Track {
     static COLOR_REFERENCE     = '#000000';
     static COLOR_UBLOX         = '#0000ff';
     static COLOR_OTHERS        = '#ff0000';
+    static COLOR_UNKNOWN       = '#808080';
 
     static EPOCH_FIELDS = [ 
         'date', 'time',
