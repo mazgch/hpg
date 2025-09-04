@@ -112,14 +112,16 @@ export class Track {
     }
 
    setTime(datetime) {
-        const epoch = this.epochs
+        if (0 < this.epochs?.length) {
+            const epoch = this.epochs
                 .filter((epoch) => (epoch.timeValid && epoch.posValid))
                 .reduce((prev, curr) => {
                     const prevDiff = Math.abs(new Date(prev.datetime) - datetime);
                     const currDiff = Math.abs(new Date(curr.datetime) - datetime);
                     return currDiff < prevDiff ? curr : prev;
                 })
-        this.currentEpoch = epoch;
+            this.currentEpoch = epoch;
+        }
     }
 
     addEpochs(epochs) {
@@ -202,6 +204,7 @@ export class Track {
         def(color) && (this.#color = color);
         return def(this.#color)         ? this.#color : 
                def(this.info?.protoVer) ? Track.COLOR_UBLOX : 
+               def(this.info?.hardware?.match(/^AG\d{3,}_\d{8}/)) ? Track.COLOR_AIROHA: 
                !def(this.progress)      ? Track.COLOR_OTHERS :
                                           Track.COLOR_UNKNOWN;
     }
@@ -328,6 +331,7 @@ export class Track {
 
     static COLOR_REFERENCE     = '#000000';
     static COLOR_UBLOX         = '#0000ff';
+    static COLOR_AIROHA        = '#ffA000';
     static COLOR_OTHERS        = '#ff0000';
     static COLOR_UNKNOWN       = '#808080';
 
