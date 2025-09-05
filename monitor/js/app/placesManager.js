@@ -167,9 +167,11 @@ export class PlacesManager {
             json.places.push(jsonPlace);
         } );
         json.place = this.#select.value;
+        const layers = json.layers;
         if (this.#mapView.map.hasLayer(this.#layer)) {
-            json.layers.push(PlacesManager.LAYER_PLACES);
+            layers.push(PlacesManager.LAYER_PLACES);
         }
+        json.layers = layers;
     }
 
     // ===== Internals =====
