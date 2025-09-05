@@ -216,8 +216,8 @@ window.onload = function _onload() {
             if (typeof json === 'object') {
                 if (json.version === JSON_VERSION) {
                     config.time = trimPlayer.fromJson(json);
-                    placeManager.fromJson(json);
                     mapView.fromJson(json);
+                    placeManager.fromJson(json);
                     chartView.fromJson(json);
                     fileManager.fromJson(json);
                 } else {
@@ -236,8 +236,8 @@ window.onload = function _onload() {
             version: JSON_VERSION,
         };
         trimPlayer.toJson(json, config.time);
-        placeManager.toJson(json);
         mapView.toJson(json);
+        placeManager.toJson(json);
         chartView.toJson(json);
         fileManager.toJson(json);
         return json;
