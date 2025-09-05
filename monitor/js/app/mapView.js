@@ -313,11 +313,11 @@ export class MapView {
     }
 
     toJson(json) {
-        const layers = [];
+        const layers = json.layers || [];
         Object.entries(this.#baseLayers).forEach(([name, layer]) => {
             this.map.hasLayer(layer) && layers.push(name);
         });
-        (0 <= layers.length) && (json.layers = layers);
+        json.layers = layers;
         json.opacity = this.#opacitySlider.value;
     }
 
