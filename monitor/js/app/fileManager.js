@@ -167,10 +167,10 @@ export class FileManager {
     }
 
     add(track) {
-        track.name     =   track.name.match(/^truth/i) ? Track.TRACK_REFERENCE : track.name;
-        const defMode  = ((track.name === Track.TRACK_REFERENCE) ? Track.MODE_LINE : Track.MODE_MARKERS);
-        const defColor =  (track.name === Track.TRACK_REFERENCE) ? Track.COLOR_REFERENCE :
-                          (track.info?.protoVer) ? Track.COLOR_UBLOX : Track.COLOR_OTHERS;
+        track.name     = track.name.match(/^truth/i) ? Track.TRACK_REFERENCE : track.name;
+        const defMode  = Track.MODE_LINE;
+        const defColor = (track.name === Track.TRACK_REFERENCE) ? Track.COLOR_REFERENCE :
+                         (track.info?.protoVer) ? Track.COLOR_UBLOX : Track.COLOR_OTHERS;
         track.color = track.color ?? defColor;
         track.mode = track.mode ?? defMode;
         log('FileManager add', track.name);
