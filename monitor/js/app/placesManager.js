@@ -160,11 +160,11 @@ export class PlacesManager {
     toJson(json) {
         json.places = [];
         this.#places.forEach((place) => {
-            const json = { name:place.name }
-            def(place.bounds) && (json.bounds = place.bounds);
-            def(place.size)   && (json.size   = place.size);
-            def(place.center) && (json.center = place.center);
-            json.places.push(json);
+            const jsonPlace = { name:place.name }
+            def(place.bounds) && (jsonPlace.bounds = place.bounds);
+            def(place.size)   && (jsonPlace.size   = place.size);
+            def(place.center) && (jsonPlace.center = place.center);
+            json.places.push(jsonPlace);
         } );
         json.place = this.#select.value;
         if (this.#mapView.map.hasLayer(this.#layer)) {
