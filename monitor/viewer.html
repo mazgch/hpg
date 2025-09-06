@@ -204,8 +204,20 @@
       <div class="section framed vresize" style="padding-bottom:10px;">
         <canvas id="chart" style="padding-left:7px;"></canvas>
         <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
-          <div class="overlay_button" id="resetZoom" title="Reset zoom to fit content."><i
-              data-feather="maximize-2"></i></div>
+          <div>
+            <div class="overlay_button" id="resetZoom" title="Reset zoom to fit content."><i data-feather="maximize-2"></i></div>
+          </div>
+          <div id="chart_modes">
+            <div class="overlay_button selected" value="Time series" title="Time series" style="margin-top:6px;" ><i data-feather="chart-time"></i></div>
+            <div class="overlay_button" value="Cumulative"  title="Integrated time series"><i data-feather="chart-int"></i></div>
+            <div class="overlay_button" value="Derivative" title="Differentiated time series"><i data-feather="chart-diff"></i></div>
+            <div class="overlay_button" value="CDF" title="Cumulative distribution function" style="margin-top:6px;"><i data-feather="chart-cdf"></i></div>
+            <div class="overlay_button" value="Histogram" title="Histogram"><i data-feather="chart-hist"></i></div>
+            <div class="overlay_button" value="Histogram (FD)" title="Histogram Freedman–Diaconis rule"><i data-feather="chart-histFD"></i></div>
+            <div class="overlay_button" value="Kernel density" title="Kernel density estimation"><i data-feather="chart-kde"></i></div>
+            <div class="overlay_button" value="Fourier" title="Fourier Transformation" style="margin-top:6px;"><i data-feather="chart-freq"></i></div>
+            <div class="overlay_button" value="Fourier (dB)" title="Fourier Transformation in dBs"><i data-feather="chart-freqDB"></i></div>
+          </div>
         </div>
       </div>
     </div>

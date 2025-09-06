@@ -26,6 +26,18 @@ export class ChartView {
         this.#container = container;
         this.#container.addEventListener('mouseout', (evt) => this.#updateAnnotation(evt));
     
+        const chartModeButtons = document.querySelectorAll("#chart_modes .overlay_button");
+        chartModeButtons.forEach(radio => {
+            radio.addEventListener("click", (evt) => {
+                evt.stopPropagation();
+                evt.preventDefault();
+                chartModeButtons.forEach(r => r.classList.remove("selected"));
+                radio.classList.add("selected");
+                modeSelect.value = radio.getAttribute("value");
+                this.configChange();
+            });
+        });
+
         this.#fieldSelect = fieldSelect;
         fieldSelect.addEventListener("change", (evt) => this.configChange() );
         Track.EPOCH_FIELDS.filter((field) => (!ChartView.FIELDS_HIDDEN.includes(field)) ).forEach( (field) => {
@@ -37,7 +49,15 @@ export class ChartView {
         fieldSelect.value = 'msl';
         
         this.#modeSelect = modeSelect;
-        modeSelect.addEventListener("change", (evt) => this.configChange() );
+        modeSelect.addEventListener("change", (evt) => {
+            const mode = this.#modeSelect.value;
+            chartModeButtons.forEach(r => r.classList.remove("selected"));
+            const radio = Array.from(chartModeButtons)
+                .find(r => (r.getAttribute("value") === mode));
+            radio.classList.add("selected");
+            this.configChange();
+        });
+            
     
         this.chart = new Chart(container, {
             type: 'scatter',
@@ -119,17 +139,15 @@ export class ChartView {
         };
         chart.data.datasets.push(dataset);
         track.dataset = dataset;
-        this.calcDataset(dataset);
-        this.#updateAnnotation();
-        this.resetZoom();
-        this.#update();
+        this.updateDataset(track);
     }
 
     removeDataset(track) {
-        if (track.dataset) {
+        const dataset = track.dataset;
+        if (dataset) {
             const chart = this.chart;
             log('ChartView remove', track.name);
-            const ix = chart.data.datasets.indexOf(track.dataset);
+            const ix = chart.data.datasets.indexOf(dataset);
             if (ix !== -1) {
                 chart.data.datasets.splice(ix, 1);
             }
@@ -139,11 +157,12 @@ export class ChartView {
     }
 
     updateDataset(track) {
-        if (track.dataset) {
-            this.removeDataset(track);
-        }
-        if (track.mode !== Track.MODE_HIDDEN) {
-            this.addDataset(track);
+        const dataset = track.dataset;
+        if (dataset) {
+            this.calcDataset(dataset);
+            this.#updateAnnotation();
+            this.resetZoom();
+            this.#update();
         }
     }
 

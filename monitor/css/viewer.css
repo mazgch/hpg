@@ -16,7 +16,7 @@
  
  #map, .vresize {
   resize: vertical;
-  min-height:200px;
+  min-height:350px;
   height: 40vh;
 	overflow: clip;
 	overflow-anchor: none;
@@ -182,4 +182,10 @@
 .xscroll tr:hover td,
 .xscroll tr:hover th {
   background:#f0f0f0;
+}
+
+.ol-rotate {
+    top:calc(1.5em + 24px + 3px);
+    right:0.5em;
+    left:auto;
 }

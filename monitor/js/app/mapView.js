@@ -247,7 +247,7 @@ export class MapView {
             const polyline = L.polyline(trackCoords, {
                 renderer: svgRenderer,
                 interactive: false,
-                className: 'polyline', color: track.color(), opacity: 0.6, weight: 2
+                className: 'polyline', color: track.color(), opacity: 0.6, weight: 3
             } );
             return polyline;
         }
@@ -295,9 +295,11 @@ export class MapView {
     }
 
     updateLayer(track) {
-        this.removeLayer(track);
-        if (track.mode !== Track.MODE_HIDDEN) {
-            this.addLayer(track);
+        if (track.layer) {
+            this.removeLayer(track);
+            if (track.mode !== Track.MODE_HIDDEN) {
+                this.addLayer(track);
+            }
         }
     }
 
@@ -315,6 +317,7 @@ export class MapView {
     toJson(json) {
         const layers = json.layers || [];
         Object.entries(this.#baseLayers).forEach(([name, layer]) => {
+            
             this.map.hasLayer(layer) && layers.push(name);
         });
         json.layers = layers;

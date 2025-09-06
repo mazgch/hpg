@@ -167,7 +167,7 @@ export class PlacesManager {
             json.places.push(jsonPlace);
         } );
         json.place = this.#select.value;
-        const layers = json.layers;
+        const layers = json.layers || [];
         if (this.#mapView.map.hasLayer(this.#layer)) {
             layers.push(PlacesManager.LAYER_PLACES);
         }

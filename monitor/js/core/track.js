@@ -26,9 +26,7 @@ export class Track {
         name = name.match(/^(truth|reference)/i) ? Track.TRACK_REFERENCE : name;
         this.name = name;
         const isRef = (name === Track.TRACK_REFERENCE);
-        this.mode =  def(opt.mode)  ? opt.mode : 
-                     (isRef)        ? Track.MODE_LINE : 
-                                      Track.MODE_MARKERS;
+        this.mode =  def(opt.mode) ? opt.mode : Track.MODE_LINE;
         
         this.#keys = keys;
         if (def(opt.color)) {
@@ -204,7 +202,7 @@ export class Track {
         def(color) && (this.#color = color);
         return def(this.#color)         ? this.#color : 
                def(this.info?.protoVer) ? Track.COLOR_UBLOX : 
-               def(this.info?.hardware?.match(/^AG\d{3,}_\d{8}/)) ? Track.COLOR_AIROHA: 
+               def(this.info?.hwVer?.match(/^AG\d{3,}_\d{8}/)) ? Track.COLOR_AIROHA: 
                !def(this.progress)      ? Track.COLOR_OTHERS :
                                           Track.COLOR_UNKNOWN;
     }
@@ -331,7 +329,7 @@ export class Track {
 
     static COLOR_REFERENCE     = '#000000';
     static COLOR_UBLOX         = '#0000ff';
-    static COLOR_AIROHA        = '#ffA000';
+    static COLOR_AIROHA        = '#ff00ff';
     static COLOR_OTHERS        = '#ff0000';
     static COLOR_UNKNOWN       = '#808080';
 

@@ -491,14 +491,9 @@ td dt {
     left:auto;
 }
 
-#scan-devices,
-.overlay_button:hover,
-.ol-control button:hover {
-    background-color: var(--hero);
-	outline-color: transparent; 
-    color: #fff;
-}
+
 #scan-devices:active,
+.overlay_button.selected,
 .overlay_button:active,
 .ol-control button:active,
 .ol-control button:focus {
@@ -507,13 +502,18 @@ td dt {
     color: #fff;
 }
 
+#scan-devices,
+.overlay_button:hover,
+.ol-control button:hover {
+    background-color: var(--hero);
+	outline-color: transparent; 
+    color: #fff;
+}
+
 .ol-rotate {
-    /*top:calc(1.5em + 5*24px + 4*4px + 3px);
+    top:calc(1.5em + 5*24px + 4*4px + 3px);
     left:0.5em;
-    right:auto;*/
-    top:calc(1.5em + 24px + 3px);
-    right:0.5em;
-    left:auto;
+    right:auto;
 }
 
 .ol-options {

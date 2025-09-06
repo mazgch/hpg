@@ -155,7 +155,7 @@ export class FileManager {
 
     async progress(track, cnt, size, infCnt) { 
         this.#renderChips();
-        log("FileManager progress", track.progress, cnt, size, infCnt);
+        log("FileManager progress", track.name, track.progress || 'done', [ cnt, size, infCnt] );
         return new Promise((resolve) => {
             if (typeof requestAnimationFrame === 'function') {
                 requestAnimationFrame(() => resolve());

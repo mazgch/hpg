@@ -16,6 +16,7 @@ http://www.apache.org/licenses/LICENSE-2.0
 
 "use strict";
 
+import { iconsExtend } from './app/icons.js';
 import { MapView } from './app/mapView.js';
 //import { MapView } from './app/olMapView.js';
 import { ChartView } from './app/chartView.js';
@@ -34,6 +35,7 @@ window.clickLink = function _clickLink(link) {
 
 window.onload = function _onload() {
     
+    iconsExtend(feather);
     feather.replace();
 
     // Application
