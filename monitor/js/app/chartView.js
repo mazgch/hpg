@@ -199,7 +199,7 @@ export class ChartView {
         const field = this.#fieldSelect.value;
         const mode = this.#modeSelect.value;
         const defField = FieldsReg[field];
-        const axisName = defField.name + def(defField.unit) ? (' [' + defField.unit + ']') : '';
+        const axisName = defField.name + (defField.unit ? (' [' + defField.unit + ']') : '');
         const category = def(defField.map) ? Object.keys(defField.map) : undefined;
 
         if (ChartView.CHARTS_TIME.includes(mode)) {
@@ -209,7 +209,7 @@ export class ChartView {
             chart.options.scales.x.ticks.autoSkip = true;
             chart.options.scales.x.ticks.stepSize = undefined;
 
-            chart.options.scales.y.title.text = ((mode !== ChartView.CHART_TIMESERIES) ? `${mode} ${axisName}` : '');
+            chart.options.scales.y.title.text = ((mode !== ChartView.CHART_TIMESERIES) ? `${mode} ${axisName}` : axisName);
             chart.options.scales.y.ticks.callback = _fmtVal;
             chart.options.scales.y.ticks.maxTicksLimit = category ? category.length : undefined;
             chart.options.scales.y.ticks.autoSkip = category ? false : true;

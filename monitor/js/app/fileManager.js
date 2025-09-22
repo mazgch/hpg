@@ -170,10 +170,7 @@ export class FileManager {
         // update reference errors and indicate changes of tracks 
         if (track.name === Track.TRACK_REFERENCE) {
             this.refTrack = track;
-            this.tracks.forEach((trk) => {
-                trk.calcRefError(track /* = reference */ );
-                this.#emit('update', trk );
-            });
+            this.#calcRefErrors();
         } else if(this.refTrack) {
             track.calcRefError(this.refTrack);
         }
@@ -194,10 +191,7 @@ export class FileManager {
         }
         this.#renderChips();
         if (refChange) {
-            this.tracks.forEach((trk) => {
-                trk.calcRefError(this.refTrack);
-                this.#emit('update', trk );
-            });
+            this.#calcRefErrors();
         } else {
             this.#emit('update', track );
         }
@@ -213,12 +207,22 @@ export class FileManager {
             this.#emit('remove', track);
             if (track === this.refTrack) {
                 delete this.refTrack;
-                this.tracks.forEach((trk) => {
-                    trk.calcRefError();
-                    this.#emit('update', trk );
-                })
+                this.#calcRefErrors();
             }
         }
+    }
+
+    forEach(func) {
+        this.tracks
+            .filter((track) => !def(track.progress))
+            this.tracks.forEach((track) => func(track));
+    }
+
+    #calcRefErrors() {
+        this.forEach((track) => {
+            track.calcRefError();
+            this.#emit('update', track );
+        })
     }
 
     getPosBounds() {
@@ -229,7 +233,7 @@ export class FileManager {
         let maxLng = -Infinity;
         // propagate bounds to the config
         this.tracks
-            .filter((track) => (track.mode !== Track.MODE_HIDDEN))
+            .filter((track) => !def(track.progress) && (track.mode !== Track.MODE_HIDDEN))
             .forEach((track) => {
                 const posBounds = track.boundsPos();
                 minLat = Math.min(minLat, posBounds[0][0]);
@@ -246,7 +250,7 @@ export class FileManager {
         let maxTime = -Infinity;
         // propagate bounds to the config
         this.tracks
-            //.filter( (track) => (track.mode !== Track.MODE_HIDDEN) )
+            .filter((track) => !def(track.progress)/* && (track.mode !== Track.MODE_HIDDEN)*/)
             .forEach((track) => {
                 const timeBounds = track.boundsTime();
                 minTime = Math.min(minTime, timeBounds[0]);

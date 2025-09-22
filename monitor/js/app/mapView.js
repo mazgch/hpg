@@ -238,12 +238,15 @@ export class MapView {
         layer.addLayer(_polyline(trackCoords));
         layer.addTo(this.map);
         layer.track = track;
+        if (track.layer) {
+            this.map.removeLayer(track.layer);
+        }
         track.layer = layer;
         const bounds = this.#getBounds();
         if (!bounds) {
             this.setOverview();
         }
-
+        
         function _polyline(trackCoords) {
             // if only a single fix then add another point
             if (1 === trackCoords.length) {
@@ -302,9 +305,9 @@ export class MapView {
     updateLayer(track) {
         if (track.layer) {
             this.removeLayer(track);
-            if (track.mode !== Track.MODE_HIDDEN) {
-                this.addLayer(track);
-            }
+        }
+        if (track.mode !== Track.MODE_HIDDEN) {
+            this.addLayer(track);
         }
     }
 

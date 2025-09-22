@@ -51,7 +51,7 @@ window.onload = function _onload() {
     trimControl.addEventListener('trim', (evt) => {
         const timeTrim = evt.detail;
         config.time = timeTrim;
-        fileManager.tracks.forEach((track) => {
+        fileManager.forEach((track) => {
             track.trim(timeTrim);
             mapView.updateLayer(track);
             chartView.updateDataset(track);
@@ -60,7 +60,7 @@ window.onload = function _onload() {
     });
     trimControl.addEventListener('seek', (evt) => {
         const datetime = evt.detail;
-        fileManager.tracks.forEach((track) => {
+        fileManager.forEach((track) => {
             track.setTime(datetime);
         });
         tableView.updateColumns(fileManager.tracks);
@@ -69,7 +69,7 @@ window.onload = function _onload() {
     });
     trimControl.addEventListener('time', (evt) => {
         const datetime = evt.detail;
-        fileManager.tracks.forEach((track) => {
+        fileManager.forEach((track) => {
             track.setTime(datetime);
         });
         tableView.updateColumns(fileManager.tracks);
@@ -78,7 +78,7 @@ window.onload = function _onload() {
     });
     const cropButton = document.getElementById("btnCrop");
     cropButton.addEventListener('click', (evt) => {
-        fileManager.tracks.map((track) => {
+        fileManager.forEach((track) => {
             track.crop();
             mapView.updateLayer(track);
             chartView.updateDataset(track);
@@ -169,7 +169,8 @@ window.onload = function _onload() {
         // now we propagte the time bounds a global so we can reset the trim player
         config.timeBounds = fileManager.getTimeBounds()
         if (config.timeBounds[0] < config.timeBounds[1]) {
-            const inBounds = ((config.time[0] >= config.timeBounds[0]) && (config.time[1] <= config.timeBounds[1]))
+            const inBounds = Array.isArray(config.time) && (2 === config.time.length) &&
+                             (config.time?.[0] >= config.timeBounds[0]) && (config.time?.[1] <= config.timeBounds[1])
             if (!inBounds) {
                 config.time = config.timeBounds;
             }
