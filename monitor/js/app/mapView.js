@@ -31,6 +31,7 @@ export class MapView {
             zoomControl: true, zoomSnap: 0.1, wheelPxPerZoomLevel: 20, boxZoom: true
         });
         this.map = map;
+        map.on("click", (evt) => this.#onClick(evt));
         // resizing
         this.resizeObserver = new ResizeObserver(() => {
             map.invalidateSize();
@@ -244,6 +245,10 @@ export class MapView {
         }
 
         function _polyline(trackCoords) {
+            // if only a single fix then add another point
+            if (1 === trackCoords.length) {
+                trackCoords.push(trackCoords[0]);
+            }
             const polyline = L.polyline(trackCoords, {
                 renderer: svgRenderer,
                 interactive: false,
@@ -317,7 +322,6 @@ export class MapView {
     toJson(json) {
         const layers = json.layers || [];
         Object.entries(this.#baseLayers).forEach(([name, layer]) => {
-            
             this.map.hasLayer(layer) && layers.push(name);
         });
         json.layers = layers;
@@ -326,6 +330,28 @@ export class MapView {
 
     // ===== Internals =====
     
+    #onClick(evt) {
+        const refPos = evt.latlng;
+        let closestDist = Infinity;
+        let closestEpoch;
+        this.map.eachLayer((layer) => {
+            const track = layer.track;
+            if (track) {
+                const obj = track.findClosest(refPos);
+                if (obj?.epoch) {
+                    console.log("closest: ", track.name, obj.epoch.datetime, obj.epoch.fields.lat, obj.epoch.fields.lng);
+                    if (obj.dist < closestDist) {
+                        closestEpoch = obj.epoch;
+                        closestDist = obj.dist;
+                    }
+                }
+            }
+        });
+        if (closestEpoch) {
+            this.#emit('epoch', closestEpoch);
+        }
+    }
+
     #updateCoords(evt) {
         const div = this.#divInfo;
         if (div) {
@@ -382,7 +408,6 @@ export class MapView {
             //console.error('MapView getBounds', err);
         }
     }
-
 
     #emit(name, detail) {
         this.#container.dispatchEvent(new CustomEvent(name, { detail }));

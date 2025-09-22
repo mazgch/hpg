@@ -262,6 +262,7 @@ export class FileManager {
         if (Array.isArray(json?.tracks)) {
             json.tracks.forEach((trkJson) => {
                 const track = new Track(trkJson.name, Track.EPOCH_FIELDS, trkJson);
+                this.tracks.push(track);
                 if (def(trkJson.epochs)) {
                     track.addEpochs(trkJson.epochs);
                     this.add(track);

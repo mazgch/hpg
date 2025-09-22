@@ -18,7 +18,7 @@
   resize: vertical;
   min-height:350px;
   height: 40vh;
-	overflow: clip;
+	overflow: hidden;
 	overflow-anchor: none;
   outline: none;
   padding-bottom: 10px;

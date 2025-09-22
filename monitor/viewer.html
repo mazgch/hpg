@@ -49,7 +49,6 @@
   <script src="https://cdn.jsdelivr.net/npm/leaflet-simple-map-screenshoter@0.5.0/dist/leaflet-simple-map-screenshoter.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@4.0.0/Control.FullScreen.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@4.0.0/Control.FullScreen.min.js"></script>
-  
   <!-- <script src="https://maps.googleapis.com/maps/api/js"></script>-->
   <script src="https://cdn.jsdelivr.net/npm/leaflet.gridlayer.googlemutant@0.15.0/dist/Leaflet.GoogleMutant.min.js"></script>
   <!-- openlayers -->
@@ -62,7 +61,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
   <!-- My own js & css -->
   <script type="module" defer src="js/viewer.js"></script>
-  <script src="js/engine.js"></script>
   <link rel="stylesheet" type="text/css" href="css/monitor.css">
   <link rel="stylesheet" type="text/css" href="css/viewer.css">
   <link rel="stylesheet" type="text/css" href="css/trimPlayer.css" />
@@ -112,6 +110,10 @@
           title="Support my work"><i data-feather="heart"></i></div>
       </div>
     </div>
+    <style type="text/css">
+      .grid-stack { background: #FAFAD2; }
+      .grid-stack-item-content { background-color: #18BC9C; }
+    </style>
     <div class="section">
       <p style="width: calc(100% - 48px)">
         This tool visualizes data recorded from one or more GPS/GNSS receivers. You can load multiple files,
@@ -178,11 +180,12 @@
         <!-- Populated by FileManager -->
       </div>
     </div>
+
     <!------------------------- MAP ------------------------->
-    <div id="tile_map" class="section">
+    <div id="tile_map" class="section" gs-w="6" gs-h="6">
       <div class="section framed vresize map-section" id="map"></div>
     </div>
-    <!------------------------- MAP ------------------------->
+    <!------------------------- Config ------------------------->
     <div id="tile_cfg" class="section">
       Visualize <select id="field"></select> as 
         <select id="mode">
@@ -200,7 +203,7 @@
       step="0.05" value="0.4" style="vertical-align: middle; height: 0.8em;"> 
     </div>
     <!------------------------ CHART ------------------------>
-    <div id="tile_chart" class="section">
+    <div id="tile_chart" class="section"  gs-w="6" gs-h="6">
       <div class="section framed vresize" style="padding-bottom:10px;">
         <canvas id="chart" style="padding-left:7px;"></canvas>
         <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
@@ -225,7 +228,8 @@
     <div id="tile_table" class="xscroll" class="section">
       <table id="table" class="table" style="table-layout:auto"></table>
     </div>
-    </main>
+   </div>
+   </main>
 </body>
 
 </html>

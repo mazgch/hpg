@@ -49,6 +49,21 @@ export function get(obj, path) {
     return val;
 }
 
+export function pad(t,l,ch=' ') {
+    if (!t || (t === '')) t = '?';
+    if (t.length < l)
+        t += ch.repeat(l-t.length);
+    return t;
+}
+
+export function hex(v,l) {
+    v = v.toString(16).toUpperCase();
+    if (l) {
+        v = '0'.repeat(l-v.length) + v.slice(-l);
+    }
+    return v;
+}
+
 // 000000000011111111112222
 // 012345678901234567890123
 // YYYY-MM-DDTHH:MM:SS.sssZ

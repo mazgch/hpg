@@ -19,6 +19,7 @@
 import { def, log, bytesToString, isGzip } from './utils.js';
 import { Epoch } from './epoch.js';
 import { Collector } from './collector.js';
+import { Engine } from './engine.js'
 
 export class Track {
     constructor(name, keys, opt = {} ) {
@@ -109,16 +110,19 @@ export class Track {
         return this;
     }
 
-   setTime(datetime) {
+    setTime(datetime) {
         if (0 < this.epochs?.length) {
-            const epoch = this.epochs
-                .filter((epoch) => (epoch.timeValid && epoch.posValid))
-                .reduce((prev, curr) => {
-                    const prevDiff = Math.abs(new Date(prev.datetime) - datetime);
-                    const currDiff = Math.abs(new Date(curr.datetime) - datetime);
-                    return currDiff < prevDiff ? curr : prev;
-                })
-            this.currentEpoch = epoch;
+            const objs = this.epochs
+                .filter((epoch) => (epoch.selTime && epoch.timeValid && epoch.posValid))
+                .map((epoch) => {
+                    const dtime = Math.abs(epoch.datetime - datetime);
+                    return { epoch, dtime }; 
+                });
+            const obj = (1 >= objs.length) ? objs[0] : objs
+                .reduce((prev, curr) => 
+                    ((curr.dtime < prev.dtime) ? curr : prev)
+                );
+            this.currentEpoch = obj?.epoch;
         }
     }
 
@@ -134,6 +138,19 @@ export class Track {
         if (0 === this.epochs.length) {
             throw new Error('No epochs loaded');
         }
+    }
+
+    findClosest(refPos) {
+        const objs = this.epochs
+            .filter((epoch) => (epoch.selTime && epoch.timeValid && epoch.posValid))
+            .map((epoch) => {
+                const dist = Epoch.haversine(refPos, epoch.fields);
+                return { epoch, dist }; 
+            });
+        const obj = (1 >= objs.length) ? objs[0] : objs
+            .reduce((prev, curr) => ((curr.dist < prev.dist) ? curr : prev)
+        );
+        return obj;
     }
 
     calcRefError(track /* = reference */ ) {
@@ -153,12 +170,13 @@ export class Track {
             datetime: { min:Infinity, max: -Infinity }
         };
         this.#collector = undefined;
-        Engine.parseReset();
+        this.#engine?.reset();
     }
 
     appendData(ubxString) {
-        Engine.parseAppend(ubxString);
-        let messages = Engine.parseMessages();
+        this.#engine ??= new Engine();
+        this.#engine.append(ubxString);
+        let messages = this.#engine.parse();
         if (messages.length) {
             messages.forEach( (message) => { 
                 this.appendMessage(message); 
@@ -338,13 +356,16 @@ export class Track {
         'fix', 'psm', 'power',
         'lat', 'lng', 'pAcc', 'hAcc',
         'height', 'msl', 'vAcc', 
-        'speed', 'gSpeed', 'sAcc', 'cAcc', 
-        'hDop', 'pDop', 'numSV', 
-        'pErr', 'hErr', 'vErr', 'sErr', 'gsErr',
+        'speed', 'gSpeed', 'sAcc',
+        'cog', 'cAcc', 
+        'distance',
+        'hDop', 'pDop',
+        'pErr', 'hErr', 'vErr', 'sErr', 'gsErr', 'cErr',
     ];
   
     // some protected local vars 
     #collector
+    #engine
     #keys
     #color
 }

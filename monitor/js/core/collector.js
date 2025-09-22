@@ -40,6 +40,7 @@ export class Collector {
         this.#completeDateTime(this.#fields);
         this.#completeLocation(this.#fields);
         this.#completeSpeed(this.#fields);
+        this.#completeCog(this.#fields);
         this.#completeHeight(this.#fields);
         const fieldEntries = Object.entries(this.#fields)
                 .filter( ([key, val]) => ( def(val) && keys.includes( key ) && (true !== FieldsReg[key]?.hide)) )
@@ -221,7 +222,14 @@ export class Collector {
                 fields.gSpeed = fields.spdKn * (1852.0 / 3600.0);
         }
         if (!def(fields.speed) && def(fields.gSpeed) && def(fields.velD)) {
-                fields.speed = Math.sqrt(fields.velD ** 2 + fields.gSpeed ** 2);
+            fields.speed = Math.sqrt(fields.velD ** 2 + fields.gSpeed ** 2);
+        }
+    }
+    
+    #completeCog(fields) {
+        // speed
+        if (!def(fields.cog) && def(fields.headMot)) {
+            fields.cog = fields.headMot;
         }
     }
     

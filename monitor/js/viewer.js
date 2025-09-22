@@ -16,17 +16,17 @@ http://www.apache.org/licenses/LICENSE-2.0
 
 "use strict";
 
-import { iconsExtend } from './app/icons.js';
-import { MapView } from './app/mapView.js';
-//import { MapView } from './app/olMapView.js';
-import { ChartView } from './app/chartView.js';
-import { TableView } from './app/tableView.js';
-import { PlacesManager } from './app/placesManager.js';
-import { TrimPlayer } from './app/trimPlayer.js';
-import { FileManager } from './app/fileManager.js';
+import { iconsExtend }      from './app/icons.js';
+import { MapView }          from './app/mapView.js';
+//import { MapView }        from './app/olMapView.js';
+import { ChartView }        from './app/chartView.js';
+import { TableView }        from './app/tableView.js';
+import { PlacesManager }    from './app/placesManager.js';
+import { TrimPlayer }       from './app/trimPlayer.js';
+import { FileManager }      from './app/fileManager.js';
 
-import { Track } from './core/track.js';
-import { Epoch } from './core/epoch.js';
+import { Track }            from './core/track.js';
+import { Epoch }            from './core/epoch.js';
 
 window.clickLink = function _clickLink(link) {
     let el = window.open(link, '_blank');
@@ -169,14 +169,14 @@ window.onload = function _onload() {
         // now we propagte the time bounds a global so we can reset the trim player
         config.timeBounds = fileManager.getTimeBounds()
         if (config.timeBounds[0] < config.timeBounds[1]) {
-            trimPlayer.setBounds(config.timeBounds);
             const inBounds = ((config.time[0] >= config.timeBounds[0]) && (config.time[1] <= config.timeBounds[1]))
             if (!inBounds) {
                 config.time = config.timeBounds;
             }
+            track.trim(config.time);
+            trimPlayer.setBounds(config.timeBounds);
             trimPlayer.setTrim(config.time);
             trimPlayer.setCurrent(config.time[0]);
-            track.trim(config.time);
             config.posBounds = fileManager.getPosBounds();
         }
 

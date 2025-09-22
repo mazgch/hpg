@@ -222,8 +222,9 @@ export const FieldsReg = Object.freeze( {
     velE       : new Field( 'NED east velocity',                     { unit:'m/s',     prec:3 } ),
     velD       : new Field( 'NED down velocity',                     { unit:'m/s',     prec:3 } ),
     heading    : new Field( 'Heading of motion 2-D',                 { unit:'degrees', prec:2 } ),
-    cogt       : new Field( 'Course over Ground',                    { unit:'degrees', prec:2 } ), // == heading
+    cog        : new Field( 'Course over Ground',                    { unit:'degrees', prec:2 } ), // == heading
     cAcc       : new Field( 'Heading accuracy estimate',             { unit:'degrees', prec:2 } ),
+    distance   : new Field( 'Odometer distance',                     { unit:'m',       prec:0 } ),
     numSV      : new Field( 'Number of Satellites',                  {                 prec:0 } ),
     gDop       : new Field( 'Geometric DOP',                         {                 prec:2 } ),
     pDop       : new Field( 'Position DOP',                          {                 prec:2 } ),
@@ -258,6 +259,7 @@ export const FieldsReg = Object.freeze( {
     pErr       : new Field( '3D reference offset',                   { unit:'m',       prec:3 } ),
     sErr       : new Field( 'Speed reference offset',                { unit:'m/s',     prec:3 } ),
     gsErr      : new Field( 'Ground speed reference offset',         { unit:'m/s',     prec:3 } ),
+    cErr       : new Field( 'Course over ground reference offset',   { unit:'deg',     prec:3 } ),
     power      : new Field( 'Power consumption',                     { unit:'mW',      prec:6 } ),
 } );
 

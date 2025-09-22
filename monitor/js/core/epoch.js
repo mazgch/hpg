@@ -26,6 +26,7 @@ export class Epoch {
             this.info = info;
         }
 
+        this.selTime = true;
         this.fixValid = def(fields.fix) && (fields.fix !== 'NO');
         this.posValid = this.fixValid && def(fields.lat) && def(fields.lng);
         this.fixGood = this.fixValid && (fields.fix !== 'BAD');
@@ -54,19 +55,16 @@ export class Epoch {
                 const diff = (nextEp.datetime - prevEp?.datetime);
                 if ((0 === dt) || (def(prevEp) && (0 !== diff))) {
                     const ratio = (0 === dt) ? 0 : (dt / diff);
-                    const keys = ['lat', 'lng', 'height', 'speed', 'gSpeed'];
+                    const keys = ['lat', 'lng', 'height', 'speed', 'gSpeed', 'cog'];
                     keys.forEach( key => {
-                        vals[key] = nextEp.fields[key] + ratio * (prevEp.fields[key] - nextEp.fields[key]);
+                        const nextVal = nextEp.fields[key];
+                        const prevVal = prevEp.fields[key];
+                        if (def(nextVal) && def(prevVal)) {
+                            vals[key] = nextVal + ratio * (prevVal - nextVal);
+                        }
                     });
                     if (this.posValid && Number.isFinite(vals.lat) && Number.isFinite(vals.lng)) {
-                        // haversine: calculate the great cicle in meters using between to lat/lng positions
-                        const R = 6371000; // Earth radius in meters
-                        const toRad = deg => deg * Math.PI / 180;
-                        const dLat = toRad(vals.lat - this.fields.lat);
-                        const dLng = toRad(vals.lng - this.fields.lng);
-                        const a = Math.sin(dLat/2) ** 2 +
-                                Math.cos(toRad(this.fields.lat)) * Math.cos(toRad(vals.lat)) * Math.sin(dLng/2)**2;
-                        vals.hErr = 2 * R * Math.asin(Math.sqrt(a));
+                        vals.hErr = Epoch.haversine(vals, this.fields);
                     }
                     if (Number.isFinite(this.fields.height) && Number.isFinite(vals.height)){
                         vals.vErr = Math.abs(this.fields.height - vals.height)
@@ -80,12 +78,16 @@ export class Epoch {
                     if (Number.isFinite(this.fields.gSpeed) && Number.isFinite(vals.gSpeed)){
                         vals.gsErr = Math.abs(this.fields.gSpeed - vals.gSpeed);
                     }
+                    if (Number.isFinite(this.fields.cog) && Number.isFinite(vals.cog)){
+                        const dCog = (this.fields.cog - vals.cog) % 360.0;
+                        vals.cErr = (dCog > 180.0) ? dCog - 360.0 : dCog;
+                    }
                 }
             }
         }
         
         // now write all the errors back or delete the previous
-        const errKeys = [ 'hErr', 'vErr', 'pErr', 'sErr', 'gsErr' ];
+        const errKeys = [ 'hErr', 'vErr', 'pErr', 'sErr', 'gsErr', 'cErr' ];
         errKeys.forEach(key => {
             if (Number.isFinite(vals[key]) && def(FieldsReg[key])) {
                 this.fields[key] = FieldsReg[key].format(vals[key]);
@@ -126,5 +128,18 @@ export class Epoch {
           }
         } );
         return table;
+    }
+
+    static haversine(posA, posB) {
+        // haversine: calculate the great cicle in meters using between to lat/lng positions
+        const R = 6371000; // Earth radius in meters
+        const toRad = deg => deg * Math.PI / 180;
+        const dLat = toRad(posA.lat - posB.lat);
+        const dLng = toRad(posA.lng - posB.lng);
+        const a = Math.sin(dLat/2) ** 2 +
+                Math.cos(toRad(posB.lat)) * 
+                Math.cos(toRad(posA.lat)) * 
+                Math.sin(dLng/2) ** 2;
+        return 2 * R * Math.asin(Math.sqrt(a));
     }
 }
