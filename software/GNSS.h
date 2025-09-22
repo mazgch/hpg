@@ -116,6 +116,10 @@ public:
       } 
       GNSS_CHECK_INIT;
       GNSS_CHECK(1) = rx.setAutoPVTcallbackPtr(onPVT);
+//#define GNNS_BASE
+#ifdef GNNS_BASE
+      GNSS_CHECK(11) = rx.setAutoNAVSVINcallbackPtr(onUBXNAVSVIN);
+#endif
       GNSS_CHECK(2) = rx.setVal(UBLOX_CFG_MSGOUT_UBX_NAV_PVT_I2C,        1, VAL_LAYER_RAM); // required for this app and the monitor web page
       // add some usefull messages to store in the logfile
       GNSS_CHECK(3) = rx.setVal(UBLOX_CFG_NMEA_HIGHPREC,                 1, VAL_LAYER_RAM); // make sure we enable extended accuracy in NMEA protocol
@@ -314,6 +318,44 @@ protected:
       saveGGA(ubxDataStruct);
     }
   }
+
+#ifdef GNSS_BASE
+  static void onUBXNAVSVIN(UBX_NAV_SVIN_data_t *ubxDataStruct) {
+    Gnss._onUBXNAVSVIN(ubxDataStruct);
+  }
+  void _onUBXNAVSVIN(UBX_NAV_SVIN_data_t *ubxDataStruct) {
+    bool enabled = Config.getValue(CONFIG_VALUE_NTRIP_SERVER).length() > 0;
+    static int valid = -1;
+    if (!ubxDataStruct->active && enabled) {
+      GNSS_CHECK_INIT;
+      GNSS_CHECK(1) = rx.setI2COutput(COM_TYPE_UBX | COM_TYPE_NMEA | COM_TYPE_RTCM3);
+      GNSS_CHECK(2) = rx.enableRTCMmessage(UBX_RTCM_1005, COM_PORT_I2C, 1);
+      bool useMSM7 = true; // false = MSM 4
+      GNSS_CHECK(3) = rx.enableRTCMmessage(useMSM7 ? UBX_RTCM_1077 : UBX_RTCM_1074, COM_PORT_I2C, 1); // GPS
+      GNSS_CHECK(4) = rx.enableRTCMmessage(useMSM7 ? UBX_RTCM_1087 : UBX_RTCM_1084, COM_PORT_I2C, 1); // GLONASS
+      GNSS_CHECK(5) = rx.enableRTCMmessage(useMSM7 ? UBX_RTCM_1097 : UBX_RTCM_1094, COM_PORT_I2C, 1); // Galileo
+//    GNSS_CHECK(5) = rx.enableRTCMmessage(useMSM7 ? UBX_RTCM_1107 : UBX_RTCM_1104, COM_PORT_I2C, 1); // SBAS
+//    GNSS_CHECK(5) = rx.enableRTCMmessage(useMSM7 ? UBX_RTCM_1117 : UBX_RTCM_1114, COM_PORT_I2C, 1); // QZSS
+      GNSS_CHECK(6) = rx.enableRTCMmessage(useMSM7 ? UBX_RTCM_1127 : UBX_RTCM_1124, COM_PORT_I2C, 1); // BeiDou
+//    GNSS_CHECK(6) = rx.enableRTCMmessage(useMSM7 ? UBX_RTCM_1137 : UBX_RTCM_1134, COM_PORT_I2C, 1); // IRNSS/NavIC
+      GNSS_CHECK(7) = rx.enableRTCMmessage(UBX_RTCM_1230, COM_PORT_I2C, 10);
+      GNSS_CHECK(8) = rx.enableSurveyMode(300, 2.000); // 300 sseconds, 2m, or use 86400, 2.000 for serious survey mode 
+      GNSS_CHECK_EVAL("enable");
+      log_i("Base station enabled");
+    } else if (ubxDataStruct->active && !enabled) {
+      log_i("Base station disabled");
+      GNSS_CHECK_INIT;
+      GNSS_CHECK(1) = rx.disableSurveyMode();
+      GNSS_CHECK_EVAL("disable");
+    } else if (ubxDataStruct->active && !ubxDataStruct->valid) {
+      log_i("Base station survey status: %ds %.3fm",ubxDataStruct->dur, 1e-4 * ubxDataStruct->meanAcc);
+    }
+    if (ubxDataStruct->valid != valid) {
+      log_i("Base station status valid=%d", ubxDataStruct->valid);
+      valid = ubxDataStruct->valid;
+    }
+  }
+#endif
 
   /** Construct a coarse GGA string form the PVT and safe it for use by the NTRIP clients.
    *  \param ubxDataStruct the UBX-NAV-PVT payload

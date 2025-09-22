@@ -18,6 +18,7 @@
 #define __BLUETOOTH_H__
 
 #include <NimBLEDevice.h>
+#include <cbuf.h> 
 
 /** Flag to select the BLE serial service
  *  true:  u-blox SPS service (SPS_SERVICE_UUID) 
@@ -178,8 +179,8 @@ protected:
    * \param pServer pointer to the server 
    */
   using NimBLEServerCallbacks::onConnect;
-  virtual void onConnect(NimBLEServer *pServer) {
-    log_i("connected");
+  virtual void onConnect(NimBLEServer *pServer, BLEConnInfo& connInfo) override {
+    log_i("connected %s", connInfo.getAddress().toString().c_str());
     connected = true;
   }
   
@@ -187,7 +188,7 @@ protected:
    * \param pServer pointer to the server 
    */
   using NimBLEServerCallbacks::onDisconnect;
-  virtual void onDisconnect(NimBLEServer *pServer) {
+  virtual void onDisconnect(NimBLEServer *pServer, BLEConnInfo& connInfo, int reason) override {
     log_i("disconnected");
     connected = pServer->getConnectedCount();
     // pServer->startAdvertising();
@@ -198,16 +199,16 @@ protected:
    * \param desc  the BLE GAP connection description 
    */
   using NimBLEServerCallbacks::onMTUChange;
-  virtual void onMTUChange(uint16_t MTU, ble_gap_conn_desc* desc) {
+  virtual void onMTUChange(uint16_t MTU, BLEConnInfo& connInfo) override {
     txSize = MTU - BLUETOOTH_MTU_OVERHEAD;
-    log_i("mtu %d for id %d", MTU, desc->conn_handle);
+    log_i("mtu %d for id %d", MTU, connInfo.getConnHandle());
   }
   
   /* Callback to inform about data receive 
    * \param pCharacteristic pointer to the characteristic 
    */
   using NimBLECharacteristicCallbacks::onWrite;
-  virtual void onWrite(BLECharacteristic *pCharacteristic) {
+  virtual void onWrite(BLECharacteristic *pCharacteristic, BLEConnInfo& connInfo) override {
     if (pCharacteristic) {
       if (pCharacteristic == creditsChar) {
         int8_t credits = pCharacteristic->getValue<uint8_t>();
@@ -242,7 +243,9 @@ protected:
   cbuf buffer;                     //!< Local circular buffer to keep the data until we can send it. 
   size_t txSize;                   //!< Requested max size of tx characteristics (depends on MTU from client)
   volatile int8_t txCredits;       //!< the number of packet credits we are allowed to send 
+public:
   volatile bool connected;         //!< True if a client is connected. 
+protected:
   BLECharacteristic *txChar;       //!< the TX characteristics of the Nordic BLE Uart / fifo characteristics of the u-blox BLE SPS service
   BLECharacteristic *rxChar;       //!< the RX characteristics of the Nordic BLE Uart / fifo characteristics of the u-blox BLE SPS service
   BLECharacteristic *creditsChar;  //!< the Credits characteristics of the u-blox BLE Uart

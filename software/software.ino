@@ -37,7 +37,7 @@
 // Library Manager:    http://librarymanager/All#ArduinoWebsockets   
 // Github Repository:  https://github.com/gilmaimon/ArduinoWebsockets
 
-// ArduinoJson by Benoit Blanchon, version 7.3.0
+// ArduinoJson by Benoit Blanchon, version 7.4.2
 // Library Manager:    http://librarymanager/All#ArduinoJson      
 // Github Repository:  https://github.com/bblanchon/ArduinoJson
 
@@ -49,14 +49,14 @@
 // Library Manager:   http://librarymanager/All#arduino-CAN
 // Github Repository: https://github.com/sandeepmistry/arduino-CAN
 
-// NimBLE-Arduino by h2zero, version 2.1.2
+// NimBLE-Arduino by h2zero, version 2.3.6
 // Library Manager:   http://librarymanager/All#NimBLE-Arduino
 // Github Repository: https://github.com/h2zero/NimBLE-Arduino
 
 // Sparkfun libraries
 //-------------------------------------------------------------------------------------
 
-// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.27
+// SparkFun u-blox GNSS Arduino Library by Sparkfun Electronics, version 2.2.28
 // Library Manager:    http://librarymanager/All#SparkFun_u-blox_GNSS_Arduino_Library
 // Github Repository:  https://github.com/sparkfun/SparkFun_u-blox_GNSS_Arduino_Library
 
