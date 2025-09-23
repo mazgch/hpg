@@ -359,7 +359,7 @@ export class Track {
         'speed', 'gSpeed', 'sAcc',
         'cog', 'cAcc', 
         'distance',
-        'hDop', 'pDop',
+        'numSV', 'hDop', 'pDop',
         'pErr', 'hErr', 'vErr', 'sErr', 'gsErr', 'cErr',
     ];
   
