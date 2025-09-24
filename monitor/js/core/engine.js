@@ -133,7 +133,7 @@ export class Engine {
                     prot = this.#protocols.length;
                 } else if ((Protocol.NOTFOUND !== end) && (end > ofs)) {
                     if (ofs > done)
-                        messages.push( ProtocolUnknown.process(buffer.slice(done,ofs), type) );
+                        messages.push( this.#protocolUnknown.process(buffer.slice(done,ofs), type) );
                     messages.push( this.#protocols[prot].process(buffer.slice(ofs,end), type) );
                     done = ofs = end;
                     prot = 0;
