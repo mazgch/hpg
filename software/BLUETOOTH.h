@@ -64,12 +64,13 @@ public:
    */
   void init(String name) {
     BLEDevice::init(std::string(name.c_str()));
-    NimBLEDevice::setPower(ESP_PWR_LVL_P9); /** +9db */
+    NimBLEDevice::setPower(9); /** +9db */
     NimBLEDevice::setMTU(BLUETOOTH_TX_SIZE + BLUETOOTH_MTU_OVERHEAD);
     BLEAdvertising *advertising = NULL;
     BLEServer *server = BLEDevice::createServer();    
     if (server) {
       server->setCallbacks(this); 
+      server->advertiseOnDisconnect(true);
       BLEService *service = server->createService(BLUETOOTH_SERVICE);
       if (service) {
         if (BLUETOOTH_SERVICE == SPS_SERVICE_UUID) {
@@ -161,8 +162,7 @@ protected:
           }
           xSemaphoreGive(mutex);
           if (0 < len) {
-            txChar->setValue(temp, len);
-            txChar->notify(true);
+            txChar->indicate(temp, len);
             wrote += len;
           }  
           vTaskDelay(BLUETOOTH_PACKET_DELAY); // Yield
@@ -217,8 +217,7 @@ protected:
           log_d("disconnect");
         } else if (SPS_CREDITS_DISCONNECT == txCredits) {
           // upon connection we send our credits 
-          creditsChar->setValue(SPS_CREDITS_MAX);
-          creditsChar->notify(true);
+          creditsChar->indicate(SPS_CREDITS_MAX);
           txCredits = credits;
           log_d("credits %d", txCredits);
         } else  {
@@ -231,8 +230,7 @@ protected:
         int read = GNSS_INJECT_BLUETOOTH(value.c_str(), value.length());
         if (creditsChar)  {
           // we consumed a packed, give a credit back
-          creditsChar->setValue(1);
-          creditsChar->notify(true);
+          creditsChar->indicate(SPS_CREDITS_ONE);
         }
         log_v("read %d bytes", read); /*unused*/(void)read;
       }
@@ -251,7 +249,8 @@ protected:
   BLECharacteristic *creditsChar;  //!< the Credits characteristics of the u-blox BLE Uart
  
   // SPS - u-blox Bluetooth Low Energy Serial Port Service
-  const int8_t SPS_CREDITS_MAX                = 32;   //!< the we can receive a lot of data, just set the max value, -1 means reject/disconnect 
+  const int8_t SPS_CREDITS_MAX                = 32; //!< the we can receive a lot of data, just set the max value, -1 means reject/disconnect 
+  const int8_t SPS_CREDITS_ONE                =  1; //!< give back one credit
   const int8_t SPS_CREDITS_DISCONNECT         = -1; //!< credit value that indicates a disconnect
   const char *SPS_SERVICE_UUID                = "2456e1b9-26e2-8f83-e744-f34f01e9d701"; //!< SPS UUID
   const char *SPS_FIFO_CHARACTERISTIC_UUID    = "2456e1b9-26e2-8f83-e744-f34f01e9d703"; //!< SPS FIFO UUID
