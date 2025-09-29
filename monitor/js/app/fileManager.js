@@ -220,7 +220,7 @@ export class FileManager {
 
     #calcRefErrors() {
         this.forEach((track) => {
-            track.calcRefError();
+            track.calcRefError(this.refTrack);
             this.#emit('update', track );
         })
     }
