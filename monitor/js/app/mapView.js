@@ -145,7 +145,7 @@ export class MapView {
         const curBounds = this.#getBounds();
         if (0 < latlngs.length) {
             const reqBounds = L.latLngBounds(latlngs).pad(0.2);
-            const maxZoom = curBounds ? Math.max(19, map.getZoom()) : 19;
+            const maxZoom = curBounds ? /*Math.max(19,*/ map.getZoom()/*)*/ : 19;
             if (curBounds?.contains(reqBounds)) {
                 const center = reqBounds.getCenter();
                 (pan ? map.panTo(center, maxZoom) : map.setView(center, maxZoom ));
