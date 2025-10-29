@@ -159,7 +159,9 @@ export class Field {
         } else if (0 < this.#prec) {
             number = Number(number.toFixed(this.#prec));
         } else {
-            number = number.toFixed(13).replace(/^([.\d]*[1-9])[.0]*$/,"$1");
+            number = number.toFixed(13)
+                           .replace(/(\.\d*?[1-9])0+$/, "$1")
+                           .replace(/\.0+$/, "");;
             number = Number(number)
         }
         return number;
