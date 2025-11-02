@@ -106,3 +106,80 @@ export function isGzip(value) {
         (value[0] === 0x1f) && (value[1] === 0x8b);
 }
 
+export const GNSS_LUT = {
+    GPS     : { flag:'🇺🇸', ch:'G', sv:[1, 32], sbas:[33,64],
+                sig:{ '1':'L1 C/A',
+                      '4':'L2P(Y)',
+                      '5':'L2C-M',
+                      '6':'L2C-L',
+                      '7':'L5-I',
+                      '8':'L5-Q',
+                      '9':'L1C' } }, 
+    GLONASS : { flag:'🇷🇺', ch:'R', sv:[65,99], sbas:[33,64],
+                sig:{ '1':'L1 C/A',
+                      '3':'L2 OF' } }, 
+    Galileo : { flag:'🇪🇺', ch:'E', sv:[1, 36], sbas:[37,64],
+                sig:{ '1':'E5a',
+                      '2':'E5b',
+                      '7':'E1' } },
+    BeiDou  : { flag:'🇨🇳', ch:'B', sv:[1, 63], // aka BDS 
+                sig:{ '1':'B1I',
+                      '3':'B1C',
+                      '5':'B2a' } },
+    // regional systems
+    NavIC   : { flag:'🇮🇳', ch:'N', sv:[1, 14], // Indian Regional Navigation Satellite System (aka NavIC)
+                sig:{ '1':'L5 A' } }, 
+    QZSS    : { flag:'🇯🇵', ch:'Q', sv:[1, 10], // Quasi-Zenith Satellite System  PRN 183, 184/196, 189/197, 185/200
+                sig:{ '1':'L1 C/A',
+                      '4':'LIS',
+                      '5':'L2 CM',
+                      '6':'L2 CL',
+                      '7':'L5 I',
+                      '8':'L5 Q' } }, 
+    // IMES    : { flag:'🇯🇵', ch:'Q', sig:{ '1':'L1 C/A' } }, // Japanese Indoor Messaging System 
+    // Augmentation systems
+    WAAS    : { flag:'🇺🇸', ch:'S', sig:{ '1':'L1 C/A' } }, // Wide Area Augmentation System
+    SDCM    : { flag:'🇷🇺', ch:'S', sig:{ '1':'L1 C/A' } }, // System for Differential Corrections and Monitoring
+    EGNOS   : { flag:'🇪🇺', ch:'S', sig:{ '1':'L1 C/A' } }, // European Geostationary Navigation Overlay Service
+    GAGAN   : { flag:'🇮🇳', ch:'S', sig:{ '1':'L1 C/A' } }, // GPS Aided Geo Augmented Navigation
+    MSAS    : { flag:'🇯🇵', ch:'S', sig:{ '1':'L1 C/A' } }, // Multi-functional Satellite Augmentation System
+    NSAS    : { flag:'🇳🇬', ch:'S', sig:{ '1':'L1 C/A' } }, // Nigerian Satellite Augmentation System
+    GATBP   : { flag:'🇦🇺', ch:'S', sig:{ '1':'L1 C/A' } }, // Geoscience Australia (SBAS) Test-Bed Project
+    BDSBAS  : { flag:'🇨🇳', ch:'S', sig:{ '1':'L1 C/A' } }, // BeiDou Satellite Based Augmentation System
+    KAAS    : { flag:'🇰🇷', ch:'S', sig:{ '1':'L1 C/A' } }, // South Korea Area Augmentation System
+    SBAS    : { flag:'🏳️', ch:'S', sig:{ '1':'L1 C/A' },
+                map:{ // https://media.defense.gov/2018/Aug/07/2001951699/-1/-1/1/L1%20CA%20PRN%20CODE%20ASSIGNMENTS%20JULY%202018.PDF
+                        // PRN  System      Satellite      Orbital Slot    Effective Date
+                        120:'EGNOS',  // INMARSAT 3F2         15.5 W    Current
+                        121:'EGNOS',  // INMARSAT 3F5           25 E    Active until Apr 2024
+                        122:'GATBP',  // INMARSAT 4F1        143.5 E    Active until Jan 2019
+                        123:'EGNOS',  // ASTRA 5B             31.5 E    Active until Nov 2021
+                        124:'EGNOS',  // Reserved                       Active until Apr 2024
+                        125:'SDCM',   // Luch-5A                16 W    Active until Dec 2021
+                        126:'EGNOS',  // INMARSAT 4F2           25 E    Active until Apr 2019
+                        127:'GAGAN',  // GSAT-8                 55 E    Active until Sep 2020
+                        128:'GAGAN',  // GSAT-10                83 E    Active until Sep 2020
+                        129:'MSAS',   // MTSAT-2               145 E    Active until Jan 2020
+                        130:'BDSBAS', // G6                     80 E    Active until Oct 2020
+                        131:'WAAS',   // Eutelsat 117WB        117 W    Active until Mar 2028
+                        132:'GAGAN',  // GSAT-15              93.5 E    Active until Nov 2025
+                        133:'WAAS',   // INMARSAT 4F3           98 W    Active until Oct 2029
+                        134:'KAAS',   // INMARSAT 5F3          178 E    Active until Jun 2021
+                        135:'WAAS',   // Intelsat Galaxy 15    133 W    Active until Jul 2019
+                        136:'EGNOS',  // ASTRA 4B                5 E    Active until Nov 2021
+                        137:'MSAS',   // MTSAT-2               145 E    Active until Jan 2020
+                        138:'WAAS',   // ANIK-F1R              107.3    Active until Jul 2022
+                        // more
+                        140:'SDCM',   // Luch-5B                95 E    Active until Dec 2021
+                        141:'SDCM',   // Luch-4                167 E    Active until Dec 2021
+                        143:'BSSBAS', // G3                   110.5E    Active until Dec 2020
+                        144:'BSSBAS', // G1                    140 E    Active until Dec 2020
+                        147:'NSAS',   // NIGCOMSAT-1R         42.5 E    Active until Oct 2018
+                        148:''    ,   // ALCOMSAT-1           24.8 W    Active until Jan 2019
+                    }, },
+    PointPerfect : { flag:'🏳️', ch:'PP', 
+                        freq: {
+                        eu: 1545260000,
+                        us: 1556290000,
+                        } },
+};

@@ -132,7 +132,7 @@ export class Track {
             const fields = Object.fromEntries(
                 Object.entries(epoch.fields)
                     .filter( ([key, val]) => (this.#keys.includes(key)) ));
-            epoch = new Epoch( fields, epoch.info );
+            epoch = new Epoch( fields, epoch.svs, epoch.info );
             this.add(epoch);
         });
         if (0 === this.epochs.length) {
@@ -170,6 +170,8 @@ export class Track {
             datetime: { min:Infinity, max: -Infinity }
         };
         this.#collector = undefined;
+        this.#offsetFile = 0;
+        this.#offsetEpoch = 0;
         this.#engine?.reset();
     }
 
@@ -188,9 +190,13 @@ export class Track {
         this.#collector ??= new Collector();
         if (this.#collector.check(message)) {
             const epoch = this.#collector.collect( this.#keys );
+            epoch.fields.epOfs = this.#offsetEpoch;
+            epoch.fields.epSz = this.#offsetFile - this.#offsetEpoch;
+            this.#offsetEpoch = this.#offsetFile;
             this.#collector.clear();
             this.add(epoch);
         }
+        this.#offsetFile += message.data.length;
         this.#collector.merge(message);
         this.#collectInfo(message);
     }
@@ -359,12 +365,15 @@ export class Track {
         'speed', 'gSpeed', 'sAcc',
         'cog', 'cAcc', 
         'distance',
-        'numSV', 'hDop', 'pDop',
+        'numSV', 'trkSV', /*'posSV', */'trkSig', 'cnoLev', 'hDop', 'pDop',
         'pErr', 'hErr', 'vErr', 'sErr', 'gsErr', 'cErr',
+        'epOfs','epSz',
     ];
   
     // some protected local vars 
     #collector
+    #offsetFile
+    #offsetEpoch 
     #engine
     #keys
     #color

@@ -145,12 +145,16 @@ export class FileManager {
 
     clear() {
         log('FileManager clear');
+        const remTracks = [];
         this.tracks.forEach((track, ix) => {
-            this.#emit('remove', track);
+            remTracks.push(track);
         });
         delete this.refTrack;
         this.tracks.length = 0;
         this.#renderChips();
+        remTracks.forEach((track) => {
+            this.#emit('remove', track);
+        });
     }
 
     async progress(track, cnt, size, infCnt) { 
@@ -204,11 +208,11 @@ export class FileManager {
             this.tracks.splice(ix, 1);
             this.#renderChips();
             this.#hidePopup();
-            this.#emit('remove', track);
             if (track === this.refTrack) {
                 delete this.refTrack;
                 this.#calcRefErrors();
             }
+            this.#emit('remove', track);
         }
     }
 
@@ -307,6 +311,7 @@ export class FileManager {
                 json.fields[key] = epoch.fields[key];
             }
         });
+        if (epoch.svs)  json.svs = epoch.svs;
         if (epoch.info) json.info = epoch.info;
         return json;
     }

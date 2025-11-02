@@ -20,8 +20,9 @@ import { def } from './utils.js';
 import { FieldsReg } from './fieldsReg.js'
 
 export class Epoch {
-    constructor(fields, info) {
+    constructor(fields, svs, info) {
         this.fields = fields;
+        this.svs = svs;
         if (Array.isArray(info) && (0 < info?.length)) {
             this.info = info;
         }

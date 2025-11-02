@@ -195,6 +195,8 @@ const MAP = Object.freeze( {
 } );
 
 export const FieldsReg = Object.freeze( {
+    epOfs      : new Field( 'Epoch file offset',                     { unit:'bytes',   prec:0 } ),
+    epSz       : new Field( 'Epoch size',                            { unit:'bytes',   prec:0 } ),
     date       : new FieldDate( 'Date UTC',                          { unit:'yyyy-mm-dd'      } ),
     time       : new FieldTime( 'Time UTC',                          { unit:'hh:mm:ss.sss'    } ),
     wno        : new Field( 'GPS week number',                       { unit:'s',       prec:3, hint:'weeks since 1980-01-06 modulo 1024' } ),
@@ -225,7 +227,11 @@ export const FieldsReg = Object.freeze( {
     cog        : new Field( 'Course over Ground',                    { unit:'degrees', prec:2 } ), // == heading
     cAcc       : new Field( 'Heading accuracy estimate',             { unit:'degrees', prec:2 } ),
     distance   : new Field( 'Odometer distance',                     { unit:'m',       prec:0 } ),
-    numSV      : new Field( 'Number of Satellites',                  {                 prec:0 } ),
+    numSV      : new Field( 'Satellites used',                       {                 prec:0 } ),
+    trkSV      : new Field( 'Satellites tracked',                    {                 prec:0 } ),
+    posSV      : new Field( 'Satellites azimuth & elevation',        { unit:'degrees', prec:0 } ),
+    trkSig     : new Field( 'Signals tracked',                       {                 prec:0 } ),
+    cnoLev     : new Field( 'C/N0 levels',                           { unit:'dBHz',           } ),
     gDop       : new Field( 'Geometric DOP',                         {                 prec:2 } ),
     pDop       : new Field( 'Position DOP',                          {                 prec:2 } ),
     hDop       : new Field( 'Horizontal DOP',                        {                 prec:2 } ),

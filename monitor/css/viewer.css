@@ -155,12 +155,15 @@
 
 .xscroll table {
   width: 100%;
+  table-layout: fixed;
 }
 
 .xscroll th,
 .xscroll td {
   white-space: nowrap;
   background: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .xscroll th:first-child,

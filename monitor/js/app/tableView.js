@@ -40,6 +40,7 @@ export class TableView {
         filteredTracks.forEach( (track) => {
             const thV = document.createElement('th');
             thV.className = 'right';
+            thV.style.maxWidth = '120px';
             thV.appendChild(track.nameHtml());
             tr.appendChild(thV);
         });
@@ -69,9 +70,28 @@ export class TableView {
                 tr.appendChild(tdName);
                 filteredTracks.forEach( (track) => {
                     const tdFormated = document.createElement('td');
-                    tdFormated.className = "right";
-                    if (def(track.currentEpoch?.fields?.[field])) {
-                        tdFormated.appendChild(reg.formatHtml(track.currentEpoch.fields[field]));
+                    if (field === 'cnoLev') {
+                        tdFormated.className = "center";
+                        tdFormated.style.width = "100px";
+                        tdFormated.style.height = "6em";
+                        tdFormated.style.padding = "2px";
+                        const canvas = document.createElement('canvas');
+                        this.chartSignalCn0(canvas, track.currentEpoch?.svs);
+                        tdFormated.appendChild(canvas);
+                    } else if (field === 'svPos') {
+                        tdFormated.className = "center";
+                        tdFormated.style.width = "100px";
+                        tdFormated.style.height = "100px";
+                        tdFormated.style.padding = "2px";
+                        const canvas = document.createElement('canvas');
+                        this.chartSatellitePositions(canvas, track.currentEpoch?.svs);
+                        tdFormated.appendChild(canvas);
+                    } else {
+                        tdFormated.className = "right";
+                        if (def(track.currentEpoch?.fields?.[field])) {
+                            const html = reg.formatHtml(track.currentEpoch.fields[field]);
+                            tdFormated.appendChild(html);
+                        }
                     }
                     tr.appendChild(tdFormated);
                 } );
@@ -82,6 +102,63 @@ export class TableView {
             }
         } );
         this.#container.replaceChildren(thead, tbody);
+    }
+
+    chartSignalCn0(canvas, svs) {
+        const labels = [];
+        const values = [];
+        const colors = [];
+        Object.entries(svs).forEach(([sv, it]) => {
+            const color = it.used ? "rgba(0,200,0,0.8)" : "rgba(0,100,255,0.8)"
+            if (typeof it.cno === 'object') {
+                Object.entries(it.cno).forEach(([sig, cno]) => {
+                    if (0 < cno) {
+                        labels.push(sv + ' ' + sig);
+                        values.push(cno);
+                        colors.push(color);
+                    }
+                });
+            } else if (0 < it.cno) {
+                labels.push(sv);
+                values.push(it.cno);
+                colors.push(color);
+            }
+        });
+        new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [ { data: values, backgroundColor: colors }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                transitions: { active: { animation: false } },
+                scales: {
+                    x: { display: false },
+                    y: { display: true, min: 0, max: 55, step:5,
+                         ticks: { font: { size: 8 } }, 
+                         grid: { drawTicks: false, } 
+                       }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        usePointStyle: false, displayColors: false,
+                        backgroundColor: 'rgba(245,245,245,0.8)',
+                        titleColor: '#000', titleFont: { size: 10 },
+                        bodyColor: '#000', bodyFont: { size: 10 },
+                        borderColor: '#888', borderWidth: 1, cornerRadius: 0,
+                        callbacks: { label: (ctx) => `${ctx.parsed.y} dB-Hz` }
+                    }
+                }
+            }
+        });
+    }
+
+    chartSatellitePositions(canvas, svs) {
+        
     }
 
     // ===== Save Restore API =====

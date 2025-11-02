@@ -328,7 +328,7 @@ export class ProtocolUbx extends Protocol {
                         { name:'gnssId',            type:'U1'                           },
                         { name:'svId',              type:'U1'                           }, // U:Used, e:Ephemeris but not used, -:Not used
                         { name:'cno',               type:'U1',             unit:'dBHz'  },
-                        { name:'elv',               type:'I1',             unit:'deg'   },
+                        { name:'elev',              type:'I1',             unit:'deg'   },
                         { name:'azim',              type:'I2',             unit:'deg'   },
                         { name:'prRes',             type:'I2', scale:0.1,  unit:'m'     },
                         { name:'flags',             spec: [
@@ -352,6 +352,33 @@ export class ProtocolUbx extends Protocol {
                             { name:'doCorrUsed',    type:'x1'                           },
                             { name:'clasCorrUsed',  type:'x1'                           },
                             {                       type:'x8'                           } ] } ] } ] },
+        'UBX-NAV-SIG': {
+            descr: 'Signal information',
+            spec:[  { name:'itow',                  type:'U4', scale:1e-3, unit:'s'     },
+                    { name:'version',               type:'U1'                           },
+                    { name:'numSigs',               type:'U1'                           },
+                    {                               type:'U1[2]'                        },
+                    { name:'sigs', repeat:'numSigs',  spec: [ 
+                        { name:'gnssId',            type:'U1'                           },
+                        { name:'svId',              type:'U1'                           }, 
+                        { name:'sigId',             type:'U1'                           },
+                        { name:'freqId',            type:'U1'                           },
+                        { name:'prRes',             type:'I2', scale:0.1,  unit:'m'     },
+                        { name:'cno',               type:'U1',             unit:'dBHz'  },
+                        { name:'qualityInd',        type:'U1'                           },
+                        { name:'corrSource',        type:'U1'                           },
+                        { name:'ionoModel',         type:'U1'                           },
+                        { name:'sigFlags',         spec: [
+                            { name:'healthy',       type:'x2'                           },
+                            { name:'prSmoothed',    type:'x1'                           },
+                            { name:'prUsed',        type:'x1'                           },
+                            { name:'crUsed',        type:'x1'                           },
+                            { name:'doUsed',        type:'x1'                           },
+                            { name:'prCorrUsed',    type:'x1'                           },
+                            { name:'crCorrUsed',    type:'x1'                           },
+                            { name:'doCorrUsed',    type:'x1'                           },
+                            {                       type:'x7'                           } ] },
+                        {                           type:'U1[4]'                        } ] } ] },
     // RXM ------------
         'RXM-COR': { 
             descr:  'Differential correction input status',
@@ -652,7 +679,7 @@ const mapMsg = {
                     0x20:'TIMEGPS',   0x21:'TIMEUTC',   0x22:'CLOCK',     0x23:'TIMEGLO',   0x24:'TIMEBDS',
                     0x25:'TIMEGAL',   0x26:'TIMELS',    0x30:'SVINFO',    0x31:'DGPS',      0x32:'SBAS',
                     0x34:'ORB',       0x35:'SAT',       0x39:'GEOFENCE',  0x3B:'SVIN',      0x3C:'RELPOSNED',
-                    0x42:'SLAS',      0x60:'AOPSTATUS', 0x61:'EOE',       0x62:'PL' },
+                    0x42:'SLAS',      0x43:'SIG',       0x60:'AOPSTATUS', 0x61:'EOE',       0x62:'PL' },
     0x02/*RXM*/: {  0x13:'SFRBX',     0x14:'MEASX',     0x15:'RAWX',      0x20:'SVSI',      0x32:'RTCM',
                     0x34:'COR',       0x41:'PMREQ',     0x61:'IMES',      0x59:'RLM',       0x72:'PMP',
                     0x73:'QZSSL6', },
