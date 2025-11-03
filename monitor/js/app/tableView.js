@@ -72,20 +72,24 @@ export class TableView {
                     const tdFormated = document.createElement('td');
                     if (field === 'cnoLev') {
                         tdFormated.className = "center";
-                        tdFormated.style.width = "100px";
-                        tdFormated.style.height = "6em";
-                        tdFormated.style.padding = "2px";
-                        const canvas = document.createElement('canvas');
-                        this.chartSignalCn0(canvas, track.currentEpoch?.svs);
-                        tdFormated.appendChild(canvas);
+                        if (def(track.currentEpoch?.svs)) {
+                            tdFormated.style.width = "100px";
+                            tdFormated.style.height = "6em";
+                            tdFormated.style.padding = "2px";
+                            const canvas = document.createElement('canvas');
+                            this.chartSignalCn0(canvas, track.currentEpoch?.svs);
+                            tdFormated.appendChild(canvas);
+                        }
                     } else if (field === 'svPos') {
                         tdFormated.className = "center";
-                        tdFormated.style.width = "100px";
-                        tdFormated.style.height = "100px";
-                        tdFormated.style.padding = "2px";
-                        const canvas = document.createElement('canvas');
-                        this.chartSatellitePositions(canvas, track.currentEpoch?.svs);
-                        tdFormated.appendChild(canvas);
+                        if (def(track.currentEpoch?.svs)) {
+                            tdFormated.style.width = "100px";
+                            tdFormated.style.height = "100px";
+                            tdFormated.style.padding = "2px";
+                            const canvas = document.createElement('canvas');
+                            this.chartSatellitePositions(canvas, track.currentEpoch.svs);
+                            tdFormated.appendChild(canvas);
+                        }
                     } else {
                         tdFormated.className = "right";
                         if (def(track.currentEpoch?.fields?.[field])) {
@@ -158,7 +162,7 @@ export class TableView {
     }
 
     chartSatellitePositions(canvas, svs) {
-        
+
     }
 
     // ===== Save Restore API =====

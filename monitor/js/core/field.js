@@ -85,13 +85,13 @@ export class Field {
     formatHtml(val) {
         const el = document.createElement('span');
         const hint = this.hint(val);
-        hint && (el.title = hint);
+        def(hint) && (el.title = hint);
         const elColor = this.colorHtml(val);
-        const formated = this.format(val);
-        if (elColor) {
+        if (def(elColor)) {
             el.appendChild(elColor);
         }
-        formated && el.appendChild(document.createTextNode(` ${formated} `));
+        const formated = this.format(val);
+        def(formated) && el.appendChild(document.createTextNode(` ${formated} `));
         return el;
     }
     
