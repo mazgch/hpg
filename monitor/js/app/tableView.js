@@ -297,9 +297,10 @@ export class TableView {
 
         Object.entries(svs).forEach(([sv, i]) => {
             if (def(i.res) && def(i.az) && def(i.el)) {
-                const rad = i.az * Math.PI / 180;
+                const colRes = (i.res < 0) ? 'rgba(0,0,255,0.8)' : 'rgba(255,0,0,0.8)';
+                const rad = (i.res < 0 ? Math.PI : 0) + i.az * Math.PI / 180;
                 const res = Number((Math.cos(i.el * Math.PI / 180) * i.res).toFixed(1));
-                const resLog = Math.max(0, Math.min(dec, (1 + Math.log10(res)))) * r / dec;
+                const resLog = Math.max(0, Math.min(dec, (1 + Math.log10(Math.abs(res))))) * r / dec;
                 const color = i.used ? 'rgba(0,200,0,0.8)' : 'rgba(0,100,255,0.8)';
                 const cx = c.x + resLog * Math.sin(rad);
                 const cy = c.y - resLog * Math.cos(rad);
@@ -334,6 +335,7 @@ export class TableView {
                     });
                 svg.append("line")
                 .attr("class", "svRes")
+                .attr("stroke", colRes)
                 .attr("x1", c.x)
                 .attr("y1", c.x)
                 .attr("x2", cx)

@@ -379,7 +379,7 @@ export class Collector {
             s.az = az;
             s.el = el;
         }
-        if (def(res) && (0 < res)) { s.res = Number(res.toFixed(1)); }         
+        if (def(res)) { s.res = Number(res.toFixed(1)); }         
         if (def(cno) && (0 < cno)) {
             // make it an object if there is a signal 
             if (def(sig)) {

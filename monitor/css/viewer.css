@@ -196,7 +196,7 @@
 /* svg satellite positions */
 .svDot { stroke: #fff; opacity: 0.8; stroke-width: 1px; }
 .svGrid { stroke: #ccc; stroke-width: 0.5; }
-.svRes { stroke: #c00; stroke-width: 1; }
+.svRes { stroke-width: 1; }
 .svToolTip {
   position: absolute;
   background: rgba(255,255,255,0.8);
