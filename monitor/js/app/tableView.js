@@ -154,7 +154,7 @@ export class TableView {
                         titleColor: '#000', titleFont: { size: 10 },
                         bodyColor: '#000', bodyFont: { size: 10 },
                         borderColor: '#888', borderWidth: 1, cornerRadius: 0,
-                        callbacks: { label: (ctx) => `${ctx.parsed.y} dB-Hz` }
+                        callbacks: { label: (ctx) => `${ctx.parsed.y} dBHz` }
                     }
                 }
             }
