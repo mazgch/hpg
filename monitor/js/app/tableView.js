@@ -296,7 +296,7 @@ export class TableView {
         });
 
         Object.entries(svs).forEach(([sv, i]) => {
-            if (def(i.res) && def(i.az) && def(i.el)) {
+            if (def(i.res) && def(i.az) && def(i.el) && (i.res !== 0)) {
                 const colRes = (i.res < 0) ? 'rgba(0,0,255,0.8)' : 'rgba(255,0,0,0.8)';
                 const rad = (i.res < 0 ? Math.PI : 0) + i.az * Math.PI / 180;
                 const res = Number((Math.cos(i.el * Math.PI / 180) * i.res).toFixed(1));
