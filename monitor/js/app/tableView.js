@@ -178,10 +178,9 @@ export class TableView {
     }
 
     chartSatellitePositions(svs) {
-        const w = 100, h = 100;
+        const w = 100, h = 100, d = 3;
         const c = { x: w / 2, y: h / 2 };
-        const r = Math.min(w, h) / 2;
-        const d = r / 15;
+        const r = Math.min(w, h) / 2 - d;
         const svg = d3.create("svg")
             .attr("width", w)
             .attr("height", h);
@@ -229,7 +228,6 @@ export class TableView {
                     (0 < cnoTxt.length) ? 'rgba(0,100,255,0.8)' : 
                                           'rgba(255,0,0,0.8)';
                 svg.append("circle")
-                    .attr("class", "svDot")
                     .attr("r", d)
                     .attr("fill", color)
                     .attr("cx", c.x + rs(i.el) * Math.sin(rad))
@@ -263,15 +261,14 @@ export class TableView {
     }
 
     chartSatelliteResiduals(svs) {
-        const w = 100, h = 100;
+        const w = 100, h = 100, d = 3;
         const c = { x: w / 2, y: h / 2 };
-        const r = Math.min(w, h) / 2;
-        const d = r / 15;
+        const r = Math.min(w, h) / 2 - d;
         const svg = d3.create("svg")
             .attr("width", w)
             .attr("height", h);
 
-        const dec = 2
+        const dec = 3
         // Draw res lines 0, 1, 10, 100
         const elGrd = d3.range(0, dec+1, 1);
         elGrd.forEach(i => {
@@ -305,13 +302,13 @@ export class TableView {
                 const cx = c.x + resLog * Math.sin(rad);
                 const cy = c.y - resLog * Math.cos(rad);
                 svg.append("circle")
-                    .attr("class", "svDot")
                     .attr("r", d)
                     .attr("fill", color)
+                    .attr("stroke", color)
                     .attr("cx", cx)
                     .attr("cy", cy)
                     .on("mouseover", (evt) => {
-                        const hint = `<strong>${sv}</strong><br>Residual: ${i.res} m<br>Residual 2D: ${res} m<br>Azimuth: ${i.az} degrees<br>Elevation: ${i.el} degrees`;
+                        const hint = `<strong>${sv}</strong><br>Residual: ${i.res} m<br>Residual 2D proj.: ${res} m<br>Azimuth: ${i.az} degrees<br>Elevation: ${i.el} degrees`;
                         const tip = d3.select("body")
                             .append("div")
                             .attr("class", "svToolTip")
