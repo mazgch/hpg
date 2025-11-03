@@ -365,7 +365,9 @@ export class Track {
         'speed', 'gSpeed', 'sAcc',
         'cog', 'cAcc', 
         'distance',
-        'numSV', 'trkSV', /*'posSV', */'trkSig', 'cnoLev', 'hDop', 'pDop',
+        'cnoLev', 'numSV', 'trkSV', 'trkSig', 
+        'posSV', 'hDop', 'pDop',
+        'resSV',
         'pErr', 'hErr', 'vErr', 'sErr', 'gsErr', 'cErr',
         'epOfs','epSz',
     ];

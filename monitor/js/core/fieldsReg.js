@@ -227,11 +227,11 @@ export const FieldsReg = Object.freeze( {
     cog        : new Field( 'Course over Ground',                    { unit:'degrees', prec:2 } ), // == heading
     cAcc       : new Field( 'Heading accuracy estimate',             { unit:'degrees', prec:2 } ),
     distance   : new Field( 'Odometer distance',                     { unit:'m',       prec:0 } ),
-    numSV      : new Field( 'Satellites used',                       {                 prec:0 } ),
+    cnoLev     : new Field( 'Satellite signal C/N0 levels',                 { unit:'dBHz',           } ),
+    trkSig     : new Field( 'Satellite signals tracked',                       {                 prec:0 } ),
     trkSV      : new Field( 'Satellites tracked',                    {                 prec:0 } ),
-    posSV      : new Field( 'Satellites azimuth & elevation',        { unit:'degrees', prec:0 } ),
-    trkSig     : new Field( 'Signals tracked',                       {                 prec:0 } ),
-    cnoLev     : new Field( 'C/N0 levels',                           { unit:'dBHz',           } ),
+    numSV      : new Field( 'Satellites used',                       {                 prec:0 } ),
+    posSV      : new Field( 'Satellite positions',                   { unit:'degrees', prec:0 } ),
     gDop       : new Field( 'Geometric DOP',                         {                 prec:2 } ),
     pDop       : new Field( 'Position DOP',                          {                 prec:2 } ),
     hDop       : new Field( 'Horizontal DOP',                        {                 prec:2 } ),
@@ -239,6 +239,7 @@ export const FieldsReg = Object.freeze( {
     nDop       : new Field( 'Northing DOP',                          {                 prec:2 } ),
     eDop       : new Field( 'Easting DOP',                           {                 prec:2 } ),
     tDop       : new Field( 'Time DOP',                              {                 prec:2 } ),
+    resSV      : new Field( 'Satellite range residuals',             { unit:'m (log)', prec:1 } ),
     plPosValid : new Field( 'Position protection level valid',       { map:MAP.bool,           hide:true } ), // assuming frame PL 3
     plPos1     : new Field( 'Position protection level major',       { unit:'m',       prec:3 } ),
     plPos2     : new Field( 'Position protection level minor',       { unit:'m',       prec:3 } ),

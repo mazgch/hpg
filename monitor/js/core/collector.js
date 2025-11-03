@@ -110,9 +110,9 @@ export class Collector {
             const svs = message.fields.svs;
             for (let s = 0; s < svs.length; s ++) {
                 const sv = svs[s];
-                const [sys, id, sig, used, cno, az, el] = this.#convertUbxSvId(sv.gnssId, sv.svId, undefined, sv.flags.svUsed, sv.cno, sv.elev, sv.azim);
+                const [sys, id, sig, used, cno, az, el] = this.#convertUbxSvId(sv.gnssId, sv.svId, undefined, sv.flags.svUsed, sv.cno, sv.azim, sv.elev);
                 if (def(cno) || def(az) || def(el)) {
-                    this.#svsSet(id, sig, used, cno, az, el);
+                    this.#svsSet(id, sig, used, cno, az, el, sv.prRes);
                 }
             }
         } else if ((message.id === 'NAV-SIG') && (0 < message.fields?.sigs?.length)){
@@ -121,7 +121,7 @@ export class Collector {
                 const sv = svs[s];
                 const [sys, id, sig, used, cno] = this.#convertUbxSvId(sv.gnssId, sv.svId, sv.sigId, sv.sigFlags.prUsed, sv.cno);
                 if (def(cno)) {
-                    this.#svsSet(id, sig, used, cno);
+                    this.#svsSet(id, sig, used, cno, undefined, undefined, sv.prRes);
                 }
             }
         } else if (message.protocol === 'NMEA') {
@@ -134,6 +134,13 @@ export class Collector {
                         const [sys, sv, nmeaSv, sig] = this.#convertNmeaSvId(fields.systemId, svs[s], talker, fields.signalId);
                         this.#svsSet(sv, sig, true);
                     }
+                }
+            } else if  ((message.id === 'GRS') && (0 < fields?.residual?.length)) {
+                const residuals = fields.residual;
+                for (let s = 0; s < residuals.length; s ++) {
+                    //TODO: need to map the ressidual to the id in GSA
+                    //const [sys, sv, nmeaSv, sig] = this.#convertNmeaSvId(fields.systemId, undefined, talker, fields.signalId);
+                    //this.#svsSet(sv, sig, undefined, undefined, undefined, undefined, residuals[s]);
                 }
             } else if  ((message.id === 'GSV') && (0 < fields?.svs?.length)) {
                 const svs = fields.svs;
@@ -363,7 +370,7 @@ export class Collector {
         return [ date, time.replace('Z', '') ];
     }    
 
-    #svsSet(sv, sig, used, cno, az, el) {
+    #svsSet(sv, sig, used, cno, az, el, res) {
         this.#svs[sv] ??= {};
         const s = this.#svs[sv];
         if (def(used)) s.used = used;
@@ -372,6 +379,7 @@ export class Collector {
             s.az = az;
             s.el = el;
         }
+        if (def(res) && (0 < res)) { s.res = Number(res.toFixed(1)); }         
         if (def(cno) && (0 < cno)) {
             // make it an object if there is a signal 
             if (def(sig)) {
@@ -422,7 +430,7 @@ export class Collector {
             }
             id = gnss.ch + id;
         }
-        const sig = GNSS_LUT[sys]?.sig[signalId] || '';
+        const sig = GNSS_LUT[sys]?.sig[signalId] || 'L1 C/A';
         return [ sys, id, nmea, sig ];
     }
 
@@ -470,7 +478,6 @@ export class Collector {
         }
         az = (az >=   0) && (az <= 360) ? az : undefined;
         el = (el >= -90) && (el <=  90) ? el : undefined;
-        
         sigId = def(sigId) ? sigId : undefined;
         // TODO convert to a real signal Id
         used = (0 < used) ? true : undefined;
