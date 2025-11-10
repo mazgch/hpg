@@ -26,12 +26,12 @@ export class ChartView {
         this.#container = container;
         this.#container.addEventListener('mouseout', (evt) => this.#updateAnnotation(evt));
     
-        const chartModeButtons = document.querySelectorAll("#chart_modes .overlay_button");
-        chartModeButtons.forEach(radio => {
+        this.#chartModeButtons = document.querySelectorAll("#chart_modes .overlay_button");
+        this.#chartModeButtons.forEach(radio => {
             radio.addEventListener("click", (evt) => {
                 evt.stopPropagation();
                 evt.preventDefault();
-                chartModeButtons.forEach(r => r.classList.remove("selected"));
+                this.#chartModeButtons.forEach(r => r.classList.remove("selected"));
                 radio.classList.add("selected");
                 modeSelect.value = radio.getAttribute("value");
                 this.configChange();
@@ -51,8 +51,8 @@ export class ChartView {
         this.#modeSelect = modeSelect;
         modeSelect.addEventListener("change", (evt) => {
             const mode = this.#modeSelect.value;
-            chartModeButtons.forEach(r => r.classList.remove("selected"));
-            const radio = Array.from(chartModeButtons)
+            this.#chartModeButtons.forEach(r => r.classList.remove("selected"));
+            const radio = Array.from(this.#chartModeButtons)
                 .find(r => (r.getAttribute("value") === mode));
             radio.classList.add("selected");
             this.configChange();
@@ -187,10 +187,14 @@ export class ChartView {
     setMode(mode) {
         const select = this.#modeSelect;
         const options = Array.from(select.options);
-        const value = options.find((opt) => (opt.value === mode))?.value;
-        if (def(value)) {
-            select.value = value;
+        const option = options.find((opt) => (opt.value === mode));
+        if (def(option)) {
+            select.value = mode;
         }
+        this.#chartModeButtons.forEach(r => r.classList.remove("selected"));
+        const radio = Array.from(this.#chartModeButtons)
+            .find(r => (r.getAttribute("value") === mode));
+        radio.classList.add("selected");
     }
 
     configChange() {
@@ -596,4 +600,5 @@ export class ChartView {
     #container
     #fieldSelect
     #modeSelect
+    #chartModeButtons
 }
