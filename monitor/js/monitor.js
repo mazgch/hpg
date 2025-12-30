@@ -59,6 +59,9 @@ window.onload = function _onload() {
         Device.deviceUninit();
     }
 
+    let el = document.getElementById('cmd_bluetooth');
+    el.style.display = navigator.bluetooth ? "block" : "none";
+    
     if (Chart !== undefined) {
         Chart.defaults.responsive = true; 
         Chart.defaults.layout.padding = { left: 10, right: 10, top: 10, bottom: 10 };
@@ -141,16 +144,17 @@ function httpGet(resolve, reject) {
 }
 
 const gnssLut = {
-    GPS     : { flag:'us', ch:'G', sv:[1, 32], sbas:[33,64],
+    GNSS    : { }, // old GN nmea
+    GPS     : { flag:'us', ch:'G', sv:[1, 32], 
                 sig:{ '1':'L1 C/A',
                       '5':'L2C-M',
                       '6':'L2C-L',
                       '7':'L5-I',
                       '8':'L5-Q' } }, 
-    GLONASS : { flag:'ru', ch:'R', sv:[65,99], sbas:[33,64],
+    GLONASS : { flag:'ru', ch:'R', sv:[65,99], 
                 sig:{ '1':'L1 OF',
                       '3':'L2 OF' } }, 
-    Galileo : { flag:'eu', ch:'E', sv:[1, 36], sbas:[37,64],
+    Galileo : { flag:'eu', ch:'E', sv:[1, 36], 
                 sig:{ '1':'E5 a',
                       '2':'E5 b',
                       '7':'E1 BC' } },
@@ -1271,8 +1275,12 @@ function nmeaSvsExtract(fields, talker) {
             if (i === undefined) i = '?';
             else if (gnssLut[s].sv && (i >= gnssLut[s].sv[0]) && (i <= gnssLut[s].sv[1])) {
                 i += 1 - gnssLut[s].sv[0];
-            } else if (gnssLut[s].sbas && (i >= gnssLut[s].sbas[0]) && (i <= gnssLut[s].sbas[1])) {
-                i += 120 - gnssLut[s].sbas[0];
+            // fallbacks
+            } else if ((i >= 1) && (i <= 32)) {
+                i += 1 - 1;
+                s = 'GPS';
+            } else if ((i >= 32) && (i <= 64)) {
+                i += 120 - 32;
                 s = gnssLut.SBAS.map[i];
                 if (!s) s = 'SBAS';
             } else if ((i >= 65) && (i <= 99)) {
@@ -1289,7 +1297,7 @@ function nmeaSvsExtract(fields, talker) {
             } else if ((i >= 301) && (i <= 336)) {
                 i += 1 - 301;
                 s = 'Galileo';
-            }
+            } 
             if (i === nmea) nmea = undefined;
             i = gnssLut[s].ch + i;
         }
@@ -1552,7 +1560,9 @@ function chartSvs(svdb) {
                         },
                         y: {
                             display: true,
-                            ticks: { min: 0, suggestedMax:40, stepSize:5, maxRotation:0, },
+                            min: 0, 
+                            suggestedMax: 40, 
+                            ticks: { stepSize:5, maxRotation:0, },
                             title: { display: true, text: 'C/N0 [dBHz]', fontStyle: 'bold', },
                             stacked: false, 
                         }

@@ -33,6 +33,7 @@ function action(task) {
         coldstart: function _coldstart() { sendUbx('CFG','RST','\xFF\xFF\x02\x00'); },
         list:      function _list()      { socketCommand('list'); },
         discover:  deviceDiscovery,
+        bluetooth: deviceBluetooth,
         settings:  deviceConfigPortal,
         identify:  deviceIdentification,
     };
@@ -115,38 +116,47 @@ function deviceInit(ip) {
     device.status = 'disconnected';
     if (matchIp != undefined) { // from url argument
         device.name = 'unknown';
-        device.ip =         matchIp[1];
-        device.ws = proto + matchIp[1] + ((matchIp[3] !== undefined) ? matchIp[3] : WEBSOCK_EXT);
-    } else if (json.ip !== undefined) { // from cookie argument
+        device.ip = matchIp[1];
+        device.url = proto + matchIp[1] + ((matchIp[3] !== undefined) ? matchIp[3] : WEBSOCK_EXT);
+    } else if (json.url !== undefined) { // from cookie argument
         device.name = json.name;
         device.ip = json.ip;
-        device.ws = json.ws.replace(/^wss?:\/\//, proto); // force matching protocol
+        device.url = json.url.replace(/^wss?:\/\//, proto); // force matching protocol
     } else {
         device.name = 'unknown';
         device.ip = window.location.hostname;
-        device.ws = proto + device.ip + WEBSOCK_EXT;
+        device.url = proto + device.ip + WEBSOCK_EXT;
     }
     USTART.statusLed('error');
     USTART.tableEntry('dev_name', device.name);
     USTART.tableEntry('dev_ip', device.ip);
-    if (window.WebSocket && (device.ws !== undefined) && (device.ws != '')) {
-        socketOpen(device.ws);
-    }
+    socketOpen(device.url);
     deviceStatusUpdate();
 }
 
 function deviceStatusUpdate() {
-    let status = 'closed';
-    if (device.socket !== undefined) {
-        status =    (device.socket.readyState == WebSocket.CONNECTING)  ? 'connecting' :
+    let status;
+    let ok = false; 
+    const m = device.url?.match(/^(ble|wss?):\/\/(.+)$/);
+    if (m[1] === 'ble') {
+        status = (!navigator.bluetooth)           ? 'unavailable' :
+                device.bluetooth?.gatt?.connected ? 'connected' :
+                device.bluetooth                  ? 'connecting' : 
+                                                    'disconnected';
+        ok = status === 'connected';
+    } else if ((m[1] === 'ws') || (m[1] === 'wss')) {
+        status =    !window.WebSocket || !device.socket                 ? 'unavailable' :
+                    (device.socket.readyState == WebSocket.CONNECTING)  ? 'connecting' :
                     (device.socket.readyState == WebSocket.OPEN)        ? 'open' :
                     (device.socket.readyState == WebSocket.CLOSING)     ? 'closing' :
-                    (device.socket.readyState == WebSocket.CLOSED)      ? 'closed' : 'unknown'
+                    (device.socket.readyState == WebSocket.CLOSED)      ? 'closed' : 
+                                                                          'unknown'
+        ok = status === 'open';
+    } else {
+        status = 'unknown';
     }
-    USTART.tableEntry('dev_socket', device.ws  + '  -  ' + status + '');
+    USTART.tableEntry('dev_socket', device.url  + '  -  ' + status + '');
     USTART.tableEntry('dev_status', device.status);
-    // show hide the window
-    const ok = device.socket && (device.socket.readyState == WebSocket.OPEN);
     if (ok) {
         // unhide all device elements
         let el = document.getElementById('tile_message');
@@ -193,7 +203,7 @@ function deviceDiscovery() {
         }
     }
 }
-
+ 
 let scaning = {};
 function testNet() {
     let format = /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.)(\d{1,3})\s*(-\s*(\d{1,3}))?(:\d{1,5})?(\/.+)?$/;
@@ -288,6 +298,19 @@ function testNet() {
         }
     }
 }
+
+async function deviceBluetooth() {
+    await socketClose();
+    navigator.bluetooth.requestDevice({
+        filters: [
+            { services: ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"] } // Nordic NUS
+        ],
+        optionalServices: []})
+        .then( socketBluetoothConnect )
+}
+
+// Socket
+// ------------------------------------------------------------------------------------
 
 var lutAtIdent = [
     { send:'I0',              match:'(.+)',           tab:['dev_typenum'], },
@@ -396,38 +419,91 @@ function deviceSendCommands(list) {
 
 var device = { name:'', ip:'', ws:'', status:'', ports_net:[], ports_hw:[] };
 
-function socketClose() {
+async function socketClose() {
 /*REMOVE*/ //console.log('socketClose');
     if (device.socket && (device.socket.readyState == WebSocket.OPEN)) {
         //device.status = 'closing';
         device.socket.close();
+        delete device.socket;
+    }
+    if (device.bluetooth) {
+        await device.notifyChar?.stopNotifications();
+        await device.bluetooth.gatt?.disconnect();
+        device.notifyChar?.removeEventListener('characteristicvaluechanged',onSocketMessage);
+        device.bluetooth?.removeEventListener('gattserverdisconnected', onSocketDisconnect);
+        delete device.notifyChar;
+        delete device.writeChar;
+        delete device.bluetooth;
     }
 }
 
 function socketOpen(url) {
 /*REMOVE*/ //console.log('socketOpen '+url);
     socketClose();
-    device.socket = new WebSocket(url);
-    if (device.socket) {
-        //device.status = 'opening';
-        device.socket.binaryType = "arraybuffer";
-        device.socket.addEventListener('open',      onSocketConnect );
-        device.socket.addEventListener('close',     onSocketDisconnect );
-        device.socket.addEventListener('error',     onSocketError );
-        device.socket.addEventListener('message',   onSocketMessage );
+    const m = url.match(/^(ble|wss?):\/\/(.+)$/);
+    if (navigator.bluetooth && (m[1] === 'ble')) {
+        // nothing to do
+    } else if (window.WebSocket && ((m[1] === 'ws') || (m[1] === 'wss'))) {
+        try {
+            device.socket = new WebSocket(url);
+        } catch (e) {
+            delete device.socket 
+        }
+        if (device.socket) {
+            //device.status = 'opening';
+            device.socket.binaryType = "arraybuffer";
+            device.socket.addEventListener('open',      onSocketConnect );
+            device.socket.addEventListener('close',     onSocketDisconnect );
+            device.socket.addEventListener('error',     onSocketError );
+            device.socket.addEventListener('message',   onSocketMessage );
+        }
     }
+}
+
+async function socketBluetoothConnect(ble) {
+    await socketClose();
+    
+    delete device.ip;
+    device.name = ble.name;
+    device.url = 'ble://' + btoa(ble.id);
+    USTART.tableEntry('dev_name', device.name);
+    deviceStatusUpdate();
+
+    const server = await ble.gatt.connect();
+    const services = await server.getPrimaryServices();
+    device.bluetooth = ble;
+    ble.addEventListener('gattserverdisconnected', onSocketDisconnect);
+    for (const svc of services) {
+        const chars = await svc.getCharacteristics();
+        for (const c of chars) {
+            const props = c.properties;
+            if (!device.writeChar && (props.write || props.writeWithoutResponse)) {
+                device.writeChar = c;
+            }
+            if (!device.notifyChar && props.notify) {
+                device.notifyChar = c;
+                await c.startNotifications();
+                c.addEventListener('characteristicvaluechanged', onSocketMessage);
+            }
+            if (device.writeChar && device.notifyChar) break;
+        }
+        if (device.writeChar && device.notifyChar) break;
+    }
+    onSocketConnect();
 }
 
 function onSocketConnect(e) {
 /*REMOVE*/ //console.log('onSocketConnect '+this.io.uri);
-    device.ws = e.currentTarget.url;
-    Console.debug('event', 'SOCKET', 'connected ' + device.ws);
+    if (e?.currentTarget?.url) { 
+        device.url = e.currentTarget.url;
+    }
+    Console.debug('event', 'SOCKET', 'connected ' + device.url);
     USTART.timeConnected = new Date();    
     device.status = 'connected';
     // update the cookie 
     let date = new Date();
     date.setFullYear(date.getFullYear()+10);
-    const cookie = { ip:device.ip, ws:device.ws, name:device.name, };
+    const cookie = { ip:device.ip, url:device.url, name:device.name, };
     document.cookie = 'device=' + JSON.stringify(cookie) + '; expires=' + date.toGMTString() + '; path=/';
     USTART.statusLed(/*clear*/);
     deviceStatusUpdate();
@@ -462,6 +538,9 @@ function onSocketError(evt) {
             device.timeout = undefined;
         }
     }
+    if (device.bluetooth) {
+        
+    } 
     if (device.socket) {
         device.socket.removeEventListener('open',     onSocketConnect );
         device.socket.removeEventListener('close',    onSocketDisconnect );
@@ -470,40 +549,46 @@ function onSocketError(evt) {
         try {
             device.socket.destroy()
         } catch (e) {}
-        device.socket.close() // we are done
-        device.socket = undefined;
+        device.socket.close(); // we are done
+        delete device.socket;
     }
-    if ((device.ws !== undefined) && (device.ws != '')) {
-        Console.debug('event', 'SOCKET', 'reconnecting ' + device.ws);
-        socketOpen(device.ws); // try to repoen 
+    if ((device.url !== undefined) && (device.url != '')) {
+        Console.debug('event', 'SOCKET', 'reconnecting ' + device.url);
+        socketOpen(device.url); // try to repoen 
         deviceStatusUpdate();
     }
 }
     
 function socketSend(messages){
-    if ((device.socket !== undefined) && (device.socket.readyState == WebSocket.OPEN)) {
-        Console.update(messages);
-        if (!Array.isArray(messages)) messages = [ messages ];
-        let len = 0;
-        for (let m = 0; m < messages.length; m ++) {
-            const message = messages[m];
-            USTART.updateStatus(message);
-            //  convert to binary
-            var data = new Uint8Array( message.data.length );
-            for ( var i = 0; i < data.length; ++i ) {
-                data[i] = message.data.charCodeAt(i);
-            }
-            device.socket.send(data.buffer);
-            len += message.data.length;
-        }
-        return len;
+    Console.update(messages);
+    if (!Array.isArray(messages)) {
+        messages = [ messages ];
     }
+    let len = 0;
+    for (let m = 0; m < messages.length; m ++) {
+        const message = messages[m];
+        USTART.updateStatus(message);
+        //  convert to binary
+        var data = new Uint8Array( message.data.length );
+        for ( var i = 0; i < data.length; ++i ) {
+            data[i] = message.data.charCodeAt(i);
+        }
+        if (device.writeChar !== undefined) {
+            device.writeChar.writeValue(data.buffer);
+        } else if ((device.socket !== undefined) && (device.socket.readyState == WebSocket.OPEN)) {
+            device.socket.send(data.buffer);
+        }
+        len += message.data.length;
+    }
+    return len;
 }
+
 // Protocol
 // ------------------------------------------------------------------------------------
 function onSocketMessage(evt) {
-    if (evt.data instanceof ArrayBuffer) {
-        const data = String.fromCharCode.apply(null, new Uint8Array(evt.data));
+    let data = evt.data/*socket*/ || evt.target?.value?.buffer/*bluetooth*/; 
+    if (data instanceof ArrayBuffer) {
+        data = String.fromCharCode.apply(null, new Uint8Array(data));
         if (data && (0 < data.length)) {
             USTART.statusLed('data');
             Engine.parseAppend(data);
@@ -518,13 +603,13 @@ function onSocketMessage(evt) {
                 } );
             }
         }
-    } else if (typeof(evt.data) == 'string') {
-        const m = evt.data.match(/^Connected to (hpg-[a-z0-9]{6})/)
+    } else if (typeof(data) == 'string') {
+        const m = data.match(/^Connected to (hpg-[a-z0-9]{6})/)
         if ((m != undefined) && (m.length == 2)) {
             device.name = m[1];
             USTART.tableEntry('dev_name', '<a target="_blank" href="http://'+device.ip+'">'+device.name+'</a>',true);
         }
-        Console.debug('event', 'TEXT', evt.data);
+        Console.debug('event', 'TEXT', data);
     }
     if (device.timeout) {
         clearTimeout(device.timeout);

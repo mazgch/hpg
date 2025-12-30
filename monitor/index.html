@@ -126,8 +126,7 @@
             </tr>
             <tr hidden><td>Device name</td>          <td class="dbvalue" id="dev_name"></td></tr>
             <tr>       <td>Device status</td>        <td class="dbvalue" id="dev_status"></td></tr>
-            <tr>       <td>Device IP</td>            <td class="dbvalue" id="dev_ip"></td></tr>
-            <tr>       <td>Device socket</td>        <td class="dbvalue" id="dev_socket"></td></tr>
+            <tr>       <td>Device connection</td>    <td class="dbvalue" id="dev_socket"></td></tr>
             <tr hidden><td>Technology</td>           <td class="dbvalue" id="dev_tech"></td></tr>
             <tr hidden><td>Product / series</td>     <td class="dbvalue" id="dev_prod"></td></tr>
             <tr hidden><td>Image</td>                <td class="dbvalue" id="dev_img"></td></tr>
@@ -151,9 +150,10 @@
             <tr hidden><td>Ethernet MAC address</td> <td class="dbvalue" id="dev_mac_eth"></td></tr>
           </table>
           <div class="overlay_ctrl" style="top:0.5em;right:0.5em;">
-            <div class="overlay_button" onclick="Device.action('discover');"  title="Discover devices in your local network"><i data-feather="search"></i></div>
-            <div class="overlay_button" onclick="Device.action('settings');"  title="Device Configuration Portal"><i data-feather="settings"></i></div>
-            <div class="overlay_button" onclick="Device.action('identify');"  title="Identify device and get version information"><i data-feather="info"></i></div>
+            <div class="overlay_button" id="cmd_discover"  onclick="Device.action('discover');"  title="Discover devices in your local network"><i data-feather="search"></i></div>
+            <div class="overlay_button" id="cmd_bluetooth" onclick="Device.action('bluetooth');" title="Connect to a device using Bluetooth BLE"><i data-feather="bluetooth"></i></div>
+            <div class="overlay_button" id="cmd_settings"  onclick="Device.action('settings');"  title="Device Configuration Portal"><i data-feather="settings"></i></div>
+            <div class="overlay_button" id="cmd_indetify"  onclick="Device.action('identify');"  title="Identify device and get version information"><i data-feather="info"></i></div>
           </div>
         </div>
       </div>
