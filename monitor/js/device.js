@@ -34,6 +34,7 @@ function action(task) {
         list:      function _list()      { socketCommand('list'); },
         discover:  deviceDiscovery,
         bluetooth: deviceBluetooth,
+        serial:    deviceSerial,
         settings:  deviceConfigPortal,
         identify:  deviceIdentification,
     };
@@ -137,14 +138,20 @@ function deviceInit(ip) {
 function deviceStatusUpdate() {
     let status;
     let ok = false; 
-    const m = device.url?.match(/^(ble|wss?):\/\/(.+)$/);
-    if (m[1] === 'ble') {
+    const m = device.url?.match(/^(.+):\/\/(.+)$/);
+    if (m?.[1] === 'serial') {
+        status = (!navigator.serial)   ? 'unavailable' :
+                device.port?.connected ? 'connected' :
+                                         'disconnected';
+        status = 'connected';
+        ok = status === 'connected';
+    } else if (m?.[1] === 'ble') {
         status = (!navigator.bluetooth)           ? 'unavailable' :
                 device.bluetooth?.gatt?.connected ? 'connected' :
                 device.bluetooth                  ? 'connecting' : 
                                                     'disconnected';
         ok = status === 'connected';
-    } else if ((m[1] === 'ws') || (m[1] === 'wss')) {
+    } else if ((m?.[1] === 'ws') || (m?.[1] === 'wss')) {
         status =    !window.WebSocket || !device.socket                 ? 'unavailable' :
                     (device.socket.readyState == WebSocket.CONNECTING)  ? 'connecting' :
                     (device.socket.readyState == WebSocket.OPEN)        ? 'open' :
@@ -302,11 +309,26 @@ function testNet() {
 async function deviceBluetooth() {
     await socketClose();
     navigator.bluetooth.requestDevice({
-        filters: [
-            { services: ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"] } // Nordic NUS
-        ],
+        filters: [{ 
+            services: ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"] // Nordic NUS
+        }],
         optionalServices: []})
-        .then( socketBluetoothConnect )
+        .then( socketBluetooth )
+        .catch( (error) => { /* nothing to do, user didn't select a device */}  );
+}
+
+async function deviceSerial() {
+    await socketClose();
+    //const sppUuid = "00001101-0000-1000-8000-00805f9b34fb";
+    navigator.serial.requestPort( { 
+            //allowedBluetoothServiceClassIds: [sppUuid],
+            filters: [
+                //{ usbVendorId:0x1546 }, // u-blox AG
+                //{ bluetoothServiceClassId: sppUuid }
+            ],
+        })
+        .then( socketSerial )
+        .catch( (error) => { /* nothing to do, user didn't select a device */}  );
 }
 
 // Socket
@@ -421,6 +443,14 @@ var device = { name:'', ip:'', ws:'', status:'', ports_net:[], ports_hw:[] };
 
 async function socketClose() {
 /*REMOVE*/ //console.log('socketClose');
+    if (device.serial) {
+        device.serialWrite?.releaseLock();
+        device.serialRead?.releaseLock();
+        device.serial.close();
+        delete device.serialWrite;
+        delete device.serialRead;
+        delete device.serial;
+    }
     if (device.socket && (device.socket.readyState == WebSocket.OPEN)) {
         //device.status = 'closing';
         device.socket.close();
@@ -440,27 +470,31 @@ async function socketClose() {
 function socketOpen(url) {
 /*REMOVE*/ //console.log('socketOpen '+url);
     socketClose();
-    const m = url.match(/^(ble|wss?):\/\/(.+)$/);
-    if (navigator.bluetooth && (m[1] === 'ble')) {
-        // nothing to do
-    } else if (window.WebSocket && ((m[1] === 'ws') || (m[1] === 'wss'))) {
-        try {
-            device.socket = new WebSocket(url);
-        } catch (e) {
-            delete device.socket 
-        }
-        if (device.socket) {
-            //device.status = 'opening';
-            device.socket.binaryType = "arraybuffer";
-            device.socket.addEventListener('open',      onSocketConnect );
-            device.socket.addEventListener('close',     onSocketDisconnect );
-            device.socket.addEventListener('error',     onSocketError );
-            device.socket.addEventListener('message',   onSocketMessage );
+    const m = url.match(/^(.+):\/\/(.+)$/);
+    if (m) {
+        if (navigator.serial && (m[1] === 'serial')) {
+            // nothing to do
+        } else if (navigator.bluetooth && (m[1] === 'ble')) {
+            // nothing to do
+        } else if (window.WebSocket && ((m[1] === 'ws') || (m[1] === 'wss'))) {
+            try {
+                device.socket = new WebSocket(url);
+            } catch (e) {
+                delete device.socket 
+            }
+            if (device.socket) {
+                //device.status = 'opening';
+                device.socket.binaryType = "arraybuffer";
+                device.socket.addEventListener('open',      onSocketConnect );
+                device.socket.addEventListener('close',     onSocketDisconnect );
+                device.socket.addEventListener('error',     onSocketError );
+                device.socket.addEventListener('message',   onSocketMessage );
+            }
         }
     }
 }
 
-async function socketBluetoothConnect(ble) {
+async function socketBluetooth(ble) {
     await socketClose();
     
     delete device.ip;
@@ -490,6 +524,41 @@ async function socketBluetoothConnect(ble) {
         if (device.writeChar && device.notifyChar) break;
     }
     onSocketConnect();
+}
+
+async function socketSerial(serial) {
+    await socketClose();
+
+    delete device.ip;
+    device.name = serial.name;
+    const info = serial.getInfo();
+    device.url = 'serial://0x' + info.usbVendorId.toString(16) + ',0x' + info.usbProductId.toString(16);
+    USTART.tableEntry('dev_name', serial.name);
+    deviceStatusUpdate();
+
+    await serial.open({ baudRate: 9600, bufferSize: 1024 });
+    await serial.setSignals({dataTerminalReady:true, requestToSend:true});
+    device.serial = serial;
+    device.serialRead = serial.readable.getReader();
+    device.serialWrite = serial.writable.getWriter();
+    onSocketConnect();
+    socketSerialRead();
+}
+
+async function socketSerialRead() {
+    try {
+        while (true) {
+            const { value, done } = await device.serialRead.read();
+            onSocketMessage(value);
+            if (done) {
+                break;
+            }
+        }
+    } catch (error) {
+        
+    } finally {
+        device.serialRead?.releaseLock();
+    }
 }
 
 function onSocketConnect(e) {
@@ -541,7 +610,10 @@ function onSocketError(evt) {
     if (device.bluetooth) {
         
     } 
-    if (device.socket) {
+    else if (device.serial) {
+        
+    } 
+    else if (device.socket) {
         device.socket.removeEventListener('open',     onSocketConnect );
         device.socket.removeEventListener('close',    onSocketDisconnect );
         device.socket.removeEventListener('error',    onSocketError );
@@ -573,7 +645,9 @@ function socketSend(messages){
         for ( var i = 0; i < data.length; ++i ) {
             data[i] = message.data.charCodeAt(i);
         }
-        if (device.writeChar !== undefined) {
+        if (device.serialWrite !== undefined) {
+            device.serialWrite.write(data.buffer);
+        } else if (device.writeChar !== undefined) {
             device.writeChar.writeValue(data.buffer);
         } else if ((device.socket !== undefined) && (device.socket.readyState == WebSocket.OPEN)) {
             device.socket.send(data.buffer);
@@ -586,9 +660,12 @@ function socketSend(messages){
 // Protocol
 // ------------------------------------------------------------------------------------
 function onSocketMessage(evt) {
-    let data = evt.data/*socket*/ || evt.target?.value?.buffer/*bluetooth*/; 
+    let data = evt.data/*socket*/ || evt.target?.value?.buffer/*bluetooth*/ || evt; 
     if (data instanceof ArrayBuffer) {
-        data = String.fromCharCode.apply(null, new Uint8Array(data));
+        data = new Uint8Array(data);
+    }
+    if (data instanceof Uint8Array) {
+        data = String.fromCharCode.apply(null, data);
         if (data && (0 < data.length)) {
             USTART.statusLed('data');
             Engine.parseAppend(data);

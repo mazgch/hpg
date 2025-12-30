@@ -61,6 +61,8 @@ window.onload = function _onload() {
 
     let el = document.getElementById('cmd_bluetooth');
     el.style.display = navigator.bluetooth ? "block" : "none";
+    el = document.getElementById('cmd_serial');
+    el.style.display = navigator.serial ? "block" : "none";
     
     if (Chart !== undefined) {
         Chart.defaults.responsive = true; 
