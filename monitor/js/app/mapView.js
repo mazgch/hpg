@@ -219,9 +219,15 @@ export class MapView {
                         } );
                         marker.epoch = epoch;
                         marker.bindTooltip(() => _toolTip(track, epoch), { } );
-                        marker.on('mouseover', (evt) => evt.target.setRadius(5));
-                        marker.on('mouseout', (evt) => evt.target.setRadius(3));
-                        marker.on('click', (evt) => this.#emit('epoch', evt.target.epoch));
+                        marker.on('mouseover', (evt) => {
+                            evt.target.setRadius(5);
+                        });
+                        marker.on('mouseout', (evt) => {
+                            evt.target.setRadius(3);
+                        });
+                        marker.on('click', (evt) => {
+                            this.#emit('epoch', evt.target.epoch);
+                        });
                         layer.addLayer(marker);
                     }
                     infoCenter = center;

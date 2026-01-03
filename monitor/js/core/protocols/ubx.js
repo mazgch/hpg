@@ -352,7 +352,7 @@ export class ProtocolUbx extends Protocol {
                             { name:'doCorrUsed',    type:'x1'                           },
                             { name:'clasCorrUsed',  type:'x1'                           },
                             {                       type:'x8'                           } ] } ] } ] },
-        'UBX-NAV-SIG': {
+        'NAV-SIG': {
             descr: 'Signal information',
             spec:[  { name:'itow',                  type:'U4', scale:1e-3, unit:'s'     },
                     { name:'version',               type:'U1'                           },

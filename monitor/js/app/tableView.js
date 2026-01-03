@@ -81,6 +81,18 @@ export class TableView {
                             this.chartSignalCn0(canvas, track.currentEpoch?.svs);
                             tdFormated.appendChild(canvas);
                         }
+                    } else if (field === 'cnoLev') {
+                        tdFormated.className = "center";
+                        if (def(track.currentEpoch?.svs)) {
+                            const svg = this.chartSignalBars(track.currentEpoch.svs);
+                            const wrapper = document.createElement("div");
+                            wrapper.appendChild(svg);
+                            wrapper.style.padding = "2px";
+                            wrapper.style.width = svg.getAttribute("width") + "px";
+                            wrapper.style.height = svg.getAttribute("height") + "px";
+                            wrapper.style.display = "inline-block";  // prevents shrinkage
+                            tdFormated.appendChild(wrapper);
+                        }
                     } else if (field === 'posSV') {
                         tdFormated.className = "center";
                         if (def(track.currentEpoch?.svs)) {
@@ -127,20 +139,16 @@ export class TableView {
         const labels = [];
         const values = [];
         const colors = [];
-        Object.entries(svs).forEach(([sv, it]) => {
-            const color = it.used ? "rgba(0,200,0,0.8)" : "rgba(0,100,255,0.8)"
-            if (typeof it.cno === 'object') {
-                Object.entries(it.cno).forEach(([sig, cno]) => {
-                    if (0 < cno) {
-                        labels.push(sv + ' ' + sig);
-                        values.push(cno);
-                        colors.push(color);
+        Object.entries(svs).forEach(([sv, svIt]) => {
+            if (def(svIt.sigs)) {
+                Object.entries(svIt.sigs).forEach(([sigId, sigIt]) => {
+                    if (0 < sigIt.cno) {
+                        const sigTxt = ((sigId !== '?') ? ' ' + sigId : '');
+                        labels.push(sv + sigTxt);
+                        values.push(sigIt.cno);
+                        colors.push(sigIt.used ? "rgba(0,200,0,0.8)" : "rgba(0,100,255,0.8)");
                     }
                 });
-            } else if (0 < it.cno) {
-                labels.push(sv);
-                values.push(it.cno);
-                colors.push(color);
             }
         });
         new Chart(canvas, {
@@ -175,6 +183,99 @@ export class TableView {
                 }
             }
         });
+    }
+    
+    chartSignalBars(svs) {
+        // --- Build dataset
+        const list = [];
+        
+        // --- Dimensions
+        const w = 100;
+        const h = 55;
+        const b = (w-1) / Math.max(12, list.length);
+
+        // --- Create SVG
+        const svg = d3.create("svg")
+            .attr("width", w)
+            .attr("height", h)
+            .style("font-family", "sans-serif");
+
+        // --- Scales
+        const y = d3.scaleLinear()
+            .domain([0, 55])
+            .range([h, 0]);
+
+        // --- Gridlines
+        const yGrd= d3.range(0, h, 5);
+        yGrd.forEach(i => {
+            svg.append("line")
+                .attr("class", "svGrid")
+                .attr("x", 0)
+                .attr("y", d => y(i))
+                .attr("width", w)
+                .attr("height", 0)
+        });
+        svg.append("line")
+                .attr("class", "svGrid")
+                .attr("x1", 0.5)
+                .attr("y1", 0)
+                .attr("x2", 0.5)
+                .attr("y2", h)
+        svg.append("line")
+                .attr("class", "svGrid")
+                .attr("x1", w-0.5)
+                .attr("y1", 0)
+                .attr("x2", w-0.5)
+                .attr("y2", h)
+
+        svg.append("g")
+            .attr("class", "grid")
+            .call(d3.axisLeft(y)
+                .ticks(6)
+                .tickSize(-w)
+                .tickFormat("-")
+            )
+            .selectAll("line")
+            .attr("stroke", "#ccc")
+            .attr("stroke-width", 0.5);
+        svg.selectAll(".domain").remove();
+
+        Object.entries(svs).forEach(([sv, svIt]) => {
+            if (def(svIt.sigs)) {
+                Object.entries(svIt.sigs).forEach(([sigId, sigIt]) => {
+                    svg.append("rect")
+                        .attr("x", b * ix + 0.5)
+                        .attr("y", d => y(i.cno))
+                        .attr("width", b - 0.5)
+                        .attr("height", i.cno)
+                        .attr("fill", i.color)
+                        .on("mouseover", (evt) => {
+                            const sigTxt = ((sigId !== '?') ? `Signal: ${sigId}<br>`: '');
+                            const hint = `<strong>${sv}</strong><br>${sigTxt}C/N0: ${sigIt.cno}`;
+                            const tip = d3.select("body")
+                                .append("div")
+                                .attr("class", "svToolTip")
+                                .html(hint)
+                                .style("left", (evt.pageX + 10) + "px")
+                                .style("top", (evt.pageY - 20) + "px");
+                            d3.select(evt.currentTarget).property("_tooltip", tip.node());
+                        })
+                        .on("mousemove", (evt) => {
+                            const tip = d3.select(evt.currentTarget).property("_tooltip");
+                            if (tip)
+                                d3.select(tip)
+                                    .style("left", (evt.pageX + 10) + "px")
+                                    .style("top", (evt.pageY - 20) + "px");
+                        })
+                        .on("mouseout", (evt) => {
+                            const tip = d3.select(evt.currentTarget).property("_tooltip");
+                            if (tip) d3.select(tip).remove();
+                            d3.select(evt.currentTarget).property("_tooltip", null);
+                        });
+                });
+            }
+        });
+        return svg.node();
     }
 
     chartSatellitePositions(svs) {
@@ -213,51 +314,57 @@ export class TableView {
                 .attr("y2", c.y - r * Math.cos(rad));
         });
 
-        Object.entries(svs).forEach(([sv, i]) => {
-            if (def(i.az) && def(i.el)) {
-                const rad = i.az * Math.PI / 180;
+        Object.entries(svs).forEach(([sv, svIt]) => {
+            if (def(svIt.az) && def(svIt.el) && def(svIt.sigs)) {
+                const radAz = svIt.az * Math.PI / 180;
+                const rsEl = rs(svIt.el); 
                 const cnoTxt = [];
-                if (typeof i.cno === 'object') {
-                    Object.entries(i.cno).forEach(([sig, cno]) => {
-                        if (0 < cno) cnoTxt.push(`<br>${sig}: ${cno} dBHz`);
-                    });
-                } else if (0 < i.cno) {
-                    cnoTxt.push(`<br>C/N0: ${i.cno} dBHz`);
-                }
-                const color = i.used    ? 'rgba(0,200,0,0.8)' : 
+                let used = false;
+                Object.entries(svIt.sigs).forEach(([sigId, sigIt]) => {
+                    const sigTxt = ((sigId !== '?') ? ' ' + sigId : '');
+                    if (0 < sigIt.cno) cnoTxt.push(`<br>C/N0:${sigTxt} ${sigIt.cno} dBHz `);
+                    if (def(sigIt.used)) used ||= sigIt.used;
+                });
+                const color = used      ? 'rgba(0,200,0,0.8)' : 
                     (0 < cnoTxt.length) ? 'rgba(0,100,255,0.8)' : 
                                           'rgba(255,0,0,0.8)';
+                const hint = `<strong>${sv}</strong><br>Azimuth: ${svIt.az} degrees<br>Elevation: ${svIt.el} degrees${cnoTxt.join('')}`;
                 svg.append("circle")
                     .attr("r", d)
                     .attr("fill", color)
-                    .attr("cx", c.x + rs(i.el) * Math.sin(rad))
-                    .attr("cy", c.y - rs(i.el) * Math.cos(rad))
-                    .on("mouseover", (evt) => {
-                        const hint = `<strong>${sv}</strong><br>Azimuth: ${i.az} degrees<br>Elevation: ${i.el} degrees${cnoTxt.join('')}`;
-                        const tip = d3.select("body")
-                            .append("div")
-                            .attr("class", "svToolTip")
-                            .html(hint)
-                            .style("left", (evt.pageX + 10) + "px")
-                            .style("top", (evt.pageY - 20) + "px");
-                        // store the tooltip DOM node reference, not as an attribute
-                        d3.select(evt.currentTarget).property("_tooltip", tip.node());
-                    })
-                    .on("mousemove", (evt) => {
-                        const tip = d3.select(evt.currentTarget).property("_tooltip");
-                        if (tip)
-                            d3.select(tip)
-                                .style("left", (evt.pageX + 10) + "px")
-                                .style("top", (evt.pageY - 20) + "px");
-                    })
-                    .on("mouseout", (evt) => {
-                        const tip = d3.select(evt.currentTarget).property("_tooltip");
-                        if (tip) d3.select(tip).remove();
-                        d3.select(evt.currentTarget).property("_tooltip", null);
-                    });
+                    .attr("cx", c.x + rsEl * Math.sin(radAz))
+                    .attr("cy", c.y - rsEl * Math.cos(radAz))
+                    .on("mouseover", (evt) => this.tooltipMouseOver(evt, hint))
+                    .on("mousemove", (evt) => this.tooltipMouseMove(evt))
+                    .on("mouseout", (evt) => this.tooltipMouseOut(evt));
             }
         });
         return svg.node();
+    }
+
+    tooltipMouseOver(evt, hint) {
+        const tip = d3.select("body")
+            .append("div")
+            .attr("class", "svToolTip")
+            .html(typeof hint === "function" ? hint(evt) : hint)
+            .style("left", (evt.pageX + 10) + "px")
+            .style("top",  (evt.pageY - 20) + "px");
+
+        d3.select(evt.currentTarget).property("_tooltip", tip.node());
+    }
+
+    tooltipMouseMove(evt) {
+        const tip = d3.select(evt.currentTarget).property("_tooltip");
+        if (tip) d3.select(tip)
+            .style("left", (evt.pageX + 10) + "px")
+            .style("top",  (evt.pageY - 20) + "px");
+    }
+
+    tooltipMouseOut(evt) {
+        const tip = d3.select(evt.currentTarget).property("_tooltip");
+        if (tip) 
+            d3.select(tip).remove();
+        d3.select(evt.currentTarget).property("_tooltip", null);
     }
 
     chartSatelliteResiduals(svs) {
@@ -292,51 +399,46 @@ export class TableView {
                 .attr("y2", c.y - r * Math.cos(rad));
         });
 
-        Object.entries(svs).forEach(([sv, i]) => {
-            if (def(i.res) && def(i.az) && def(i.el) && (i.res !== 0)) {
-                const colRes = (i.res < 0) ? 'rgba(0,0,255,0.8)' : 'rgba(255,0,0,0.8)';
-                const rad = (i.res < 0 ? Math.PI : 0) + i.az * Math.PI / 180;
-                const res = Number((Math.cos(i.el * Math.PI / 180) * i.res).toFixed(1));
-                const resLog = Math.max(0, Math.min(dec, (1 + Math.log10(Math.abs(res))))) * r / dec;
-                const color = i.used ? 'rgba(0,200,0,0.8)' : 'rgba(0,100,255,0.8)';
-                const cx = c.x + resLog * Math.sin(rad);
-                const cy = c.y - resLog * Math.cos(rad);
-                svg.append("circle")
-                    .attr("r", d)
-                    .attr("fill", color)
-                    .attr("stroke", color)
-                    .attr("cx", cx)
-                    .attr("cy", cy)
-                    .on("mouseover", (evt) => {
-                        const hint = `<strong>${sv}</strong><br>Residual: ${i.res} m<br>Residual 2D proj.: ${res} m<br>Azimuth: ${i.az} degrees<br>Elevation: ${i.el} degrees`;
-                        const tip = d3.select("body")
-                            .append("div")
-                            .attr("class", "svToolTip")
-                            .html(hint)
-                            .style("left", (evt.pageX + 10) + "px")
-                            .style("top", (evt.pageY - 20) + "px");
-                        // store the tooltip DOM node reference, not as an attribute
-                        d3.select(evt.currentTarget).property("_tooltip", tip.node());
-                    })
-                    .on("mousemove", (evt) => {
-                        const tip = d3.select(evt.currentTarget).property("_tooltip");
-                        if (tip)
-                            d3.select(tip)
-                                .style("left", (evt.pageX + 10) + "px")
-                                .style("top", (evt.pageY - 20) + "px");
-                    })
-                    .on("mouseout", (evt) => {
-                        const tip = d3.select(evt.currentTarget).property("_tooltip");
-                        if (tip) d3.select(tip).remove();
-                        d3.select(evt.currentTarget).property("_tooltip", null);
-                    });
-                svg.append("line")
-                .attr("class", "svRes")
-                .attr("stroke", colRes)
-                .attr("x1", c.x)
-                .attr("y1", c.x)
-                .attr("x2", cx)
-                .attr("y2", cy);
+        Object.entries(svs).forEach(([sv, svIt]) => {
+            if (def(svIt.az) && def(svIt.el) && (0 <= svIt.el) && def(svIt.sigs)) {
+                const radAz = (svIt.res < 0 ? Math.PI : 0) + svIt.az * Math.PI / 180;
+                const sinAz = Math.sin(radAz);
+                const cosAz = Math.cos(radAz);
+                const cosEl = Math.cos(svIt.el * Math.PI / 180);
+                Object.entries(svIt.sigs).forEach(([sigId, sigIt]) => {
+                    if (def(sigIt.res)) {
+                        const colRes = (sigIt.res < 0) ? 'rgba(0,0,255,0.8)' : 'rgba(255,0,0,0.8)';
+                        const res = Number((cosEl * sigIt.res).toFixed(1));
+                        const resLog = Math.max(0, Math.min(dec, (1 + Math.log10(Math.abs(res))))) * r / dec;
+                        const color = sigIt.used ? 'rgba(0,200,0,0.8)' : 'rgba(0,100,255,0.8)';
+                        const cx = c.x + resLog * sinAz;
+                        const cy = c.y - resLog * cosAz;
+                        const sigTxt = ((sigId !== '?') ? ' ' + sigId : '');
+                        let hint = `<strong>${sv}${sigTxt}</strong><br>Residual: ${sigIt.res} m<br>Residual 2D proj.: ${res} m`;
+                        if (def(svIt.az) && def(svIt.el)) {
+                            hint += `<br>Azimuth: ${svIt.az} degrees<br>Elevation: ${svIt.el} degrees`;
+                        }
+                        if (sigIt.cno) {
+                            hint += `<br>C/N0: ${sigIt.cno} dBHz`;
+                        }
+                        svg.append("circle")
+                            .attr("r", d)
+                            .attr("fill", color)
+                            .attr("stroke", color)
+                            .attr("cx", cx)
+                            .attr("cy", cy)
+                            .on("mouseover", (evt) => this.tooltipMouseOver(evt, hint))
+                            .on("mousemove", (evt) => this.tooltipMouseMove(evt))
+                            .on("mouseout", (evt) => this.tooltipMouseOut(evt));
+                        svg.append("line")
+                            .attr("class", "svRes")
+                            .attr("stroke", colRes)
+                            .attr("x1", c.x)
+                            .attr("y1", c.x)
+                            .attr("x2", cx)
+                            .attr("y2", cy);
+                    }
+                });
             }
         });
         return svg.node();

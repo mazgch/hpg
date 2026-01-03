@@ -106,73 +106,108 @@ export function isGzip(value) {
         (value[0] === 0x1f) && (value[1] === 0x8b);
 }
 
+  /*xport GNSS_SIGNAL_LUT = {
+    
+    BeiDou      B1I D1          3 0 (4)4 (1)5 4 1
+    BeiDou      B1I D2          3 1 (4)4 (1)5 4 1
+    BeiDou      B2I D1          3 2 (4)4 (3)5 4 B
+    BeiDou      B2I D2          3 3 (4)4 (3)5 4 B
+    BeiDou      B3I D1          3 4 (4)4 N/A 4 8
+    BeiDou      B3I D2          3 10 (4)4 N/A 4 8
+    BeiDou      B1 Cp (pilot)   3 5 (4)4 N/A 4 3
+    BeiDou      B1 Cd (data)    3 6 (4)4 N/A 4 3
+    BeiDou      B2 ap (pilot)   3 7 (4)4 N/A 4 5
+    BeiDou      B2 ad (data)    3 8 (4)4 N/A 4 5
+    
+    QZSS        L1C/A           5 0 (1)4 (1)5 5 1
+    QZSS        L1S             5 1 (1)4 (4)5 5 4
+    QZSS        L2 CM           5 4 (1)4 (5)5 5 5
+    QZSS        L2 CL           5 5 (1)4 (6)5 5 6
+    QZSS        L5 I            5 8 (1)4 N/A 5 7
+    QZSS        L5 Q            5 9 (1)4 N/A 5 8
+    QZSS        L1C/B           5 12 (1)4 N/A 5 N/A
+    
+    NavIC       L5 A3           7 0 N/A N/A 6 1
+
+
+    Galileo     E5 aI           2 3 3 1 3 1
+    Galileo     E5 aQ           2 4 3 1 3 1
+    Galileo     E5 bI           2 5 3 2 3 2
+    Galileo     E5 bQ           2 6 3 2 3 2
+    Galileo     E6 B            2 8 3 5 3 5
+    Galileo     E6 C            2 9 3 5 3 5
+    Galileo     E6 A            2 10 3 4 3 4
+  
+}*/
+
 export const GNSS_LUT = {
-    GPS     : { flag:'🇺🇸', ch:'G', sv:[1, 32], sbas:[33,64],
-                sig:{ '1':'L1 C/A',
-                      '2':'L1 P(Y)',
-                      '3':'L1 M',
-                      '4':'L2 P(Y)',
-                      '5':'L2C-M',
-                      '6':'L2C-L',
-                      '7':'L5-I',
-                      '8':'L5-Q',
-                      '9':'L1C' } }, 
-    GLONASS : { flag:'🇷🇺', ch:'R', sv:[65,99], sbas:[33,64],
-                sig:{ '1':'L1 C/A',
-                      '2':'L1 P',
-                      '3':'L2 C/A',
-                      '4':'L2 P' } }, 
-    Galileo : { flag:'🇪🇺', ch:'E', sv:[1, 36], sbas:[37,64],
-                sig:{ '1':'E5a',
-                      '2':'E5b',
-                      '3':'E5a+b',
-                      '4':'E6-A',
-                      '5':'E6-BC',
-                      '6':'E1-A',
-                      '7':'E1-BC' } },
-    BeiDou  : { flag:'🇨🇳', ch:'B', sv:[1, 63], // aka BDS 
-                sig:{ '1':'B1I',
-                      '2':'B1Q',
-                      '3':'B1C',
-                      '4':'B1A',
-                      '5':'B2-a',
-                      '6':'B2-b',
-                      '7':'B2 a+b',
-                      '8':'B3I',
-                      '9':'B3Q',
-                      'A':'B3A',
-                      'B':'B2I',
-                      'C':'B2Q' } },
+    GPS     : { flag:'🇺🇸', ch:'G', 
+                sigNmea:{ 
+                    '1':'L1', '2':'L1', '3':'L1', '9':'L1',
+                    '4':'L2', '5':'L2', '6':'L2',
+                    '7':'L5', '8':'L5' },
+                sigUbx: {
+                    0:'L1',     
+                    3:'L2', 4:'L2',
+                    6:'L5', 7:'L5' } }, 
+    GLONASS : { flag:'🇷🇺', ch:'R',
+                sigNmea: { 
+                    '1':'L1', '2':'L1',
+                    '3':'L2', '4':'L2' },
+                sigUbx:{
+                    0:'L1',     
+                    2:'L2' } }, 
+    Galileo : { flag:'🇪🇺', ch:'E',
+                sigNmea: { 
+                    '1':'E5', 2:'E5', 3:'E5',
+                    '4':'E6', 5:'E6',
+                    '6':'E1', 7:'E1' },
+                sigUbx: {
+                    0:'E1', 1:'E1',
+                    3:'E5', 4:'E5', 
+                    5:'E5', 6:'E5', 
+                    8:'E6', 9:'E6', 10:'E6'
+                     } },
+    BeiDou  : { flag:'🇨🇳', ch:'B', // aka BDS 
+                sigNmea:{ 
+                    '1':'B1', '2':'B1', '3':'B1', '4':'B1',
+                    '5':'B2', '6':'B2', '7':'B2', 'B':'B2', 'C':'B2',
+                    '8':'B3', '9':'B3', 'A':'B3' },
+                sigUbx: {
+                    0:'B1',  1:'B1', 5:'B1', 6:'B1',
+                    2:'B2',  3:'B2', 7:'B2', 8:'B2', 
+                    4:'B3', 10:'B3' } },
     // regional systems
-    QZSS    : { flag:'🇯🇵', ch:'Q', sv:[1, 10], // Quasi-Zenith Satellite System  PRN 183, 184/196, 189/197, 185/200
-                sig:{ '1':'L1 C/A',
-                      '2':'L1C (D)',
-                      '3':'L1C (P)',
-                      '4':'LIS',
-                      '5':'L2C-M',
-                      '6':'L2C-L',
-                      '7':'L5-I',
-                      '8':'L5-Q',
-                      '9':'L6D',
-                      'A':'L6E' } }, 
-    NavIC   : { flag:'🇮🇳', ch:'I', sv:[1, 14], // Indian Regional Navigation Satellite System (aka NavIC)
-                sig:{ '1':'L5-SPS',
-                      '2':'S-SPS',
-                      '3':'L5-RS',
-                      '4':'S-RS',
-                      '5':'L1-SPS' } }, 
+    QZSS    : { flag:'🇯🇵', ch:'Q', // Quasi-Zenith Satellite System  PRN 183, 184/196, 189/197, 185/200
+                sigNmea:{ 
+                    '1':'L1', '2':'L1', '3':'L1', '4':'L1',        
+                    '5':'L2', '6':'L2',
+                    '7':'L5', '8':'L5',
+                    '9':'L6', 'A':'L6' },
+                sigUbx: {
+                    0:'L1', 1:'L1', 12:'L1',
+                    4:'L2', 5:'L2',
+                    8:'L5', 9:'L5' } }, 
+    NavIC   : { flag:'🇮🇳', ch:'N', // Indian Regional Navigation Satellite System (aka NavIC)
+                sigNmea:{ 
+                    1:'L5', 2:'S',
+                    3:'L5', 4:'S',
+                    5:'L1' },
+                sigUbx: {
+                    0:'L5',
+                    1:'L1' } }, 
     // IMES    : { flag:'🇯🇵', ch:'Q', sig:{ '1':'L1 C/A' } }, // Japanese Indoor Messaging System 
     // Augmentation systems
-    WAAS    : { flag:'🇺🇸', ch:'S', sig:{ '1':'L1 C/A' } }, // Wide Area Augmentation System
-    SDCM    : { flag:'🇷🇺', ch:'S', sig:{ '1':'L1 C/A' } }, // System for Differential Corrections and Monitoring
-    EGNOS   : { flag:'🇪🇺', ch:'S', sig:{ '1':'L1 C/A' } }, // European Geostationary Navigation Overlay Service
-    GAGAN   : { flag:'🇮🇳', ch:'S', sig:{ '1':'L1 C/A' } }, // GPS Aided Geo Augmented Navigation
-    MSAS    : { flag:'🇯🇵', ch:'S', sig:{ '1':'L1 C/A' } }, // Multi-functional Satellite Augmentation System
-    NSAS    : { flag:'🇳🇬', ch:'S', sig:{ '1':'L1 C/A' } }, // Nigerian Satellite Augmentation System
-    GATBP   : { flag:'🇦🇺', ch:'S', sig:{ '1':'L1 C/A' } }, // Geoscience Australia (SBAS) Test-Bed Project
-    BDSBAS  : { flag:'🇨🇳', ch:'S', sig:{ '1':'L1 C/A' } }, // BeiDou Satellite Based Augmentation System
-    KAAS    : { flag:'🇰🇷', ch:'S', sig:{ '1':'L1 C/A' } }, // South Korea Area Augmentation System
-    SBAS    : { flag:'🏳️', ch:'S', sig:{ '1':'L1 C/A' },
+    WAAS    : { flag:'🇺🇸', ch:'S', sigNmea:{ 1:'L1'}, sigUbx:{ 0:'L1' } } , // Wide Area Augmentation System
+    SDCM    : { flag:'🇷🇺', ch:'S', sigNmea:{ 1:'L1'}, sigUbx:{ 0:'L1' } }, // System for Differential Corrections and Monitoring
+    EGNOS   : { flag:'🇪🇺', ch:'S', sigNmea:{ 1:'L1'}, sigUbx:{ 0:'L1' } }, // European Geostationary Navigation Overlay Service
+    GAGAN   : { flag:'🇮🇳', ch:'S', sigNmea:{ 1:'L1'}, sigUbx:{ 0:'L1' } }, // GPS Aided Geo Augmented Navigation
+    MSAS    : { flag:'🇯🇵', ch:'S', sigNmea:{ 1:'L1'}, sigUbx:{ 0:'L1' } }, // Multi-functional Satellite Augmentation System
+    NSAS    : { flag:'🇳🇬', ch:'S', sigNmea:{ 1:'L1'}, sigUbx:{ 0:'L1' } }, // Nigerian Satellite Augmentation System
+    GATBP   : { flag:'🇦🇺', ch:'S', sigNmea:{ 1:'L1'}, sigUbx:{ 0:'L1' } }, // Geoscience Australia (SBAS) Test-Bed Project
+    BDSBAS  : { flag:'🇨🇳', ch:'S', sigNmea:{ 1:'L1'}, sigUbx:{ 0:'L1' } }, // BeiDou Satellite Based Augmentation System
+    KAAS    : { flag:'🇰🇷', ch:'S', sigNmea:{ 1:'L1'}, sigUbx:{ 0:'L1' } }, // South Korea Area Augmentation System
+    SBAS    : { flag:'🏳️', ch:'S', sigNmea:{ 1:'L1'}, sigUbx:{ 0:'L1' } ,
                 map:{ // https://media.defense.gov/2018/Aug/07/2001951699/-1/-1/1/L1%20CA%20PRN%20CODE%20ASSIGNMENTS%20JULY%202018.PDF
                         // PRN  System      Satellite      Orbital Slot    Effective Date
                         120:'EGNOS',  // INMARSAT 3F2         15.5 W    Current
