@@ -92,8 +92,8 @@ export class Epoch {
                         vals.gsErr = (this.fields.gSpeed - vals.gSpeed);
                     }
                     if (Number.isFinite(this.fields.cog) && Number.isFinite(vals.cog)){
-                        const dCog = (this.fields.cog - vals.cog) % 360.0;
-                        vals.cErr = (dCog > 180.0) ? dCog - 360.0 : dCog;
+                        const dCog = (this.fields.cog - vals.cog);
+                        vals.cErr = ((dCog + 540.0) % 360.0) - 180.0;
                     }
                 }
             }
