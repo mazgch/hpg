@@ -77,19 +77,19 @@ export class Epoch {
                         }
                     }
                     if (Number.isFinite(this.fields.height) && Number.isFinite(vals.height)){
-                        vals.vErr = Math.abs(this.fields.height - vals.height)
+                        vals.vErr = (this.fields.height - vals.height);
                     }
                     if (Number.isFinite(this.fields.msl) && Number.isFinite(vals.msl)){
-                        vals.mslErr = Math.abs(this.fields.msl - vals.msl)
+                        vals.mslErr = (this.fields.msl - vals.msl);
                     }
                     if (Number.isFinite(vals.hErr) && Number.isFinite(vals.vErr)){
                         vals.pErr = Math.sqrt(vals.hErr ** 2 + vals.vErr ** 2);
                     }
                     if (Number.isFinite(this.fields.speed) && Number.isFinite(vals.speed)){
-                        vals.sErr = Math.abs(this.fields.speed - vals.speed);
+                        vals.sErr = (this.fields.speed - vals.speed);
                     }
                     if (Number.isFinite(this.fields.gSpeed) && Number.isFinite(vals.gSpeed)){
-                        vals.gsErr = Math.abs(this.fields.gSpeed - vals.gSpeed);
+                        vals.gsErr = (this.fields.gSpeed - vals.gSpeed);
                     }
                     if (Number.isFinite(this.fields.cog) && Number.isFinite(vals.cog)){
                         const dCog = (this.fields.cog - vals.cog) % 360.0;
