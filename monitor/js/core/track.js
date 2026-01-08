@@ -368,7 +368,9 @@ export class Track {
         'cnoLev', 'numSV', 'trkSV', 'trkSig', 
         'posSV', 'hDop', 'pDop',
         'resSV',
-        'pErr', 'hErr', 'vErr', 'sErr', 'gsErr', 'cErr',
+        'pErr', 'hErr', 'vErr', 'mslErr', 
+        'nsErr', 'ewErr', 'atErr', 'xtErr', 
+        'sErr', 'gsErr', 'cErr',
         'epOfs','epSz',
     ];
   

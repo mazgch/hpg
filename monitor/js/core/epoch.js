@@ -46,6 +46,8 @@ export class Epoch {
 
     calcRefError(refEpochs) {
         const vals = {};
+        const A = 6378137;
+        const d2r = Math.PI / 180;
         if (def(refEpochs) && this.timeValid) {
             // find the first epoch in the file (should e use valid only)
             const ix = refEpochs.findIndex((epoch) => (epoch.timeValid && (epoch.datetime >= this.datetime)));
@@ -56,7 +58,7 @@ export class Epoch {
                 const diff = (nextEp.datetime - prevEp?.datetime);
                 if ((0 === dt) || (def(prevEp) && (0 !== diff))) {
                     const ratio = (0 === dt) ? 0 : (dt / diff);
-                    const keys = ['lat', 'lng', 'height', 'speed', 'gSpeed', 'cog'];
+                    const keys = ['lat', 'lng', 'height', 'msl', 'speed', 'gSpeed', 'cog'];
                     keys.forEach( key => {
                         const nextVal = nextEp.fields[key];
                         const prevVal = prevEp.fields[key];
@@ -66,9 +68,19 @@ export class Epoch {
                     });
                     if (this.posValid && Number.isFinite(vals.lat) && Number.isFinite(vals.lng)) {
                         vals.hErr = Epoch.haversine(vals, this.fields);
+                        vals.nsErr = (this.fields.lat - vals.lat) * (d2r * A);
+                        vals.ewErr = (this.fields.lng - vals.lng) * (d2r * A) * Math.cos(vals.lat * Math.PI / 180);
+                        if (Number.isFinite(vals.cog)) {
+                            const cog  = vals.cog * d2r;
+                            vals.atErr  =  vals.nsErr * Math.cos(cog) + vals.ewErr * Math.sin(cog);
+                            vals.xtErr  = -vals.nsErr * Math.sin(cog) + vals.ewErr * Math.cos(cog);
+                        }
                     }
                     if (Number.isFinite(this.fields.height) && Number.isFinite(vals.height)){
                         vals.vErr = Math.abs(this.fields.height - vals.height)
+                    }
+                    if (Number.isFinite(this.fields.msl) && Number.isFinite(vals.msl)){
+                        vals.mslErr = Math.abs(this.fields.msl - vals.msl)
                     }
                     if (Number.isFinite(vals.hErr) && Number.isFinite(vals.vErr)){
                         vals.pErr = Math.sqrt(vals.hErr ** 2 + vals.vErr ** 2);
@@ -88,7 +100,7 @@ export class Epoch {
         }
         
         // now write all the errors back or delete the previous
-        const errKeys = [ 'hErr', 'vErr', 'pErr', 'sErr', 'gsErr', 'cErr' ];
+        const errKeys = [ 'hErr', 'vErr', 'mslErr', 'nsErr', 'ewErr', 'atErr', 'xtErr', 'pErr', 'sErr', 'gsErr', 'cErr' ];
         errKeys.forEach(key => {
             if (Number.isFinite(vals[key]) && def(FieldsReg[key])) {
                 this.fields[key] = FieldsReg[key].format(vals[key]);
