@@ -70,7 +70,7 @@ export class TableView {
                 tr.appendChild(tdName);
                 filteredTracks.forEach((track) => {
                     const tdFormated = document.createElement('td');
-                    if (field === 'cnoLev') {
+                    /*if (field === 'cnoLev') {
                         tdFormated.className = "center";
                         if (def(track.currentEpoch?.svs)) {
                             tdFormated.style.width = "100px";
@@ -81,7 +81,7 @@ export class TableView {
                             this.chartSignalCn0(canvas, track.currentEpoch?.svs);
                             tdFormated.appendChild(canvas);
                         }
-                    } else if (field === 'cnoLev') {
+                    } else */if (field === 'cnoLev') {
                         tdFormated.className = "center";
                         if (def(track.currentEpoch?.svs)) {
                             const svg = this.chartSignalBars(track.currentEpoch.svs);
@@ -188,16 +188,26 @@ export class TableView {
     chartSignalBars(svs) {
         // --- Build dataset
         const list = [];
-        
+        let cnt = 0;
+        Object.entries(svs).forEach(([sv, svIt]) => {
+            if (def(svIt.sigs)) {
+                Object.entries(svIt.sigs).forEach(([sigId, sigIt]) => {
+                    if (0 < sigIt.cno) {
+                        cnt ++;
+                    }
+                });
+            }
+        });
+        cnt = Math.max(12, cnt);
         // --- Dimensions
-        const w = 100;
         const h = 55;
-        const b = (w-1) / Math.max(12, list.length);
-
+        const b = Math.max((100-1) / cnt, 2);
+        const w = b * cnt + 1;
+        
         // --- Create SVG
         const svg = d3.create("svg")
             .attr("width", w)
-            .attr("height", h)
+            .attr("height", h+1)
             .style("font-family", "sans-serif");
 
         // --- Scales
@@ -206,72 +216,71 @@ export class TableView {
             .range([h, 0]);
 
         // --- Gridlines
-        const yGrd= d3.range(0, h, 5);
+        const yGrd= d3.range(0, h, 10);
         yGrd.forEach(i => {
+            const g = y(i);
             svg.append("line")
                 .attr("class", "svGrid")
-                .attr("x", 0)
-                .attr("y", d => y(i))
-                .attr("width", w)
-                .attr("height", 0)
+                .attr("x1", 0)
+                .attr("y1", g)
+                .attr("x2", w)
+                .attr("y2", g);
         });
+        svg.append("line")
+                .attr("class", "svGrid")
+                .attr("x1", 0)
+                .attr("y1", 0.5)
+                .attr("x2", w)
+                .attr("y2", 0.5);
         svg.append("line")
                 .attr("class", "svGrid")
                 .attr("x1", 0.5)
                 .attr("y1", 0)
                 .attr("x2", 0.5)
-                .attr("y2", h)
+                .attr("y2", h);
         svg.append("line")
                 .attr("class", "svGrid")
                 .attr("x1", w-0.5)
                 .attr("y1", 0)
                 .attr("x2", w-0.5)
-                .attr("y2", h)
-
-        svg.append("g")
-            .attr("class", "grid")
-            .call(d3.axisLeft(y)
-                .ticks(6)
-                .tickSize(-w)
-                .tickFormat("-")
-            )
-            .selectAll("line")
-            .attr("stroke", "#ccc")
-            .attr("stroke-width", 0.5);
-        svg.selectAll(".domain").remove();
-
+                .attr("y2", h);
+        svg.selectAll(".domain").remove(); 
+        let ix = 0;
         Object.entries(svs).forEach(([sv, svIt]) => {
             if (def(svIt.sigs)) {
                 Object.entries(svIt.sigs).forEach(([sigId, sigIt]) => {
-                    svg.append("rect")
-                        .attr("x", b * ix + 0.5)
-                        .attr("y", d => y(i.cno))
-                        .attr("width", b - 0.5)
-                        .attr("height", i.cno)
-                        .attr("fill", i.color)
-                        .on("mouseover", (evt) => {
-                            const sigTxt = ((sigId !== '?') ? `Signal: ${sigId}<br>`: '');
-                            const hint = `<strong>${sv}</strong><br>${sigTxt}C/N0: ${sigIt.cno}`;
-                            const tip = d3.select("body")
-                                .append("div")
-                                .attr("class", "svToolTip")
-                                .html(hint)
-                                .style("left", (evt.pageX + 10) + "px")
-                                .style("top", (evt.pageY - 20) + "px");
-                            d3.select(evt.currentTarget).property("_tooltip", tip.node());
-                        })
-                        .on("mousemove", (evt) => {
-                            const tip = d3.select(evt.currentTarget).property("_tooltip");
-                            if (tip)
-                                d3.select(tip)
+                    if (0 < sigIt.cno) {
+                        svg.append("rect")
+                            .attr("x", b * ix + 0.5)
+                            .attr("y", d => y(sigIt.cno))
+                            .attr("width", b - 0.5)
+                            .attr("height", sigIt.cno)
+                            .attr("fill", sigIt.used ? "rgba(0,200,0,0.8)" : "rgba(0,100,255,0.8)")
+                            .on("mouseover", (evt) => {
+                                const sigTxt = ((sigId !== '?') ? `Signal: ${sigId}<br>`: '');
+                                const hint = `<strong>${sv}</strong><br>${sigTxt}C/N0: ${sigIt.cno}`;
+                                const tip = d3.select("body")
+                                    .append("div")
+                                    .attr("class", "svToolTip")
+                                    .html(hint)
                                     .style("left", (evt.pageX + 10) + "px")
                                     .style("top", (evt.pageY - 20) + "px");
-                        })
-                        .on("mouseout", (evt) => {
-                            const tip = d3.select(evt.currentTarget).property("_tooltip");
-                            if (tip) d3.select(tip).remove();
-                            d3.select(evt.currentTarget).property("_tooltip", null);
-                        });
+                                d3.select(evt.currentTarget).property("_tooltip", tip.node());
+                            })
+                            .on("mousemove", (evt) => {
+                                const tip = d3.select(evt.currentTarget).property("_tooltip");
+                                if (tip)
+                                    d3.select(tip)
+                                        .style("left", (evt.pageX + 10) + "px")
+                                        .style("top", (evt.pageY - 20) + "px");
+                            })
+                            .on("mouseout", (evt) => {
+                                const tip = d3.select(evt.currentTarget).property("_tooltip");
+                                if (tip) d3.select(tip).remove();
+                                d3.select(evt.currentTarget).property("_tooltip", null);
+                            });
+                        ix ++;
+                    }
                 });
             }
         });
@@ -424,7 +433,6 @@ export class TableView {
                         svg.append("circle")
                             .attr("r", d)
                             .attr("fill", color)
-                            .attr("stroke", color)
                             .attr("cx", cx)
                             .attr("cy", cy)
                             .on("mouseover", (evt) => this.tooltipMouseOver(evt, hint))

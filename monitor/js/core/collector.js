@@ -67,17 +67,27 @@ export class Collector {
         // calculate number of Sv
         const svObj = Object.values(this.#svs);
         if (def(svObj)) {
-            fields.numSV = svObj.filter((sv) => sv.used).length;
-            const trkObj = svObj.map((sv) => {
-                // check if array with signals or just a cno value
-                if (typeof sv.cno === 'object') {
-                    return Object.values(sv.cno).filter((cno) => (0 < cno)).length;
-                } else {
-                    return (0 < sv.cno) ? 1 : 0;
+            let numSvs = 0; 
+            let trkSvs = 0; 
+            let trkSigs = 0;
+            Object.values(svObj).forEach((svIt) => {
+                if (def(svIt.sigs)) {
+                    let usedSv = false;
+                    let trkSv = false;
+                    Object.values(svIt.sigs).forEach((sigIt) => {
+                        if (sigIt.used) usedSv = true;
+                        if (0 < sigIt.cno) {
+                            trkSv = true;
+                            trkSigs ++;
+                        }
+                    });
+                    if (usedSv) numSvs ++;
+                    if (trkSv) trkSvs ++;
                 }
-            }).filter((v) => (0 < v));
-            fields.trkSV = trkObj.length;
-            fields.trkSig = trkObj.reduce((tot, cnos) => tot + cnos, 0);
+            });
+            fields.numSV = numSvs;
+            fields.trkSV = trkSvs;
+            fields.trkSig = trkSigs;
         }
         return new Epoch(fields, this.#svs, ((0 < this.#info.length) ? this.#info : undefined) );
     }
