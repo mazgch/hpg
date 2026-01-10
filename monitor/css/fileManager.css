@@ -58,6 +58,14 @@
   font-weight: bold;
 }
 
+.track-chip .chip-name {
+  max-width: 100px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+}
+
 .filemanager-popup {
   position: absolute;
   background: rgba(255, 255, 255, 1);
