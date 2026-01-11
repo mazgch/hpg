@@ -20,7 +20,7 @@ import { Track } from '../core/track.js';
 import { def, setAlpha, log, formatDateTime } from '../core/utils.js';
 
 export class MapView {
-    constructor(container, opacitySlider) {
+    constructor(container) {
         this.#container = container;
         container.style.display = 'block';
         container.className = "map-section";
@@ -51,12 +51,26 @@ export class MapView {
             preventDownload: false              // set true if you want to handle the blob yourself
         }).addTo(map);
 
-        // opacity 
-        this.#opacitySlider = opacitySlider;
-        opacitySlider.addEventListener('input', (evt) => {
+        // add opacity slider below the layers 
+        this.#opacitySlider = document.createElement('input');
+        this.#opacitySlider.className = 'leaflet-control-opacity-slider';
+        this.#opacitySlider.type = 'range';
+        this.#opacitySlider.min = '0';
+        this.#opacitySlider.max = '0.9';
+        this.#opacitySlider.step = '0.05';
+        this.#opacitySlider.value = '0.4';
+        this.#opacitySlider.addEventListener('input', (evt) => {
             this.setOpacity(evt.target.value);
+            evt.preventDefault();
+            evt.stopPropagation();
         });
-        this.setOpacity(opacitySlider.value);
+        this.setOpacity(this.#opacitySlider.value);
+        const label = document.createElement('label');
+        label.className = 'leaflet-control-opacity';
+        label.appendChild(document.createTextNode('Opacity'));
+        label.appendChild(this.#opacitySlider);
+        const baseLayer = this.layerControl?._baseLayersList;
+        baseLayer.parentNode.insertBefore(label, baseLayer.nextSibling);        
     }
 
     // ===== Public API =====
@@ -423,7 +437,7 @@ export class MapView {
     }
 
     #container
-    #opacitySlider
     #divInfo
     #baseLayers
+    #opacitySlider
 }

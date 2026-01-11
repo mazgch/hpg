@@ -205,7 +205,7 @@ export class Collector {
         Object.entries(fromFields)
             .forEach( ([key, val]) => { 
                 if (def(val) && def(toFields[key]) && (typeof val !== typeof toFields[key])) {
-                    console.error('change of field type ' + key + ' from ' + (typeof val) + ' to ' + (typeof toFields[key]));
+                    //console.error('change of field type ' + key + ' from ' + (typeof val) + ' to ' + (typeof toFields[key]));
                 }
                 if (Array.isArray(val)) {
                     (!Array.isArray(toFields[key])) && (toFields[key] = []);

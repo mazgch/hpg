@@ -19,9 +19,23 @@ http://www.apache.org/licenses/LICENSE-2.0
 import { Track } from '../core/track.js'
 import { def, log, bytesToString, isGzip } from '../core/utils.js';
 
+const colorPalette = [
+    "#1f77b4",
+    "#ff7f0e",
+    "#2ca02c",
+    "#d62728",
+    "#9467bd",
+    "#8c564b",
+    "#e377c2",
+    "#7f7f7f",
+    "#bcbd22",
+    "#17becf"
+];
+
 export class FileManager {
     constructor(opts = {}) {
         this.tracks = [];
+        this.#ixColor = 0; 
         this.#container = opts.container;
         
         this.onFromJson = opts.onFromJson;
@@ -151,6 +165,7 @@ export class FileManager {
         });
         delete this.refTrack;
         this.tracks.length = 0;
+        this.#ixColor = 0;
         this.#renderChips();
         remTracks.forEach((track) => {
             this.#emit('remove', track);
@@ -170,7 +185,9 @@ export class FileManager {
     }
 
     add(track) {
-       log('FileManager add', track.name);
+        log('FileManager add', track.name);
+        //track.color(colorPalette[this.#ixColor]); // override color
+        this.#ixColor = (this.#ixColor + 1) % colorPalette.length;
         // update reference errors and indicate changes of tracks 
         if (track.name === Track.TRACK_REFERENCE) {
             this.refTrack = track;
@@ -576,4 +593,5 @@ export class FileManager {
 
     #container
     #hideTid
+    #ixColor
 }

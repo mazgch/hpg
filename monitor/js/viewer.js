@@ -43,6 +43,27 @@ window.onload = function _onload() {
 
     let config = { time: [-Infinity, Infinity] };
 
+    // Help
+    // ------------------------------------------------------------------------------------
+    
+    const helpButton = document.getElementById('btnHelp');
+    const helpModal = document.getElementById('help-modal');
+    const helpClose = document.getElementById('help-modal-close');
+    if (helpButton && helpModal && helpClose) {
+        const closeHelp = () => helpModal.setAttribute('hidden','');
+        const openHelp = () => helpModal.removeAttribute('hidden');
+        helpButton.addEventListener('click', openHelp);
+        helpClose.addEventListener('click', closeHelp);
+        helpModal.addEventListener('click', (evt) => {
+            if (evt.target === helpModal) closeHelp();
+        });
+        document.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Escape' && !helpModal.hasAttribute('hidden')) {
+                closeHelp();
+            }
+        });
+    }
+
     // TrimPlayer
     // ------------------------------------------------------------------------------------
 
@@ -91,8 +112,7 @@ window.onload = function _onload() {
     // ------------------------------------------------------------------------------------
 
     const mapsContainer = document.getElementById("map");
-    const opacitySlider = document.getElementById('opacity');
-    const mapView = new MapView(mapsContainer, opacitySlider);
+    const mapView = new MapView(mapsContainer);
     mapsContainer.addEventListener('epoch', (evt) => {
         const epoch = evt.detail;
         if ((epoch instanceof Epoch) && epoch.timeValid) {
@@ -103,8 +123,7 @@ window.onload = function _onload() {
     // PlacesManager
     // ------------------------------------------------------------------------------------
 
-    const placeSelect = document.getElementById("places");
-    const placeManager = new PlacesManager(placeSelect, mapView);
+    const placeManager = new PlacesManager(mapView);
 
     // ChartView
     // ------------------------------------------------------------------------------------

@@ -59,7 +59,8 @@
 }
 
 .track-chip .chip-name {
-  max-width: 100px;
+  max-width: 70px;
+  font-size: 0.7em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -25,7 +25,7 @@
 }
 
 #drop-overlay {
-  position: fixed; z-index: 1002;
+  position: fixed; z-index: 1003;
   top: 0; left: 0; right: 0; bottom: 0;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px); /* for Safari */
@@ -96,6 +96,50 @@
   background-color: #00000010;
   padding: 0.1em 0.1em;
   border-radius: 4px;
+}
+
+.help-modal {
+  z-index: 1002;
+}
+
+.help-modal-content {
+  max-width: 900px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.help-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.help-modal-header h2 {
+  margin: 0;
+}
+
+.overlay_ctrl-social {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.leaflet-control-places,
+.leaflet-control-opacity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.leaflet-control-opacity-slider {
+  width: 100px;
+  height: 0.8em;
+}
+
+.leaflet-control-places-select {
+  margin-left: 10px;
 }
 
 .range-slider input[type=range] {
@@ -207,3 +251,50 @@
   z-index: 3;
   box-shadow: 0 0 4px rgba(0,0,0,0.2);
 }
+
+.chartCfg {
+  bottom: 0.5em;
+  left: 0.5em;
+}
+
+*{ box-sizing: border-box; }
+/*
+.page {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding: 16px;
+  width: 100%;
+}
+
+.panel {
+  width: 100%;
+  overflow-y: auto;
+}
+
+@media (orientation: landscape) and (min-width: 1000px) {
+
+  .page {
+    max-width: none;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "left right";
+    align-items: stretch;
+  }
+
+  @media (max-width: 1536px) {
+    html, input, button, select {
+        font-size: 9pt; 
+    }
+    table {
+        font-size: 8pt;
+    }
+}
+
+  .left-column,
+  .right-column {
+    overflow-y: auto;
+    width: 100%;
+    min-height: 0;
+  }
+}*/

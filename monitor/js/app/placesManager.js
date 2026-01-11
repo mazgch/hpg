@@ -20,9 +20,10 @@ import { def, log } from '../core/utils.js';
 
 export class PlacesManager {
 
-    constructor(select, mapView) {
+    constructor(mapView) {
         this.#places = [];
-        this.#select = select;
+        this.#select = document.createElement('select');
+        this.#select.className = 'leaflet-control-places-select';
         this.#addOption(PlacesManager.PLACE_OVERVIEW);
         // add change event to select
         this.#select.addEventListener('change', (evt) => {
@@ -53,6 +54,12 @@ export class PlacesManager {
                 //this.addFromBounds(extentLonLat);
             });
         }
+        const label = document.createElement('label');
+        label.className = 'leaflet-control-places';
+        label.appendChild(document.createTextNode('Set place'));
+        label.appendChild(this.#select);
+        const overlayList = mapView.layerControl._overlaysList;
+        overlayList.parentNode.insertBefore(label, overlayList.nextSibling);        
     }
 
     // ===== Public API =====

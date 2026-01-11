@@ -152,6 +152,7 @@ export class ChartView {
                 chart.data.datasets.splice(ix, 1);
             }
             delete track.dataset;
+            this.#updateAnnotation();
             this.#update();
         }
     }
