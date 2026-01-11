@@ -78,6 +78,7 @@ export class Epoch {
                     }
                     if (Number.isFinite(this.fields.height) && Number.isFinite(vals.height)){
                         vals.vErr = (this.fields.height - vals.height);
+                        vals.vAbsErr = Math.abs(vals.vErr);
                     }
                     if (Number.isFinite(this.fields.msl) && Number.isFinite(vals.msl)){
                         vals.mslErr = (this.fields.msl - vals.msl);
@@ -100,7 +101,7 @@ export class Epoch {
         }
         
         // now write all the errors back or delete the previous
-        const errKeys = [ 'hErr', 'vErr', 'mslErr', 'nsErr', 'ewErr', 'atErr', 'xtErr', 'pErr', 'sErr', 'gsErr', 'cErr' ];
+        const errKeys = [ 'hErr', 'vAbsErr', 'vErr', 'mslErr', 'nsErr', 'ewErr', 'atErr', 'xtErr', 'pErr', 'sErr', 'gsErr', 'cErr' ];
         errKeys.forEach(key => {
             if (Number.isFinite(vals[key]) && def(FieldsReg[key])) {
                 this.fields[key] = FieldsReg[key].format(vals[key]);
