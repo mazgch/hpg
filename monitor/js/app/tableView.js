@@ -82,7 +82,7 @@ export class TableView {
                             tdFormated.appendChild(canvas);
                         }
                     } else */if (field === 'cnoLev') {
-                        tdFormated.className = "center";
+                        tdFormated.className = "right";
                         if (def(track.currentEpoch?.svs)) {
                             const svg = this.chartSignalBars(track.currentEpoch.svs);
                             const wrapper = document.createElement("div");
@@ -94,7 +94,7 @@ export class TableView {
                             tdFormated.appendChild(wrapper);
                         }
                     } else if (field === 'posSV') {
-                        tdFormated.className = "center";
+                        tdFormated.className = "right";
                         if (def(track.currentEpoch?.svs)) {
                             const svg = this.chartSatellitePositions(track.currentEpoch.svs);
                             const wrapper = document.createElement("div");
@@ -106,7 +106,7 @@ export class TableView {
                             tdFormated.appendChild(wrapper);
                         }
                     } else if (field === 'resSV') {
-                        tdFormated.className = "center";
+                        tdFormated.className = "right";
                         if (def(track.currentEpoch?.svs)) {
                             const svg = this.chartSatelliteResiduals(track.currentEpoch.svs);
                             const wrapper = document.createElement("div");
@@ -189,7 +189,7 @@ export class TableView {
         // --- Build dataset
         const list = [];
         let cnt = 0;
-        Object.entries(svs).forEach(([sv, svIt]) => {
+        Object.entries(svs).sort().forEach(([sv, svIt]) => {
             if (def(svIt.sigs)) {
                 Object.entries(svIt.sigs).forEach(([sigId, sigIt]) => {
                     if (0 < sigIt.cno) {
@@ -201,7 +201,7 @@ export class TableView {
         cnt = Math.max(12, cnt);
         // --- Dimensions
         const h = 55;
-        const b = Math.max((100-1) / cnt, 2);
+        const b = Math.max((100-1) / cnt, 1);
         const w = b * cnt + 1;
         
         // --- Create SVG
@@ -246,9 +246,9 @@ export class TableView {
                 .attr("y2", h);
         svg.selectAll(".domain").remove(); 
         let ix = 0;
-        Object.entries(svs).forEach(([sv, svIt]) => {
+        Object.entries(svs).sort(this.#sortKey).forEach(([sv, svIt]) => {
             if (def(svIt.sigs)) {
-                Object.entries(svIt.sigs).forEach(([sigId, sigIt]) => {
+                Object.entries(svIt.sigs).sort(this.#sortKey).forEach(([sigId, sigIt]) => {
                     if (0 < sigIt.cno) {
                         svg.append("rect")
                             .attr("x", b * ix + 0.5)
@@ -455,6 +455,15 @@ export class TableView {
     // ===== Save Restore API =====
 
     // ===== Internals =====
+
+    #sortKey([a], [b]) {
+        const [, aCh, aNum] = a.match(/^([A-Z]+)(\d+)$/);
+        const [, bCh, bNum] = b.match(/^([A-Z]+)(\d+)$/);
+        if (aCh !== bCh) {
+            return aCh.localeCompare(bCh);
+        }
+        return Number(aNum) - Number(bNum);
+    }
 
     // ===== Utils =====
     #emit(name, detail) {
