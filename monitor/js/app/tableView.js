@@ -248,7 +248,7 @@ export class TableView {
         let ix = 0;
         Object.entries(svs).sort(this.#sortKey).forEach(([sv, svIt]) => {
             if (def(svIt.sigs)) {
-                Object.entries(svIt.sigs).sort(this.#sortKey).forEach(([sigId, sigIt]) => {
+                Object.entries(svIt.sigs).sort().forEach(([sigId, sigIt]) => {
                     if (0 < sigIt.cno) {
                         svg.append("rect")
                             .attr("x", b * ix + 0.5)
@@ -457,18 +457,17 @@ export class TableView {
     // ===== Internals =====
 
     #sortKey([a], [b]) {
-        if (!def(a)) return  1;
-        if (!def(b)) return -1;
-        const [, aCh, aNum] = a.match(/^([A-Z]+)(\d+)$/);
-        const [, bCh, bNum] = b.match(/^([A-Z]+)(\d+)$/);
-        if (!def(aCh)) return  1;
-        if (!def(bCh)) return -1;
-        if (aCh !== bCh) {
-            return aCh.localeCompare(bCh);
+        const mA = a.match(/^([A-Z])(\d+|\?)$/);
+        const mB = b.match(/^([A-Z])(\d+|\?)$/);
+        if (!def(mA)) return  1;
+        if (!def(mB)) return -1;
+        if (mA[1] !== mB[1]) {
+            return mA[1].localeCompare(mB[1]);
+        } else if (!isNaN(mA[2]) && !isNaN(mB[2])) {
+            return Number(mA[2]) - Number(mB[2]);
+        } else {
+            return mA[2].localeCompare(mB[2]);
         }
-        if (!def(aNum) && isNaN(aNum)) return  1;
-        if (!def(bNum) && isNaN(bNum)) return -1;
-        return Number(aNum) - Number(bNum);
     }
 
     // ===== Utils =====
