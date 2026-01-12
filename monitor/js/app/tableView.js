@@ -457,11 +457,17 @@ export class TableView {
     // ===== Internals =====
 
     #sortKey([a], [b]) {
+        if (!def(a)) return  1;
+        if (!def(b)) return -1;
         const [, aCh, aNum] = a.match(/^([A-Z]+)(\d+)$/);
         const [, bCh, bNum] = b.match(/^([A-Z]+)(\d+)$/);
+        if (!def(aCh)) return  1;
+        if (!def(bCh)) return -1;
         if (aCh !== bCh) {
             return aCh.localeCompare(bCh);
         }
+        if (!def(aNum) && isNaN(aNum)) return  1;
+        if (!def(bNum) && isNaN(bNum)) return -1;
         return Number(aNum) - Number(bNum);
     }
 
