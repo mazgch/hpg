@@ -14,6 +14,8 @@
  * limitations under the License.
  */
  
+ * { box-sizing: border-box; }
+
  #map, .vresize {
   resize: vertical;
   min-height:350px;
@@ -253,48 +255,6 @@
 }
 
 .chartCfg {
-  bottom: 0.5em;
+  top: 0.5em;
   left: 0.5em;
 }
-
-*{ box-sizing: border-box; }
-/*
-.page {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-  padding: 16px;
-  width: 100%;
-}
-
-.panel {
-  width: 100%;
-  overflow-y: auto;
-}
-
-@media (orientation: landscape) and (min-width: 1000px) {
-
-  .page {
-    max-width: none;
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas:
-      "left right";
-    align-items: stretch;
-  }
-
-  @media (max-width: 1536px) {
-    html, input, button, select {
-        font-size: 9pt; 
-    }
-    table {
-        font-size: 8pt;
-    }
-}
-
-  .left-column,
-  .right-column {
-    overflow-y: auto;
-    width: 100%;
-    min-height: 0;
-  }
-}*/
