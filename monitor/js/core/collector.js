@@ -30,7 +30,7 @@ export class Collector {
     }
 
     check(message) {
-        const msgId = ['RMC', 'VTG', 'GGA', 'GNS'];
+        const msgId = ['RMC', 'VTG', 'GGA'/*, 'GNS'*/];
         return  (def(message.id) && msgId.includes(message.id) && def(this.#ids[message.id])) || 
                 (def(message.fields?.time) && def(this.#fields.time) && (message.fields?.time !== this.#fields.time)) ||
                 (def(message.fields?.itow) && def(this.#fields.itow) && (message.fields?.itow !== this.#fields.itow));
