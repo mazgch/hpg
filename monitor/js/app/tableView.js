@@ -268,7 +268,7 @@ export class TableView {
                 const rsEl = rs(svIt.el); 
                 const cnoTxt = [];
                 let used = false;
-                Object.entries(svIt.sigs).forEach(([sigId, sigIt]) => {
+                Object.entries(svIt.sigs).sort().forEach(([sigId, sigIt]) => {
                     const sigTxt = ((sigId !== '?') ? ' ' + sigId : '');
                     if (0 < sigIt.cno) cnoTxt.push(`<br>C/N0:${sigTxt} ${sigIt.cno} dBHz `);
                     if (def(sigIt.used)) used ||= sigIt.used;
@@ -353,7 +353,7 @@ export class TableView {
                 const sinAz = Math.sin(radAz);
                 const cosAz = Math.cos(radAz);
                 const cosEl = Math.cos(svIt.el * Math.PI / 180);
-                Object.entries(svIt.sigs).forEach(([sigId, sigIt]) => {
+                Object.entries(svIt.sigs).sort().forEach(([sigId, sigIt]) => {
                     if (def(sigIt.res)) {
                         const colRes = (sigIt.res < 0) ? 'rgba(0,0,255,0.8)' : 'rgba(255,0,0,0.8)';
                         const res = Number((cosEl * sigIt.res).toFixed(1));
