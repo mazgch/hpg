@@ -196,8 +196,8 @@ export class TableView {
                             .attr("height", sigIt.cno)
                             .attr("fill", sigIt.used ? "rgba(0,200,0,0.8)" : "rgba(0,100,255,0.8)")
                             .on("mouseover", (evt) => {
-                                const sigTxt = ((sigId !== '?') ? `Signal: ${sigId}<br>`: '');
-                                const hint = `<strong>${sv}</strong><br>${sigTxt}C/N0: ${sigIt.cno}`;
+                                const sigTxt = ((sigId !== '?') ? `<br>Signal: ${sigId}`: '');
+                                const hint = `<strong>${sv}</strong>${sigTxt}<br>C/N0: ${sigIt.cno}`;
                                 const tip = d3.select("body")
                                     .append("div")
                                     .attr("class", "svToolTip")
@@ -361,8 +361,8 @@ export class TableView {
                         const color = sigIt.used ? 'rgba(0,200,0,0.8)' : 'rgba(0,100,255,0.8)';
                         const cx = c.x + resLog * sinAz;
                         const cy = c.y - resLog * cosAz;
-                        const sigTxt = ((sigId !== '?') ? ' ' + sigId : '');
-                        let hint = `<strong>${sv}${sigTxt}</strong><br>Residual: ${sigIt.res} m<br>Residual 2D proj.: ${res} m`;
+                        const sigTxt = ((sigId !== '?') ? `<br>Signal: ${sigId}`: '');
+                        let hint = `<strong>${sv}</strong>${sigTxt}<br>Residual: ${sigIt.res} m<br>Residual 2D proj.: ${res} m`;
                         if (def(svIt.az) && def(svIt.el)) {
                             hint += `<br>Azimuth: ${svIt.az} degrees<br>Elevation: ${svIt.el} degrees`;
                         }
