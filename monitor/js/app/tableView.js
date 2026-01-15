@@ -189,35 +189,17 @@ export class TableView {
             if (def(svIt.sigs)) {
                 Object.entries(svIt.sigs).sort().forEach(([sigId, sigIt]) => {
                     if (0 < sigIt.cno) {
+                        const sigTxt = ((sigId !== '?') ? `<br>Signal: ${sigId}`: '');
+                        const hint = `<strong>${sv}</strong>${sigTxt}<br>C/N0: ${sigIt.cno}`;
                         svg.append("rect")
                             .attr("x", b * ix + 0.5)
                             .attr("y", d => y(sigIt.cno))
                             .attr("width", b - 0.5)
                             .attr("height", sigIt.cno)
                             .attr("fill", sigIt.used ? "rgba(0,200,0,0.8)" : "rgba(0,100,255,0.8)")
-                            .on("mouseover", (evt) => {
-                                const sigTxt = ((sigId !== '?') ? `<br>Signal: ${sigId}`: '');
-                                const hint = `<strong>${sv}</strong>${sigTxt}<br>C/N0: ${sigIt.cno}`;
-                                const tip = d3.select("body")
-                                    .append("div")
-                                    .attr("class", "svToolTip")
-                                    .html(hint)
-                                    .style("left", (evt.pageX + 10) + "px")
-                                    .style("top", (evt.pageY - 20) + "px");
-                                d3.select(evt.currentTarget).property("_tooltip", tip.node());
-                            })
-                            .on("mousemove", (evt) => {
-                                const tip = d3.select(evt.currentTarget).property("_tooltip");
-                                if (tip)
-                                    d3.select(tip)
-                                        .style("left", (evt.pageX + 10) + "px")
-                                        .style("top", (evt.pageY - 20) + "px");
-                            })
-                            .on("mouseout", (evt) => {
-                                const tip = d3.select(evt.currentTarget).property("_tooltip");
-                                if (tip) d3.select(tip).remove();
-                                d3.select(evt.currentTarget).property("_tooltip", null);
-                            });
+                            .on("mouseover", (evt) => this.tooltipMouseOver(evt, hint))
+                            .on("mousemove", (evt) => this.tooltipMouseMove(evt))
+                            .on("mouseout", (evt) => this.tooltipMouseOut(evt));
                         ix ++;
                     }
                 });
@@ -361,10 +343,12 @@ export class TableView {
                         const color = sigIt.used ? 'rgba(0,200,0,0.8)' : 'rgba(0,100,255,0.8)';
                         const cx = c.x + resLog * sinAz;
                         const cy = c.y - resLog * cosAz;
-                        const sigTxt = ((sigId !== '?') ? `<br>Signal: ${sigId}`: '');
-                        let hint = `<strong>${sv}</strong>${sigTxt}<br>Residual: ${sigIt.res} m<br>Residual 2D proj.: ${res} m`;
+                        let hint = `<strong>${sv}</strong><br>Residual: ${sigIt.res} m<br>Residual 2D proj.: ${res} m`;
                         if (def(svIt.az) && def(svIt.el)) {
                             hint += `<br>Azimuth: ${svIt.az} degrees<br>Elevation: ${svIt.el} degrees`;
+                        }
+                        if (sigId !== '?') {
+                            hint += `<br>Signal: ${sigId}`;
                         }
                         if (sigIt.cno) {
                             hint += `<br>C/N0: ${sigIt.cno} dBHz`;
