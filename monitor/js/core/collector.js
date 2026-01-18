@@ -107,7 +107,13 @@ export class Collector {
         this.#messages.push(message);
         def(message.id) && (this.#ids[message.id] = true);  
         def(message.fields) && this.fieldsMerge(message.fields, this.#fields);
-        if ((message.name === 'NAV-PVT') && def(message.fields?.flags?.psmState)) {
+        if (message.name === 'MON-SUPPLY') {
+            const power = fields.meas?.find( m => (m.name === "VCC") )?.power;
+            if (power) {
+                db.power.set(power);
+            }
+        }
+        else if ((message.name === 'NAV-PVT') && def(message.fields?.flags?.psmState)) {
             const mapPsm = Object.keys(FieldsReg.psm.map);
             this.#fields.psm = mapPsm[message.fields.flags.psmState];
         } else if (message.name === 'TUN-MEAS') {

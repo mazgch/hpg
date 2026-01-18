@@ -526,6 +526,20 @@ export class ProtocolUbx extends Protocol {
                         { name:'cn0',               type:'U1', unit:'dbHz'              },
                         { name:'cn0Frac',           type:'U1', unit:'dbHz',scale:1./256 }, 
                         { /*name:'res1',*/          type:'U1[2]'                        } ] } ] }, 
+        'MON-SUPPLY': { 
+            descr:  'SUPPLY monitoring data',
+            spec:[  { name:'version',               type:'U1'                           },
+                    { name:'numMeas',               type:'U1'                           },
+                    { name:'meas', repeat:'numMeas', spec: [
+                        { name:'name',              type:'CH[12]'                       },
+                        { name:'timeTag',           type:'U4', unit:'s',  scale:1e-3    },
+                        { name:'power',             type:'U4', unit:'mW', scale:1e-3    },
+                        { name:'energy',            type:'U8', unit:'mJ', scale:1e-3    },
+                        { name:'temp',              type:'U2', unit:'°C', scale:1e-2    },
+                        { name:'voltage',           type:'U2', unit:'V',  scale:1e-3    },
+                        { name:'current',           type:'U4', unit:'mA', scale:1e-3    },
+                        { name:'currentMax',        type:'U4', unit:'mA', scale:1e-3    },
+                        { name:'currentMin',        type:'U4', unit:'mA', scale:1e-3    } ] } ] }, 
     // ESF ------------
         'ESF-STATUS': { 
             descr:'External Sensor Fusion Status',
@@ -697,7 +711,7 @@ const mapMsg = {
     0x09/*SOS*/: {  0x14:'SOS', },
     0x0A/*MON*/: {  0x02:'IO',        0x04:'VER',       0x06:'MSGPP',     0x07:'RXBUF',     0x08:'TXBUF',
                     0x09:'HW',        0x0B:'HW2',       0x21:'RXR',       0x27:'PATCH',     0x28:'GNSS',
-                    0x2E:'SMGR',      0x32:'BATCH',     0x35:'PMP', },
+                    0x2E:'SMGR',      0x32:'BATCH',     0x35:'PMP',       0x99:'SUPPLY', },
     0x0B/*AID*/: {  0x01:'INI',       0x02:'HUI',       0x30:'ALM',       0x31:'EPH',       0x33:'AOP', },
     0x0D/*TIM*/: {  0x01:'TP',        0x03:'TM2',       0x04:'SVIN',      0x06:'VRFY',      0x11:'DOSC',
                     0x12:'TOS',       0x13:'SMEAS',     0x16:'FCHG',      0x15:'VCOCAL',    0x17:'HOC', },

@@ -201,6 +201,7 @@ const mapPositionFix = {
 const epochFields = {
     date:   { name: 'Date UTC',                            unit:'yyyy-mm-dd'         },
     time:   { name: 'Time UTC',                            unit:'hh:mm:ss.sss'       },
+    power:  { name: 'Power consumption',                   unit:'mW',         prec:3 },
     wno:    { name: 'GPS week number',                     unit:'s',          prec:3,   descr:'weeks since 1980-01-06 modulo 1024' },
     itow:   { name: 'GPS time of week',                    unit:'s',          prec:3,   descr:'offset by leap seconds to UTC' },
     // 3D Position

@@ -1155,6 +1155,12 @@ double X = m_pStorageX->GetValue();
     
         // special extractions from messages
         if (message.protocol === 'UBX') {
+            if (message.name === 'MON-SUPPLY') {
+                const power = fields.meas?.find( m => (m.name === "VCC") )?.power;
+                if (power) {
+                    db.power.set(power);
+                }
+            }
             if (message.name === 'MON-VER') {
                 USTART.tableEntry('dev_tech', /*'\uE003'+*/
                         '<a target="_blank" href="https://www.u-blox.com/en/positioning-chips-and-modules">Positioning</a>', true);

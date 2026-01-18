@@ -194,12 +194,13 @@ export class Protocol {
                                 } else if (type === 'I') {
                                     v = (size === 1) ? binary.getInt8(ofs) :
                                         (size === 2) ? binary.getInt16(ofs, littleEnd) :
-                                        (size === 4) ? binary.getInt32(ofs, littleEnd) : undefined;
+                                        (size === 4) ? binary.getInt32(ofs, littleEnd) :
+                                        (size === 8) ? Number(binary.getBigInt64(ofs, littleEnd)) : undefined;
                                 } else if ((type === 'U') || (type == 'X')) {
                                     v = (size === 1) ? binary.getUint8(ofs) :
                                         (size === 2) ? binary.getUint16(ofs, littleEnd) :
                                         (size === 4) ? binary.getUint32(ofs, littleEnd) :
-                                        (size === 8) ? binary.getBigUint64(ofs, littleEnd) : undefined;
+                                        (size === 8) ? Number(binary.getBigUint64(ofs, littleEnd)) : undefined;
                                 } else if (type === 'R') {
                                     v = (size === 4) ? binary.getFloat32(ofs, littleEnd) :
                                         (size === 8) ? binary.getFloat64(ofs, littleEnd) : undefined;
