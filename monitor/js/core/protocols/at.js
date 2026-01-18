@@ -98,7 +98,7 @@ export class ProtocolAt extends Protocol {
         }
         if (message.id !== undefined) {
             message.name = message.id;
-            let msgSpec = ProtocolAt.spec[message.id];
+            let msgSpec = this.spec[message.id];
             if (!msgSpec && (m = message.id.match(/^(\+[A-Z0-9]+):$/))) msgSpec = spec[m[1]];
             if (msgSpec) {
                 message.descr = msgSpec.descr;

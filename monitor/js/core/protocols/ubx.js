@@ -531,7 +531,7 @@ export class ProtocolUbx extends Protocol {
             spec:[  { name:'version',               type:'U1'                           },
                     { name:'numMeas',               type:'U1'                           },
                     { name:'meas', repeat:'numMeas', spec: [
-                        { name:'name',              type:'CH[12]'                       },
+                        { name:'name',              type:'S12'                          },
                         { name:'timeTag',           type:'U4', unit:'s',  scale:1e-3    },
                         { name:'power',             type:'U4', unit:'mW', scale:1e-3    },
                         { name:'energy',            type:'U8', unit:'mJ', scale:1e-3    },

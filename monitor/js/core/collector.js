@@ -108,9 +108,9 @@ export class Collector {
         def(message.id) && (this.#ids[message.id] = true);  
         def(message.fields) && this.fieldsMerge(message.fields, this.#fields);
         if (message.name === 'MON-SUPPLY') {
-            const power = fields.meas?.find( m => (m.name === "VCC") )?.power;
+            const power = message.fields?.meas?.find( m => (m.name === "VCC") )?.power;
             if (power) {
-                db.power.set(power);
+                this.#fields.power = power;
             }
         }
         else if ((message.name === 'NAV-PVT') && def(message.fields?.flags?.psmState)) {
