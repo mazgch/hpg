@@ -95,7 +95,8 @@ public:
     }
     if (txChar && rxChar && advertising) {
       advertising->addServiceUUID(BLUETOOTH_SERVICE);
-      advertising->start();        
+      advertising->setName(name.c_str());    
+      advertising->start();
       log_i("device \"%s\" mode \"%s\"", name.c_str(), (BLUETOOTH_SERVICE == SPS_SERVICE_UUID) ? "SPS" : "NUS");
       xTaskCreatePinnedToCore(task, BLUETOOTH_TASK_NAME, BLUETOOTH_STACK_SIZE, this, BLUETOOTH_TASK_PRIO, NULL, BLUETOOTH_TASK_CORE);
     } else {

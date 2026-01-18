@@ -22,7 +22,7 @@
 // Board Manager URL:    https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 // Github Repository:    https://github.com/espressif/arduino-esp32 
 
-// ESP32 libraries, version 3.1.1 is recommended
+// ESP32 libraries, version 3.3.5 is recommended
 // - on NINA-W1 versions 2.0.10 until 2.0.17 crash due to https://github.com/espressif/esp-idf/issues/12222 do not use
 // - recent v3.1.0 is causing some extra warnings when compiled with All warnings enabled
 
@@ -49,7 +49,7 @@
 // Library Manager:   http://librarymanager/All#arduino-CAN
 // Github Repository: https://github.com/sandeepmistry/arduino-CAN
 
-// NimBLE-Arduino by h2zero, version 2.3.6
+// NimBLE-Arduino by h2zero, version 2.3.7
 // Library Manager:   http://librarymanager/All#NimBLE-Arduino
 // Github Repository: https://github.com/h2zero/NimBLE-Arduino
 
