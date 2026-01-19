@@ -536,7 +536,8 @@ async function socketSerial(serial) {
     USTART.tableEntry('dev_name', serial.name);
     deviceStatusUpdate();
 
-    await serial.open({ baudRate: 9600, bufferSize: 1024 });
+    const baudRate = prompt("Enter Serial baudrate, suggested values: 9600, 38400, 115200", 38400);
+    await serial.open({ baudRate: baudRate, bufferSize: 1024 });
     await serial.setSignals({dataTerminalReady:true, requestToSend:true});
     device.serial = serial;
     device.serialRead = serial.readable.getReader();
