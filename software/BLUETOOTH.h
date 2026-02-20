@@ -17,6 +17,13 @@
 #ifndef __BLUETOOTH_H__
 #define __BLUETOOTH_H__
 
+#if (ESP_ARDUINO_VERSION == ESP_ARDUINO_VERSION_VAL(3,3,7))
+  // NimBle 2.3.7 does not indicate that BT controller memory is used
+  // ESP32 core version 3.3.7 requires this however
+  #include "esp32-hal-bt-mem.h"
+  extern "C" bool btInUse(void) { return true; }
+#endif
+
 #include <NimBLEDevice.h>
 #include <cbuf.h> 
 

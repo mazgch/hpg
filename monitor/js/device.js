@@ -692,7 +692,9 @@ function onSocketMessage(evt) {
         clearTimeout(device.timeout);
         device.timeout = undefined;
     }
-    device.timeout = setTimeout( onSocketError, 5000)
+    if (device.socket) {
+        device.timeout = setTimeout( onSocketError, 5000)
+    }
 }
 
 /* END OF MODULE */ return {
