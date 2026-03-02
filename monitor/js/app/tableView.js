@@ -76,7 +76,7 @@ export class TableView {
                             const svg = this.chartSignalBars(track.currentEpoch.svs);
                             const wrapper = document.createElement("div");
                             wrapper.appendChild(svg);
-                            wrapper.style.padding = "2px";
+                            wrapper.style.padding = "2px 0px";
                             wrapper.style.width = svg.getAttribute("width") + "px";
                             wrapper.style.height = svg.getAttribute("height") + "px";
                             wrapper.style.display = "inline-block";  // prevents shrinkage
@@ -140,8 +140,9 @@ export class TableView {
         cnt = Math.max(12, cnt);
         // --- Dimensions
         const h = 55;
-        const b = Math.max((100-1) / cnt, 1);
-        const w = b * cnt + 1;
+        const d = Math.floor((100-1) / cnt);
+        const b = Math.max(d, 2) - 1;
+        const w = (b + 1) * cnt + 1;
         
         // --- Create SVG
         const svg = d3.create("svg")
@@ -192,9 +193,9 @@ export class TableView {
                         const sigTxt = ((sigId !== '?') ? `<br>Signal: ${sigId}`: '');
                         const hint = `<strong>${sv}</strong>${sigTxt}<br>C/N0: ${sigIt.cno}`;
                         svg.append("rect")
-                            .attr("x", b * ix + 0.5)
+                            .attr("x", 1 + (b + 1) * ix)
                             .attr("y", d => y(sigIt.cno))
-                            .attr("width", b - 0.5)
+                            .attr("width", b)
                             .attr("height", sigIt.cno)
                             .attr("fill", sigIt.used ? "rgba(0,200,0,0.8)" : "rgba(0,100,255,0.8)")
                             .on("mouseover", (evt) => this.tooltipMouseOver(evt, hint))
