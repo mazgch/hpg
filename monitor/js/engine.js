@@ -1463,7 +1463,7 @@ function process(data, type) {
     let m;
     let msgSpec;
     let payload;
-    if (m = message.data.match(/\$(G[ABLNPQ])([A-Z]{3}),(.*)\*[0-9A-F]{2}\r\n$/)) { // Standard Nav device
+    if (m = message.data.match(/\$(G[ABNLPIQ])([A-Z]{3}),(.*)\*[0-9A-F]{2}\r\n$/)) { // Standard Nav device
         message.talker = m[1];
         message.id = m[2];
         payload = m[3];
@@ -1475,7 +1475,7 @@ function process(data, type) {
         payload = m[2];
         message.name = message.id;
         msgSpec = spec[message.id];
-    } else if (m = message.data.match(/\$([A-OQ-Z][A-Z])(G[ABNLPQ]Q),(.*)\*[0-9A-F]{2}\r\n$/)) { // Poll request to nav device
+    } else if (m = message.data.match(/\$([A-OQ-Z][A-Z])(G[ABNLPIQ]Q),(.*)\*[0-9A-F]{2}\r\n$/)) { // Poll request to nav device
         message.talker = m[1];
         message.id = m[2];
         payload = m[3];
