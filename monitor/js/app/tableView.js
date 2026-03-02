@@ -141,7 +141,7 @@ export class TableView {
         // --- Dimensions
         const h = 55;
         const d = Math.floor((100-1) / cnt);
-        const b = Math.max(d, 2) - 1;
+        const b = Math.max(d, 3) - 1;
         const w = (b + 1) * cnt + 1;
         
         // --- Create SVG
