@@ -43,6 +43,21 @@ export class MapView {
         Object.values(this.#baseLayers)[0].addTo(map);
         this.layerControl = L.control.layers(this.#baseLayers).addTo(map);
         
+        function addOverviewButton(container, view) {
+            const btn = L.DomUtil.create('a', '', container);
+            btn.href = '#';
+            btn.role = 'button';
+            btn.className = "leaflet-control-zoom-fit";
+            btn.title = 'Reset zoom to fit content.';
+            btn.innerHTML = '<span aria-hidden="true">⤢</span>';   // or icon HTML
+            btn.style.display = 'block';
+            L.DomEvent.on(btn, 'click', function (e) {
+                L.DomEvent.stop(e);
+                view.setOverview();
+            });
+        }
+        addOverviewButton(map.zoomControl._container, this)
+
         const screenshoter = L.simpleMapScreenshoter({
             hideElementsWithSelectors: ['.leaflet-control-container'], // hide controls
             cropImageByInnerWH: true,           // use map inner size

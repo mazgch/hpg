@@ -67,6 +67,14 @@
   background: #ffffffe0;
 }
 
+.leaflet-control-zoom-fit {
+	font: bold 18px 'Lucida Console', Monaco, monospace;
+	text-indent: 1px;
+}
+.leaflet-touch .leaflet-control-zoom-fit  {
+	font-size: 22px;
+}
+
 .place  {
   stroke: black;
   stroke-opacity: 0.1;
