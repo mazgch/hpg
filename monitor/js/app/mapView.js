@@ -55,7 +55,7 @@ export class MapView {
                 view.setOverview();
             });
         }
-        addOverviewButton(map.zoomControl._container, this)
+        addOverviewButton(map.zoomControl.getContainer(), this)
 
         const screenshoter = L.simpleMapScreenshoter({
             hideElementsWithSelectors: ['.leaflet-control-container'], // hide controls
