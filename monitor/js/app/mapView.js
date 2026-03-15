@@ -44,10 +44,9 @@ export class MapView {
         this.layerControl = L.control.layers(this.#baseLayers).addTo(map);
         
         function addOverviewButton(container, view) {
-            const btn = L.DomUtil.create('a', '', container);
+            const btn = L.DomUtil.create('a', 'leaflet-control-zoom-fit', container);
             btn.href = '#';
             btn.role = 'button';
-            btn.className = "leaflet-control-zoom-fit";
             btn.title = 'Reset zoom to fit content.';
             btn.innerHTML = '<span aria-hidden="true">⤢</span>';   // or icon HTML
             btn.style.display = 'block';
