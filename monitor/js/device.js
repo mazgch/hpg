@@ -457,9 +457,12 @@ async function socketClose() {
         delete device.socket;
     }
     if (device.bluetooth) {
-        await device.notifyChar?.stopNotifications();
-        await device.bluetooth.gatt?.disconnect();
-        device.notifyChar?.removeEventListener('characteristicvaluechanged',onSocketMessage);
+        try {
+            await device.notifyChar?.stopNotifications();
+            await device.bluetooth.gatt?.disconnect();
+        } catch (err) {
+        }
+        device.notifyChar?.removeEventListener('characteristicvaluechanged', onSocketMessage);
         device.bluetooth?.removeEventListener('gattserverdisconnected', onSocketDisconnect);
         delete device.notifyChar;
         delete device.writeChar;
