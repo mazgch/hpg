@@ -183,16 +183,23 @@ export class Collector {
                 }
             }
         } else if (def(message.fields?.infTxt) && (m = message.name.match(/^(INF-([A-Z]+)|(G[PN]TXT))$/))) {
-            if (m[2] === 'TEST') {
+            let infTxt; 
+            const lvlLut = [ 'ERROR', 'WARNING', 'NOTICE', 'TEST', 'DEBUG' ];
+            const lvl = def(m[2]) ? m[2] : def(message.fields.lvl) ? lvlLut[message.fields.lvl] : undefined; 
+            if (lvl === 'TEST') {
                 m = message.fields.infTxt.match(/nomVoltage_(.*)=(.*)$/);
                 if (def(m) && def(m[1]) && def(m[2])) {
                     this.#voltage[m[1]] = Number( m[2].replace('V','.') );
                 }
-            } else if ((m[2] === 'ERROR') || (m[2] === 'WARNING') || (m[2] === 'NOTICE')) {
-                const infTxt = ((def(m[2]) && (m[2] !== 'NOTICE')) ? `$(m[2]) `: '') + message.fields.infTxt;
-                this.infMerge(this.#info, infTxt);
+            } else if ((lvl === 'ERROR') || (lvl === 'WARNING') || (lvl === 'NOTICE')) {
+                infTxt = ((def(lvl) && (lvl !== 'NOTICE')) ? `$(lvl) `: '') + message.fields.infTxt;
             } else {
                 // DEBUG / USER
+            }
+            if (infTxt !== undefined) {
+                if (!infTxt.startsWith("Selective L5:")) { // TODO remove
+                    this.infMerge(this.#info, infTxt);
+                }
             }
         }
     }
