@@ -438,15 +438,19 @@ export class FileManager {
         const tbl = document.createElement("table");
         tbl.className = 'table';
         const rows = [
-            ["Color", this.#tdColor(track)],
-            ["Mode", this.#tdMode(track)],
-            ["Module", info.module],
-            ["Firmware", info.fwVer],
-            ["Protocol", info.protoVer],
-            ["Extension", info.extVer],
-            ["Hardware", info.hwVer || info.monHwVer],
-            ["Epochs", `${epochsGood} / ${epochsTotal}`],
-            ['Remove', this.#tdRemove(track)]
+            ["Color",       this.#tdColor(track)],
+            ["Mode",        this.#tdMode(track)],
+            ["Module",      info.module],
+            ["Firmware",    info.fwVer],
+            ["Protocol",    info.protoVer],
+            ["Extension",   info.extVer],
+            ["Hardware",    info.hwVer || info.monHwVer],
+            ["GNSS",        info.gnssSys?.sort().join(' ')],
+            ["Signals",     info.gnssSig?.sort().join(' ')],
+            ["Protocols",   info.proto?.sort().join(' ')],
+            ["Messages",    info.msgCnt],
+            ["Epochs",      `${epochsGood} / ${epochsTotal}`],
+            ['Remove',      this.#tdRemove(track)]
         ];
 
         tbl.appendChild(_row('Name', this.#thName(track), 'th'))

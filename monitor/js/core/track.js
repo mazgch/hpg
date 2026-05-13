@@ -16,7 +16,7 @@
 
 "use strict";
 
-import { def, log, bytesToString, isGzip } from './utils.js';
+import { def, log, bytesToString, isGzip, findSysByCh } from './utils.js';
 import { Epoch } from './epoch.js';
 import { Collector } from './collector.js';
 import { Engine } from './engine.js'
@@ -188,10 +188,33 @@ export class Track {
 
     appendMessage(message) {
         this.#collector ??= new Collector();
+        this.info.proto ??= [];
+        if (!this.info.proto.includes(message.protocol)) {
+            this.info.proto.push(message.protocol);
+        }
+        this.info.msgCnt ??= 0;
+        this.info.msgCnt ++;
         if (this.#collector.check(message)) {
             const epoch = this.#collector.collect( this.#keys );
             epoch.fields.epOfs = this.#offsetEpoch;
             epoch.fields.epSz = this.#offsetFile - this.#offsetEpoch;
+            if (epoch.svs) {
+                let sig = [];
+                Object.values(epoch.svs).forEach((svIt) => {
+                    Object.entries(svIt.sigs).forEach(([sigKey, sigIt]) => {
+                        if (0 < sigIt.cno) {
+                            if (!sig.includes(sigKey)) {
+                                sig.push(sigKey);
+                            }
+                        }
+                    });
+                });
+                if (this.info.gnssSig) sig = [...new Set([...this.info.gnssSig, ...sig])];
+                let sys = [...new Set(Object.keys(epoch.svs).map(k => findSysByCh(k[0])))];
+                if (this.info.gnssSys) sys = [...new Set([...this.info.gnssSys, ...sys])];
+                this.info.gnssSig = sig;
+                this.info.gnssSys = sys;
+            }
             this.#offsetEpoch = this.#offsetFile;
             this.#collector.clear();
             this.add(epoch);

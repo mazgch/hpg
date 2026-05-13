@@ -66,7 +66,7 @@ export class Collector {
         }
         // calculate number of Sv
         const svObj = Object.values(this.#svs);
-        if (def(svObj)) {
+        if (def(svObj) && svObj.length) {
             let numSvs = 0; 
             let trkSvs = 0; 
             let trkSigs = 0;

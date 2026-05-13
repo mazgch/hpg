@@ -243,3 +243,8 @@ export const GNSS_LUT = {
                         us: 1556290000,
                         } },
 };
+
+export function findSysByCh(ch) {
+    return Object.keys(GNSS_LUT)
+                 .find(sys => (GNSS_LUT[sys].ch === ch));
+}
