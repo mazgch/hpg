@@ -201,13 +201,15 @@ export class Track {
             if (epoch.svs) {
                 let sig = [];
                 Object.values(epoch.svs).forEach((svIt) => {
-                    Object.entries(svIt.sigs).forEach(([sigKey, sigIt]) => {
-                        if (0 < sigIt.cno) {
-                            if (!sig.includes(sigKey)) {
-                                sig.push(sigKey);
+                    if (def(svIt.sigs)) {
+                        Object.entries(svIt.sigs).forEach(([sigKey, sigIt]) => {
+                            if (0 < sigIt.cno) {
+                                if (!sig.includes(sigKey)) {
+                                    sig.push(sigKey);
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
                 });
                 if (this.info.gnssSig) sig = [...new Set([...this.info.gnssSig, ...sig])];
                 let sys = [...new Set(Object.keys(epoch.svs).map(k => findSysByCh(k[0])))];
