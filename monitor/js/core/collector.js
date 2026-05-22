@@ -192,7 +192,7 @@ export class Collector {
                     this.#voltage[m[1]] = Number( m[2].replace('V','.') );
                 }
             } else if ((lvl === 'ERROR') || (lvl === 'WARNING') || (lvl === 'NOTICE')) {
-                infTxt = ((def(lvl) && (lvl !== 'NOTICE')) ? `$(lvl) `: '') + message.fields.infTxt;
+                infTxt = ((def(lvl) && (lvl !== 'NOTICE')) ? `${lvl} `: '') + message.fields.infTxt;
             } else {
                 // DEBUG / USER
             }
