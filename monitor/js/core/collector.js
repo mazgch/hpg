@@ -132,7 +132,7 @@ export class Collector {
             for (let s = 0; s < svs.length; s ++) {
                 const sv = svs[s];
                 const [ svId, sigId ] = this.#convertUbxSvId(sv.gnssId, sv.svId, undefined /*no sigId*/);
-                this.#svsSet(svId, sigId, sv.used, sv.cno, sv.azim, sv.elev, sv.prRes);
+                this.#svsSet(svId, sigId, sv.flags.svUsed, sv.cno, sv.azim, sv.elev, sv.prRes);
             }
         } else if ((message.id === 'NAV-SIG') && (0 < message.fields?.sigs?.length)){
             const sigs = message.fields.sigs;
