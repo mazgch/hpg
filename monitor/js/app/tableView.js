@@ -191,7 +191,7 @@ export class TableView {
                 Object.entries(svIt.sigs).sort().forEach(([sigId, sigIt]) => {
                     if (0 < sigIt.cno) {
                         const sigTxt = ((sigId !== '?') ? `<br>Signal: ${sigId}`: '');
-                        const hint = `<strong>${sv}</strong>${sigTxt}<br>C/N0: ${sigIt.cno}`;
+                        const hint = `<strong>${sv}</strong>${sigTxt}<br>C/N0: ${sigIt.cno} dBHz`;
                         svg.append("rect")
                             .attr("x", 1 + (b + 1) * ix)
                             .attr("y", d => y(sigIt.cno))
