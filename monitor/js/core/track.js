@@ -204,7 +204,7 @@ export class Track {
                     if (def(svIt.sigs)) {
                         Object.entries(svIt.sigs).forEach(([sigKey, sigIt]) => {
                             if (0 < sigIt.cno) {
-                                if (!sig.includes(sigKey)) {
+                                if (!sig.includes(sigKey) && ('?' !== sigKey)) {
                                     sig.push(sigKey);
                                 }
                             }
