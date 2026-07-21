@@ -443,7 +443,7 @@ export class Collector {
     
     #convertNmeaSvId(sysId, svId) {
         // NMEA convert the System, SV, Talker to our internal representation
-        if (!def(sysId) || (sysId == 'GNSS')) {
+        if (!def(sysId) || (sysId == 'GNSS') || (sysId == 'GPS')) {
             if ((1 <= svId) && (32 >= svId)) {
                 sysId = 'GPS';
             } else if ((33 <= svId) && (64 >= svId)) {
