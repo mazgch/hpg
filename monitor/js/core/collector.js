@@ -197,9 +197,7 @@ export class Collector {
                 // DEBUG / USER
             }
             if (infTxt !== undefined) {
-                if (!infTxt.startsWith("Selective L5:")) { // TODO remove
-                    this.infMerge(this.#info, infTxt);
-                }
+                this.infMerge(this.#info, infTxt);
             }
         }
     }
