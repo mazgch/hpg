@@ -18,7 +18,7 @@
 
 import { Message }  from '../message.js';
 import { Protocol } from './protocol.js';
-import { pad } from "./../utils.js";
+import { hex } from "./../utils.js";
 
 export class ProtocolNmea extends Protocol {
 
@@ -62,7 +62,7 @@ export class ProtocolNmea extends Protocol {
             message.name = message.talker + message.id;
             msgSpec = ProtocolNmea.spec[message.id];
         } else if (m = message.data.match(/\$PUBX,(\d{2}),(.*)\*[0-9A-F]{2}\r\n$/i)) { // P:proprietary PUBX
-            message.pubxid = pad(m[1],2,16);
+            message.pubxid = hex(m[1],2);
             message.id = 'PUBX,'+message.pubxid;
             payload = m[2];
             message.name = message.id;
