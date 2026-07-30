@@ -272,6 +272,10 @@ protected:
       client.send(data.c_str());
     } else {
       log_i("binary %d bytes", message.length());
+      if (message.length() == 0 || message.length() > 4096) {
+        log_e("binary message size %d out of range, ignoring", message.length());
+        return;
+      }
       // function is declared here to avoid include dependency
       extern size_t GNSS_INJECT_WEBSOCKET(const void* ptr, size_t len);
       GNSS_INJECT_WEBSOCKET(message.c_str(), message.length());
