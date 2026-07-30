@@ -18,7 +18,7 @@
 
 import { Message }  from '../message.js';
 import { Protocol } from './protocol.js';
-import { hex } from "./utils.js";
+import { hex } from "../utils.js";
 
 export class ProtocolNmea extends Protocol {
 
