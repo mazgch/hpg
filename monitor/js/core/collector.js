@@ -44,6 +44,7 @@ export class Collector {
         this.#completeSpeed(this.#fields);
         this.#completeCog(this.#fields);
         this.#completeHeight(this.#fields);
+        this.#completeAccuracy(this.#fields);
         const fieldEntries = Object.entries(this.#fields)
                 .filter( ([key, val]) => ( def(val) && keys.includes( key ) && (true !== FieldsReg[key]?.hide)) )
                 .map( ([key, val]) => {
@@ -340,6 +341,18 @@ export class Collector {
             }
         } else if (def(fields.height) && def(fields.msl)) {
             fields.gsep = fields.height - fields.msl;
+        }
+    }
+    
+    #completeAccuracy(fields) {
+       if (!def(fields.hAcc) && def(fields.stdMajor) && def(fields.stdMinor)) {
+            fields.hAcc = Math.sqrt(fields.stdMajor ** 2 + fields.stdMinor ** 2);
+        }
+        if (!def(fields.hAcc) && def(fields.stdLat) && def(fields.stdLong)) {
+            fields.hAcc = Math.sqrt(fields.stdLat ** 2 + fields.stdLong ** 2);
+        }
+        if (!def(fields.vAcc) && def(fields.stdAlt)) {
+            fields.vAcc = fields.stdAlt;
         }
         if (!def(fields.pAcc) && def(fields.hAcc) && def(fields.vAcc)) {
             fields.pAcc = Math.sqrt(fields.hAcc ** 2 + fields.vAcc ** 2);
