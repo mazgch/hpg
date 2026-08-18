@@ -97,14 +97,14 @@ const MAP = Object.freeze( {
         'L5 ON': { hint: 'L5 enabled',                   color: '#00ff00' }
     },
     spoof: {
-        'UNKNOWN':{ hint: 'Disabled',                    color: '#c0c0c0' },
+        'DIS':   { hint: 'Disabled',                     color: '#c0c0c0' },
         'NO':    { hint: 'No spoofing',                  color: '#00ff00' },
         'IND':   { hint: 'Spoofing indicated',           color: '#ffbf00' },
         'CONF':  { hint: 'Spoofing confirmed',           color: '#ff0000' }
     },
     indoor: {
-        'NO':    { hint: 'Not detected',                 color: '#ff0000' },
-        'DET':   { hint: 'Detected',                     color: '#00ff00' },
+        'NO':    { hint: 'Not detected',                 color: '#c0c0c0' },
+        'DET':   { hint: 'Detected',                     color: '#ff0000' },
     },
     bool: {
         0:       { hint: 'false',                        color: '#ff0000' },
