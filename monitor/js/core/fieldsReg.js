@@ -91,6 +91,21 @@ const MAP = Object.freeze( {
         'PSM':   { hint: 'PSM',                          color: '#00ff00' },
         'OFF':   { hint: 'Inactive',                     color: '#ff0000' },
     },
+    selL5: {
+        'DIS':   { hint: 'Disabled',                     color: '#c0c0c0' },
+        'L5 OFF':{ hint: 'L5 disabled',                  color: '#0000ff' },
+        'L5 ON': { hint: 'L5 enabled',                   color: '#00ff00' }
+    },
+    spoof: {
+        'UNKNOWN':{ hint: 'Disabled',                    color: '#c0c0c0' },
+        'NO':    { hint: 'No spoofing',                  color: '#00ff00' },
+        'IND':   { hint: 'Spoofing indicated',           color: '#ffbf00' },
+        'CONF':  { hint: 'Spoofing confirmed',           color: '#ff0000' }
+    },
+    indoor: {
+        'NO':    { hint: 'Not detected',                 color: '#ff0000' },
+        'DET':   { hint: 'Detected',                     color: '#00ff00' },
+    },
     bool: {
         0:       { hint: 'false',                        color: '#ff0000' },
         1:       { hint: 'true',                         color: '#00ff00' },
@@ -202,6 +217,9 @@ export const FieldsReg = Object.freeze( {
     wno        : new Field( 'GPS week number',                         { unit:'s',       prec:3, hint:'weeks since 1980-01-06 modulo 1024' } ),
     itow       : new Field( 'GPS time of week',                        { unit:'s',       prec:3, hint:'offset by leap seconds to UTC' } ),
     fix        : new Field( 'Position fix',                            { map:MAP.fix            } ),
+    indoorDet  : new Field( 'Indoor detection',                        { map:MAP.indoor         } ),
+    spoofDet   : new Field( 'Spoofing detection',                      { map:MAP.spoof          } ),
+    selL5      : new Field( 'Selective L5',                            { map:MAP.selL5          } ),
     psm        : new Field( 'Power save mode',                         { map:MAP.psm            } ),
     ecefX      : new Field( 'ECEF X coordinate',                       { unit:'m',       prec:3 } ),
     ecefY      : new Field( 'ECEF Y coordinate',                       { unit:'m',       prec:3 } ),

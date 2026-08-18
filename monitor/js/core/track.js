@@ -384,7 +384,8 @@ export class Track {
 
     static EPOCH_FIELDS = [ 
         'date', 'time',
-        'fix', 'psm', 'power',
+        'fix', 'spoofDet', 'indoorDet', 'selL5',
+        'psm', 'power',
         'lat', 'lng', 'pAcc', 'hAcc',
         'height', 'msl', 'vAcc', 
         'speed', 'gSpeed', 'sAcc',

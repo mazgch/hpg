@@ -113,10 +113,22 @@ export class Collector {
             if (power) {
                 this.#fields.power = power;
             }
-        }
-        else if ((message.name === 'NAV-PVT') && def(message.fields?.flags?.psmState)) {
-            const mapPsm = Object.keys(FieldsReg.psm.map);
-            this.#fields.psm = mapPsm[message.fields.flags.psmState];
+        } else if (message.name === 'NAV-STATUS') {
+            if (def(message.fields?.fixStat?.indoorDet)) {
+                const mapF = Object.keys(FieldsReg.indoorDet.map);
+                this.#fields.indoorDet = mapF[message.fields.fixStat.indoorDet];
+            }
+            if (def(message.fields?.flags2?.spoofDet)) {
+                const mapF = Object.keys(FieldsReg.spoofDet.map);
+                this.#fields.spoofDet = mapF[message.fields.flags2.spoofDet];
+            }
+            if (def(message.fields?.fixStat?.selL5)) {
+                const mapF = Object.keys(FieldsReg.selL5.map);
+                this.#fields.selL5 = mapF[message.fields.fixStat.selL5];
+            }
+        } else if ((message.name === 'NAV-PVT') && def(message.fields?.flags?.psmState)) {
+            const mapF = Object.keys(FieldsReg.psm.map);
+            this.#fields.psm = mapF[message.fields.flags.psmState];
         } else if (message.name === 'TUN-MEAS') {
             const name = message.fields?.name;
             const i = message.fields?.meas[2].value; // 0=cnt, 1=time 2=avg

@@ -284,12 +284,17 @@ export class ProtocolUbx extends Protocol {
                         {                           type:'x4'                           } ] },
                     { name:'fixStat',               spec: [
                         { name:'dgpsIStat',         type:'x1'                           },
-                        {                           type:'x5'                           },
+                        { name:'carrSolnValid',     type:'x1'                           },
+                        { name:'indoorDet',         type:'x1'                           },
+                        { name:'selL5',             type:'x2'                           },
+                        {                           type:'x1'                           },
                         { name:'mapMatching',       type:'x2'                           } ] },
                     { name:'flags2',                spec: [
                         { name:'psmState',          type:'x2'                           },
-                        { name:'spoofDetState',     type:'x2'                           },
-                        {                           type:'x4'                           } ] },
+                        {                           type:'x1'                           },
+                        { name:'spoofDet',          type:'x2'                           },
+                        {                           type:'x1'                           },
+                        { name:'carrSol',           type:'x2'                           } ] },
                     { name:'ttff',                  type:'U4', scale:1e-3, unit:'s'     },
                     { name:'msss',                  type:'U4', scale:1e-3, unit:'s'     } ] },
          'NAV-ODO': { 
