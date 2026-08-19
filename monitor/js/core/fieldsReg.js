@@ -282,7 +282,7 @@ export const FieldsReg = Object.freeze( {
     epBytes    : new Field( 'Bytes in epoch',                          { unit:'Bytes',   prec:0 } ),
     // Reference errors
     pErr       : new Field( '3D absolute reference offset',            { unit:'m',       prec:3 } ),
-    hErr       : new Field( '2D Horizontal absolute reference offset', { unit:'m',      prec:3 } ),
+    hErr       : new Field( '2D Horizontal absolute reference offset', { unit:'m',       prec:3 } ),
     vAbsErr    : new Field( 'Vertical absolute reference offset',      { unit:'m',       prec:3 } ),
     vErr       : new Field( 'Vertical reference offset',               { unit:'m',       prec:3 } ),
     nsErr      : new Field( 'North/South reference offset',            { unit:'m',       prec:3 } ),

@@ -17,10 +17,12 @@
 "use strict";
 
 import { Track } from '../core/track.js';
+import { FieldsReg } from '../core/fieldsReg.js';
 import { def, setAlpha, log, formatDateTime } from '../core/utils.js';
 
 export class MapView {
     constructor(container) {
+        this.#dotField = "fix";
         this.#container = container;
         container.style.display = 'block';
         container.className = "map-section";
@@ -84,17 +86,28 @@ export class MapView {
         label.appendChild(document.createTextNode('Opacity'));
         label.appendChild(this.#opacitySlider);
         const baseLayer = this.layerControl?._baseLayersList;
-        baseLayer.parentNode.insertBefore(label, baseLayer.nextSibling);        
+        baseLayer.parentNode.insertBefore(label, baseLayer.nextSibling);    
     }
 
     // ===== Public API =====
+
+    setField(field) {
+        this.#dotField = field;
+        const map = this.map;
+        map.eachLayer((layer) => {
+            const track = layer.track;
+            if (track && !def(track.progress) && ((track.mode === Track.MODE_MARKERS) || (track.mode === Track.MODE_ANYFIX))) {
+                this.updateLayer(track);
+            }
+        });
+    }
 
     setVisible(layer, show) {
         const isVisible = this.map.hasLayer(layer);
         (isVisible && !show) && this.map.removeLayer(layer);
         (!isVisible && show) && this.map.addLayer(layer);
     }
-
+    
     setBounds(bounds, size) {
         const container = this.#container;
         const map = this.map;
@@ -240,13 +253,15 @@ export class MapView {
                     trackCoords.push(center);
                     if (addMarkers) {
                         // the dot marker 
+                        const reg = FieldsReg[this.#dotField];              
+                        const color = reg.color(epoch.fields[this.#dotField]) || "#80808080";
                         const marker = L.circleMarker(center, {
                             renderer: svgRenderer,
-                            className: 'marker', color: epoch.color, fillColor: epoch.color,
+                            className: 'marker', color: color, fillColor: color,
                             radius: 3, weight: 1, opacity: 1, fillOpacity: 0.8
                         } );
                         marker.epoch = epoch;
-                        marker.bindTooltip(() => _toolTip(track, epoch), { } );
+                        marker.bindTooltip(() => _toolTip(track, epoch, this.#dotField), { } );
                         marker.on('mouseover', (evt) => {
                             evt.target.setRadius(5);
                         });
@@ -303,20 +318,30 @@ export class MapView {
             return marker;
         }
 
-        function _toolTip(track, epoch) {
+        function _toolTip(track, epoch, field) {
             const div = document.createElement('div');
             div.appendChild(track.nameHtml());
-            const lat = epoch.fields.lat;
-            const lng = epoch.fields.lng;
-            const time = formatDateTime(epoch.datetime);
+            if (![ "fix", "lat", "lon", "time"].includes(field)) {
+                const reg = FieldsReg[field];
+                const htmlField = reg.formatHtml(epoch.fields[field]);
+                const divField = document.createElement('div');
+                divField.textContent = `${reg.name}: `;
+                divField.appendChild(htmlField);
+                div.appendChild(divField);
+            }
+            const divFix = document.createElement('div');
+            const html = FieldsReg.fix.formatHtml(epoch.fields.fix);
+            divFix.textContent = `Fix: `;
+            divFix.appendChild(html);
+            div.appendChild(divFix);
             const divLat = document.createElement('div');
-            divLat.textContent = `Latitude: ${lat}`;
+            divLat.textContent = `Latitude: ${epoch.fields.lat}`;
             div.appendChild(divLat);
             const divLon = document.createElement('div');
-            divLon.textContent = `Longitude: ${lng}`;
+            divLon.textContent = `Longitude: ${epoch.fields.lng}`;
             div.appendChild(divLon);
             const divTime = document.createElement('div');
-            divTime.textContent = `Time UTC: ${time}`;
+            divTime.textContent = `Time: ${epoch.fields.time}`;
             div.appendChild(divTime);
             return div; 
         }   
@@ -348,6 +373,7 @@ export class MapView {
     // ===== Save Restore API =====
 
     fromJson(json) {
+        (typeof json.field === 'string') && this.setField(json.field);
         if (Array.isArray(json.layers)) {
             Object.entries(this.#baseLayers).forEach(([name, layer]) => {
                 this.setVisible(layer, json.layers.includes(name));
@@ -454,4 +480,5 @@ export class MapView {
     #divInfo
     #baseLayers
     #opacitySlider
+    #dotField
 }

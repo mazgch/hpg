@@ -39,7 +39,10 @@ export class ChartView {
         });
 
         this.#fieldSelect = fieldSelect;
-        fieldSelect.addEventListener("change", (evt) => this.configChange() );
+        fieldSelect.addEventListener("change", (evt) => {
+            this.configChange(); 
+            this.#emit('field', this.#fieldSelect.value);
+        } );
         Track.EPOCH_FIELDS.filter((field) => (!ChartView.FIELDS_HIDDEN.includes(field)) ).forEach( (field) => {
             const option = document.createElement("option");
             option.textContent = FieldsReg[field]?.name || field;

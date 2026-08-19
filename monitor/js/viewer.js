@@ -138,6 +138,12 @@ window.onload = function _onload() {
             trimPlayer.setCurrent(epoch.datetime);
         }
     });
+    chartContainer.addEventListener("field", (evt) => {
+        const field = evt.detail;
+        if (field) {
+            mapView.setField(field);
+        }
+    });
     const resetZoomButton = document.getElementById('resetZoom');
     resetZoomButton.addEventListener("click", (evt) => {
         chartView.resetZoom();
@@ -151,6 +157,7 @@ window.onload = function _onload() {
     tableContainer.addEventListener("field", (evt) => {
         const field = evt.detail;
         if (field) {
+            mapView.setField(field);
             chartView.setField(field);
             chartView.configChange();
         }
