@@ -208,11 +208,15 @@ window.onload = function _onload() {
         }
 
         // and update the track if needed 
-        if ((track.mode !== Track.MODE_HIDDEN) && (0 < track.epochs.length)) {
-            mapView.addLayer(track);
+        if (0 < track.epochs.length) {
             chartView.addDataset(track);
-            tableView.updateColumns(fileManager.tracks);
+            if (track.mode !== Track.MODE_HIDDEN) {
+                mapView.addLayer(track);
+                chartView.updateDataset(track);
+                tableView.updateColumns(fileManager.tracks);
+            }
         }
+            
         // TODO do we need this really 
         placeManager.change(); 
     });

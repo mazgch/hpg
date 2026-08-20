@@ -167,6 +167,7 @@ export class FileManager {
         this.tracks.length = 0;
         this.#ixColor = 0;
         this.#renderChips();
+        this.#hidePopup();
         remTracks.forEach((track) => {
             this.#emit('remove', track);
         });
@@ -197,6 +198,7 @@ export class FileManager {
         }
         // finally add it
         this.#renderChips();
+        this.#hidePopup();
         this.#emit('add', track);
     }
     
@@ -417,7 +419,6 @@ export class FileManager {
                 chip.addEventListener("mouseenter", () => this.#showPopupForTrack(track, chip));
                 chip.addEventListener("mouseleave", () => this.#hidePopupSoon());
             });
-        this.#hidePopup();
     }
 
     #hidePopupSoon() {

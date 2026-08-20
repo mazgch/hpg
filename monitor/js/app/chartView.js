@@ -140,9 +140,9 @@ export class ChartView {
             pointHoverBorderColor: (ctx) => this.#pointColor(ctx),
             pointHoverBackgroundColor: (ctx) => this.#pointBackgroundColor(ctx),
         };
+        dataset.hidden = (track.mode === Track.MODE_HIDDEN);
         chart.data.datasets.push(dataset);
         track.dataset = dataset;
-        this.updateDataset(track);
     }
 
     removeDataset(track) {
