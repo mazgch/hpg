@@ -219,13 +219,13 @@ export class ChartView {
 
             chart.options.scales.y.title.text = ((mode !== ChartView.CHART_TIMESERIES) ? `${mode} ${axisName}` : axisName);
             chart.options.scales.y.ticks.callback = _fmtVal;
-            chart.options.scales.y.ticks.maxTicksLimit = category ? category.length : undefined;
+            chart.options.scales.y.ticks.maxTicksLimit = category ? category.length+2 : undefined;
             chart.options.scales.y.ticks.autoSkip = category ? false : true;
             chart.options.scales.y.ticks.stepSize = category ? 1 : undefined;
         } else if (ChartView.CHARTS_DIST.includes(mode)) {
             chart.options.scales.x.title.text = axisName;
             chart.options.scales.x.ticks.callback = _fmtVal;
-            chart.options.scales.x.ticks.maxTicksLimit = category ? category.length : undefined;
+            chart.options.scales.x.ticks.maxTicksLimit = category ? category.length+2 : undefined;
             chart.options.scales.x.ticks.autoSkip = category ? false : true;
             chart.options.scales.x.ticks.stepSize = category ? 1 : undefined;
 
@@ -287,14 +287,14 @@ export class ChartView {
         const field = this.#fieldSelect.value;
         const mode = this.#modeSelect.value;
         const defField = FieldsReg[field];
-        if (defField.map) {
+        if (def(defField.map)) {
             // make it fixed size
             if (ChartView.CHARTS_TIME.includes(mode)) {
-                minY = 0;
-                maxY = Object.keys(defField.map).length - 1;
+                minY = -1;
+                maxY = Object.keys(defField.map).length;
             } else {
-                minX = 0;
-                maxX = Object.keys(defField.map).length - 1;
+                minX = -1;
+                maxX = Object.keys(defField.map).length;
             }
         }
         if (!ChartView.CHARTS_TIME.includes(mode)) {
