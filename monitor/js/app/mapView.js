@@ -435,7 +435,7 @@ export class MapView {
             { maxZoom: 24, maxNativeZoom: 19 });
         const stadiaHost = 'https://tiles.stadiamaps.com/tiles/'
         const stadiaTile = '/{z}/{x}/{y}{r}.{ext}';
-        const stadiaSatellite = L.tileLayer(stadiaHost + 'alidade_satellite' + stadiaTile,
+        const stadiaOutdoors = L.tileLayer(stadiaHost + 'outdoors' + stadiaTile,
             { maxZoom: 24, maxNativeZoom: 20, ext: 'jpg' });
         const swissTopoHost = 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.';
         const swissTopoTile = '/default/current/3857/{z}/{x}/{y}.jpeg';
@@ -449,7 +449,7 @@ export class MapView {
         const osmStreet = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             { maxZoom: 24, maxNativeZoom: 19 });
         const baseLayers = {
-            "ESRI World Imagery": esriSatellite, "Stadia Satellite": stadiaSatellite,
+            "ESRI World Imagery": esriSatellite, "Stadia Outdoors": stadiaOutdoors,
             "Swisstopo Satellite": swisstopoSatellite, "Swisstopo Color": swisstopoColor, "Swisstopo Gray": swisstopoGray,
             "OSM Street": osmStreet
         };
