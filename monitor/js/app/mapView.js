@@ -435,6 +435,8 @@ export class MapView {
             { maxZoom: 24, maxNativeZoom: 19 });
         const stadiaHost = 'https://tiles.stadiamaps.com/tiles/'
         const stadiaTile = '/{z}/{x}/{y}{r}.{ext}';
+        // alidade_satellite (paid), alidade_smooth, alidade_smooth_dark, outdoors, 
+        // stamen_toner, stamen_terrain, stamen_watercolor, osm_bright
         const stadiaOutdoors = L.tileLayer(stadiaHost + 'outdoors' + stadiaTile,
             { maxZoom: 24, maxNativeZoom: 20, ext: 'jpg' });
         const swissTopoHost = 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.';
@@ -449,17 +451,20 @@ export class MapView {
         const osmStreet = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             { maxZoom: 24, maxNativeZoom: 19 });
         const baseLayers = {
-            "ESRI World Imagery": esriSatellite, "Stadia Outdoors": stadiaOutdoors,
-            "Swisstopo Satellite": swisstopoSatellite, "Swisstopo Color": swisstopoColor, "Swisstopo Gray": swisstopoGray,
-            "OSM Street": osmStreet
+            "ESRI World Imagery":   esriSatellite, 
+            "Stadia Outdoors":      stadiaOutdoors,
+            "Swisstopo Satellite":  swisstopoSatellite, 
+            "Swisstopo Color":      swisstopoColor, 
+            "Swisstopo Gray":       swisstopoGray,
+            "OSM Street":           osmStreet
         };
         if (window.google?.maps) {
-            const googleRoadmap = L.gridLayer.googleMutant({ type: 'roadmap', maxZoom: 24 });
-            const googleSatellite = L.gridLayer.googleMutant({ type: 'satellite', maxZoom: 24 });
-            const googleHhybrid = L.gridLayer.googleMutant({ type: 'hybrid', maxZoom: 24 });
-            baseLayers['Google Roadmap'] = googleRoadmap;
+            const googleRoadmap   = L.gridLayer.googleMutant({ maxZoom: 24, type: 'roadmap' });
+            const googleSatellite = L.gridLayer.googleMutant({ maxZoom: 24, type: 'satellite' });
+            const googleHhybrid   = L.gridLayer.googleMutant({ maxZoom: 24, type: 'hybrid' });
+            baseLayers['Google Roadmap']   = googleRoadmap;
             baseLayers['Google Satellite'] = googleSatellite;
-            baseLayers['Google Hybrid'] = googleHhybrid
+            baseLayers['Google Hybrid']    = googleHhybrid
         }
         return baseLayers;
     }
