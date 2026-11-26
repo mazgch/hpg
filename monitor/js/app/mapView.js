@@ -54,7 +54,7 @@ export class MapView {
             btn.style.display = 'block';
             L.DomEvent.on(btn, 'click', function (e) {
                 L.DomEvent.stop(e);
-                const size = [ this.#container.style.width, this.#container.style.height ];
+                const size = [ container.style.width, container.style.height ];
                 view.setOverview(size);
             });
         }
