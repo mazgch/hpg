@@ -87,6 +87,12 @@ export class ChartView {
                 },
                 plugins: {
                     annotation: { annotations: {} },
+                    parsing: false,
+                    decimation: {
+                        enabled: true,
+                        algorithm: 'min-max',
+                        threshold: 3600
+                    },
                     legend: {
                         enabled: true,
                         labels: {
