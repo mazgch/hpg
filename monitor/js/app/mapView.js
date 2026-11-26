@@ -54,7 +54,8 @@ export class MapView {
             btn.style.display = 'block';
             L.DomEvent.on(btn, 'click', function (e) {
                 L.DomEvent.stop(e);
-                view.setOverview();
+                const size = [ this.#container.style.width, this.#container.style.height ];
+                view.setOverview(size);
             });
         }
         addOverviewButton(map.zoomControl.getContainer(), this)
@@ -126,7 +127,7 @@ export class MapView {
         }
     }
 
-    setOverview() {
+    setOverview(size) {
         // now we get new bounds
         let minLat = Infinity;
         let maxLat = -Infinity;
@@ -145,7 +146,7 @@ export class MapView {
         });
         if ((minLat < minLng) || (minLng < maxLng)) {
             const posBounds = [[minLat, minLng], [maxLat, maxLng]];
-            this.setBounds(posBounds);
+            this.setBounds(posBounds, size);
         }
     }
 
